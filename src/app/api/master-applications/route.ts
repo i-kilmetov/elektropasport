@@ -39,16 +39,19 @@ export async function POST(request: Request) {
       name: body.name,
     });
 
-    void notifyAdminMasterApplication({
-      id: body.id,
-      city: body.city,
-      contactMethod: body.contactMethod,
-      phone: body.phone,
-      name: body.name,
-      customerTelegramId: user.telegramId,
-    }).catch((error) => {
+    // Must await: Vercel freezes the function after the response is sent.
+    try {
+      await notifyAdminMasterApplication({
+        id: body.id,
+        city: body.city,
+        contactMethod: body.contactMethod,
+        phone: body.phone,
+        name: body.name,
+        customerTelegramId: user.telegramId,
+      });
+    } catch (error) {
       console.error("Failed to notify admin about master application", error);
-    });
+    }
 
     return Response.json({ ok: true }, { status: 201 });
   } catch (error) {

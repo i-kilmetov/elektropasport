@@ -27,9 +27,12 @@ export async function POST(request: Request) {
 
     const item = await insertInstallRequest(user.telegramId, body.request);
 
-    void notifyAdminNewInstallRequest(item, user.telegramId).catch((error) => {
+    // Must await: Vercel freezes the function after the response is sent.
+    try {
+      await notifyAdminNewInstallRequest(item, user.telegramId);
+    } catch (error) {
       console.error("Failed to notify admin about install request", error);
-    });
+    }
 
     return Response.json({ request: item }, { status: 201 });
   } catch (error) {
