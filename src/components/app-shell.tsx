@@ -260,6 +260,32 @@ export function AppShell() {
     [activeRequestId],
   );
 
+  const updateRequest = useCallback(
+    (
+      patch: Partial<
+        Pick<InstallRequest, "status" | "statusLabel" | "exactAddress">
+      >,
+    ) => {
+      if (!activeRequestId) return;
+      setItems((prev) =>
+        prev.map((item) =>
+          item.kind === "install_request" && item.id === activeRequestId
+            ? { ...item, ...patch }
+            : item,
+        ),
+      );
+      void persistInstallRequestPatch(activeRequestId, patch).catch((error) => {
+        console.error(error);
+        setItemsError(
+          error instanceof Error
+            ? error.message
+            : "Не удалось обновить заявку",
+        );
+      });
+    },
+    [activeRequestId],
+  );
+
   const deleteRequest = useCallback(() => {
     if (!activeRequestId) {
       setScreen("objects");
@@ -488,6 +514,7 @@ export function AppShell() {
               onBack={() => setScreen("objects")}
               onRename={renameRequest}
               onDelete={deleteRequest}
+              onUpdate={updateRequest}
             />
           )}
           {screen === "about-service" && (

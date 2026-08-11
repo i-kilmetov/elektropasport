@@ -12,11 +12,18 @@ import {
   Phone,
   Trash2,
   User,
-  Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { GlassCard } from "@/components/ui/glass-card";
-import type { InstallRequest } from "@/types";
+import { Progress } from "@/components/ui/progress";
+import { cn } from "@/lib/utils";
+import type { InstallRequest, InstallRequestStatus } from "@/types";
+import {
+  installStatusLabels,
+  installStatusProgress,
+  installStatusSteps,
+} from "@/types";
 
 function NameDialog({
   title,
@@ -84,19 +91,92 @@ function NameDialog({
   );
 }
 
+function StatusProgress({ status }: { status: InstallRequestStatus }) {
+  const cancelled = status === "cancelled";
+  const activeIndex =
+    status === "new" ? 0 : status === "in_progress" ? 1 : status === "done" ? 2 : -1;
+
+  return (
+    <GlassCard className="space-y-4 p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <div className="text-[12px] text-white/40">Статус заявки</div>
+          <div
+            className={cn(
+              "mt-0.5 text-[16px] font-semibold",
+              cancelled ? "text-rose-300" : "text-white",
+            )}
+          >
+            {installStatusLabels[status]}
+          </div>
+        </div>
+        {!cancelled && (
+          <span className="rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-medium text-white/70">
+            {activeIndex + 1}/3
+          </span>
+        )}
+      </div>
+
+      <Progress
+        value={installStatusProgress(status)}
+        className={cn(cancelled && "opacity-40")}
+      />
+
+      <div className="grid grid-cols-3 gap-2">
+        {installStatusSteps.map((step, index) => {
+          const reached = !cancelled && index <= activeIndex;
+          const current = !cancelled && index === activeIndex;
+          return (
+            <div key={step.id} className="text-center">
+              <div
+                className={cn(
+                  "mx-auto mb-1.5 h-2.5 w-2.5 rounded-full",
+                  reached ? "bg-[var(--accent)]" : "bg-white/15",
+                  current && "ring-2 ring-[var(--accent)]/40 ring-offset-2 ring-offset-[#16161d]",
+                )}
+              />
+              <div
+                className={cn(
+                  "text-[11px] leading-tight",
+                  current ? "font-medium text-white" : "text-white/40",
+                )}
+              >
+                {step.label}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </GlassCard>
+  );
+}
+
 export function RequestDetailsScreen({
   request,
   onBack,
   onRename,
   onDelete,
+  onUpdate,
 }: {
   request: InstallRequest;
   onBack: () => void;
   onRename: (name: string) => void;
   onDelete: () => void;
+  onUpdate: (
+    patch: Partial<
+      Pick<InstallRequest, "status" | "statusLabel" | "exactAddress">
+    >,
+  ) => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [address, setAddress] = useState(request.exactAddress ?? "");
+  const [addressSaved, setAddressSaved] = useState(false);
+
+  useEffect(() => {
+    setAddress(request.exactAddress ?? "");
+  }, [request.exactAddress, request.id]);
 
   const dwellingLabel =
     request.dwelling === "house"
@@ -106,8 +186,10 @@ export function RequestDetailsScreen({
         : "—";
 
   const rows: Array<[string, string]> = [
-    ["Статус", request.statusLabel],
     ["Город", request.city],
+    ...(request.exactAddress
+      ? ([["Адрес", request.exactAddress]] as Array<[string, string]>)
+      : []),
     ["Контакт", request.contactMethod === "telegram" ? "Telegram" : "Телефон"],
     [
       request.contactMethod === "telegram" ? "Имя в Telegram" : "Телефон",
@@ -122,6 +204,13 @@ export function RequestDetailsScreen({
     ["Текущая схема", request.setupTitle ?? "—"],
     ["Дата заявки", request.createdAt],
   ];
+
+  const saveAddress = () => {
+    const next = address.trim();
+    onUpdate({ exactAddress: next });
+    setAddressSaved(true);
+    window.setTimeout(() => setAddressSaved(false), 1600);
+  };
 
   return (
     <motion.section
@@ -175,7 +264,7 @@ export function RequestDetailsScreen({
                   className="flex w-full items-center gap-2 px-4 py-3 text-left text-[15px] text-rose-300 hover:bg-white/5"
                   onClick={() => {
                     setMenuOpen(false);
-                    onDelete();
+                    setDeleteOpen(true);
                   }}
                 >
                   <Trash2 className="h-4 w-4" />
@@ -187,23 +276,69 @@ export function RequestDetailsScreen({
         </div>
       </header>
 
-      <div className="mb-5 flex items-center gap-3 rounded-[20px] border border-rose-400/30 bg-rose-500/10 p-4">
-        <span className="flex h-12 w-12 items-center justify-center rounded-[16px] bg-rose-500/20 text-rose-300">
+      <div className="mb-4 flex items-center gap-3 rounded-[20px] border border-white/10 bg-white/[0.06] p-4">
+        <span className="flex h-12 w-12 items-center justify-center rounded-[16px] bg-white/10 text-[var(--accent)]">
           <ClipboardList className="h-6 w-6" />
         </span>
         <div>
-          <div className="text-[18px] font-semibold text-rose-100">
+          <div className="text-[18px] font-semibold text-white">
             {request.title}
           </div>
-          <div className="text-[13px] text-rose-100/70">{request.subtitle}</div>
+          <div className="text-[13px] text-white/50">{request.subtitle}</div>
         </div>
       </div>
 
+      <div className="mb-4">
+        <StatusProgress status={request.status} />
+        {request.status === "cancelled" && (
+          <Button
+            className="mt-3 w-full"
+            variant="secondary"
+            onClick={() =>
+              onUpdate({
+                status: "in_progress",
+                statusLabel: installStatusLabels.in_progress,
+              })
+            }
+          >
+            Вернуть в работу
+          </Button>
+        )}
+      </div>
+
       <div className="flex-1 space-y-3 overflow-y-auto pb-4">
+        {request.status === "new" && (
+          <GlassCard className="space-y-3 p-4">
+            <div>
+              <div className="mb-1 text-[15px] font-semibold text-white">
+                Точный адрес
+              </div>
+              <p className="text-[13px] leading-relaxed text-white/45">
+                Эта информация поможет ускорить работу по выбору мастера.
+              </p>
+            </div>
+            <textarea
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              rows={3}
+              placeholder="Улица, дом, квартира / участок"
+              className="w-full resize-none rounded-[18px] border border-white/10 bg-white/[0.06] px-4 py-3 text-[15px] text-white outline-none placeholder:text-white/30 focus:border-[var(--accent)]/50"
+            />
+            <Button
+              className="w-full"
+              variant="secondary"
+              disabled={address.trim() === (request.exactAddress ?? "").trim()}
+              onClick={saveAddress}
+            >
+              {addressSaved ? "Сохранено" : "Сохранить адрес"}
+            </Button>
+          </GlassCard>
+        )}
+
         {rows.map(([label, value]) => (
           <GlassCard key={label} className="flex items-start gap-3 p-4">
             <span className="mt-0.5 text-white/35">
-              {label === "Город" ? (
+              {label === "Город" || label === "Адрес" ? (
                 <MapPin className="h-4 w-4" />
               ) : label === "Контакт" || label.startsWith("Телефон") ? (
                 request.contactMethod === "telegram" ? (
@@ -213,8 +348,6 @@ export function RequestDetailsScreen({
                 )
               ) : label === "Имя" || label.includes("Telegram") ? (
                 <User className="h-4 w-4" />
-              ) : label === "Статус" ? (
-                <Zap className="h-4 w-4" />
               ) : (
                 <ClipboardList className="h-4 w-4" />
               )}
@@ -259,6 +392,21 @@ export function RequestDetailsScreen({
             onConfirm={(name) => {
               onRename(name);
               setRenameOpen(false);
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {deleteOpen && (
+          <ConfirmDialog
+            title="Удалить заявку?"
+            description="Заявка будет удалена без возможности восстановления."
+            confirmLabel="Удалить"
+            onCancel={() => setDeleteOpen(false)}
+            onConfirm={() => {
+              setDeleteOpen(false);
+              onDelete();
             }}
           />
         )}

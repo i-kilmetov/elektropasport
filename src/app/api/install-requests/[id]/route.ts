@@ -20,7 +20,9 @@ export async function PATCH(request: Request, context: RouteContext) {
     await upsertUser(user);
 
     const { id } = await context.params;
-    const body = (await request.json()) as Partial<Pick<InstallRequest, "title">>;
+    const body = (await request.json()) as Partial<
+      Pick<InstallRequest, "title" | "status" | "statusLabel" | "exactAddress">
+    >;
     const item = await updateInstallRequest(user.telegramId, id, body);
     if (!item) {
       return Response.json({ error: "Заявка не найдена" }, { status: 404 });

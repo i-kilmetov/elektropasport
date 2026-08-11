@@ -15,6 +15,7 @@ import { BreakerIcon } from "@/components/icons/breaker-icon";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Progress } from "@/components/ui/progress";
 import {
   devices as mockDevices,
@@ -274,6 +275,7 @@ export function SchemeScreen({
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [nameOnBackOpen, setNameOnBackOpen] = useState(false);
   const selected = devices.find((d) => d.id === selectedId) ?? null;
 
@@ -350,7 +352,7 @@ export function SchemeScreen({
                   className="flex w-full items-center gap-2 px-4 py-3 text-left text-[15px] text-rose-300 hover:bg-white/5"
                   onClick={() => {
                     setMenuOpen(false);
-                    onDelete();
+                    setDeleteOpen(true);
                   }}
                 >
                   <Trash2 className="h-4 w-4" />
@@ -543,6 +545,21 @@ export function SchemeScreen({
               onRename(name);
               setNameOnBackOpen(false);
               onBack();
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {deleteOpen && (
+          <ConfirmDialog
+            title="Удалить щиток?"
+            description="Щиток и его схема будут удалены без возможности восстановления."
+            confirmLabel="Удалить"
+            onCancel={() => setDeleteOpen(false)}
+            onConfirm={() => {
+              setDeleteOpen(false);
+              onDelete();
             }}
           />
         )}

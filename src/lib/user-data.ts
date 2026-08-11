@@ -226,7 +226,9 @@ export async function persistInstallRequest(
 
 export async function persistInstallRequestPatch(
   id: string,
-  patch: Partial<Pick<InstallRequest, "title">>,
+  patch: Partial<
+    Pick<InstallRequest, "title" | "status" | "statusLabel" | "exactAddress">
+  >,
 ): Promise<void> {
   const items = readLocalItems().map((item) =>
     item.kind === "install_request" && item.id === id

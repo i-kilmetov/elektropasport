@@ -6,9 +6,9 @@ import { ClipboardList, Menu, Plus } from "lucide-react";
 import { BreakerIcon } from "@/components/icons/breaker-icon";
 import { MainMenuSheet } from "@/components/screens/main-menu-sheet";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { GlassCard } from "@/components/ui/glass-card";
 import { SwipeableRow } from "@/components/ui/swipeable-row";
-import { cn } from "@/lib/utils";
 import type { HomeListItem } from "@/types";
 
 export function ObjectsScreen({
@@ -33,6 +33,9 @@ export function ObjectsScreen({
   onMenuSelect: (id: "about" | "electrical" | "master") => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+
+  const pendingDelete = items.find((item) => item.id === pendingDeleteId);
 
   return (
     <motion.section
@@ -97,7 +100,7 @@ export function ObjectsScreen({
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.06 * i }}
               >
-                <SwipeableRow onDelete={() => onDeleteItem(obj.id)}>
+                <SwipeableRow onDelete={() => setPendingDeleteId(obj.id)}>
                   <button
                     type="button"
                     onClick={() =>
@@ -105,22 +108,8 @@ export function ObjectsScreen({
                     }
                     className="w-full text-left"
                   >
-                    <GlassCard
-                      className={cn(
-                        "flex items-center gap-4 rounded-[24px] p-4 transition-colors",
-                        isRequest
-                          ? "border-rose-400/40 bg-rose-500/10 hover:bg-rose-500/15"
-                          : "hover:bg-white/[0.09]",
-                      )}
-                    >
-                      <div
-                        className={cn(
-                          "flex h-14 w-14 shrink-0 items-center justify-center rounded-[18px]",
-                          isRequest
-                            ? "bg-rose-500/20 text-rose-300"
-                            : "bg-gradient-to-br from-violet-500/30 to-violet-600/10 text-violet-300",
-                        )}
-                      >
+                    <GlassCard className="flex items-center gap-4 rounded-[24px] p-4 transition-colors hover:bg-white/[0.09]">
+                      <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[18px] bg-white/10 text-[var(--accent)]">
                         {isRequest ? (
                           <ClipboardList className="h-6 w-6" />
                         ) : (
@@ -129,16 +118,11 @@ export function ObjectsScreen({
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="mb-0.5 flex items-center justify-between gap-2">
-                          <h2
-                            className={cn(
-                              "truncate text-[17px] font-semibold",
-                              isRequest ? "text-rose-100" : "text-white",
-                            )}
-                          >
+                          <h2 className="truncate text-[17px] font-semibold text-white">
                             {obj.title}
                           </h2>
                           {isRequest ? (
-                            <span className="shrink-0 rounded-full bg-rose-500/25 px-2 py-0.5 text-[11px] font-medium text-rose-200">
+                            <span className="shrink-0 rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-medium text-white/70">
                               {obj.statusLabel}
                             </span>
                           ) : (
@@ -147,20 +131,10 @@ export function ObjectsScreen({
                             </span>
                           )}
                         </div>
-                        <p
-                          className={cn(
-                            "truncate text-[13px]",
-                            isRequest ? "text-rose-100/65" : "text-white/45",
-                          )}
-                        >
+                        <p className="truncate text-[13px] text-white/45">
                           {isRequest ? obj.subtitle : obj.address}
                         </p>
-                        <p
-                          className={cn(
-                            "mt-1 text-[12px]",
-                            isRequest ? "text-rose-100/50" : "text-white/35",
-                          )}
-                        >
+                        <p className="mt-1 text-[12px] text-white/35">
                           {isRequest
                             ? `Статус: ${obj.statusLabel} · ${obj.createdAt}`
                             : `${obj.breakers} устройств · ${obj.lastCheck}`}
@@ -196,6 +170,30 @@ export function ObjectsScreen({
             onSelect={(id) => {
               setMenuOpen(false);
               onMenuSelect(id);
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {pendingDelete && (
+          <ConfirmDialog
+            title={
+              pendingDelete.kind === "panel"
+                ? "Удалить щиток?"
+                : "Удалить заявку?"
+            }
+            description={
+              pendingDelete.kind === "panel"
+                ? "Щиток и его схема будут удалены без возможности восстановления."
+                : "Заявка будет удалена без возможности восстановления."
+            }
+            confirmLabel="Удалить"
+            onCancel={() => setPendingDeleteId(null)}
+            onConfirm={() => {
+              const id = pendingDelete.id;
+              setPendingDeleteId(null);
+              onDeleteItem(id);
             }}
           />
         )}

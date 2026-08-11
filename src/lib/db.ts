@@ -79,6 +79,10 @@ export async function ensureSchema(): Promise<void> {
         CREATE INDEX IF NOT EXISTS install_requests_user_created_idx
         ON install_requests (telegram_user_id, created_at DESC)
       `;
+      await sql`
+        ALTER TABLE install_requests
+        ADD COLUMN IF NOT EXISTS exact_address TEXT
+      `;
     })().catch((error) => {
       schemaReady = null;
       throw error;
@@ -136,6 +140,7 @@ type RequestRow = {
   phases: string | null;
   power_kw: string | null;
   setup_title: string | null;
+  exact_address: string | null;
   created_at: string;
 };
 
@@ -157,7 +162,15 @@ function rowToPanel(row: PanelRow): PanelObject {
 }
 
 function rowToRequest(row: RequestRow): InstallRequest {
-  const status = row.status as InstallRequestStatus;
+  const rawStatus = row.status;
+  const status: InstallRequestStatus =
+    rawStatus === "in_progress" ||
+    rawStatus === "done" ||
+    rawStatus === "cancelled" ||
+    rawStatus === "new"
+      ? rawStatus
+      : "new";
+
   return {
     kind: "install_request",
     id: row.id,
@@ -167,7 +180,7 @@ function rowToRequest(row: RequestRow): InstallRequest {
         ? "Заявка на установку щитка"
         : row.subtitle,
     status,
-    statusLabel: row.status_label || installStatusLabels[status] || row.status,
+    statusLabel: installStatusLabels[status],
     createdAt: row.created_at_label,
     city: row.city,
     contactMethod: row.contact_method as "phone" | "telegram",
@@ -177,6 +190,7 @@ function rowToRequest(row: RequestRow): InstallRequest {
     phases: (row.phases as InstallRequest["phases"]) ?? undefined,
     powerKw: row.power_kw ?? undefined,
     setupTitle: row.setup_title ?? undefined,
+    exactAddress: row.exact_address ?? undefined,
   };
 }
 
@@ -196,7 +210,7 @@ export async function listHomeItems(
     SELECT
       id, title, subtitle, status, status_label, created_at_label,
       city, contact_method, phone, name, dwelling, phases, power_kw,
-      setup_title, created_at
+      setup_title, exact_address, created_at
     FROM install_requests
     WHERE telegram_user_id = ${telegramUserId}
   `) as RequestRow[];
@@ -326,17 +340,22 @@ export async function insertInstallRequest(
 export async function updateInstallRequest(
   telegramUserId: number,
   id: string,
-  patch: Partial<Pick<InstallRequest, "title">>,
+  patch: Partial<
+    Pick<InstallRequest, "title" | "status" | "statusLabel" | "exactAddress">
+  >,
 ): Promise<InstallRequest | null> {
   const sql = getSql();
   const rows = (await sql`
     UPDATE install_requests SET
-      title = COALESCE(${patch.title ?? null}, title)
+      title = COALESCE(${patch.title ?? null}, title),
+      status = COALESCE(${patch.status ?? null}, status),
+      status_label = COALESCE(${patch.statusLabel ?? null}, status_label),
+      exact_address = COALESCE(${patch.exactAddress ?? null}, exact_address)
     WHERE id = ${id} AND telegram_user_id = ${telegramUserId}
     RETURNING
       id, title, subtitle, status, status_label, created_at_label,
       city, contact_method, phone, name, dwelling, phases, power_kw,
-      setup_title, created_at
+      setup_title, exact_address, created_at
   `) as RequestRow[];
   return rows[0] ? rowToRequest(rows[0]) : null;
 }

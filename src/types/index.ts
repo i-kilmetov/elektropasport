@@ -37,7 +37,11 @@ export interface PanelObject {
   named?: boolean;
 }
 
-export type InstallRequestStatus = "new" | "in_progress" | "done";
+export type InstallRequestStatus =
+  | "new"
+  | "in_progress"
+  | "done"
+  | "cancelled";
 
 export interface InstallRequest {
   kind: "install_request";
@@ -55,6 +59,7 @@ export interface InstallRequest {
   phases?: "1" | "3";
   powerKw?: string;
   setupTitle?: string;
+  exactAddress?: string;
 }
 
 export type HomeListItem = PanelObject | InstallRequest;
@@ -88,5 +93,22 @@ export interface AnalyzePanelResult {
 export const installStatusLabels: Record<InstallRequestStatus, string> = {
   new: "Новая",
   in_progress: "В работе",
-  done: "Выполнена",
+  done: "Выполнено",
+  cancelled: "Отменена",
 };
+
+export const installStatusSteps: Array<{
+  id: Exclude<InstallRequestStatus, "cancelled">;
+  label: string;
+}> = [
+  { id: "new", label: "Новая" },
+  { id: "in_progress", label: "В работе" },
+  { id: "done", label: "Выполнено" },
+];
+
+export function installStatusProgress(status: InstallRequestStatus): number {
+  if (status === "new") return 33;
+  if (status === "in_progress") return 66;
+  if (status === "done") return 100;
+  return 0;
+}
