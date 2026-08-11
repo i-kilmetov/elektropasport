@@ -83,6 +83,17 @@ export async function ensureSchema(): Promise<void> {
         ALTER TABLE install_requests
         ADD COLUMN IF NOT EXISTS exact_address TEXT
       `;
+      await sql`
+        CREATE TABLE IF NOT EXISTS master_applications (
+          id TEXT PRIMARY KEY,
+          telegram_user_id BIGINT NOT NULL REFERENCES users(telegram_id) ON DELETE CASCADE,
+          city TEXT NOT NULL,
+          contact_method TEXT NOT NULL,
+          phone TEXT,
+          name TEXT NOT NULL,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+      `;
     })().catch((error) => {
       schemaReady = null;
       throw error;
@@ -428,17 +439,7 @@ export async function insertMasterApplication(
   },
 ): Promise<void> {
   const sql = getSql();
-  await sql`
-    CREATE TABLE IF NOT EXISTS master_applications (
-      id TEXT PRIMARY KEY,
-      telegram_user_id BIGINT NOT NULL REFERENCES users(telegram_id) ON DELETE CASCADE,
-      city TEXT NOT NULL,
-      contact_method TEXT NOT NULL,
-      phone TEXT,
-      name TEXT NOT NULL,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `;
+  await ensureSchema();
   await sql`
     INSERT INTO master_applications (
       id, telegram_user_id, city, contact_method, phone, name, created_at
@@ -452,6 +453,25 @@ export async function insertMasterApplication(
       NOW()
     )
   `;
+}
+
+export async function getPublicStats(): Promise<{
+  panelsCount: number;
+  mastersCount: number;
+}> {
+  const sql = getSql();
+  await ensureSchema();
+  const [panelsRow] = (await sql`
+    SELECT COUNT(*)::int AS count FROM panels
+  `) as Array<{ count: number }>;
+  const [mastersRow] = (await sql`
+    SELECT COUNT(DISTINCT telegram_user_id)::int AS count
+    FROM master_applications
+  `) as Array<{ count: number }>;
+  return {
+    panelsCount: panelsRow?.count ?? 0,
+    mastersCount: mastersRow?.count ?? 0,
+  };
 }
 
 export class DbError extends Error {

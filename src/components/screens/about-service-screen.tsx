@@ -1,11 +1,49 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
 
+type PublicStats = {
+  panelsCount: number;
+  mastersCount: number;
+};
+
+function formatCount(value: number | null | undefined): string {
+  if (value === undefined) return "…";
+  if (value === null) return "—";
+  return new Intl.NumberFormat("ru-RU").format(value);
+}
+
 export function AboutServiceScreen({ onBack }: { onBack: () => void }) {
+  const [stats, setStats] = useState<PublicStats | null>(null);
+  const [statsError, setStatsError] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/stats");
+        if (!res.ok) throw new Error("stats failed");
+        const data = (await res.json()) as PublicStats;
+        if (!cancelled) {
+          setStats({
+            panelsCount: Number(data.panelsCount) || 0,
+            mastersCount: Number(data.mastersCount) || 0,
+          });
+          setStatsError(false);
+        }
+      } catch {
+        if (!cancelled) setStatsError(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <motion.section
       initial={{ opacity: 0, x: 40 }}
@@ -36,6 +74,50 @@ export function AboutServiceScreen({ onBack }: { onBack: () => void }) {
             если щитка нет или нужна установка.
           </p>
         </div>
+
+        <GlassCard className="space-y-4 p-4">
+          <div>
+            <h3 className="text-[16px] font-semibold text-white">
+              Открытые данные
+            </h3>
+            <p className="mt-1 text-[13px] leading-relaxed text-white/45">
+              Живые цифры сервиса — без прикрас. Считаем все щитки пользователей
+              и мастеров, которые подали заявку на подключение.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-[16px] border border-white/8 bg-black/20 px-3 py-4">
+              <div className="text-[40px] font-bold leading-none tracking-tight tabular-nums text-white">
+                {formatCount(
+                  statsError ? null : stats === null ? undefined : stats.panelsCount,
+                )}
+              </div>
+              <div className="mt-2 text-[13px] leading-snug text-white/50">
+                щитков добавлено пользователями
+              </div>
+            </div>
+            <div className="rounded-[16px] border border-white/8 bg-black/20 px-3 py-4">
+              <div className="text-[40px] font-bold leading-none tracking-tight tabular-nums text-white">
+                {formatCount(
+                  statsError
+                    ? null
+                    : stats === null
+                      ? undefined
+                      : stats.mastersCount,
+                )}
+              </div>
+              <div className="mt-2 text-[13px] leading-snug text-white/50">
+                мастеров подали заявку на подключение
+              </div>
+            </div>
+          </div>
+          {statsError && (
+            <p className="text-[12px] text-white/35">
+              Сейчас не удалось загрузить статистику. Попробуйте открыть раздел
+              позже.
+            </p>
+          )}
+        </GlassCard>
 
         <GlassCard className="space-y-3 p-4">
           <h3 className="text-[16px] font-semibold text-white">Что мы делаем</h3>
