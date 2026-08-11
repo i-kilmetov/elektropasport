@@ -38,9 +38,12 @@ export async function GET(request: Request) {
   const secret = process.env.TELEGRAM_WEBHOOK_SECRET?.trim();
 
   const result = await setTelegramWebhook(webhookUrl, secret);
-  if (!result) {
+  if (!result.ok) {
     return Response.json(
-      { error: "Не удалось вызвать setWebhook — проверьте BOT_TOKEN" },
+      {
+        error: "Не удалось вызвать setWebhook — проверьте BOT_TOKEN",
+        details: result.error,
+      },
       { status: 500 },
     );
   }

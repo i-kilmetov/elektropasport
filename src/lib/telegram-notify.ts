@@ -8,17 +8,23 @@ type InlineKeyboard = {
 
 function adminChatId(): string | null {
   const raw = process.env.TELEGRAM_ADMIN_CHAT_ID?.trim();
-  return raw || null;
+  if (!raw) return null;
+  // Allow pasting values like "Id: 123456789" from @userinfobot
+  const digits = raw.replace(/[^\d-]/g, "");
+  return digits || null;
 }
+
+type TelegramApiResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; error: string };
 
 async function telegramApi<T>(
   method: string,
   body: Record<string, unknown>,
-): Promise<T | null> {
+): Promise<TelegramApiResult<T>> {
   const token = getBotToken();
   if (!token) {
-    console.warn("BOT_TOKEN missing — skip Telegram API", method);
-    return null;
+    return { ok: false, error: "BOT_TOKEN missing" };
   }
 
   const res = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
@@ -27,12 +33,18 @@ async function telegramApi<T>(
     body: JSON.stringify(body),
   });
 
-  const data = (await res.json()) as { ok: boolean; description?: string } & T;
+  const data = (await res.json()) as {
+    ok: boolean;
+    description?: string;
+    result?: T;
+  };
+
   if (!data.ok) {
-    console.error(`Telegram ${method} failed:`, data.description ?? data);
-    return null;
+    const error = data.description ?? `Telegram ${method} failed`;
+    console.error(`Telegram ${method} failed:`, error);
+    return { ok: false, error };
   }
-  return data;
+  return { ok: true, data: (data.result as T) ?? (data as T) };
 }
 
 function statusKeyboard(requestId: string): InlineKeyboard {
@@ -93,12 +105,15 @@ export async function notifyAdminNewInstallRequest(
     return;
   }
 
-  await telegramApi("sendMessage", {
-    chat_id: chatId,
+  const result = await telegramApi("sendMessage", {
+    chat_id: Number(chatId),
     text: formatInstallRequestMessage(request, customerTelegramId),
     reply_markup: statusKeyboard(request.id),
     disable_web_page_preview: true,
   });
+  if (!result.ok) {
+    throw new Error(result.error);
+  }
 }
 
 export async function notifyAdminMasterApplication(payload: {
@@ -117,8 +132,8 @@ export async function notifyAdminMasterApplication(payload: {
       ? `Telegram · ${payload.name}`
       : `Телефон · ${payload.phone ?? "—"}`;
 
-  await telegramApi("sendMessage", {
-    chat_id: chatId,
+  const result = await telegramApi("sendMessage", {
+    chat_id: Number(chatId),
     text: [
       "🛠️ Заявка «Стать мастером»",
       "",
@@ -130,6 +145,9 @@ export async function notifyAdminMasterApplication(payload: {
     ].join("\n"),
     disable_web_page_preview: true,
   });
+  if (!result.ok) {
+    throw new Error(result.error);
+  }
 }
 
 export async function answerCallbackQuery(
@@ -186,4 +204,56 @@ export async function setTelegramWebhook(url: string, secret?: string) {
     allowed_updates: ["callback_query", "message"],
     drop_pending_updates: true,
   });
+}
+
+export async function sendAdminTestMessage(): Promise<{
+  ok: boolean;
+  error?: string;
+  chatId?: string;
+  botTokenConfigured: boolean;
+  adminChatConfigured: boolean;
+}> {
+  const botTokenConfigured = Boolean(getBotToken());
+  const chatId = adminChatId();
+  const adminChatConfigured = Boolean(chatId);
+
+  if (!botTokenConfigured) {
+    return {
+      ok: false,
+      error: "BOT_TOKEN не задан",
+      botTokenConfigured,
+      adminChatConfigured,
+    };
+  }
+  if (!chatId) {
+    return {
+      ok: false,
+      error: "TELEGRAM_ADMIN_CHAT_ID не задан или пустой",
+      botTokenConfigured,
+      adminChatConfigured,
+    };
+  }
+
+  const result = await telegramApi("sendMessage", {
+    chat_id: Number(chatId),
+    text: "✅ Тест Электропаспорт: бот может писать вам. Если это сообщение пришло — уведомления о заявках тоже будут.",
+    disable_web_page_preview: true,
+  });
+
+  if (!result.ok) {
+    return {
+      ok: false,
+      error: result.error,
+      chatId,
+      botTokenConfigured,
+      adminChatConfigured,
+    };
+  }
+
+  return {
+    ok: true,
+    chatId,
+    botTokenConfigured,
+    adminChatConfigured,
+  };
 }
