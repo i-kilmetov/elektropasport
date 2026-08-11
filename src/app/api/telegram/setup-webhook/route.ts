@@ -1,0 +1,37 @@
+import { setTelegramWebhook } from "@/lib/telegram-notify";
+
+/**
+ * One-time setup: open this URL after deploy (with secret) to register the webhook.
+ * Example:
+ * https://your-app.vercel.app/api/telegram/setup-webhook?key=YOUR_SETUP_KEY
+ */
+export async function GET(request: Request) {
+  const url = new URL(request.url);
+  const key = url.searchParams.get("key")?.trim() ?? "";
+  const expected = process.env.TELEGRAM_SETUP_KEY?.trim();
+
+  if (!expected || key !== expected) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const origin = process.env.VERCEL_PROJECT_PRODUCTION_URL
+    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+    : url.origin;
+
+  const webhookUrl = `${origin}/api/telegram/webhook`;
+  const secret = process.env.TELEGRAM_WEBHOOK_SECRET?.trim();
+
+  const result = await setTelegramWebhook(webhookUrl, secret);
+  if (!result) {
+    return Response.json(
+      { error: "Не удалось вызвать setWebhook — проверьте BOT_TOKEN" },
+      { status: 500 },
+    );
+  }
+
+  return Response.json({
+    ok: true,
+    webhookUrl,
+    secretConfigured: Boolean(secret),
+  });
+}

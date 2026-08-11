@@ -9,6 +9,7 @@ import {
   insertInstallRequest,
   upsertUser,
 } from "@/lib/db";
+import { notifyAdminNewInstallRequest } from "@/lib/telegram-notify";
 
 export async function POST(request: Request) {
   try {
@@ -25,6 +26,11 @@ export async function POST(request: Request) {
     }
 
     const item = await insertInstallRequest(user.telegramId, body.request);
+
+    void notifyAdminNewInstallRequest(item, user.telegramId).catch((error) => {
+      console.error("Failed to notify admin about install request", error);
+    });
+
     return Response.json({ request: item }, { status: 201 });
   } catch (error) {
     return dbErrorResponse(error) ?? authErrorResponse(error);

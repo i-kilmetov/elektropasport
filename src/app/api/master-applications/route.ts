@@ -8,6 +8,7 @@ import {
   insertMasterApplication,
   upsertUser,
 } from "@/lib/db";
+import { notifyAdminMasterApplication } from "@/lib/telegram-notify";
 
 export async function POST(request: Request) {
   try {
@@ -36,6 +37,17 @@ export async function POST(request: Request) {
       contactMethod: body.contactMethod,
       phone: body.phone,
       name: body.name,
+    });
+
+    void notifyAdminMasterApplication({
+      id: body.id,
+      city: body.city,
+      contactMethod: body.contactMethod,
+      phone: body.phone,
+      name: body.name,
+      customerTelegramId: user.telegramId,
+    }).catch((error) => {
+      console.error("Failed to notify admin about master application", error);
     });
 
     return Response.json({ ok: true }, { status: 201 });

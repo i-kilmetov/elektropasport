@@ -360,6 +360,50 @@ export async function updateInstallRequest(
   return rows[0] ? rowToRequest(rows[0]) : null;
 }
 
+export async function getInstallRequestById(
+  id: string,
+): Promise<(InstallRequest & { telegramUserId: number }) | null> {
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT
+      id, telegram_user_id, title, subtitle, status, status_label, created_at_label,
+      city, contact_method, phone, name, dwelling, phases, power_kw,
+      setup_title, exact_address, created_at
+    FROM install_requests
+    WHERE id = ${id}
+    LIMIT 1
+  `) as Array<RequestRow & { telegram_user_id: string | number }>;
+
+  const row = rows[0];
+  if (!row) return null;
+  return {
+    ...rowToRequest(row),
+    telegramUserId: Number(row.telegram_user_id),
+  };
+}
+
+export async function adminUpdateInstallRequest(
+  id: string,
+  patch: Partial<
+    Pick<InstallRequest, "title" | "status" | "statusLabel" | "exactAddress">
+  >,
+): Promise<InstallRequest | null> {
+  const sql = getSql();
+  const rows = (await sql`
+    UPDATE install_requests SET
+      title = COALESCE(${patch.title ?? null}, title),
+      status = COALESCE(${patch.status ?? null}, status),
+      status_label = COALESCE(${patch.statusLabel ?? null}, status_label),
+      exact_address = COALESCE(${patch.exactAddress ?? null}, exact_address)
+    WHERE id = ${id}
+    RETURNING
+      id, title, subtitle, status, status_label, created_at_label,
+      city, contact_method, phone, name, dwelling, phases, power_kw,
+      setup_title, exact_address, created_at
+  `) as RequestRow[];
+  return rows[0] ? rowToRequest(rows[0]) : null;
+}
+
 export async function deleteInstallRequest(
   telegramUserId: number,
   id: string,
