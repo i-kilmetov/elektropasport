@@ -32,6 +32,8 @@ export interface PanelObject {
   safety: number;
   devices?: Device[];
   linesCount?: number;
+  photoDataUrl?: string;
+  named?: boolean;
 }
 
 export type AppScreen =

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import { AnalysisScreen } from "@/components/screens/analysis-screen";
 import { CitySelectScreen } from "@/components/screens/city-select-screen";
@@ -18,6 +18,7 @@ export function AppShell() {
   const [panels, setPanels] = useState<PanelObject[]>([]);
   const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
   const [activePanelId, setActivePanelId] = useState<string | null>(null);
+  const [askNameOnBack, setAskNameOnBack] = useState(false);
   const [devices, setDevices] = useState<Device[] | null>(null);
   const [safetyScore, setSafetyScore] = useState<number | null>(null);
   const [linesCount, setLinesCount] = useState<number | null>(null);
@@ -25,39 +26,52 @@ export function AppShell() {
     null,
   );
 
+  const activePanel = useMemo(
+    () => panels.find((p) => p.id === activePanelId) ?? null,
+    [panels, activePanelId],
+  );
+
   const handlePhoto = useCallback((dataUrl: string) => {
     setPhotoDataUrl(dataUrl);
     setScreen("analysis");
   }, []);
 
-  const handleAnalysisDone = useCallback((result: AnalyzePanelResult) => {
-    const today = new Date();
-    const lastCheck = today.toLocaleDateString("ru-RU");
-    const id = `panel-${Date.now()}`;
-    const panel: PanelObject = {
-      id,
-      type: "apartment",
-      title: `Щиток ${panels.length + 1}`,
-      address: "Добавлен по фото",
-      lastCheck,
-      breakers: result.devices.length,
-      safety: result.safetyScore,
-      devices: result.devices,
-      linesCount: result.linesCount,
-    };
+  const handleAnalysisDone = useCallback(
+    (result: AnalyzePanelResult) => {
+      const today = new Date();
+      const lastCheck = today.toLocaleDateString("ru-RU");
+      const id = `panel-${Date.now()}`;
+      const panel: PanelObject = {
+        id,
+        type: "apartment",
+        title: `Щиток ${panels.length + 1}`,
+        address: "Добавлен по фото",
+        lastCheck,
+        breakers: result.devices.length,
+        safety: result.safetyScore,
+        devices: result.devices,
+        linesCount: result.linesCount,
+        photoDataUrl: photoDataUrl ?? undefined,
+        named: false,
+      };
 
-    setPanels((prev) => [panel, ...prev]);
-    setActivePanelId(id);
-    setDevices(result.devices);
-    setSafetyScore(result.safetyScore);
-    setLinesCount(result.linesCount);
-    setScreen("scheme");
-  }, [panels.length]);
+      setPanels((prev) => [panel, ...prev]);
+      setActivePanelId(id);
+      setAskNameOnBack(true);
+      setDevices(result.devices);
+      setSafetyScore(result.safetyScore);
+      setLinesCount(result.linesCount);
+      setScreen("scheme");
+    },
+    [panels.length, photoDataUrl],
+  );
 
   const openPanel = useCallback(
     (id: string) => {
       const panel = panels.find((p) => p.id === id);
       setActivePanelId(id);
+      setAskNameOnBack(false);
+      setPhotoDataUrl(panel?.photoDataUrl ?? null);
       setDevices(panel?.devices ?? null);
       setSafetyScore(panel?.safety ?? null);
       setLinesCount(panel?.linesCount ?? null);
@@ -65,6 +79,34 @@ export function AppShell() {
     },
     [panels],
   );
+
+  const renamePanel = useCallback(
+    (name: string) => {
+      if (!activePanelId) return;
+      setPanels((prev) =>
+        prev.map((p) =>
+          p.id === activePanelId ? { ...p, title: name, named: true } : p,
+        ),
+      );
+      setAskNameOnBack(false);
+    },
+    [activePanelId],
+  );
+
+  const deletePanel = useCallback(() => {
+    if (!activePanelId) {
+      setScreen("objects");
+      return;
+    }
+    setPanels((prev) => prev.filter((p) => p.id !== activePanelId));
+    setActivePanelId(null);
+    setPhotoDataUrl(null);
+    setDevices(null);
+    setSafetyScore(null);
+    setLinesCount(null);
+    setAskNameOnBack(false);
+    setScreen("objects");
+  }, [activePanelId]);
 
   return (
     <div className="relative mx-auto min-h-dvh w-full max-w-[430px] overflow-hidden bg-[var(--bg)] text-white shadow-[0_0_80px_rgba(0,0,0,0.5)]">
@@ -107,7 +149,12 @@ export function AppShell() {
           {screen === "scheme" && (
             <SchemeScreen
               key={activePanelId ?? "scheme"}
+              title={activePanel?.title ?? "Щиток"}
+              photoDataUrl={activePanel?.photoDataUrl ?? photoDataUrl}
+              askNameOnBack={askNameOnBack}
               onBack={() => setScreen("objects")}
+              onRename={renamePanel}
+              onDelete={deletePanel}
               devices={devices ?? undefined}
               safetyScore={safetyScore ?? undefined}
               linesCount={linesCount ?? undefined}

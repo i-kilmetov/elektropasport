@@ -1,11 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowLeft,
+  ImageIcon,
   MoreHorizontal,
+  Pencil,
   Shield,
+  Trash2,
   X,
   Zap,
 } from "lucide-react";
@@ -60,9 +63,13 @@ function DeviceBlock({
       className={cn(
         "relative flex flex-col rounded-[14px] border bg-gradient-to-b p-2 text-left transition-all",
         typeTone[device.type],
-        isBus ? "min-h-[72px] min-w-[72px] flex-[1.2]" : "min-h-[120px] min-w-[52px] flex-1",
-        selected && "ring-2 ring-[var(--accent)] ring-offset-2 ring-offset-[#0B0B0F]",
-        pending && "border-amber-400/50 shadow-[0_0_0_1px_rgba(251,191,36,0.25)]",
+        isBus
+          ? "min-h-[72px] min-w-[72px] flex-[1.2]"
+          : "min-h-[120px] min-w-[52px] flex-1",
+        selected &&
+          "ring-2 ring-[var(--accent)] ring-offset-2 ring-offset-[#0B0B0F]",
+        pending &&
+          "border-amber-400/50 shadow-[0_0_0_1px_rgba(251,191,36,0.25)]",
       )}
     >
       <span className="text-[10px] font-medium uppercase tracking-wide text-white/45">
@@ -107,11 +114,14 @@ function DeviceSheet({
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
             <div className="mb-2 flex flex-wrap items-center gap-2">
-              <h3 className="text-[20px] font-semibold text-white">{device.name}</h3>
+              <h3 className="text-[20px] font-semibold text-white">
+                {device.name}
+              </h3>
               <Badge status={device.status} />
             </div>
             <p className="text-[14px] text-white/45">
-              {device.manufacturer ?? "Производитель не определён"} · {device.rating}
+              {device.manufacturer ?? "Производитель не определён"} ·{" "}
+              {device.rating}
             </p>
           </div>
           <button
@@ -128,12 +138,17 @@ function DeviceSheet({
           {[
             ["Тип", typeShort[device.type]],
             ["Номинал", device.rating],
-            ["Статус", device.status === "verified" ? "Проверен" : "На проверке"],
+            [
+              "Статус",
+              device.status === "verified" ? "Проверен" : "На проверке",
+            ],
             ["ID", `#${device.id}`],
           ].map(([label, value]) => (
             <GlassCard key={label} className="p-3">
               <div className="text-[12px] text-white/40">{label}</div>
-              <div className="mt-1 text-[15px] font-medium text-white">{value}</div>
+              <div className="mt-1 text-[15px] font-medium text-white">
+                {value}
+              </div>
             </GlassCard>
           ))}
         </div>
@@ -157,6 +172,72 @@ function DeviceSheet({
   );
 }
 
+function NameDialog({
+  title,
+  initialValue,
+  confirmLabel,
+  onCancel,
+  onConfirm,
+}: {
+  title: string;
+  initialValue: string;
+  confirmLabel: string;
+  onCancel: () => void;
+  onConfirm: (name: string) => void;
+}) {
+  const [value, setValue] = useState(initialValue);
+
+  useEffect(() => {
+    setValue(initialValue);
+  }, [initialValue]);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="absolute inset-0 z-50 flex items-end bg-black/60 backdrop-blur-sm sm:items-center sm:justify-center sm:p-6"
+      onClick={onCancel}
+    >
+      <motion.div
+        initial={{ y: 40, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        exit={{ y: 40, opacity: 0 }}
+        transition={{ type: "spring", stiffness: 320, damping: 30 }}
+        onClick={(e) => e.stopPropagation()}
+        className="w-full rounded-t-[28px] border border-white/10 bg-[#16161d] p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-2xl sm:max-w-sm sm:rounded-[28px]"
+      >
+        <h3 className="mb-2 text-[20px] font-semibold text-white">{title}</h3>
+        <p className="mb-4 text-[14px] text-white/50">
+          Например: «Квартира», «Дача», «Щиток на кухне»
+        </p>
+        <input
+          autoFocus
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          placeholder="Название щитка"
+          className="mb-4 h-14 w-full rounded-[20px] border border-white/10 bg-white/[0.06] px-4 text-[16px] text-white outline-none placeholder:text-white/30 focus:border-[var(--accent)]/50"
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && value.trim()) onConfirm(value.trim());
+          }}
+        />
+        <div className="flex gap-3">
+          <Button className="flex-1" variant="secondary" onClick={onCancel}>
+            Отмена
+          </Button>
+          <Button
+            className="flex-1"
+            disabled={!value.trim()}
+            onClick={() => onConfirm(value.trim())}
+          >
+            {confirmLabel}
+          </Button>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
 function safetyLabel(score: number): string {
   if (score >= 80) return "хороший";
   if (score >= 60) return "средний";
@@ -164,12 +245,22 @@ function safetyLabel(score: number): string {
 }
 
 export function SchemeScreen({
+  title = "Щиток",
+  photoDataUrl,
+  askNameOnBack = false,
   onBack,
+  onRename,
+  onDelete,
   devices: devicesProp,
   safetyScore: safetyProp,
   linesCount: linesProp,
 }: {
+  title?: string;
+  photoDataUrl?: string | null;
+  askNameOnBack?: boolean;
   onBack: () => void;
+  onRename: (name: string) => void;
+  onDelete: () => void;
   devices?: Device[];
   safetyScore?: number;
   linesCount?: number;
@@ -179,7 +270,11 @@ export function SchemeScreen({
   const safetyScore = safetyProp ?? mockSafetyScore;
   const linesCount = linesProp ?? mockLinesCount;
 
+  const [tab, setTab] = useState<"scheme" | "photo">("scheme");
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [renameOpen, setRenameOpen] = useState(false);
+  const [nameOnBackOpen, setNameOnBackOpen] = useState(false);
   const selected = devices.find((d) => d.id === selectedId) ?? null;
 
   const railDevices = devices.filter(
@@ -195,6 +290,14 @@ export function SchemeScreen({
 
   const railMinWidth = Math.max(320, railDevices.length * 58 + 48);
 
+  const handleBack = () => {
+    if (askNameOnBack) {
+      setNameOnBackOpen(true);
+      return;
+    }
+    onBack();
+  };
+
   return (
     <motion.section
       initial={{ opacity: 0, x: 40 }}
@@ -205,85 +308,165 @@ export function SchemeScreen({
       <header className="mb-4 flex items-center justify-between px-5">
         <button
           type="button"
-          onClick={onBack}
+          onClick={handleBack}
           className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white backdrop-blur-xl"
           aria-label="Назад"
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <h1 className="text-[20px] font-semibold text-white">Щиток</h1>
-        <button
-          type="button"
-          className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white backdrop-blur-xl"
-          aria-label="Ещё"
-        >
-          <MoreHorizontal className="h-5 w-5" />
-        </button>
+        <h1 className="max-w-[55%] truncate text-center text-[20px] font-semibold text-white">
+          {title}
+        </h1>
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setMenuOpen((v) => !v)}
+            className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white backdrop-blur-xl"
+            aria-label="Ещё"
+          >
+            <MoreHorizontal className="h-5 w-5" />
+          </button>
+          <AnimatePresence>
+            {menuOpen && (
+              <motion.div
+                initial={{ opacity: 0, y: -6, scale: 0.96 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -6, scale: 0.96 }}
+                className="absolute right-0 top-12 z-30 min-w-[180px] overflow-hidden rounded-[18px] border border-white/10 bg-[#1b1b24]/95 shadow-2xl backdrop-blur-xl"
+              >
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 px-4 py-3 text-left text-[15px] text-white hover:bg-white/5"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    setRenameOpen(true);
+                  }}
+                >
+                  <Pencil className="h-4 w-4 text-white/60" />
+                  Переименовать
+                </button>
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 px-4 py-3 text-left text-[15px] text-rose-300 hover:bg-white/5"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onDelete();
+                  }}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Удалить
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </header>
 
       <div className="mb-3 flex gap-2 px-5">
-        <span className="rounded-full bg-white/10 px-3 py-1.5 text-[13px] font-medium text-white">
+        <button
+          type="button"
+          onClick={() => setTab("scheme")}
+          className={cn(
+            "rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors",
+            tab === "scheme"
+              ? "bg-white/10 text-white"
+              : "text-white/40 hover:text-white/70",
+          )}
+        >
           Схема
-        </span>
-        <span className="rounded-full px-3 py-1.5 text-[13px] text-white/40">
-          Список
-        </span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab("photo")}
+          className={cn(
+            "rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors",
+            tab === "photo"
+              ? "bg-white/10 text-white"
+              : "text-white/40 hover:text-white/70",
+          )}
+        >
+          Фото
+        </button>
       </div>
 
-      <div className="flex-1 overflow-x-auto px-5 pb-4">
-        <GlassCard className="p-4" style={{ minWidth: railMinWidth }}>
-          <div className="mb-3 flex items-center justify-between">
-            <span className="text-[13px] font-medium text-white/50">DIN-рейка</span>
-            <span className="text-[12px] text-white/35">
-              {railDevices.length} модулей
+      {tab === "scheme" ? (
+        <div className="flex-1 overflow-x-auto px-5 pb-4">
+          <GlassCard className="p-4" style={{ minWidth: railMinWidth }}>
+            <div className="mb-3 flex items-center justify-between">
+              <span className="text-[13px] font-medium text-white/50">
+                DIN-рейка
+              </span>
+              <span className="text-[12px] text-white/35">
+                {railDevices.length} модулей
+              </span>
+            </div>
+
+            <div className="mb-3 h-2 rounded-full bg-gradient-to-r from-zinc-500 via-zinc-300 to-zinc-500 shadow-inner" />
+
+            <div className="mb-4 flex gap-1.5">
+              {railDevices.map((device) => (
+                <DeviceBlock
+                  key={device.id}
+                  device={device}
+                  selected={selectedId === device.id}
+                  onSelect={() => setSelectedId(device.id)}
+                />
+              ))}
+            </div>
+
+            {busDevices.length > 0 && (
+              <>
+                <div className="mb-2 text-[13px] font-medium text-white/50">
+                  Шины
+                </div>
+                <div className="flex gap-2">
+                  {busDevices.map((device) => (
+                    <DeviceBlock
+                      key={device.id}
+                      device={device}
+                      selected={selectedId === device.id}
+                      onSelect={() => setSelectedId(device.id)}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
+          </GlassCard>
+
+          <div className="mt-4 flex gap-4 text-[12px] text-white/50">
+            <span className="flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
+              Определён ({verified})
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full bg-amber-400" />
+              Требует проверки ({pending})
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full bg-white/30" />
+              Не определён ({unknown})
             </span>
           </div>
-
-          <div className="mb-3 h-2 rounded-full bg-gradient-to-r from-zinc-500 via-zinc-300 to-zinc-500 shadow-inner" />
-
-          <div className="mb-4 flex gap-1.5">
-            {railDevices.map((device) => (
-              <DeviceBlock
-                key={device.id}
-                device={device}
-                selected={selectedId === device.id}
-                onSelect={() => setSelectedId(device.id)}
-              />
-            ))}
-          </div>
-
-          {busDevices.length > 0 && (
-            <>
-              <div className="mb-2 text-[13px] font-medium text-white/50">Шины</div>
-              <div className="flex gap-2">
-                {busDevices.map((device) => (
-                  <DeviceBlock
-                    key={device.id}
-                    device={device}
-                    selected={selectedId === device.id}
-                    onSelect={() => setSelectedId(device.id)}
-                  />
-                ))}
-              </div>
-            </>
-          )}
-        </GlassCard>
-
-        <div className="mt-4 flex gap-4 text-[12px] text-white/50">
-          <span className="flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
-            Определён ({verified})
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-full bg-amber-400" />
-            Требует проверки ({pending})
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-full bg-white/30" />
-            Не определён ({unknown})
-          </span>
         </div>
-      </div>
+      ) : (
+        <div className="flex-1 overflow-y-auto px-5 pb-4">
+          <GlassCard className="overflow-hidden p-0">
+            {photoDataUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={photoDataUrl}
+                alt="Фото щитка"
+                className="max-h-[60vh] w-full object-contain bg-black"
+              />
+            ) : (
+              <div className="flex aspect-[4/3] flex-col items-center justify-center gap-3 text-white/40">
+                <ImageIcon className="h-10 w-10" />
+                <p className="text-[14px]">Фото щитка недоступно</p>
+              </div>
+            )}
+          </GlassCard>
+        </div>
+      )}
 
       <div className="border-t border-white/8 bg-[#0B0B0F]/80 px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-4 backdrop-blur-xl">
         <div className="grid grid-cols-2 gap-3">
@@ -312,8 +495,56 @@ export function SchemeScreen({
       </div>
 
       <AnimatePresence>
-        {selected && (
+        {selected && tab === "scheme" && (
           <DeviceSheet device={selected} onClose={() => setSelectedId(null)} />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {menuOpen && (
+          <motion.button
+            type="button"
+            aria-label="Закрыть меню"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 z-20"
+            onClick={() => setMenuOpen(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {renameOpen && (
+          <NameDialog
+            title="Переименовать щиток"
+            initialValue={title}
+            confirmLabel="Сохранить"
+            onCancel={() => setRenameOpen(false)}
+            onConfirm={(name) => {
+              onRename(name);
+              setRenameOpen(false);
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {nameOnBackOpen && (
+          <NameDialog
+            title="Как назвать этот щиток?"
+            initialValue={title.startsWith("Щиток ") ? "" : title}
+            confirmLabel="Сохранить"
+            onCancel={() => {
+              setNameOnBackOpen(false);
+              onBack();
+            }}
+            onConfirm={(name) => {
+              onRename(name);
+              setNameOnBackOpen(false);
+              onBack();
+            }}
+          />
         )}
       </AnimatePresence>
     </motion.section>
