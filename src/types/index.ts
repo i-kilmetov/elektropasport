@@ -38,3 +38,9 @@ export type AppScreen =
   | "photo"
   | "analysis"
   | "scheme";
+
+export interface AnalyzePanelResult {
+  devices: Device[];
+  safetyScore: number;
+  linesCount: number;
+}

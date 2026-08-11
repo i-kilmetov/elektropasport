@@ -4,9 +4,22 @@ import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Check, Loader2 } from "lucide-react";
 import { GlassCard } from "@/components/ui/glass-card";
-import { analysisSteps, devices } from "@/lib/mock-data";
+import {
+  analysisSteps,
+  devices as mockDevices,
+  linesCount as mockLinesCount,
+  safetyScore as mockSafetyScore,
+} from "@/lib/mock-data";
+import type { AnalyzePanelResult } from "@/types";
 
-export function AnalysisScreen({ onDone }: { onDone: () => void }) {
+export function AnalysisScreen({
+  photoDataUrl,
+  onDone,
+}: {
+  photoDataUrl?: string | null;
+  onDone: (result: AnalyzePanelResult) => void;
+  onRetryPhoto?: () => void;
+}) {
   const [progress, setProgress] = useState(0);
   const [stepIndex, setStepIndex] = useState(0);
   const [foundCount, setFoundCount] = useState(0);
@@ -15,28 +28,41 @@ export function AnalysisScreen({ onDone }: { onDone: () => void }) {
     const totalMs = 4200;
     const start = performance.now();
     let frame = 0;
+    let doneTimer = 0;
 
     const tick = (now: number) => {
       const t = Math.min(1, (now - start) / totalMs);
       const eased = 1 - Math.pow(1 - t, 2.4);
-      const next = Math.round(eased * 100);
-      setProgress(next);
-      setStepIndex(Math.min(analysisSteps.length - 1, Math.floor(eased * analysisSteps.length)));
-      setFoundCount(Math.min(devices.length, Math.floor(eased * devices.length)));
+      setProgress(Math.round(eased * 100));
+      setStepIndex(
+        Math.min(analysisSteps.length - 1, Math.floor(eased * analysisSteps.length)),
+      );
+      setFoundCount(
+        Math.min(mockDevices.length, Math.floor(eased * mockDevices.length)),
+      );
 
       if (t < 1) {
         frame = requestAnimationFrame(tick);
       } else {
-        setTimeout(onDone, 450);
+        doneTimer = window.setTimeout(() => {
+          onDone({
+            devices: mockDevices,
+            safetyScore: mockSafetyScore,
+            linesCount: mockLinesCount,
+          });
+        }, 450);
       }
     };
 
     frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.clearTimeout(doneTimer);
+    };
   }, [onDone]);
 
   const foundDevices = useMemo(
-    () => devices.slice(0, Math.max(1, foundCount)),
+    () => mockDevices.slice(0, Math.max(0, foundCount)),
     [foundCount],
   );
 
@@ -47,9 +73,20 @@ export function AnalysisScreen({ onDone }: { onDone: () => void }) {
       exit={{ opacity: 0 }}
       className="flex min-h-dvh flex-col items-center px-5 pb-10 pt-[max(2rem,env(safe-area-inset-top))]"
     >
-      <h1 className="mb-10 text-center text-[22px] font-semibold text-white">
+      <h1 className="mb-6 text-center text-[22px] font-semibold text-white">
         Анализируем изображение
       </h1>
+
+      {photoDataUrl && (
+        <div className="mb-8 h-16 w-16 overflow-hidden rounded-[14px] border border-white/15 shadow-lg">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={photoDataUrl}
+            alt="Ваше фото щитка"
+            className="h-full w-full object-cover"
+          />
+        </div>
+      )}
 
       <div className="relative mb-10 flex h-44 w-44 items-center justify-center">
         <svg className="absolute inset-0 -rotate-90" viewBox="0 0 160 160">
@@ -124,7 +161,7 @@ export function AnalysisScreen({ onDone }: { onDone: () => void }) {
             Найденные устройства
           </h2>
           <span className="text-[13px] tabular-nums text-[var(--accent)]">
-            {foundCount}/{devices.length}
+            {foundCount}/{mockDevices.length}
           </span>
         </div>
         <ul className="max-h-40 space-y-2 overflow-hidden">

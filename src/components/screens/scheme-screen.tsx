@@ -13,7 +13,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Progress } from "@/components/ui/progress";
-import { devices, linesCount, safetyScore } from "@/lib/mock-data";
+import {
+  devices as mockDevices,
+  linesCount as mockLinesCount,
+  safetyScore as mockSafetyScore,
+} from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 import type { Device, DeviceType } from "@/types";
 
@@ -153,7 +157,28 @@ function DeviceSheet({
   );
 }
 
-export function SchemeScreen({ onBack }: { onBack: () => void }) {
+function safetyLabel(score: number): string {
+  if (score >= 80) return "хороший";
+  if (score >= 60) return "средний";
+  return "низкий";
+}
+
+export function SchemeScreen({
+  onBack,
+  devices: devicesProp,
+  safetyScore: safetyProp,
+  linesCount: linesProp,
+}: {
+  onBack: () => void;
+  devices?: Device[];
+  safetyScore?: number;
+  linesCount?: number;
+}) {
+  const devices =
+    devicesProp && devicesProp.length > 0 ? devicesProp : mockDevices;
+  const safetyScore = safetyProp ?? mockSafetyScore;
+  const linesCount = linesProp ?? mockLinesCount;
+
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const selected = devices.find((d) => d.id === selectedId) ?? null;
 
@@ -167,6 +192,8 @@ export function SchemeScreen({ onBack }: { onBack: () => void }) {
   const verified = devices.filter((d) => d.status === "verified").length;
   const pending = devices.filter((d) => d.status === "pending").length;
   const unknown = devices.filter((d) => d.status === "unknown").length;
+
+  const railMinWidth = Math.max(320, railDevices.length * 58 + 48);
 
   return (
     <motion.section
@@ -203,9 +230,8 @@ export function SchemeScreen({ onBack }: { onBack: () => void }) {
         </span>
       </div>
 
-      {/* Top: interactive DIN scheme */}
       <div className="flex-1 overflow-x-auto px-5 pb-4">
-        <GlassCard className="min-w-[520px] p-4">
+        <GlassCard className="p-4" style={{ minWidth: railMinWidth }}>
           <div className="mb-3 flex items-center justify-between">
             <span className="text-[13px] font-medium text-white/50">DIN-рейка</span>
             <span className="text-[12px] text-white/35">
@@ -226,17 +252,21 @@ export function SchemeScreen({ onBack }: { onBack: () => void }) {
             ))}
           </div>
 
-          <div className="mb-2 text-[13px] font-medium text-white/50">Шины</div>
-          <div className="flex gap-2">
-            {busDevices.map((device) => (
-              <DeviceBlock
-                key={device.id}
-                device={device}
-                selected={selectedId === device.id}
-                onSelect={() => setSelectedId(device.id)}
-              />
-            ))}
-          </div>
+          {busDevices.length > 0 && (
+            <>
+              <div className="mb-2 text-[13px] font-medium text-white/50">Шины</div>
+              <div className="flex gap-2">
+                {busDevices.map((device) => (
+                  <DeviceBlock
+                    key={device.id}
+                    device={device}
+                    selected={selectedId === device.id}
+                    onSelect={() => setSelectedId(device.id)}
+                  />
+                ))}
+              </div>
+            </>
+          )}
         </GlassCard>
 
         <div className="mt-4 flex gap-4 text-[12px] text-white/50">
@@ -255,7 +285,6 @@ export function SchemeScreen({ onBack }: { onBack: () => void }) {
         </div>
       </div>
 
-      {/* Bottom: lines + safety */}
       <div className="border-t border-white/8 bg-[#0B0B0F]/80 px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-4 backdrop-blur-xl">
         <div className="grid grid-cols-2 gap-3">
           <GlassCard className="p-4">
@@ -273,7 +302,9 @@ export function SchemeScreen({ onBack }: { onBack: () => void }) {
               <span className="text-[28px] font-bold tabular-nums text-emerald-300">
                 {safetyScore}%
               </span>
-              <span className="mb-1.5 text-[12px] text-white/40">хороший</span>
+              <span className="mb-1.5 text-[12px] text-white/40">
+                {safetyLabel(safetyScore)}
+              </span>
             </div>
             <Progress value={safetyScore} className="mt-2 h-1.5" />
           </GlassCard>

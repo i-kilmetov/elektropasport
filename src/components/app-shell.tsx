@@ -7,12 +7,26 @@ import { ObjectsScreen } from "@/components/screens/objects-screen";
 import { PhotoScreen } from "@/components/screens/photo-screen";
 import { SchemeScreen } from "@/components/screens/scheme-screen";
 import { WelcomeScreen } from "@/components/screens/welcome-screen";
-import type { AppScreen } from "@/types";
+import type { AnalyzePanelResult, AppScreen, Device } from "@/types";
 
 export function AppShell() {
   const [screen, setScreen] = useState<AppScreen>("welcome");
+  const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
+  const [devices, setDevices] = useState<Device[] | null>(null);
+  const [safetyScore, setSafetyScore] = useState<number | null>(null);
+  const [linesCount, setLinesCount] = useState<number | null>(null);
 
-  const goAnalysisDone = useCallback(() => setScreen("scheme"), []);
+  const handlePhoto = useCallback((dataUrl: string) => {
+    setPhotoDataUrl(dataUrl);
+    setScreen("analysis");
+  }, []);
+
+  const handleAnalysisDone = useCallback((result: AnalyzePanelResult) => {
+    setDevices(result.devices);
+    setSafetyScore(result.safetyScore);
+    setLinesCount(result.linesCount);
+    setScreen("scheme");
+  }, []);
 
   return (
     <div className="relative mx-auto min-h-dvh w-full max-w-[430px] overflow-hidden bg-[var(--bg)] text-white shadow-[0_0_80px_rgba(0,0,0,0.5)]">
@@ -25,7 +39,10 @@ export function AppShell() {
           {screen === "objects" && (
             <ObjectsScreen
               key="objects"
-              onAdd={() => setScreen("photo")}
+              onAdd={() => {
+                setPhotoDataUrl(null);
+                setScreen("photo");
+              }}
               onOpen={() => setScreen("scheme")}
             />
           )}
@@ -33,14 +50,24 @@ export function AppShell() {
             <PhotoScreen
               key="photo"
               onBack={() => setScreen("objects")}
-              onCapture={() => setScreen("analysis")}
+              onCapture={handlePhoto}
             />
           )}
           {screen === "analysis" && (
-            <AnalysisScreen key="analysis" onDone={goAnalysisDone} />
+            <AnalysisScreen
+              key={photoDataUrl ? `analysis-${photoDataUrl.slice(0, 24)}` : "analysis"}
+              photoDataUrl={photoDataUrl}
+              onDone={handleAnalysisDone}
+            />
           )}
           {screen === "scheme" && (
-            <SchemeScreen key="scheme" onBack={() => setScreen("objects")} />
+            <SchemeScreen
+              key="scheme"
+              onBack={() => setScreen("objects")}
+              devices={devices ?? undefined}
+              safetyScore={safetyScore ?? undefined}
+              linesCount={linesCount ?? undefined}
+            />
           )}
         </AnimatePresence>
       </div>
