@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import { AnalysisScreen } from "@/components/screens/analysis-screen";
 import { CitySelectScreen } from "@/components/screens/city-select-screen";
@@ -18,6 +18,13 @@ import { RequestDetailsScreen } from "@/components/screens/request-details-scree
 import { SchemeScreen } from "@/components/screens/scheme-screen";
 import { WelcomeScreen } from "@/components/screens/welcome-screen";
 import { getNoPanelSetup, type NoPanelSetupId } from "@/lib/no-panel-setups";
+import {
+  fetchHomeItems,
+  persistDeletePanel,
+  persistInstallRequest,
+  persistPanel,
+  persistPanelPatch,
+} from "@/lib/user-data";
 import type {
   AnalyzePanelResult,
   AppScreen,
@@ -31,6 +38,8 @@ import { installStatusLabels } from "@/types";
 export function AppShell() {
   const [screen, setScreen] = useState<AppScreen>("welcome");
   const [items, setItems] = useState<HomeListItem[]>([]);
+  const [itemsLoading, setItemsLoading] = useState(true);
+  const [itemsError, setItemsError] = useState<string | null>(null);
   const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
   const [activePanelId, setActivePanelId] = useState<string | null>(null);
   const [activeRequestId, setActiveRequestId] = useState<string | null>(null);
@@ -44,6 +53,31 @@ export function AppShell() {
   const [electricalDetails, setElectricalDetails] =
     useState<ElectricalDetails | null>(null);
   const [selectedCity, setSelectedCity] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setItemsLoading(true);
+      setItemsError(null);
+      try {
+        const loaded = await fetchHomeItems();
+        if (!cancelled) setItems(loaded);
+      } catch (error) {
+        if (!cancelled) {
+          setItemsError(
+            error instanceof Error
+              ? error.message
+              : "Не удалось загрузить данные",
+          );
+        }
+      } finally {
+        if (!cancelled) setItemsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const activePanel = useMemo(
     () =>
@@ -90,6 +124,12 @@ export function AppShell() {
       };
 
       setItems((prev) => [panel, ...prev]);
+      void persistPanel(panel).catch((error) => {
+        console.error(error);
+        setItemsError(
+          error instanceof Error ? error.message : "Не удалось сохранить щиток",
+        );
+      });
       setActivePanelId(id);
       setAskNameOnBack(true);
       setDevices(result.devices);
@@ -127,6 +167,16 @@ export function AppShell() {
             : item,
         ),
       );
+      void persistPanelPatch(activePanelId, { title: name, named: true }).catch(
+        (error) => {
+          console.error(error);
+          setItemsError(
+            error instanceof Error
+              ? error.message
+              : "Не удалось переименовать щиток",
+          );
+        },
+      );
       setAskNameOnBack(false);
     },
     [activePanelId],
@@ -137,11 +187,16 @@ export function AppShell() {
       setScreen("objects");
       return;
     }
+    const id = activePanelId;
     setItems((prev) =>
-      prev.filter(
-        (item) => !(item.kind === "panel" && item.id === activePanelId),
-      ),
+      prev.filter((item) => !(item.kind === "panel" && item.id === id)),
     );
+    void persistDeletePanel(id).catch((error) => {
+      console.error(error);
+      setItemsError(
+        error instanceof Error ? error.message : "Не удалось удалить щиток",
+      );
+    });
     setActivePanelId(null);
     setPhotoDataUrl(null);
     setDevices(null);
@@ -182,6 +237,14 @@ export function AppShell() {
       };
 
       setItems((prev) => [request, ...prev]);
+      void persistInstallRequest(request).catch((error) => {
+        console.error(error);
+        setItemsError(
+          error instanceof Error
+            ? error.message
+            : "Не удалось сохранить заявку",
+        );
+      });
       setActiveRequestId(id);
       setScreen("objects");
     },
@@ -200,6 +263,8 @@ export function AppShell() {
             <ObjectsScreen
               key="objects"
               items={items}
+              loading={itemsLoading}
+              error={itemsError}
               onAdd={() => {
                 setPhotoDataUrl(null);
                 setScreen("photo");

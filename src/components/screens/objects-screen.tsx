@@ -10,12 +10,16 @@ import type { HomeListItem } from "@/types";
 
 export function ObjectsScreen({
   items,
+  loading = false,
+  error = null,
   onAdd,
   onOpenPanel,
   onOpenRequest,
   onNoPanel,
 }: {
   items: HomeListItem[];
+  loading?: boolean;
+  error?: string | null;
   onAdd: () => void;
   onOpenPanel: (id: string) => void;
   onOpenRequest: (id: string) => void;
@@ -48,8 +52,18 @@ export function ObjectsScreen({
         </button>
       </header>
 
+      {error && (
+        <p className="mb-3 rounded-2xl border border-rose-400/30 bg-rose-500/10 px-3 py-2 text-[13px] text-rose-200">
+          {error}
+        </p>
+      )}
+
       <div className="flex flex-1 flex-col gap-3">
-        {items.length === 0 ? (
+        {loading ? (
+          <div className="flex flex-1 flex-col items-center justify-center px-4 text-center">
+            <p className="text-[15px] text-white/50">Загрузка…</p>
+          </div>
+        ) : items.length === 0 ? (
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
