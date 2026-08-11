@@ -25,7 +25,7 @@ export function ConfirmDialog({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="absolute inset-0 z-50 flex items-end bg-black/60 backdrop-blur-sm sm:items-center sm:justify-center sm:p-6"
+      className="fixed inset-0 z-[100] flex items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center sm:p-6"
       onClick={onCancel}
     >
       <motion.div
@@ -34,7 +34,7 @@ export function ConfirmDialog({
         exit={{ y: 40, opacity: 0 }}
         transition={{ type: "spring", stiffness: 320, damping: 30 }}
         onClick={(e) => e.stopPropagation()}
-        className="w-full rounded-t-[28px] border border-white/10 bg-[#16161d] p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-2xl sm:max-w-sm sm:rounded-[28px]"
+        className="w-full max-w-[430px] rounded-t-[28px] border border-white/10 bg-[#16161d] p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-2xl sm:rounded-[28px]"
       >
         <h3 className="mb-2 text-[20px] font-semibold text-white">{title}</h3>
         <p className="mb-5 text-[14px] leading-relaxed text-white/50">

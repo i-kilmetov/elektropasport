@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { GlassCard } from "@/components/ui/glass-card";
 import { SwipeableRow } from "@/components/ui/swipeable-row";
+import { cn } from "@/lib/utils";
 import type { HomeListItem } from "@/types";
 
 export function ObjectsScreen({
@@ -108,8 +109,22 @@ export function ObjectsScreen({
                     }
                     className="w-full text-left"
                   >
-                    <GlassCard className="flex items-center gap-4 rounded-[24px] p-4 transition-colors hover:bg-white/[0.09]">
-                      <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[18px] bg-white/10 text-[var(--accent)]">
+                    <GlassCard
+                      className={cn(
+                        "flex items-center gap-4 rounded-[24px] border p-4 transition-colors",
+                        isRequest
+                          ? "border-rose-400/35 bg-[#2a1519] hover:bg-[#32181d]"
+                          : "border-white/10 bg-[#16161d] hover:bg-[#1b1b24]",
+                      )}
+                    >
+                      <div
+                        className={cn(
+                          "flex h-14 w-14 shrink-0 items-center justify-center rounded-[18px]",
+                          isRequest
+                            ? "bg-rose-500/20 text-rose-300"
+                            : "bg-white/10 text-[var(--accent)]",
+                        )}
+                      >
                         {isRequest ? (
                           <ClipboardList className="h-6 w-6" />
                         ) : (
@@ -118,11 +133,16 @@ export function ObjectsScreen({
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="mb-0.5 flex items-center justify-between gap-2">
-                          <h2 className="truncate text-[17px] font-semibold text-white">
+                          <h2
+                            className={cn(
+                              "truncate text-[17px] font-semibold",
+                              isRequest ? "text-rose-50" : "text-white",
+                            )}
+                          >
                             {obj.title}
                           </h2>
                           {isRequest ? (
-                            <span className="shrink-0 rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-medium text-white/70">
+                            <span className="shrink-0 rounded-full bg-rose-500/25 px-2 py-0.5 text-[11px] font-medium text-rose-200">
                               {obj.statusLabel}
                             </span>
                           ) : (
@@ -131,10 +151,20 @@ export function ObjectsScreen({
                             </span>
                           )}
                         </div>
-                        <p className="truncate text-[13px] text-white/45">
+                        <p
+                          className={cn(
+                            "truncate text-[13px]",
+                            isRequest ? "text-rose-100/65" : "text-white/45",
+                          )}
+                        >
                           {isRequest ? obj.subtitle : obj.address}
                         </p>
-                        <p className="mt-1 text-[12px] text-white/35">
+                        <p
+                          className={cn(
+                            "mt-1 text-[12px]",
+                            isRequest ? "text-rose-100/45" : "text-white/35",
+                          )}
+                        >
                           {isRequest
                             ? `Статус: ${obj.statusLabel} · ${obj.createdAt}`
                             : `${obj.breakers} устройств · ${obj.lastCheck}`}

@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 
 const ACTION_WIDTH = 76;
 const OPEN_THRESHOLD = 48;
+const REVEAL_THRESHOLD = 8;
 
 export function SwipeableRow({
   children,
@@ -18,13 +19,20 @@ export function SwipeableRow({
   className?: string;
 }) {
   const [offset, setOffset] = useState(0);
-  const opened = offset < -OPEN_THRESHOLD / 2;
+  const [dragX, setDragX] = useState(0);
+  const [dragging, setDragging] = useState(false);
   const suppressClick = useRef(false);
+
+  const visualX = dragging ? offset + dragX : offset;
+  const opened = offset < -OPEN_THRESHOLD / 2;
+  const showAction = visualX < -REVEAL_THRESHOLD;
 
   const onDragEnd = (_: unknown, info: PanInfo) => {
     const next = info.offset.x + offset;
     const shouldOpen = next < -OPEN_THRESHOLD;
     setOffset(shouldOpen ? -ACTION_WIDTH : 0);
+    setDragX(0);
+    setDragging(false);
     suppressClick.current = true;
     window.setTimeout(() => {
       suppressClick.current = false;
@@ -35,7 +43,14 @@ export function SwipeableRow({
     <div className={cn("relative overflow-hidden rounded-[24px]", className)}>
       <button
         type="button"
-        className="absolute inset-y-0 right-0 flex w-[76px] items-center justify-center bg-rose-500 text-white"
+        tabIndex={showAction ? 0 : -1}
+        aria-hidden={!showAction}
+        className={cn(
+          "absolute inset-y-0 right-0 flex w-[76px] items-center justify-center bg-rose-500 text-white transition-opacity duration-150",
+          showAction
+            ? "pointer-events-auto opacity-100"
+            : "pointer-events-none opacity-0",
+        )}
         aria-label="Удалить"
         onClick={(e) => {
           e.stopPropagation();
@@ -51,6 +66,13 @@ export function SwipeableRow({
         dragElastic={0.06}
         animate={{ x: offset }}
         transition={{ type: "spring", stiffness: 420, damping: 36 }}
+        onDragStart={() => {
+          setDragging(true);
+          setDragX(0);
+        }}
+        onDrag={(_, info) => {
+          setDragX(info.offset.x);
+        }}
         onDragEnd={onDragEnd}
         className="relative z-10 touch-pan-y"
       >
