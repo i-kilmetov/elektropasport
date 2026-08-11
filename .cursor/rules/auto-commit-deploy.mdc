@@ -1,0 +1,14 @@
+---
+description: After finishing code changes, commit and push without asking
+alwaysApply: true
+---
+
+# Auto commit and deploy
+
+When implementation work for a user request is done (build succeeds if applicable):
+
+1. Create a git commit following the repo commit protocol (status, diff, log, HEREDOC message).
+2. Push to `origin` on the current branch so Vercel can deploy.
+3. Do **not** ask whether to commit or deploy — do it by default unless the user explicitly says not to commit/push.
+
+Still never commit secrets, never force-push, never amend unless the usual amend conditions are met.
