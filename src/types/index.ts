@@ -23,6 +23,7 @@ export interface Device {
 export type ObjectType = "apartment" | "house" | "garage" | "dacha";
 
 export interface PanelObject {
+  kind: "panel";
   id: string;
   type: ObjectType;
   title: string;
@@ -36,6 +37,28 @@ export interface PanelObject {
   named?: boolean;
 }
 
+export type InstallRequestStatus = "new" | "in_progress" | "done";
+
+export interface InstallRequest {
+  kind: "install_request";
+  id: string;
+  title: string;
+  subtitle: string;
+  status: InstallRequestStatus;
+  statusLabel: string;
+  createdAt: string;
+  city: string;
+  contactMethod: "phone" | "telegram";
+  phone?: string;
+  name: string;
+  dwelling?: "apartment" | "house";
+  phases?: "1" | "3";
+  powerKw?: string;
+  setupTitle?: string;
+}
+
+export type HomeListItem = PanelObject | InstallRequest;
+
 export type AppScreen =
   | "welcome"
   | "objects"
@@ -47,10 +70,17 @@ export type AppScreen =
   | "panel-advantages"
   | "electrical-details"
   | "city-select"
-  | "lead-contact";
+  | "lead-contact"
+  | "request-details";
 
 export interface AnalyzePanelResult {
   devices: Device[];
   safetyScore: number;
   linesCount: number;
 }
+
+export const installStatusLabels: Record<InstallRequestStatus, string> = {
+  new: "Новая",
+  in_progress: "В работе",
+  done: "Выполнена",
+};

@@ -1,43 +1,4 @@
-import type { Device, PanelObject } from "@/types";
-
-export const panelObjects: PanelObject[] = [
-  {
-    id: "1",
-    type: "apartment",
-    title: "Квартира",
-    address: "ул. Ленина, 12, кв. 45",
-    lastCheck: "12.08.2024",
-    breakers: 8,
-    safety: 78,
-  },
-  {
-    id: "2",
-    type: "house",
-    title: "Дом",
-    address: "пос. Сосновый, ул. Лесная, 7",
-    lastCheck: "03.06.2024",
-    breakers: 14,
-    safety: 64,
-  },
-  {
-    id: "3",
-    type: "garage",
-    title: "Гараж",
-    address: "ГСК «Восток», бокс 18",
-    lastCheck: "21.05.2024",
-    breakers: 4,
-    safety: 55,
-  },
-  {
-    id: "4",
-    type: "dacha",
-    title: "Дача",
-    address: "СНТ «Рассвет», уч. 102",
-    lastCheck: "15.04.2024",
-    breakers: 6,
-    safety: 71,
-  },
-];
+import type { Device } from "@/types";
 
 export const devices: Device[] = [
   {

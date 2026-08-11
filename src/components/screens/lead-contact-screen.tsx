@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { ArrowLeft, Check, MessageCircle, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
+import { getTelegramUserName } from "@/lib/telegram-user";
 import { cn } from "@/lib/utils";
 
 type Step = "contact" | "name" | "done";
@@ -17,7 +18,6 @@ function formatPhoneDigits(digits: string): string {
   const p4 = d.slice(8, 10);
   let out = "";
   if (!p1) return out;
-  // Не закрываем скобку на ровно 3 цифрах — иначе Backspace «залипает» на первых трёх.
   if (d.length <= 3) return p1;
   out = `(${p1}) `;
   if (p2) out += p2;
@@ -45,9 +45,16 @@ export function LeadContactScreen({
   const [digits, setDigits] = useState("");
   const [useTelegram, setUseTelegram] = useState(false);
   const [name, setName] = useState("");
+  const [resolvedName, setResolvedName] = useState("");
 
   const phoneDisplay = useMemo(() => formatPhoneDigits(digits), [digits]);
   const phoneValid = digits.length === 10;
+  const displayName = resolvedName || name;
+
+  const goDone = (finalName: string) => {
+    setResolvedName(finalName);
+    setStep("done");
+  };
 
   if (step === "done") {
     return (
@@ -62,7 +69,7 @@ export function LeadContactScreen({
         </div>
         <h1 className="mb-2 text-[24px] font-bold text-white">Заявка принята</h1>
         <p className="mb-8 max-w-sm text-[15px] leading-relaxed text-white/55">
-          Спасибо{name ? `, ${name}` : ""}! Мастер из города{" "}
+          Спасибо{displayName ? `, ${displayName}` : ""}! Мастер из города{" "}
           <span className="font-semibold text-white">{city}</span> свяжется с
           вами в ближайшее время.
         </p>
@@ -72,7 +79,7 @@ export function LeadContactScreen({
             onFinish({
               contactMethod: useTelegram ? "telegram" : "phone",
               phone: useTelegram ? undefined : `+7${digits}`,
-              name: name.trim(),
+              name: displayName.trim() || getTelegramUserName(),
             })
           }
         >
@@ -99,7 +106,9 @@ export function LeadContactScreen({
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
-          <h1 className="text-[20px] font-semibold text-white">Как к вам обращаться?</h1>
+          <h1 className="text-[20px] font-semibold text-white">
+            Как к вам обращаться?
+          </h1>
         </header>
 
         <h2 className="mb-2 text-[26px] font-bold tracking-tight text-white">
@@ -122,7 +131,7 @@ export function LeadContactScreen({
             className="w-full"
             size="lg"
             disabled={!name.trim()}
-            onClick={() => setStep("done")}
+            onClick={() => goDone(name.trim())}
           >
             Отправить заявку
           </Button>
@@ -233,7 +242,13 @@ export function LeadContactScreen({
           className="w-full"
           size="lg"
           disabled={!useTelegram && !phoneValid}
-          onClick={() => setStep("name")}
+          onClick={() => {
+            if (useTelegram) {
+              goDone(getTelegramUserName());
+              return;
+            }
+            setStep("name");
+          }}
         >
           Далее
         </Button>

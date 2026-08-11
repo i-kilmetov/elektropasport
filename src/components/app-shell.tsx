@@ -14,16 +14,26 @@ import { NoPanelOptionsScreen } from "@/components/screens/no-panel-options-scre
 import { ObjectsScreen } from "@/components/screens/objects-screen";
 import { PanelAdvantagesScreen } from "@/components/screens/panel-advantages-screen";
 import { PhotoScreen } from "@/components/screens/photo-screen";
+import { RequestDetailsScreen } from "@/components/screens/request-details-screen";
 import { SchemeScreen } from "@/components/screens/scheme-screen";
 import { WelcomeScreen } from "@/components/screens/welcome-screen";
-import type { NoPanelSetupId } from "@/lib/no-panel-setups";
-import type { AnalyzePanelResult, AppScreen, Device, PanelObject } from "@/types";
+import { getNoPanelSetup, type NoPanelSetupId } from "@/lib/no-panel-setups";
+import type {
+  AnalyzePanelResult,
+  AppScreen,
+  Device,
+  HomeListItem,
+  InstallRequest,
+  PanelObject,
+} from "@/types";
+import { installStatusLabels } from "@/types";
 
 export function AppShell() {
   const [screen, setScreen] = useState<AppScreen>("welcome");
-  const [panels, setPanels] = useState<PanelObject[]>([]);
+  const [items, setItems] = useState<HomeListItem[]>([]);
   const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
   const [activePanelId, setActivePanelId] = useState<string | null>(null);
+  const [activeRequestId, setActiveRequestId] = useState<string | null>(null);
   const [askNameOnBack, setAskNameOnBack] = useState(false);
   const [devices, setDevices] = useState<Device[] | null>(null);
   const [safetyScore, setSafetyScore] = useState<number | null>(null);
@@ -36,8 +46,21 @@ export function AppShell() {
   const [selectedCity, setSelectedCity] = useState<string | null>(null);
 
   const activePanel = useMemo(
-    () => panels.find((p) => p.id === activePanelId) ?? null,
-    [panels, activePanelId],
+    () =>
+      items.find(
+        (item): item is PanelObject =>
+          item.kind === "panel" && item.id === activePanelId,
+      ) ?? null,
+    [items, activePanelId],
+  );
+
+  const activeRequest = useMemo(
+    () =>
+      items.find(
+        (item): item is InstallRequest =>
+          item.kind === "install_request" && item.id === activeRequestId,
+      ) ?? null,
+    [items, activeRequestId],
   );
 
   const handlePhoto = useCallback((dataUrl: string) => {
@@ -49,11 +72,13 @@ export function AppShell() {
     (result: AnalyzePanelResult) => {
       const today = new Date();
       const lastCheck = today.toLocaleDateString("ru-RU");
+      const panelCount = items.filter((i) => i.kind === "panel").length;
       const id = `panel-${Date.now()}`;
       const panel: PanelObject = {
+        kind: "panel",
         id,
         type: "apartment",
-        title: `Щиток ${panels.length + 1}`,
+        title: `Щиток ${panelCount + 1}`,
         address: "Добавлен по фото",
         lastCheck,
         breakers: result.devices.length,
@@ -64,7 +89,7 @@ export function AppShell() {
         named: false,
       };
 
-      setPanels((prev) => [panel, ...prev]);
+      setItems((prev) => [panel, ...prev]);
       setActivePanelId(id);
       setAskNameOnBack(true);
       setDevices(result.devices);
@@ -72,12 +97,15 @@ export function AppShell() {
       setLinesCount(result.linesCount);
       setScreen("scheme");
     },
-    [panels.length, photoDataUrl],
+    [items, photoDataUrl],
   );
 
   const openPanel = useCallback(
     (id: string) => {
-      const panel = panels.find((p) => p.id === id);
+      const panel = items.find(
+        (item): item is PanelObject =>
+          item.kind === "panel" && item.id === id,
+      );
       setActivePanelId(id);
       setAskNameOnBack(false);
       setPhotoDataUrl(panel?.photoDataUrl ?? null);
@@ -86,15 +114,17 @@ export function AppShell() {
       setLinesCount(panel?.linesCount ?? null);
       setScreen("scheme");
     },
-    [panels],
+    [items],
   );
 
   const renamePanel = useCallback(
     (name: string) => {
       if (!activePanelId) return;
-      setPanels((prev) =>
-        prev.map((p) =>
-          p.id === activePanelId ? { ...p, title: name, named: true } : p,
+      setItems((prev) =>
+        prev.map((item) =>
+          item.kind === "panel" && item.id === activePanelId
+            ? { ...item, title: name, named: true }
+            : item,
         ),
       );
       setAskNameOnBack(false);
@@ -107,7 +137,11 @@ export function AppShell() {
       setScreen("objects");
       return;
     }
-    setPanels((prev) => prev.filter((p) => p.id !== activePanelId));
+    setItems((prev) =>
+      prev.filter(
+        (item) => !(item.kind === "panel" && item.id === activePanelId),
+      ),
+    );
     setActivePanelId(null);
     setPhotoDataUrl(null);
     setDevices(null);
@@ -116,6 +150,43 @@ export function AppShell() {
     setAskNameOnBack(false);
     setScreen("objects");
   }, [activePanelId]);
+
+  const submitLead = useCallback(
+    (payload: {
+      contactMethod: "phone" | "telegram";
+      phone?: string;
+      name: string;
+    }) => {
+      const id = `request-${Date.now()}`;
+      const createdAt = new Date().toLocaleDateString("ru-RU");
+      const setupTitle = noPanelSetupId
+        ? getNoPanelSetup(noPanelSetupId).title
+        : undefined;
+
+      const request: InstallRequest = {
+        kind: "install_request",
+        id,
+        title: "Заявка",
+        subtitle: "На установку щитка",
+        status: "new",
+        statusLabel: installStatusLabels.new,
+        createdAt,
+        city: selectedCity ?? "—",
+        contactMethod: payload.contactMethod,
+        phone: payload.phone,
+        name: payload.name,
+        dwelling: electricalDetails?.dwelling,
+        phases: electricalDetails?.phases,
+        powerKw: electricalDetails?.powerKw,
+        setupTitle,
+      };
+
+      setItems((prev) => [request, ...prev]);
+      setActiveRequestId(id);
+      setScreen("objects");
+    },
+    [electricalDetails, noPanelSetupId, selectedCity],
+  );
 
   return (
     <div className="relative mx-auto min-h-dvh w-full max-w-[430px] overflow-hidden bg-[var(--bg)] text-white shadow-[0_0_80px_rgba(0,0,0,0.5)]">
@@ -128,12 +199,16 @@ export function AppShell() {
           {screen === "objects" && (
             <ObjectsScreen
               key="objects"
-              panels={panels}
+              items={items}
               onAdd={() => {
                 setPhotoDataUrl(null);
                 setScreen("photo");
               }}
-              onOpen={openPanel}
+              onOpenPanel={openPanel}
+              onOpenRequest={(id) => {
+                setActiveRequestId(id);
+                setScreen("request-details");
+              }}
               onNoPanel={() => setScreen("no-panel-options")}
             />
           )}
@@ -219,10 +294,14 @@ export function AppShell() {
               key={`lead-${selectedCity}`}
               city={selectedCity}
               onBack={() => setScreen("city-select")}
-              onFinish={() => {
-                void electricalDetails;
-                setScreen("objects");
-              }}
+              onFinish={submitLead}
+            />
+          )}
+          {screen === "request-details" && activeRequest && (
+            <RequestDetailsScreen
+              key={`request-${activeRequest.id}`}
+              request={activeRequest}
+              onBack={() => setScreen("objects")}
             />
           )}
         </AnimatePresence>
