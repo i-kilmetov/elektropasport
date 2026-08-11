@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import { AnalysisScreen } from "@/components/screens/analysis-screen";
 import { CitySelectScreen } from "@/components/screens/city-select-screen";
+import { ElectricalDetailsScreen } from "@/components/screens/electrical-details-screen";
 import { NoPanelDetailScreen } from "@/components/screens/no-panel-detail-screen";
 import { NoPanelOptionsScreen } from "@/components/screens/no-panel-options-screen";
 import { ObjectsScreen } from "@/components/screens/objects-screen";
@@ -12,6 +13,7 @@ import { SchemeScreen } from "@/components/screens/scheme-screen";
 import { WelcomeScreen } from "@/components/screens/welcome-screen";
 import type { NoPanelSetupId } from "@/lib/no-panel-setups";
 import type { AnalyzePanelResult, AppScreen, Device, PanelObject } from "@/types";
+import type { ElectricalDetails } from "@/components/screens/electrical-details-screen";
 
 export function AppShell() {
   const [screen, setScreen] = useState<AppScreen>("welcome");
@@ -25,6 +27,8 @@ export function AppShell() {
   const [noPanelSetupId, setNoPanelSetupId] = useState<NoPanelSetupId | null>(
     null,
   );
+  const [electricalDetails, setElectricalDetails] =
+    useState<ElectricalDetails | null>(null);
 
   const activePanel = useMemo(
     () => panels.find((p) => p.id === activePanelId) ?? null,
@@ -175,13 +179,23 @@ export function AppShell() {
               key={`detail-${noPanelSetupId}`}
               setupId={noPanelSetupId}
               onBack={() => setScreen("no-panel-options")}
-              onInstall={() => setScreen("city-select")}
+              onInstall={() => setScreen("electrical-details")}
+            />
+          )}
+          {screen === "electrical-details" && (
+            <ElectricalDetailsScreen
+              key="electrical-details"
+              onBack={() => setScreen("no-panel-detail")}
+              onContinue={(details) => {
+                setElectricalDetails(details);
+                setScreen("city-select");
+              }}
             />
           )}
           {screen === "city-select" && (
             <CitySelectScreen
               key="city-select"
-              onBack={() => setScreen("no-panel-detail")}
+              onBack={() => setScreen("electrical-details")}
               onConfirm={() => setScreen("objects")}
             />
           )}

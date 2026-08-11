@@ -1,7 +1,8 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Menu, Plus, Zap } from "lucide-react";
+import { Menu, Plus } from "lucide-react";
+import { BreakerIcon } from "@/components/icons/breaker-icon";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
 import type { PanelObject } from "@/types";
@@ -52,14 +53,11 @@ export function ObjectsScreen({
             className="flex flex-1 flex-col items-center justify-center px-4 text-center"
           >
             <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-[24px] border border-white/10 bg-white/5 text-[var(--accent)]">
-              <Zap className="h-9 w-9" />
+              <BreakerIcon className="h-10 w-10" />
             </div>
-            <h2 className="mb-2 text-[22px] font-semibold text-white">
-              Щитков пока нет
-            </h2>
-            <p className="max-w-[280px] text-[15px] leading-relaxed text-white/45">
-              Добавьте первый щиток по фото — или расскажите, как у вас устроена
-              электрика, если щитка нет.
+            <p className="max-w-[300px] text-[15px] leading-relaxed text-white/50">
+              Сфотографируйте существующий щиток или расскажите, как у вас
+              устроена электрика без него.
             </p>
           </motion.div>
         ) : (
@@ -75,7 +73,7 @@ export function ObjectsScreen({
             >
               <GlassCard className="flex items-center gap-4 p-4 transition-colors hover:bg-white/[0.09]">
                 <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[18px] bg-gradient-to-br from-violet-500/30 to-violet-600/10 text-violet-300">
-                  <Zap className="h-6 w-6" />
+                  <BreakerIcon className="h-7 w-7" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="mb-0.5 flex items-center justify-between gap-2">

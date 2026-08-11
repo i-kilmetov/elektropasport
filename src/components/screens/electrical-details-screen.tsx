@@ -1,0 +1,183 @@
+"use client";
+
+import { useState } from "react";
+import { motion } from "framer-motion";
+import { ArrowLeft, Building2, Home, Info } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { GlassCard } from "@/components/ui/glass-card";
+import { cn } from "@/lib/utils";
+
+export type DwellingType = "apartment" | "house";
+export type PhaseCount = "1" | "3";
+
+export interface ElectricalDetails {
+  dwelling: DwellingType;
+  phases: PhaseCount;
+  powerKw: string;
+}
+
+const powerHints = [
+  "3–5 кВт — старый фонд, минимум техники",
+  "5–7 кВт — типичная квартира",
+  "10–15 кВт — квартира с мощной техникой / частный дом",
+  "15+ кВт — дом с электроплитой, тёплым полом, зарядкой авто",
+];
+
+export function ElectricalDetailsScreen({
+  onBack,
+  onContinue,
+}: {
+  onBack: () => void;
+  onContinue: (details: ElectricalDetails) => void;
+}) {
+  const [dwelling, setDwelling] = useState<DwellingType | null>(null);
+  const [phases, setPhases] = useState<PhaseCount | null>(null);
+  const [powerKw, setPowerKw] = useState("");
+
+  const canContinue =
+    dwelling !== null && phases !== null && powerKw.trim().length > 0;
+
+  return (
+    <motion.section
+      initial={{ opacity: 0, x: 40 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: -40 }}
+      className="flex min-h-dvh flex-col px-5 pb-8 pt-[max(1.25rem,env(safe-area-inset-top))]"
+    >
+      <header className="mb-6 flex items-center gap-3">
+        <button
+          type="button"
+          onClick={onBack}
+          className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white backdrop-blur-xl"
+          aria-label="Назад"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </button>
+        <h1 className="text-[20px] font-semibold text-white">О вашей сети</h1>
+      </header>
+
+      <h2 className="mb-2 text-[26px] font-bold tracking-tight text-white">
+        Уточните параметры электрики
+      </h2>
+      <p className="mb-6 text-[15px] leading-relaxed text-white/50">
+        Это поможет корректно подобрать щиток и защиту под ваш объект.
+      </p>
+
+      <div className="flex-1 space-y-6 overflow-y-auto pb-4">
+        <div>
+          <div className="mb-3 text-[14px] font-medium text-white/70">Объект</div>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => setDwelling("apartment")}
+              className={cn(
+                "rounded-[20px] border p-4 text-left transition-colors",
+                dwelling === "apartment"
+                  ? "border-[var(--accent)]/50 bg-[var(--accent)]/15"
+                  : "border-white/10 bg-white/[0.04]",
+              )}
+            >
+              <Building2 className="mb-2 h-5 w-5 text-[var(--accent)]" />
+              <div className="text-[15px] font-semibold text-white">Квартира</div>
+            </button>
+            <button
+              type="button"
+              onClick={() => setDwelling("house")}
+              className={cn(
+                "rounded-[20px] border p-4 text-left transition-colors",
+                dwelling === "house"
+                  ? "border-[var(--accent)]/50 bg-[var(--accent)]/15"
+                  : "border-white/10 bg-white/[0.04]",
+              )}
+            >
+              <Home className="mb-2 h-5 w-5 text-emerald-300" />
+              <div className="text-[15px] font-semibold text-white">Дом</div>
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <div className="mb-3 text-[14px] font-medium text-white/70">
+            Сколько фаз приходит
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            {(
+              [
+                ["1", "1 фаза"],
+                ["3", "3 фазы"],
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setPhases(value)}
+                className={cn(
+                  "rounded-[20px] border px-4 py-4 text-[15px] font-semibold transition-colors",
+                  phases === value
+                    ? "border-[var(--accent)]/50 bg-[var(--accent)]/15 text-white"
+                    : "border-white/10 bg-white/[0.04] text-white/80",
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <p className="mt-2 text-[12px] leading-relaxed text-white/40">
+            Обычно видно по числу проводов на вводе или по маркировке счётчика
+            (однофазный / трёхфазный).
+          </p>
+        </div>
+
+        <div>
+          <div className="mb-3 text-[14px] font-medium text-white/70">
+            Выделенная мощность, кВт
+          </div>
+          <input
+            inputMode="decimal"
+            value={powerKw}
+            onChange={(e) => setPowerKw(e.target.value.replace(/[^\d.,]/g, ""))}
+            placeholder="Например, 7"
+            className="h-14 w-full rounded-[20px] border border-white/10 bg-white/[0.06] px-4 text-[16px] text-white outline-none placeholder:text-white/30 focus:border-[var(--accent)]/50"
+          />
+          <GlassCard className="mt-3 space-y-2 p-4">
+            <div className="flex items-start gap-2 text-[13px] text-white/70">
+              <Info className="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent)]" />
+              <span>Где узнать выделенную мощность</span>
+            </div>
+            <ul className="space-y-1.5 pl-1 text-[13px] leading-relaxed text-white/45">
+              <li>• в договоре с энергосбытом / УК</li>
+              <li>• в акте технологического присоединения</li>
+              <li>• в личном кабинете энергокомпании</li>
+              <li>• на вводном автомате: А × В / 1000 ≈ кВт</li>
+            </ul>
+            <div className="border-t border-white/8 pt-2 text-[12px] text-white/35">
+              {powerHints.map((hint) => (
+                <div key={hint} className="py-0.5">
+                  {hint}
+                </div>
+              ))}
+            </div>
+          </GlassCard>
+        </div>
+      </div>
+
+      <div className="mt-auto pt-2">
+        <Button
+          className="w-full"
+          size="lg"
+          disabled={!canContinue}
+          onClick={() => {
+            if (!dwelling || !phases) return;
+            onContinue({
+              dwelling,
+              phases,
+              powerKw: powerKw.trim().replace(",", "."),
+            });
+          }}
+        >
+          Далее
+        </Button>
+      </div>
+    </motion.section>
+  );
+}

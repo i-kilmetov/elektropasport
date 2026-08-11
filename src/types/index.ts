@@ -44,6 +44,7 @@ export type AppScreen =
   | "scheme"
   | "no-panel-options"
   | "no-panel-detail"
+  | "electrical-details"
   | "city-select";
 
 export interface AnalyzePanelResult {

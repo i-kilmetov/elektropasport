@@ -3,8 +3,7 @@
 import { motion } from "framer-motion";
 import { ArrowLeft, ChevronRight } from "lucide-react";
 import { GlassCard } from "@/components/ui/glass-card";
-import { noPanelSetups } from "@/lib/no-panel-setups";
-import type { NoPanelSetupId } from "@/lib/no-panel-setups";
+import { noPanelSetups, type NoPanelSetupId } from "@/lib/no-panel-setups";
 
 export function NoPanelOptionsScreen({
   onBack,
@@ -41,29 +40,37 @@ export function NoPanelOptionsScreen({
       </p>
 
       <div className="flex flex-col gap-3">
-        {noPanelSetups.map((setup, i) => (
-          <motion.button
-            key={setup.id}
-            type="button"
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.05 * i }}
-            onClick={() => onSelect(setup.id)}
-            className="text-left"
-          >
-            <GlassCard className="flex items-center gap-3 p-4 transition-colors hover:bg-white/[0.09]">
-              <div className="min-w-0 flex-1">
-                <div className="text-[16px] font-semibold text-white">
-                  {setup.title}
+        {noPanelSetups.map((setup, i) => {
+          const Icon = setup.icon;
+          return (
+            <motion.button
+              key={setup.id}
+              type="button"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.05 * i }}
+              onClick={() => onSelect(setup.id)}
+              className="text-left"
+            >
+              <GlassCard className="flex items-center gap-3 p-4 transition-colors hover:bg-white/[0.09]">
+                <div
+                  className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-[16px] bg-gradient-to-br ${setup.iconClass}`}
+                >
+                  <Icon className="h-5 w-5" />
                 </div>
-                <div className="mt-1 text-[13px] leading-snug text-white/45">
-                  {setup.subtitle}
+                <div className="min-w-0 flex-1">
+                  <div className="text-[16px] font-semibold text-white">
+                    {setup.title}
+                  </div>
+                  <div className="mt-1 text-[13px] leading-snug text-white/45">
+                    {setup.subtitle}
+                  </div>
                 </div>
-              </div>
-              <ChevronRight className="h-5 w-5 shrink-0 text-white/35" />
-            </GlassCard>
-          </motion.button>
-        ))}
+                <ChevronRight className="h-5 w-5 shrink-0 text-white/35" />
+              </GlassCard>
+            </motion.button>
+          );
+        })}
       </div>
     </motion.section>
   );

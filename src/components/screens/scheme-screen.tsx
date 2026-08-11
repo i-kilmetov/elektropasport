@@ -10,8 +10,8 @@ import {
   Shield,
   Trash2,
   X,
-  Zap,
 } from "lucide-react";
+import { BreakerIcon } from "@/components/icons/breaker-icon";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
@@ -164,7 +164,7 @@ function DeviceSheet({
         )}
 
         <Button className="w-full" onClick={onClose}>
-          <Zap className="h-4 w-4" />
+          <BreakerIcon className="h-4 w-4" />
           Понятно
         </Button>
       </motion.div>

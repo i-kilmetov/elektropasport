@@ -18,7 +18,13 @@ export function CitySelectScreen({
   const [selected, setSelected] = useState<string | null>(null);
   const [done, setDone] = useState(false);
 
-  const suggestions = useMemo(() => filterCities(query), [query]);
+  const trimmed = query.trim();
+  const showSuggestions = trimmed.length >= 2;
+
+  const suggestions = useMemo(
+    () => (showSuggestions ? filterCities(trimmed) : []),
+    [showSuggestions, trimmed],
+  );
 
   if (done && selected) {
     return (
@@ -67,7 +73,7 @@ export function CitySelectScreen({
         В каком городе установить щиток?
       </h2>
       <p className="mb-5 text-[15px] text-white/50">
-        Начните вводить название — покажем города-миллионники России.
+        Введите минимум 2 буквы — появятся подходящие города-миллионники.
       </p>
 
       <label className="relative mb-3 block">
@@ -84,38 +90,42 @@ export function CitySelectScreen({
         />
       </label>
 
-      <GlassCard className="mb-4 overflow-hidden p-0">
-        <ul className="max-h-[46vh] overflow-y-auto">
-          {suggestions.length === 0 ? (
-            <li className="px-4 py-5 text-[14px] text-white/40">
-              Город не найден в списке миллионников
-            </li>
-          ) : (
-            suggestions.map((city) => {
-              const active = selected === city;
-              return (
-                <li key={city}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelected(city);
-                      setQuery(city);
-                    }}
-                    className={`flex w-full items-center justify-between px-4 py-3.5 text-left text-[16px] transition-colors ${
-                      active
-                        ? "bg-[var(--accent)]/20 text-white"
-                        : "text-white/80 hover:bg-white/5"
-                    }`}
-                  >
-                    <span>{city}</span>
-                    {active && <Check className="h-4 w-4 text-[var(--accent)]" />}
-                  </button>
-                </li>
-              );
-            })
-          )}
-        </ul>
-      </GlassCard>
+      {showSuggestions && (
+        <GlassCard className="mb-4 overflow-hidden p-0">
+          <ul className="max-h-[46vh] overflow-y-auto">
+            {suggestions.length === 0 ? (
+              <li className="px-4 py-5 text-[14px] text-white/40">
+                Город не найден в списке миллионников
+              </li>
+            ) : (
+              suggestions.map((city) => {
+                const active = selected === city;
+                return (
+                  <li key={city}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelected(city);
+                        setQuery(city);
+                      }}
+                      className={`flex w-full items-center justify-between px-4 py-3.5 text-left text-[16px] transition-colors ${
+                        active
+                          ? "bg-[var(--accent)]/20 text-white"
+                          : "text-white/80 hover:bg-white/5"
+                      }`}
+                    >
+                      <span>{city}</span>
+                      {active && (
+                        <Check className="h-4 w-4 text-[var(--accent)]" />
+                      )}
+                    </button>
+                  </li>
+                );
+              })
+            )}
+          </ul>
+        </GlassCard>
+      )}
 
       <div className="mt-auto">
         <Button

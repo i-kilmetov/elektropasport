@@ -1,10 +1,14 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { ArrowLeft, AlertTriangle, ShieldAlert } from "lucide-react";
+import { ArrowLeft, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
-import { getNoPanelSetup, type NoPanelSetupId } from "@/lib/no-panel-setups";
+import {
+  getNoPanelSetup,
+  riskCategoryMeta,
+  type NoPanelSetupId,
+} from "@/lib/no-panel-setups";
 
 export function NoPanelDetailScreen({
   setupId,
@@ -47,15 +51,27 @@ export function NoPanelDetailScreen({
       </div>
 
       <div className="flex-1 space-y-3 overflow-y-auto pb-4">
-        {setup.risks.map((risk) => (
-          <GlassCard key={risk.title} className="p-4">
-            <div className="mb-2 flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-[var(--accent)]" />
-              <h3 className="text-[15px] font-semibold text-white">{risk.title}</h3>
-            </div>
-            <p className="text-[14px] leading-relaxed text-white/55">{risk.text}</p>
-          </GlassCard>
-        ))}
+        {setup.risks.map((risk) => {
+          const meta = riskCategoryMeta[risk.category];
+          const Icon = meta.icon;
+          return (
+            <GlassCard key={risk.title} className="p-4">
+              <div className="mb-2 flex items-center gap-3">
+                <span
+                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${meta.className}`}
+                >
+                  <Icon className="h-4 w-4" />
+                </span>
+                <h3 className="text-[15px] font-semibold text-white">
+                  {risk.title}
+                </h3>
+              </div>
+              <p className="text-[14px] leading-relaxed text-white/55">
+                {risk.text}
+              </p>
+            </GlassCard>
+          );
+        })}
       </div>
 
       <div className="mt-auto pt-2">

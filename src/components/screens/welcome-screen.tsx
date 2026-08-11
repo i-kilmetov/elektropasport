@@ -1,11 +1,12 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Building2, Check, Home, Shield, Zap } from "lucide-react";
+import { Building2, Check, Home, Shield } from "lucide-react";
+import { BreakerIcon } from "@/components/icons/breaker-icon";
 import { Button } from "@/components/ui/button";
 
 const features = [
-  { icon: Zap, text: "Цифровая схема щитка" },
+  { icon: BreakerIcon, text: "Цифровая схема щитка" },
   { icon: Home, text: "Идентификация линий" },
   { icon: Shield, text: "Рекомендации по безопасности" },
   { icon: Building2, text: "История проверок" },
@@ -32,7 +33,7 @@ export function WelcomeScreen({ onStart }: { onStart: () => void }) {
           transition={{ type: "spring", stiffness: 220, damping: 18, delay: 0.1 }}
           className="mb-8 flex h-24 w-24 items-center justify-center rounded-[28px] border border-white/15 bg-white/10 shadow-[0_0_60px_rgba(124,92,255,0.45)] backdrop-blur-xl"
         >
-          <Zap className="h-11 w-11 text-[var(--accent)]" strokeWidth={2.2} />
+          <BreakerIcon className="h-12 w-12 text-[var(--accent)]" strokeWidth={1.9} />
         </motion.div>
 
         <motion.h1
