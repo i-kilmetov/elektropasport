@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { ArrowLeft, ShieldAlert } from "lucide-react";
+import { ArrowLeft, ChevronRight, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
 import {
@@ -13,13 +13,14 @@ import {
 export function NoPanelDetailScreen({
   setupId,
   onBack,
-  onInstall,
+  onContinue,
 }: {
   setupId: NoPanelSetupId;
   onBack: () => void;
-  onInstall: () => void;
+  onContinue: () => void;
 }) {
   const setup = getNoPanelSetup(setupId);
+  const showLegacyBanner = setupId !== "other";
 
   return (
     <motion.section
@@ -42,13 +43,15 @@ export function NoPanelDetailScreen({
         </h1>
       </header>
 
-      <div className="mb-5 flex items-start gap-3 rounded-[20px] border border-amber-400/20 bg-amber-500/10 p-4">
-        <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-amber-300" />
-        <p className="text-[14px] leading-relaxed text-amber-100/90">
-          Такое исполнение часто встречается в старом жилом фонде и на дачах, но
-          уступает современному щитку по безопасности и удобству.
-        </p>
-      </div>
+      {showLegacyBanner && (
+        <div className="mb-5 flex items-start gap-3 rounded-[20px] border border-amber-400/20 bg-amber-500/10 p-4">
+          <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-amber-300" />
+          <p className="text-[14px] leading-relaxed text-amber-100/90">
+            Такое исполнение часто встречается в старом жилом фонде и на дачах,
+            но уступает современному щитку по безопасности и удобству.
+          </p>
+        </div>
+      )}
 
       <div className="flex-1 space-y-3 overflow-y-auto pb-4">
         {setup.risks.map((risk) => {
@@ -75,8 +78,9 @@ export function NoPanelDetailScreen({
       </div>
 
       <div className="mt-auto pt-2">
-        <Button className="w-full" size="lg" onClick={onInstall}>
-          Установить щиток
+        <Button className="w-full" size="lg" onClick={onContinue}>
+          Преимущества современного щитка
+          <ChevronRight className="h-5 w-5" />
         </Button>
       </div>
     </motion.section>

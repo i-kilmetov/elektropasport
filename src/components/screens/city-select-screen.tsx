@@ -16,7 +16,6 @@ export function CitySelectScreen({
 }) {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
-  const [done, setDone] = useState(false);
 
   const trimmed = query.trim();
   const showSuggestions = trimmed.length >= 2;
@@ -25,30 +24,6 @@ export function CitySelectScreen({
     () => (showSuggestions ? filterCities(trimmed) : []),
     [showSuggestions, trimmed],
   );
-
-  if (done && selected) {
-    return (
-      <motion.section
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="flex min-h-dvh flex-col items-center justify-center px-6 pb-10 pt-[max(2rem,env(safe-area-inset-top))] text-center"
-      >
-        <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-300">
-          <Check className="h-8 w-8" />
-        </div>
-        <h1 className="mb-2 text-[24px] font-bold text-white">Город выбран</h1>
-        <p className="mb-8 max-w-sm text-[15px] leading-relaxed text-white/55">
-          Мы учли, что вам нужен монтаж щитка в городе{" "}
-          <span className="font-semibold text-white">{selected}</span>. Дальше
-          можно вернуться на главную.
-        </p>
-        <Button className="w-full max-w-sm" onClick={() => onConfirm(selected)}>
-          На главную
-        </Button>
-      </motion.section>
-    );
-  }
 
   return (
     <motion.section
@@ -132,7 +107,7 @@ export function CitySelectScreen({
           className="w-full"
           size="lg"
           disabled={!selected}
-          onClick={() => selected && setDone(true)}
+          onClick={() => selected && onConfirm(selected)}
         >
           Продолжить
         </Button>

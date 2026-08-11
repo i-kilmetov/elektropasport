@@ -44,8 +44,10 @@ export type AppScreen =
   | "scheme"
   | "no-panel-options"
   | "no-panel-detail"
+  | "panel-advantages"
   | "electrical-details"
-  | "city-select";
+  | "city-select"
+  | "lead-contact";
 
 export interface AnalyzePanelResult {
   devices: Device[];

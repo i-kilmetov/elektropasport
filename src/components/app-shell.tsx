@@ -4,16 +4,20 @@ import { useCallback, useMemo, useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import { AnalysisScreen } from "@/components/screens/analysis-screen";
 import { CitySelectScreen } from "@/components/screens/city-select-screen";
-import { ElectricalDetailsScreen } from "@/components/screens/electrical-details-screen";
+import {
+  ElectricalDetailsScreen,
+  type ElectricalDetails,
+} from "@/components/screens/electrical-details-screen";
+import { LeadContactScreen } from "@/components/screens/lead-contact-screen";
 import { NoPanelDetailScreen } from "@/components/screens/no-panel-detail-screen";
 import { NoPanelOptionsScreen } from "@/components/screens/no-panel-options-screen";
 import { ObjectsScreen } from "@/components/screens/objects-screen";
+import { PanelAdvantagesScreen } from "@/components/screens/panel-advantages-screen";
 import { PhotoScreen } from "@/components/screens/photo-screen";
 import { SchemeScreen } from "@/components/screens/scheme-screen";
 import { WelcomeScreen } from "@/components/screens/welcome-screen";
 import type { NoPanelSetupId } from "@/lib/no-panel-setups";
 import type { AnalyzePanelResult, AppScreen, Device, PanelObject } from "@/types";
-import type { ElectricalDetails } from "@/components/screens/electrical-details-screen";
 
 export function AppShell() {
   const [screen, setScreen] = useState<AppScreen>("welcome");
@@ -29,6 +33,7 @@ export function AppShell() {
   );
   const [electricalDetails, setElectricalDetails] =
     useState<ElectricalDetails | null>(null);
+  const [selectedCity, setSelectedCity] = useState<string | null>(null);
 
   const activePanel = useMemo(
     () => panels.find((p) => p.id === activePanelId) ?? null,
@@ -179,13 +184,20 @@ export function AppShell() {
               key={`detail-${noPanelSetupId}`}
               setupId={noPanelSetupId}
               onBack={() => setScreen("no-panel-options")}
+              onContinue={() => setScreen("panel-advantages")}
+            />
+          )}
+          {screen === "panel-advantages" && (
+            <PanelAdvantagesScreen
+              key="panel-advantages"
+              onBack={() => setScreen("no-panel-detail")}
               onInstall={() => setScreen("electrical-details")}
             />
           )}
           {screen === "electrical-details" && (
             <ElectricalDetailsScreen
               key="electrical-details"
-              onBack={() => setScreen("no-panel-detail")}
+              onBack={() => setScreen("panel-advantages")}
               onContinue={(details) => {
                 setElectricalDetails(details);
                 setScreen("city-select");
@@ -196,7 +208,21 @@ export function AppShell() {
             <CitySelectScreen
               key="city-select"
               onBack={() => setScreen("electrical-details")}
-              onConfirm={() => setScreen("objects")}
+              onConfirm={(city) => {
+                setSelectedCity(city);
+                setScreen("lead-contact");
+              }}
+            />
+          )}
+          {screen === "lead-contact" && selectedCity && (
+            <LeadContactScreen
+              key={`lead-${selectedCity}`}
+              city={selectedCity}
+              onBack={() => setScreen("city-select")}
+              onFinish={() => {
+                void electricalDetails;
+                setScreen("objects");
+              }}
             />
           )}
         </AnimatePresence>
