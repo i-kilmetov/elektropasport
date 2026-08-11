@@ -227,9 +227,7 @@ export function AppShell() {
       setDevices((prev) => {
         if (!prev) return prev;
         return prev.map((device) =>
-          device.id === deviceId
-            ? { ...device, circuitLabel: label, name: label }
-            : device,
+          device.id === deviceId ? { ...device, circuitLabel: label } : device,
         );
       });
       setItems((prev) =>
@@ -237,7 +235,7 @@ export function AppShell() {
           if (item.kind !== "panel" || item.id !== activePanelId) return item;
           const nextDevices = (item.devices ?? []).map((device) =>
             device.id === deviceId
-              ? { ...device, circuitLabel: label, name: label }
+              ? { ...device, circuitLabel: label }
               : device,
           );
           const next = { ...item, devices: nextDevices };

@@ -363,32 +363,6 @@ export function buildDemoPanelDevices(): Device[] {
     }),
   );
 
-  const busStart = rail.length;
-  rail.push(
-    {
-      id: busStart + 1,
-      type: "n_bus",
-      name: "N-шина",
-      rating: "12 клемм",
-      status: "verified",
-      confidence: 99,
-      position: busStart,
-      modules: 2,
-      characteristics: { Тип: "Нулевая шина", Клеммы: "12" },
-    },
-    {
-      id: busStart + 2,
-      type: "pe_bus",
-      name: "PE-шина",
-      rating: "12 клемм",
-      status: "verified",
-      confidence: 99,
-      position: busStart + 1,
-      modules: 2,
-      characteristics: { Тип: "Заземляющая шина", Клеммы: "12" },
-    },
-  );
-
   return rail;
 }
 

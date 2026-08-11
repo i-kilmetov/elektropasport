@@ -27,7 +27,7 @@ import {
 import { cn } from "@/lib/utils";
 import type { Device, DeviceType } from "@/types";
 
-const MODULE_PX = 46;
+const MODULE_PX = 44;
 
 const typeShort: Record<DeviceType, string> = {
   main_breaker: "Ввод",
@@ -43,7 +43,6 @@ const typeShort: Record<DeviceType, string> = {
 
 function deviceModules(device: Device): number {
   if (device.modules && device.modules > 0) return device.modules;
-  if (device.type === "pe_bus" || device.type === "n_bus") return 2;
   return 1;
 }
 
@@ -58,45 +57,50 @@ function DeviceBlock({
 }) {
   const modules = deviceModules(device);
   const pending = device.status === "pending";
-  const isBus = device.type === "pe_bus" || device.type === "n_bus";
-  const faceName = device.circuitLabel?.trim() || typeShort[device.type];
+  const width = modules * MODULE_PX;
 
   return (
-    <button
-      type="button"
-      onClick={onSelect}
-      style={{ width: modules * MODULE_PX, flex: "none" }}
-      className={cn(
-        "relative flex h-[128px] flex-col rounded-[10px] border border-zinc-400/70 bg-zinc-300 p-1.5 text-left text-zinc-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] transition-all",
-        selected &&
-          "ring-2 ring-[var(--accent)] ring-offset-2 ring-offset-[#0B0B0F]",
-        pending && "border-amber-500/80",
-        isBus && "h-[72px] bg-zinc-400",
-      )}
-    >
-      {!isBus && (
-        <div className="mb-1 flex items-center justify-between gap-1">
+    <div className="flex flex-col items-stretch" style={{ width, flex: "none" }}>
+      <button
+        type="button"
+        onClick={onSelect}
+        style={{
+          width,
+          minWidth: width,
+          maxWidth: width,
+          boxSizing: "border-box",
+        }}
+        className={cn(
+          "relative flex h-[128px] w-full min-w-0 flex-col overflow-hidden rounded-[8px] border border-zinc-400/80 bg-zinc-300 p-1 text-left text-zinc-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] transition-shadow",
+          selected &&
+            "ring-2 ring-[var(--accent)] ring-offset-2 ring-offset-[#0B0B0F]",
+          pending && "border-amber-500/80",
+        )}
+      >
+        <div className="mb-1 flex justify-center">
           <BrandMark brandKey={device.brandKey} brand={device.manufacturer} />
-          <span className="text-[9px] font-medium text-zinc-600">
-            {modules}м
-          </span>
         </div>
-      )}
-      <span className="line-clamp-2 text-[11px] font-semibold leading-tight text-zinc-900">
-        {isBus ? device.name : faceName}
-      </span>
-      {!isBus && (
-        <span className="mt-0.5 text-[10px] font-medium tabular-nums text-zinc-700">
+        <span className="line-clamp-2 text-center text-[11px] font-semibold leading-tight text-zinc-900">
+          {typeShort[device.type]}
+        </span>
+        <span className="mt-0.5 text-center text-[10px] font-medium tabular-nums text-zinc-700">
           {device.rating}
         </span>
+        {device.poles && (
+          <span className="mt-auto text-center text-[9px] text-zinc-600">
+            {device.poles}
+          </span>
+        )}
+        {pending && (
+          <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.8)]" />
+        )}
+      </button>
+      {device.circuitLabel?.trim() && (
+        <span className="mt-1 line-clamp-2 text-center text-[10px] font-medium leading-tight text-white/70">
+          {device.circuitLabel.trim()}
+        </span>
       )}
-      {device.poles && !isBus && (
-        <span className="mt-auto text-[9px] text-zinc-600">{device.poles}</span>
-      )}
-      {pending && (
-        <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.8)]" />
-      )}
-    </button>
+    </div>
   );
 }
 
@@ -110,7 +114,6 @@ function DeviceSheet({
   onAssignCircuit: (deviceId: number, label: string) => void;
 }) {
   const [label, setLabel] = useState(device.circuitLabel ?? "");
-  const isBus = device.type === "pe_bus" || device.type === "n_bus";
   const specs = useMemo(() => {
     const fromCatalog = Object.entries(device.characteristics ?? {});
     if (fromCatalog.length > 0) return fromCatalog;
@@ -145,8 +148,9 @@ function DeviceSheet({
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
             <div className="mb-2 flex flex-wrap items-center gap-2">
+              <BrandMark brandKey={device.brandKey} brand={device.manufacturer} />
               <h3 className="text-[20px] font-semibold text-white">
-                {device.circuitLabel?.trim() || device.name}
+                {device.name}
               </h3>
               <Badge status={device.status} />
             </div>
@@ -154,6 +158,11 @@ function DeviceSheet({
               {device.manufacturer ?? "Производитель не определён"}
               {device.model ? ` · ${device.model}` : ` · ${device.rating}`}
             </p>
+            {device.circuitLabel?.trim() && (
+              <p className="mt-1 text-[13px] text-white/60">
+                Линия: {device.circuitLabel.trim()}
+              </p>
+            )}
           </div>
           <button
             type="button"
@@ -186,43 +195,44 @@ function DeviceSheet({
           </div>
         )}
 
-        {!isBus && (
-          <GlassCard className="mb-5 space-y-3 p-4">
-            <div className="text-[15px] font-semibold text-white">
-              Как определить, за что отвечает прибор
-            </div>
-            <p className="text-[13px] leading-relaxed text-white/50">
-              После фотографии помещение ещё неизвестно. Пройдите шаги ниже и
-              подпишите линию сами.
-            </p>
-            <ol className="space-y-2.5">
-              {circuitIdentifySteps.map((step, index) => (
-                <li key={step} className="flex gap-2.5 text-[13px] leading-relaxed text-white/75">
-                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/10 text-[11px] font-semibold text-white/70">
-                    {index + 1}
-                  </span>
-                  <span>{step}</span>
-                </li>
-              ))}
-            </ol>
-            <input
-              value={label}
-              onChange={(e) => setLabel(e.target.value)}
-              placeholder="Например: Кухня розетки"
-              className="h-12 w-full rounded-[16px] border border-white/10 bg-white/[0.06] px-3 text-[15px] text-white outline-none placeholder:text-white/30 focus:border-[var(--accent)]/50"
-            />
-            <Button
-              className="w-full"
-              variant="secondary"
-              disabled={!label.trim()}
-              onClick={() => {
-                onAssignCircuit(device.id, label.trim());
-              }}
-            >
-              Сохранить название линии
-            </Button>
-          </GlassCard>
-        )}
+        <GlassCard className="mb-5 space-y-3 p-4">
+          <div className="text-[15px] font-semibold text-white">
+            Как определить, за что отвечает прибор
+          </div>
+          <p className="text-[13px] leading-relaxed text-white/50">
+            После фотографии помещение ещё неизвестно. Пройдите шаги ниже и
+            подпишите линию сами.
+          </p>
+          <ol className="space-y-2.5">
+            {circuitIdentifySteps.map((step, index) => (
+              <li
+                key={step}
+                className="flex gap-2.5 text-[13px] leading-relaxed text-white/75"
+              >
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/10 text-[11px] font-semibold text-white/70">
+                  {index + 1}
+                </span>
+                <span>{step}</span>
+              </li>
+            ))}
+          </ol>
+          <input
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            placeholder="Например: Кухня розетки"
+            className="h-12 w-full rounded-[16px] border border-white/10 bg-white/[0.06] px-3 text-[15px] text-white outline-none placeholder:text-white/30 focus:border-[var(--accent)]/50"
+          />
+          <Button
+            className="w-full"
+            variant="secondary"
+            disabled={!label.trim()}
+            onClick={() => {
+              onAssignCircuit(device.id, label.trim());
+            }}
+          >
+            Сохранить название линии
+          </Button>
+        </GlassCard>
 
         <Button className="w-full" onClick={onClose}>
           <BreakerIcon className="h-4 w-4" />
@@ -344,9 +354,6 @@ export function SchemeScreen({
   const railDevices = devices.filter(
     (d) => d.type !== "pe_bus" && d.type !== "n_bus",
   );
-  const busDevices = devices.filter(
-    (d) => d.type === "pe_bus" || d.type === "n_bus",
-  );
 
   const verified = devices.filter((d) => d.status === "verified").length;
   const pending = devices.filter((d) => d.status === "pending").length;
@@ -356,7 +363,7 @@ export function SchemeScreen({
     (sum, d) => sum + deviceModules(d),
     0,
   );
-  const railMinWidth = Math.max(320, modulesTotal * MODULE_PX + 48);
+  const railMinWidth = Math.max(320, modulesTotal * MODULE_PX + 32);
 
   const handleBack = () => {
     if (askNameOnBack) {
@@ -471,7 +478,7 @@ export function SchemeScreen({
 
             <div className="mb-3 h-2 rounded-full bg-gradient-to-r from-zinc-500 via-zinc-300 to-zinc-500 shadow-inner" />
 
-            <div className="mb-4 flex gap-1">
+            <div className="mb-4 flex gap-0">
               {railDevices.map((device) => (
                 <DeviceBlock
                   key={device.id}
@@ -481,24 +488,6 @@ export function SchemeScreen({
                 />
               ))}
             </div>
-
-            {busDevices.length > 0 && (
-              <>
-                <div className="mb-2 text-[13px] font-medium text-white/50">
-                  Шины
-                </div>
-                <div className="flex gap-2">
-                  {busDevices.map((device) => (
-                    <DeviceBlock
-                      key={device.id}
-                      device={device}
-                      selected={selectedId === device.id}
-                      onSelect={() => setSelectedId(device.id)}
-                    />
-                  ))}
-                </div>
-              </>
-            )}
           </GlassCard>
 
           <div className="mt-4 flex gap-4 text-[12px] text-white/50">
