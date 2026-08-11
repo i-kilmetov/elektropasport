@@ -16,6 +16,7 @@ import { BreakerIcon } from "@/components/icons/breaker-icon";
 import {
   DeviceFace,
   DeviceStatusBar,
+  DEVICE_GAP_PX,
   MODULE_PX,
 } from "@/components/icons/device-face";
 import { Badge } from "@/components/ui/badge";
@@ -348,7 +349,12 @@ export function SchemeScreen({
     (sum, d) => sum + deviceModules(d),
     0,
   );
-  const railMinWidth = Math.max(320, modulesTotal * MODULE_PX + 32);
+  const railMinWidth = Math.max(
+    320,
+    modulesTotal * MODULE_PX +
+      Math.max(0, railDevices.length - 1) * DEVICE_GAP_PX +
+      32,
+  );
 
   const handleBack = () => {
     if (askNameOnBack) {
@@ -488,7 +494,10 @@ export function SchemeScreen({
 
             <div className="mb-3 h-2 rounded-full bg-gradient-to-r from-zinc-500 via-zinc-300 to-zinc-500 shadow-inner" />
 
-            <div className="mb-4 flex items-start gap-0">
+            <div
+              className="mb-4 flex items-start"
+              style={{ gap: DEVICE_GAP_PX }}
+            >
               {railDevices.map((device) => (
                 <DeviceBlock
                   key={device.id}
