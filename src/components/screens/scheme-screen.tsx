@@ -57,6 +57,7 @@ function DeviceBlock({
 }) {
   const modules = deviceModules(device);
   const pending = device.status === "pending";
+  const verified = device.status === "verified";
   const width = modules * MODULE_PX;
 
   return (
@@ -71,32 +72,45 @@ function DeviceBlock({
           boxSizing: "border-box",
         }}
         className={cn(
-          "relative flex h-[128px] w-full min-w-0 flex-col overflow-hidden rounded-[8px] border border-zinc-400/80 bg-zinc-300 p-1 text-left text-zinc-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] transition-shadow",
+          "relative flex h-[128px] w-full min-w-0 flex-col overflow-hidden rounded-[8px] border-2 border-zinc-400/80 bg-zinc-300 p-1.5 text-left text-zinc-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] transition-shadow",
           selected &&
             "ring-2 ring-[var(--accent)] ring-offset-2 ring-offset-[#0B0B0F]",
-          pending && "border-amber-500/80",
+          verified && "border-emerald-500",
+          pending && "border-amber-500",
         )}
       >
-        <div className="mb-1 flex justify-center">
+        {modules > 1 &&
+          Array.from({ length: modules - 1 }, (_, i) => (
+            <span
+              key={i}
+              aria-hidden
+              className="pointer-events-none absolute inset-y-0 z-0 w-px bg-zinc-500/45"
+              style={{ left: `${((i + 1) / modules) * 100}%` }}
+            />
+          ))}
+        <div className="relative z-[1] mb-1 flex justify-start">
           <BrandMark brandKey={device.brandKey} brand={device.manufacturer} />
         </div>
-        <span className="line-clamp-2 text-center text-[11px] font-semibold leading-tight text-zinc-900">
+        <span className="relative z-[1] line-clamp-2 text-left text-[11px] font-semibold leading-tight text-zinc-900">
           {typeShort[device.type]}
         </span>
-        <span className="mt-0.5 text-center text-[10px] font-medium tabular-nums text-zinc-700">
+        <span className="relative z-[1] mt-0.5 text-left text-[10px] font-medium tabular-nums text-zinc-700">
           {device.rating}
         </span>
         {device.poles && (
-          <span className="mt-auto text-center text-[9px] text-zinc-600">
+          <span className="relative z-[1] mt-auto text-left text-[9px] text-zinc-600">
             {device.poles}
           </span>
         )}
         {pending && (
-          <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.8)]" />
+          <span className="absolute -right-1 -top-1 z-[2] h-2.5 w-2.5 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.8)]" />
+        )}
+        {verified && (
+          <span className="absolute -right-1 -top-1 z-[2] h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
         )}
       </button>
       {device.circuitLabel?.trim() && (
-        <span className="mt-1 line-clamp-2 text-center text-[10px] font-medium leading-tight text-white/70">
+        <span className="mt-1 line-clamp-2 text-left text-[10px] font-medium leading-tight text-white/70">
           {device.circuitLabel.trim()}
         </span>
       )}

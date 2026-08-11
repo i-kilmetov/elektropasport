@@ -2,253 +2,88 @@
 
 import { cn } from "@/lib/utils";
 
-function LogoShell({
-  className,
-  title,
-  children,
-}: {
-  className?: string;
-  title?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <span
-      title={title}
-      className={cn(
-        "inline-flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-[5px] bg-white shadow-sm ring-1 ring-zinc-400/50",
-        className,
-      )}
-    >
-      {children}
-    </span>
-  );
-}
+const BRAND_COLORS: Record<string, string> = {
+  abb: "#FF000F",
+  schneider: "#3DCD58",
+  systeme: "#3DCD58",
+  iek: "#E30613",
+  legrand: "#C8102E",
+  keaz: "#0033A0",
+  ekf: "#F36F21",
+  chint: "#00A0E3",
+  dekraft: "#1B4F9C",
+  hager: "#E30613",
+  zubr: "#D97706",
+  meander: "#0F766E",
+  novatek: "#1D4ED8",
+  digitop: "#7C3AED",
+};
 
-function BrandSvg({
+function BrandGlyph({
   brandKey,
   brand,
 }: {
   brandKey: string;
   brand?: string;
 }) {
-  switch (brandKey) {
-    case "abb":
-      return (
-        <svg viewBox="0 0 32 32" className="h-full w-full" aria-hidden>
-          <rect width="32" height="32" fill="#FF000F" />
-          <text
-            x="16"
-            y="21"
-            textAnchor="middle"
-            fill="#fff"
-            fontSize="11"
-            fontWeight="800"
-            fontFamily="Arial, sans-serif"
-          >
-            ABB
-          </text>
-        </svg>
-      );
-    case "schneider":
-    case "systeme":
-      return (
-        <svg viewBox="0 0 32 32" className="h-full w-full" aria-hidden>
-          <rect width="32" height="32" fill="#3DCD58" />
-          <circle cx="16" cy="16" r="7" fill="none" stroke="#fff" strokeWidth="2.5" />
-          <path d="M16 9v14M9 16h14" stroke="#fff" strokeWidth="2" />
-        </svg>
-      );
-    case "iek":
-      return (
-        <svg viewBox="0 0 32 32" className="h-full w-full" aria-hidden>
-          <rect width="32" height="32" fill="#E30613" />
-          <text
-            x="16"
-            y="21"
-            textAnchor="middle"
-            fill="#fff"
-            fontSize="12"
-            fontWeight="800"
-            fontFamily="Arial, sans-serif"
-          >
-            IEK
-          </text>
-        </svg>
-      );
-    case "legrand":
-      return (
-        <svg viewBox="0 0 32 32" className="h-full w-full" aria-hidden>
-          <rect width="32" height="32" fill="#C8102E" />
-          <text
-            x="16"
-            y="21"
-            textAnchor="middle"
-            fill="#fff"
-            fontSize="9"
-            fontWeight="800"
-            fontFamily="Arial, sans-serif"
-          >
-            LEG
-          </text>
-        </svg>
-      );
-    case "keaz":
-      return (
-        <svg viewBox="0 0 32 32" className="h-full w-full" aria-hidden>
-          <rect width="32" height="32" fill="#0033A0" />
-          <text
-            x="16"
-            y="21"
-            textAnchor="middle"
-            fill="#fff"
-            fontSize="8"
-            fontWeight="800"
-            fontFamily="Arial, sans-serif"
-          >
-            KEAZ
-          </text>
-        </svg>
-      );
-    case "ekf":
-      return (
-        <svg viewBox="0 0 32 32" className="h-full w-full" aria-hidden>
-          <rect width="32" height="32" fill="#F36F21" />
-          <text
-            x="16"
-            y="21"
-            textAnchor="middle"
-            fill="#fff"
-            fontSize="11"
-            fontWeight="800"
-            fontFamily="Arial, sans-serif"
-          >
-            EKF
-          </text>
-        </svg>
-      );
-    case "chint":
-      return (
-        <svg viewBox="0 0 32 32" className="h-full w-full" aria-hidden>
-          <rect width="32" height="32" fill="#00A0E3" />
-          <text
-            x="16"
-            y="21"
-            textAnchor="middle"
-            fill="#fff"
-            fontSize="8"
-            fontWeight="800"
-            fontFamily="Arial, sans-serif"
-          >
-            CHINT
-          </text>
-        </svg>
-      );
-    case "dekraft":
-      return (
-        <svg viewBox="0 0 32 32" className="h-full w-full" aria-hidden>
-          <rect width="32" height="32" fill="#1B4F9C" />
-          <text
-            x="16"
-            y="21"
-            textAnchor="middle"
-            fill="#fff"
-            fontSize="9"
-            fontWeight="800"
-            fontFamily="Arial, sans-serif"
-          >
-            DK
-          </text>
-        </svg>
-      );
-    case "hager":
-      return (
-        <svg viewBox="0 0 32 32" className="h-full w-full" aria-hidden>
-          <rect width="32" height="32" fill="#E30613" />
-          <path d="M8 22V10h4v4.5h8V10h4v12h-4v-4.5h-8V22H8z" fill="#fff" />
-        </svg>
-      );
-    case "zubr":
-      return (
-        <svg viewBox="0 0 32 32" className="h-full w-full" aria-hidden>
-          <rect width="32" height="32" fill="#111827" />
-          <text
-            x="16"
-            y="21"
-            textAnchor="middle"
-            fill="#FBBF24"
-            fontSize="8"
-            fontWeight="800"
-            fontFamily="Arial, sans-serif"
-          >
-            ZUBR
-          </text>
-        </svg>
-      );
-    case "meander":
-      return (
-        <svg viewBox="0 0 32 32" className="h-full w-full" aria-hidden>
-          <rect width="32" height="32" fill="#0F766E" />
-          <path
-            d="M6 20c3-8 5-8 8 0s5 8 8 0"
-            fill="none"
-            stroke="#fff"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-          />
-        </svg>
-      );
-    case "novatek":
-      return (
-        <svg viewBox="0 0 32 32" className="h-full w-full" aria-hidden>
-          <rect width="32" height="32" fill="#1D4ED8" />
-          <text
-            x="16"
-            y="21"
-            textAnchor="middle"
-            fill="#fff"
-            fontSize="8"
-            fontWeight="800"
-            fontFamily="Arial, sans-serif"
-          >
-            НТЭ
-          </text>
-        </svg>
-      );
-    case "digitop":
-      return (
-        <svg viewBox="0 0 32 32" className="h-full w-full" aria-hidden>
-          <rect width="32" height="32" fill="#7C3AED" />
-          <text
-            x="16"
-            y="21"
-            textAnchor="middle"
-            fill="#fff"
-            fontSize="9"
-            fontWeight="800"
-            fontFamily="Arial, sans-serif"
-          >
-            DT
-          </text>
-        </svg>
-      );
-    default:
-      return (
-        <svg viewBox="0 0 32 32" className="h-full w-full" aria-hidden>
-          <rect width="32" height="32" fill="#52525B" />
-          <text
-            x="16"
-            y="21"
-            textAnchor="middle"
-            fill="#fff"
-            fontSize="10"
-            fontWeight="800"
-            fontFamily="Arial, sans-serif"
-          >
-            {(brand ?? "?").slice(0, 3).toUpperCase()}
-          </text>
-        </svg>
-      );
+  const color = BRAND_COLORS[brandKey] ?? "#52525B";
+
+  if (brandKey === "schneider" || brandKey === "systeme") {
+    return (
+      <svg viewBox="0 0 16 16" className="h-4 w-4" aria-hidden>
+        <circle cx="8" cy="8" r="5.5" fill="none" stroke={color} strokeWidth="2" />
+        <path d="M8 3.5v9M3.5 8h9" stroke={color} strokeWidth="1.8" />
+      </svg>
+    );
   }
+
+  if (brandKey === "hager") {
+    return (
+      <svg viewBox="0 0 20 14" className="h-3.5 w-5" aria-hidden>
+        <path d="M1 13V1h3.2v4h11.6V1H19v12h-3.2V8.2H4.2V13H1z" fill={color} />
+      </svg>
+    );
+  }
+
+  if (brandKey === "meander") {
+    return (
+      <svg viewBox="0 0 20 12" className="h-3 w-5" aria-hidden>
+        <path
+          d="M1 9c2.5-7 4.5-7 7 0s4.5 7 7 0"
+          fill="none"
+          stroke={color}
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
+      </svg>
+    );
+  }
+
+  const labels: Record<string, string> = {
+    abb: "ABB",
+    iek: "IEK",
+    legrand: "Legrand",
+    keaz: "KEAZ",
+    ekf: "EKF",
+    chint: "CHINT",
+    dekraft: "DK",
+    zubr: "ZUBR",
+    novatek: "НТЭ",
+    digitop: "DT",
+  };
+
+  const text =
+    labels[brandKey] ??
+    (brand ? brand.slice(0, 4).toUpperCase() : "?");
+
+  return (
+    <span
+      className="text-[10px] font-extrabold leading-none tracking-tight"
+      style={{ color }}
+    >
+      {text}
+    </span>
+  );
 }
 
 export function BrandMark({
@@ -263,7 +98,6 @@ export function BrandMark({
   const key = (brandKey ?? brand ?? "")
     .toLowerCase()
     .replace(/\s+/g, "")
-    .replace("systeme", "systeme")
     .replace("меандр", "meander")
     .replace("новатек-электро", "novatek")
     .replace("новатэк-электро", "novatek");
@@ -279,11 +113,35 @@ export function BrandMark({
           ? "novatek"
           : key.includes("digitop")
             ? "digitop"
-            : key;
+            : key.includes("legrand")
+              ? "legrand"
+              : key.includes("dekraft")
+                ? "dekraft"
+                : key.includes("hager")
+                  ? "hager"
+                  : key.includes("chint")
+                    ? "chint"
+                    : key.includes("keaz")
+                      ? "keaz"
+                      : key.includes("abb")
+                        ? "abb"
+                        : key.includes("iek")
+                          ? "iek"
+                          : key.includes("ekf")
+                            ? "ekf"
+                            : key.includes("zubr")
+                              ? "zubr"
+                              : key;
 
   return (
-    <LogoShell className={className} title={brand}>
-      <BrandSvg brandKey={normalized} brand={brand} />
-    </LogoShell>
+    <span
+      title={brand}
+      className={cn(
+        "inline-flex h-5 max-w-full items-center justify-start overflow-hidden",
+        className,
+      )}
+    >
+      <BrandGlyph brandKey={normalized} brand={brand} />
+    </span>
   );
 }
