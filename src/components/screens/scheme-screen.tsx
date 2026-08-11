@@ -13,6 +13,11 @@ import {
 } from "lucide-react";
 import { BrandMark } from "@/components/icons/brand-mark";
 import { BreakerIcon } from "@/components/icons/breaker-icon";
+import {
+  DeviceFace,
+  DeviceStatusBar,
+  MODULE_PX,
+} from "@/components/icons/device-face";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
@@ -26,8 +31,6 @@ import {
 } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 import type { Device, DeviceType } from "@/types";
-
-const MODULE_PX = 44;
 
 const typeShort: Record<DeviceType, string> = {
   main_breaker: "Ввод",
@@ -49,66 +52,33 @@ function deviceModules(device: Device): number {
 function DeviceBlock({
   device,
   selected,
+  showTerminals,
   onSelect,
 }: {
   device: Device;
   selected: boolean;
+  showTerminals: boolean;
   onSelect: () => void;
 }) {
   const modules = deviceModules(device);
-  const pending = device.status === "pending";
-  const verified = device.status === "verified";
   const width = modules * MODULE_PX;
 
   return (
     <div className="flex flex-col items-stretch" style={{ width, flex: "none" }}>
-      <button
-        type="button"
-        onClick={onSelect}
-        style={{
-          width,
-          minWidth: width,
-          maxWidth: width,
-          boxSizing: "border-box",
-        }}
-        className={cn(
-          "relative flex h-[128px] w-full min-w-0 flex-col overflow-hidden rounded-[8px] border-2 border-zinc-400/80 bg-zinc-300 p-1.5 text-left text-zinc-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] transition-shadow",
-          selected &&
-            "ring-2 ring-[var(--accent)] ring-offset-2 ring-offset-[#0B0B0F]",
-          verified && "border-emerald-500",
-          pending && "border-amber-500",
-        )}
-      >
-        {modules > 1 &&
-          Array.from({ length: modules - 1 }, (_, i) => (
-            <span
-              key={i}
-              aria-hidden
-              className="pointer-events-none absolute inset-y-0 z-0 w-px bg-zinc-500/45"
-              style={{ left: `${((i + 1) / modules) * 100}%` }}
-            />
-          ))}
-        <div className="relative z-[1] mb-1 flex justify-start">
+      <span className="mb-1 line-clamp-1 text-left text-[10px] font-medium leading-tight text-white/55">
+        {typeShort[device.type]}
+      </span>
+      <DeviceFace
+        device={device}
+        modules={modules}
+        selected={selected}
+        showTerminals={showTerminals}
+        onSelect={onSelect}
+        brand={
           <BrandMark brandKey={device.brandKey} brand={device.manufacturer} />
-        </div>
-        <span className="relative z-[1] line-clamp-2 text-left text-[11px] font-semibold leading-tight text-zinc-900">
-          {typeShort[device.type]}
-        </span>
-        <span className="relative z-[1] mt-0.5 text-left text-[10px] font-medium tabular-nums text-zinc-700">
-          {device.rating}
-        </span>
-        {device.poles && (
-          <span className="relative z-[1] mt-auto text-left text-[9px] text-zinc-600">
-            {device.poles}
-          </span>
-        )}
-        {pending && (
-          <span className="absolute -right-1 -top-1 z-[2] h-2.5 w-2.5 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.8)]" />
-        )}
-        {verified && (
-          <span className="absolute -right-1 -top-1 z-[2] h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
-        )}
-      </button>
+        }
+      />
+      <DeviceStatusBar status={device.status} />
       {device.circuitLabel?.trim() && (
         <span className="mt-1 line-clamp-2 text-left text-[10px] font-medium leading-tight text-white/70">
           {device.circuitLabel.trim()}
@@ -358,6 +328,7 @@ export function SchemeScreen({
   const linesCount = linesProp ?? mockLinesCount;
 
   const [tab, setTab] = useState<"scheme" | "photo">("scheme");
+  const [showTerminals, setShowTerminals] = useState(true);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
@@ -451,7 +422,7 @@ export function SchemeScreen({
         </div>
       </header>
 
-      <div className="mb-3 flex gap-2 px-5">
+      <div className="mb-3 flex items-center gap-2 px-5">
         <button
           type="button"
           onClick={() => setTab("scheme")}
@@ -476,6 +447,31 @@ export function SchemeScreen({
         >
           Фото
         </button>
+        {tab === "scheme" && (
+          <button
+            type="button"
+            role="switch"
+            aria-checked={showTerminals}
+            aria-label="Показать клеммы для проводов"
+            onClick={() => setShowTerminals((v) => !v)}
+            className="ml-auto flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-2.5 py-1.5"
+          >
+            <span className="text-[12px] font-medium text-white/55">Клеммы</span>
+            <span
+              className={cn(
+                "relative h-5 w-9 rounded-full transition-colors",
+                showTerminals ? "bg-emerald-500/90" : "bg-white/15",
+              )}
+            >
+              <span
+                className={cn(
+                  "absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform",
+                  showTerminals ? "left-4" : "left-0.5",
+                )}
+              />
+            </span>
+          </button>
+        )}
       </div>
 
       {tab === "scheme" ? (
@@ -492,12 +488,13 @@ export function SchemeScreen({
 
             <div className="mb-3 h-2 rounded-full bg-gradient-to-r from-zinc-500 via-zinc-300 to-zinc-500 shadow-inner" />
 
-            <div className="mb-4 flex gap-0">
+            <div className="mb-4 flex items-start gap-0">
               {railDevices.map((device) => (
                 <DeviceBlock
                   key={device.id}
                   device={device}
                   selected={selectedId === device.id}
+                  showTerminals={showTerminals}
                   onSelect={() => setSelectedId(device.id)}
                 />
               ))}
