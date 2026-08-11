@@ -33,9 +33,34 @@ export function ElectricalDetailsScreen({
   const [dwelling, setDwelling] = useState<DwellingType | null>(null);
   const [phases, setPhases] = useState<PhaseCount | null>(null);
   const [powerKw, setPowerKw] = useState("");
+  const [powerError, setPowerError] = useState<string | null>(null);
 
   const canContinue =
-    dwelling !== null && phases !== null && powerKw.trim().length > 0;
+    dwelling !== null &&
+    phases !== null &&
+    powerKw.trim().length > 0 &&
+    !powerError;
+
+  const onPowerChange = (raw: string) => {
+    const cleaned = raw.replace(/[^\d.,]/g, "");
+    setPowerKw(cleaned);
+    if (!cleaned.trim()) {
+      setPowerError(null);
+      return;
+    }
+    const num = Number(cleaned.replace(",", "."));
+    if (!Number.isFinite(num)) {
+      setPowerError(null);
+      return;
+    }
+    if (num > 50) {
+      setPowerError(
+        "Если у вас квартира или частный дом, такой мощности скорее всего быть не может. Пожалуйста, проверьте значение.",
+      );
+      return;
+    }
+    setPowerError(null);
+  };
 
   return (
     <motion.section
@@ -135,10 +160,15 @@ export function ElectricalDetailsScreen({
           <input
             inputMode="decimal"
             value={powerKw}
-            onChange={(e) => setPowerKw(e.target.value.replace(/[^\d.,]/g, ""))}
+            onChange={(e) => onPowerChange(e.target.value)}
             placeholder="Например, 7"
             className="h-14 w-full rounded-[20px] border border-white/10 bg-white/[0.06] px-4 text-[16px] text-white outline-none placeholder:text-white/30 focus:border-[var(--accent)]/50"
           />
+          {powerError && (
+            <p className="mt-2 text-[13px] leading-relaxed text-rose-300">
+              {powerError}
+            </p>
+          )}
           <GlassCard className="mt-3 space-y-2 p-4">
             <div className="flex items-start gap-2 text-[13px] text-white/70">
               <Info className="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent)]" />
@@ -148,7 +178,6 @@ export function ElectricalDetailsScreen({
               <li>• в договоре с энергосбытом / УК</li>
               <li>• в акте технологического присоединения</li>
               <li>• в личном кабинете энергокомпании</li>
-              <li>• на вводном автомате: А × В / 1000 ≈ кВт</li>
             </ul>
             <div className="border-t border-white/8 pt-2 text-[12px] text-white/35">
               {powerHints.map((hint) => (

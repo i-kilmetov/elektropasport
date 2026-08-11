@@ -16,12 +16,14 @@ function formatPhoneDigits(digits: string): string {
   const p3 = d.slice(6, 8);
   const p4 = d.slice(8, 10);
   let out = "";
-  if (p1) out += `(${p1}`;
-  if (p1.length === 3) out += ") ";
+  if (!p1) return out;
+  // Не закрываем скобку на ровно 3 цифрах — иначе Backspace «залипает» на первых трёх.
+  if (d.length <= 3) return p1;
+  out = `(${p1}) `;
   if (p2) out += p2;
-  if (p2.length === 3) out += "-";
+  if (p2.length === 3 && p3) out += "-";
   if (p3) out += p3;
-  if (p3.length === 2) out += "-";
+  if (p3.length === 2 && p4) out += "-";
   if (p4) out += p4;
   return out;
 }
@@ -179,7 +181,7 @@ export function LeadContactScreen({
             setDigits(only);
             setUseTelegram(false);
           }}
-          placeholder="(999) 000-00-00"
+          placeholder="999 000-00-00"
           className="h-full flex-1 bg-transparent text-[16px] text-white outline-none placeholder:text-white/30 disabled:cursor-not-allowed"
         />
       </label>

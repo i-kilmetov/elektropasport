@@ -48,7 +48,8 @@ export function CitySelectScreen({
         В каком городе установить щиток?
       </h2>
       <p className="mb-5 text-[15px] text-white/50">
-        Введите минимум 2 буквы — появятся подходящие города-миллионники.
+        Наши мастера-эксперты есть уже во многих городах. Укажите свой город, мы
+        проверим.
       </p>
 
       <label className="relative mb-3 block">
@@ -70,7 +71,7 @@ export function CitySelectScreen({
           <ul className="max-h-[46vh] overflow-y-auto">
             {suggestions.length === 0 ? (
               <li className="px-4 py-5 text-[14px] text-white/40">
-                Город не найден в списке миллионников
+                Город пока не найден. Проверьте написание или попробуйте другой.
               </li>
             ) : (
               suggestions.map((city) => {

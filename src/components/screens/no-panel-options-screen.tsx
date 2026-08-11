@@ -32,7 +32,7 @@ export function NoPanelOptionsScreen({
       </header>
 
       <h2 className="mb-2 text-[26px] font-bold tracking-tight text-white">
-        Как у вас устроена электрика?
+        Подскажите, как у вас устроена электрика?
       </h2>
       <p className="mb-6 text-[15px] leading-relaxed text-white/50">
         Выберите вариант, который больше похож на вашу ситуацию. Мы покажем

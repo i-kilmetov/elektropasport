@@ -64,9 +64,7 @@ export function PanelAdvantagesScreen({
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <h1 className="text-[20px] font-semibold text-white">
-          Современный щиток
-        </h1>
+        <h1 className="text-[20px] font-semibold text-white">Как исправить?</h1>
       </header>
 
       <div className="mb-5 flex items-center gap-3">
@@ -74,14 +72,23 @@ export function PanelAdvantagesScreen({
           <BreakerIcon className="h-8 w-8" />
         </div>
         <div>
-          <h2 className="text-[22px] font-bold text-white">
-            Почему это важно
+          <h2 className="text-[20px] font-bold leading-snug text-white">
+            Лучшее решение — современный щиток
           </h2>
-          <p className="text-[13px] text-white/45">
-            Безопасно сейчас и удобно апгрейдить потом
-          </p>
         </div>
       </div>
+
+      <GlassCard className="mb-4 p-4">
+        <p className="text-[14px] leading-relaxed text-white/65">
+          Самый надёжный способ исправить текущую схему — установить современный
+          электрощиток с автоматами и защитой. Это безопаснее для людей, снижает
+          риск пожара и даёт запас для роста нагрузки и будущих апгрейдов.
+        </p>
+      </GlassCard>
+
+      <h3 className="mb-3 text-[15px] font-semibold text-white/80">
+        Основные преимущества
+      </h3>
 
       <div className="flex-1 space-y-3 overflow-y-auto pb-4">
         {advantages.map((item) => (

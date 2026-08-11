@@ -1,8 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { ArrowLeft, ChevronRight, ShieldAlert } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { ArrowLeft, ShieldAlert } from "lucide-react";
 import { GlassCard } from "@/components/ui/glass-card";
 import {
   getNoPanelSetup,
@@ -77,11 +76,14 @@ export function NoPanelDetailScreen({
         })}
       </div>
 
-      <div className="mt-auto pt-2">
-        <Button className="w-full" size="lg" onClick={onContinue}>
-          Преимущества современного щитка
-          <ChevronRight className="h-5 w-5" />
-        </Button>
+      <div className="mt-auto pt-2 text-center">
+        <button
+          type="button"
+          onClick={onContinue}
+          className="text-[16px] font-medium text-[var(--accent)] underline decoration-[var(--accent)]/35 underline-offset-4 transition-colors hover:text-white"
+        >
+          Как исправить?
+        </button>
       </div>
     </motion.section>
   );
