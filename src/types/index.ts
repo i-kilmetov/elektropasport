@@ -4,6 +4,8 @@ export type DeviceType =
   | "diff_breaker"
   | "voltage_relay"
   | "breaker"
+  | "spd"
+  | "afdd"
   | "pe_bus"
   | "n_bus";
 
@@ -18,6 +20,15 @@ export interface Device {
   manufacturer?: string;
   confidence?: number;
   position?: number;
+  modules?: number;
+  catalogId?: string;
+  poles?: string;
+  series?: string;
+  model?: string;
+  characteristics?: Record<string, string>;
+  /** User-assigned room/line label after identification */
+  circuitLabel?: string;
+  brandKey?: string;
 }
 
 export type ObjectType = "apartment" | "house" | "garage" | "dacha";

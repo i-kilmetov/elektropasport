@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowLeft,
@@ -11,12 +11,14 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import { BrandMark } from "@/components/icons/brand-mark";
 import { BreakerIcon } from "@/components/icons/breaker-icon";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Progress } from "@/components/ui/progress";
+import { circuitIdentifySteps } from "@/lib/device-catalog";
 import {
   devices as mockDevices,
   linesCount as mockLinesCount,
@@ -25,25 +27,25 @@ import {
 import { cn } from "@/lib/utils";
 import type { Device, DeviceType } from "@/types";
 
+const MODULE_PX = 46;
+
 const typeShort: Record<DeviceType, string> = {
   main_breaker: "Ввод",
   rcd: "УЗО",
   diff_breaker: "Диф",
   voltage_relay: "Реле",
   breaker: "Авт.",
+  spd: "УЗИП",
+  afdd: "УЗДП",
   pe_bus: "PE",
   n_bus: "N",
 };
 
-const typeTone: Record<DeviceType, string> = {
-  main_breaker: "from-rose-500/25 to-rose-900/20 border-rose-400/30",
-  rcd: "from-sky-500/25 to-sky-900/20 border-sky-400/30",
-  diff_breaker: "from-cyan-500/20 to-cyan-900/20 border-cyan-400/25",
-  voltage_relay: "from-violet-500/25 to-violet-900/20 border-violet-400/30",
-  breaker: "from-zinc-500/20 to-zinc-800/30 border-white/15",
-  pe_bus: "from-emerald-600/30 to-emerald-900/20 border-emerald-400/30",
-  n_bus: "from-blue-600/30 to-blue-900/20 border-blue-400/30",
-};
+function deviceModules(device: Device): number {
+  if (device.modules && device.modules > 0) return device.modules;
+  if (device.type === "pe_bus" || device.type === "n_bus") return 2;
+  return 1;
+}
 
 function DeviceBlock({
   device,
@@ -54,34 +56,43 @@ function DeviceBlock({
   selected: boolean;
   onSelect: () => void;
 }) {
+  const modules = deviceModules(device);
   const pending = device.status === "pending";
   const isBus = device.type === "pe_bus" || device.type === "n_bus";
+  const faceName = device.circuitLabel?.trim() || typeShort[device.type];
 
   return (
     <button
       type="button"
       onClick={onSelect}
+      style={{ width: modules * MODULE_PX, flex: "none" }}
       className={cn(
-        "relative flex flex-col rounded-[14px] border bg-gradient-to-b p-2 text-left transition-all",
-        typeTone[device.type],
-        isBus
-          ? "min-h-[72px] min-w-[72px] flex-[1.2]"
-          : "min-h-[120px] min-w-[52px] flex-1",
+        "relative flex h-[128px] flex-col rounded-[10px] border border-zinc-400/70 bg-zinc-300 p-1.5 text-left text-zinc-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] transition-all",
         selected &&
           "ring-2 ring-[var(--accent)] ring-offset-2 ring-offset-[#0B0B0F]",
-        pending &&
-          "border-amber-400/50 shadow-[0_0_0_1px_rgba(251,191,36,0.25)]",
+        pending && "border-amber-500/80",
+        isBus && "h-[72px] bg-zinc-400",
       )}
     >
-      <span className="text-[10px] font-medium uppercase tracking-wide text-white/45">
-        {typeShort[device.type]}
+      {!isBus && (
+        <div className="mb-1 flex items-center justify-between gap-1">
+          <BrandMark brandKey={device.brandKey} brand={device.manufacturer} />
+          <span className="text-[9px] font-medium text-zinc-600">
+            {modules}м
+          </span>
+        </div>
+      )}
+      <span className="line-clamp-2 text-[11px] font-semibold leading-tight text-zinc-900">
+        {isBus ? device.name : faceName}
       </span>
-      <span className="mt-1 line-clamp-2 text-[12px] font-semibold leading-tight text-white">
-        {device.name}
-      </span>
-      <span className="mt-auto text-[11px] tabular-nums text-white/60">
-        {device.rating}
-      </span>
+      {!isBus && (
+        <span className="mt-0.5 text-[10px] font-medium tabular-nums text-zinc-700">
+          {device.rating}
+        </span>
+      )}
+      {device.poles && !isBus && (
+        <span className="mt-auto text-[9px] text-zinc-600">{device.poles}</span>
+      )}
       {pending && (
         <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.8)]" />
       )}
@@ -92,10 +103,29 @@ function DeviceBlock({
 function DeviceSheet({
   device,
   onClose,
+  onAssignCircuit,
 }: {
   device: Device;
   onClose: () => void;
+  onAssignCircuit: (deviceId: number, label: string) => void;
 }) {
+  const [label, setLabel] = useState(device.circuitLabel ?? "");
+  const isBus = device.type === "pe_bus" || device.type === "n_bus";
+  const specs = useMemo(() => {
+    const fromCatalog = Object.entries(device.characteristics ?? {});
+    if (fromCatalog.length > 0) return fromCatalog;
+    return [
+      ["Тип", typeShort[device.type]],
+      ["Номинал", device.rating],
+      ["Производитель", device.manufacturer ?? "—"],
+      ["Модули", String(deviceModules(device))],
+    ] as Array<[string, string]>;
+  }, [device]);
+
+  useEffect(() => {
+    setLabel(device.circuitLabel ?? "");
+  }, [device.circuitLabel, device.id]);
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -110,19 +140,19 @@ function DeviceSheet({
         exit={{ y: "100%" }}
         transition={{ type: "spring", stiffness: 320, damping: 32 }}
         onClick={(e) => e.stopPropagation()}
-        className="w-full rounded-t-[28px] border border-white/10 bg-[#16161d]/95 p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-2xl backdrop-blur-2xl"
+        className="max-h-[85dvh] w-full overflow-y-auto rounded-t-[28px] border border-white/10 bg-[#16161d]/95 p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-2xl backdrop-blur-2xl"
       >
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
             <div className="mb-2 flex flex-wrap items-center gap-2">
               <h3 className="text-[20px] font-semibold text-white">
-                {device.name}
+                {device.circuitLabel?.trim() || device.name}
               </h3>
               <Badge status={device.status} />
             </div>
             <p className="text-[14px] text-white/45">
-              {device.manufacturer ?? "Производитель не определён"} ·{" "}
-              {device.rating}
+              {device.manufacturer ?? "Производитель не определён"}
+              {device.model ? ` · ${device.model}` : ` · ${device.rating}`}
             </p>
           </div>
           <button
@@ -136,17 +166,9 @@ function DeviceSheet({
         </div>
 
         <div className="mb-5 grid grid-cols-2 gap-3">
-          {[
-            ["Тип", typeShort[device.type]],
-            ["Номинал", device.rating],
-            [
-              "Статус",
-              device.status === "verified" ? "Проверен" : "На проверке",
-            ],
-            ["ID", `#${device.id}`],
-          ].map(([label, value]) => (
-            <GlassCard key={label} className="p-3">
-              <div className="text-[12px] text-white/40">{label}</div>
+          {specs.slice(0, 6).map(([key, value]) => (
+            <GlassCard key={key} className="p-3">
+              <div className="text-[12px] text-white/40">{key}</div>
               <div className="mt-1 text-[15px] font-medium text-white">
                 {value}
               </div>
@@ -164,9 +186,47 @@ function DeviceSheet({
           </div>
         )}
 
+        {!isBus && (
+          <GlassCard className="mb-5 space-y-3 p-4">
+            <div className="text-[15px] font-semibold text-white">
+              Как определить, за что отвечает прибор
+            </div>
+            <p className="text-[13px] leading-relaxed text-white/50">
+              После фотографии помещение ещё неизвестно. Пройдите шаги ниже и
+              подпишите линию сами.
+            </p>
+            <ol className="space-y-2.5">
+              {circuitIdentifySteps.map((step, index) => (
+                <li key={step} className="flex gap-2.5 text-[13px] leading-relaxed text-white/75">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/10 text-[11px] font-semibold text-white/70">
+                    {index + 1}
+                  </span>
+                  <span>{step}</span>
+                </li>
+              ))}
+            </ol>
+            <input
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+              placeholder="Например: Кухня розетки"
+              className="h-12 w-full rounded-[16px] border border-white/10 bg-white/[0.06] px-3 text-[15px] text-white outline-none placeholder:text-white/30 focus:border-[var(--accent)]/50"
+            />
+            <Button
+              className="w-full"
+              variant="secondary"
+              disabled={!label.trim()}
+              onClick={() => {
+                onAssignCircuit(device.id, label.trim());
+              }}
+            >
+              Сохранить название линии
+            </Button>
+          </GlassCard>
+        )}
+
         <Button className="w-full" onClick={onClose}>
           <BreakerIcon className="h-4 w-4" />
-          Понятно
+          Закрыть
         </Button>
       </motion.div>
     </motion.div>
@@ -252,6 +312,7 @@ export function SchemeScreen({
   onBack,
   onRename,
   onDelete,
+  onAssignCircuit,
   devices: devicesProp,
   safetyScore: safetyProp,
   linesCount: linesProp,
@@ -262,6 +323,7 @@ export function SchemeScreen({
   onBack: () => void;
   onRename: (name: string) => void;
   onDelete: () => void;
+  onAssignCircuit?: (deviceId: number, label: string) => void;
   devices?: Device[];
   safetyScore?: number;
   linesCount?: number;
@@ -290,7 +352,11 @@ export function SchemeScreen({
   const pending = devices.filter((d) => d.status === "pending").length;
   const unknown = devices.filter((d) => d.status === "unknown").length;
 
-  const railMinWidth = Math.max(320, railDevices.length * 58 + 48);
+  const modulesTotal = railDevices.reduce(
+    (sum, d) => sum + deviceModules(d),
+    0,
+  );
+  const railMinWidth = Math.max(320, modulesTotal * MODULE_PX + 48);
 
   const handleBack = () => {
     if (askNameOnBack) {
@@ -399,13 +465,13 @@ export function SchemeScreen({
                 DIN-рейка
               </span>
               <span className="text-[12px] text-white/35">
-                {railDevices.length} модулей
+                {modulesTotal} модулей · {railDevices.length} приборов
               </span>
             </div>
 
             <div className="mb-3 h-2 rounded-full bg-gradient-to-r from-zinc-500 via-zinc-300 to-zinc-500 shadow-inner" />
 
-            <div className="mb-4 flex gap-1.5">
+            <div className="mb-4 flex gap-1">
               {railDevices.map((device) => (
                 <DeviceBlock
                   key={device.id}
@@ -498,7 +564,13 @@ export function SchemeScreen({
 
       <AnimatePresence>
         {selected && tab === "scheme" && (
-          <DeviceSheet device={selected} onClose={() => setSelectedId(null)} />
+          <DeviceSheet
+            device={selected}
+            onClose={() => setSelectedId(null)}
+            onAssignCircuit={(deviceId, circuitLabel) => {
+              onAssignCircuit?.(deviceId, circuitLabel);
+            }}
+          />
         )}
       </AnimatePresence>
 

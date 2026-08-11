@@ -6,6 +6,8 @@ const DEVICE_TYPES: DeviceType[] = [
   "diff_breaker",
   "voltage_relay",
   "breaker",
+  "spd",
+  "afdd",
   "pe_bus",
   "n_bus",
 ];
@@ -51,6 +53,13 @@ function normalizeDevice(raw: unknown, index: number): Device | null {
     manufacturer: asString(raw.manufacturer) || undefined,
     confidence,
     position: asNumber(raw.position, index),
+    modules: Math.max(1, Math.round(asNumber(raw.modules, 1))),
+    catalogId: asString(raw.catalogId) || undefined,
+    poles: asString(raw.poles) || undefined,
+    series: asString(raw.series) || undefined,
+    model: asString(raw.model) || undefined,
+    circuitLabel: asString(raw.circuitLabel) || undefined,
+    brandKey: asString(raw.brandKey) || undefined,
   };
 }
 

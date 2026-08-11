@@ -1,105 +1,12 @@
 import type { Device } from "@/types";
+import {
+  buildDemoPanelDevices,
+  demoLinesCount,
+  demoSafetyScore,
+} from "@/lib/device-catalog";
 
-export const devices: Device[] = [
-  {
-    id: 1,
-    type: "main_breaker",
-    name: "Вводной автомат",
-    rating: "63A",
-    status: "verified",
-    manufacturer: "ABB",
-    confidence: 97,
-    position: 0,
-  },
-  {
-    id: 2,
-    type: "rcd",
-    name: "УЗО",
-    rating: "63A / 30mA",
-    status: "verified",
-    manufacturer: "ABB",
-    confidence: 95,
-    position: 1,
-  },
-  {
-    id: 3,
-    type: "voltage_relay",
-    name: "Реле напряжения",
-    rating: "63A",
-    status: "verified",
-    manufacturer: "ZUBR",
-    confidence: 91,
-    position: 2,
-  },
-  {
-    id: 4,
-    type: "breaker",
-    name: "Кухня",
-    rating: "C16",
-    status: "pending",
-    manufacturer: "DEKraft",
-    confidence: 92,
-    position: 3,
-  },
-  {
-    id: 5,
-    type: "breaker",
-    name: "Спальня",
-    rating: "C10",
-    status: "verified",
-    manufacturer: "DEKraft",
-    confidence: 94,
-    position: 4,
-  },
-  {
-    id: 6,
-    type: "diff_breaker",
-    name: "Ванная",
-    rating: "C16 / 30mA",
-    status: "pending",
-    manufacturer: "Schneider",
-    confidence: 88,
-    position: 5,
-  },
-  {
-    id: 7,
-    type: "breaker",
-    name: "Гостиная",
-    rating: "C16",
-    status: "verified",
-    manufacturer: "DEKraft",
-    confidence: 96,
-    position: 6,
-  },
-  {
-    id: 8,
-    type: "breaker",
-    name: "Коридор",
-    rating: "C10",
-    status: "verified",
-    manufacturer: "ABB",
-    confidence: 93,
-    position: 7,
-  },
-  {
-    id: 9,
-    type: "n_bus",
-    name: "N-шина",
-    rating: "12 клемм",
-    status: "verified",
-    confidence: 99,
-    position: 8,
-  },
-  {
-    id: 10,
-    type: "pe_bus",
-    name: "PE-шина",
-    rating: "12 клемм",
-    status: "verified",
-    confidence: 99,
-    position: 9,
-  },
-];
+/** Demo panel devices after photo analysis — sourced from catalog. */
+export const devices: Device[] = buildDemoPanelDevices();
 
 export const analysisSteps = [
   { id: "devices", label: "Распознаём устройства" },
@@ -108,5 +15,5 @@ export const analysisSteps = [
   { id: "scheme", label: "Строим схему" },
 ] as const;
 
-export const safetyScore = 78;
-export const linesCount = 8;
+export const safetyScore = demoSafetyScore;
+export const linesCount = demoLinesCount;

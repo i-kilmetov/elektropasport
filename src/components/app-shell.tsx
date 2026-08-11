@@ -221,6 +221,34 @@ export function AppShell() {
     setScreen("objects");
   }, [activePanelId, deletePanelById]);
 
+  const assignCircuitLabel = useCallback(
+    (deviceId: number, label: string) => {
+      if (!activePanelId) return;
+      setDevices((prev) => {
+        if (!prev) return prev;
+        return prev.map((device) =>
+          device.id === deviceId
+            ? { ...device, circuitLabel: label, name: label }
+            : device,
+        );
+      });
+      setItems((prev) =>
+        prev.map((item) => {
+          if (item.kind !== "panel" || item.id !== activePanelId) return item;
+          const nextDevices = (item.devices ?? []).map((device) =>
+            device.id === deviceId
+              ? { ...device, circuitLabel: label, name: label }
+              : device,
+          );
+          const next = { ...item, devices: nextDevices };
+          void persistPanel(next).catch((error) => console.error(error));
+          return next;
+        }),
+      );
+    },
+    [activePanelId],
+  );
+
   const deleteRequestById = useCallback((id: string) => {
     setItems((prev) =>
       prev.filter(
@@ -430,6 +458,7 @@ export function AppShell() {
               onBack={() => setScreen("objects")}
               onRename={renamePanel}
               onDelete={deletePanel}
+              onAssignCircuit={assignCircuitLabel}
               devices={devices ?? undefined}
               safetyScore={safetyScore ?? undefined}
               linesCount={linesCount ?? undefined}
