@@ -218,6 +218,8 @@ export async function insertPanel(
   panel: PanelObject,
 ): Promise<PanelObject> {
   const sql = getSql();
+  // Do not persist huge photo data URLs — they break serverless body/DB limits.
+  const devicesJson = JSON.stringify(panel.devices ?? []);
   await sql`
     INSERT INTO panels (
       id, telegram_user_id, type, title, address, last_check, breakers, safety,
@@ -231,15 +233,26 @@ export async function insertPanel(
       ${panel.lastCheck},
       ${panel.breakers},
       ${panel.safety},
-      ${panel.devices ?? []},
+      ${devicesJson}::jsonb,
       ${panel.linesCount ?? null},
-      ${panel.photoDataUrl ?? null},
+      ${null},
       ${panel.named ?? false},
       NOW(),
       NOW()
     )
+    ON CONFLICT (id) DO UPDATE SET
+      title = EXCLUDED.title,
+      address = EXCLUDED.address,
+      last_check = EXCLUDED.last_check,
+      breakers = EXCLUDED.breakers,
+      safety = EXCLUDED.safety,
+      devices = EXCLUDED.devices,
+      lines_count = EXCLUDED.lines_count,
+      named = EXCLUDED.named,
+      updated_at = NOW()
+    WHERE panels.telegram_user_id = ${telegramUserId}
   `;
-  return panel;
+  return { ...panel, photoDataUrl: undefined };
 }
 
 export async function updatePanel(

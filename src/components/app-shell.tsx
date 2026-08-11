@@ -124,6 +124,7 @@ export function AppShell() {
       };
 
       setItems((prev) => [panel, ...prev]);
+      setItemsError(null);
       void persistPanel(panel).catch((error) => {
         console.error(error);
         setItemsError(
@@ -167,6 +168,7 @@ export function AppShell() {
             : item,
         ),
       );
+      setItemsError(null);
       void persistPanelPatch(activePanelId, { title: name, named: true }).catch(
         (error) => {
           console.error(error);
