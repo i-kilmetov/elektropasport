@@ -71,7 +71,13 @@ export type AppScreen =
   | "electrical-details"
   | "city-select"
   | "lead-contact"
-  | "request-details";
+  | "request-details"
+  | "about-service"
+  | "electrical-rules"
+  | "electrical-rule-detail"
+  | "become-master";
+
+export type LeadFlow = "install" | "master";
 
 export interface AnalyzePanelResult {
   devices: Device[];

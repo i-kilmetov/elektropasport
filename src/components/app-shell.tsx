@@ -2,12 +2,16 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence } from "framer-motion";
+import { AboutServiceScreen } from "@/components/screens/about-service-screen";
 import { AnalysisScreen } from "@/components/screens/analysis-screen";
+import { BecomeMasterScreen } from "@/components/screens/become-master-screen";
 import { CitySelectScreen } from "@/components/screens/city-select-screen";
 import {
   ElectricalDetailsScreen,
   type ElectricalDetails,
 } from "@/components/screens/electrical-details-screen";
+import { ElectricalRuleDetailScreen } from "@/components/screens/electrical-rule-detail-screen";
+import { ElectricalRulesScreen } from "@/components/screens/electrical-rules-screen";
 import { LeadContactScreen } from "@/components/screens/lead-contact-screen";
 import { NoPanelDetailScreen } from "@/components/screens/no-panel-detail-screen";
 import { NoPanelOptionsScreen } from "@/components/screens/no-panel-options-screen";
@@ -20,8 +24,11 @@ import { WelcomeScreen } from "@/components/screens/welcome-screen";
 import { getNoPanelSetup, type NoPanelSetupId } from "@/lib/no-panel-setups";
 import {
   fetchHomeItems,
+  persistDeleteInstallRequest,
   persistDeletePanel,
   persistInstallRequest,
+  persistInstallRequestPatch,
+  persistMasterApplication,
   persistPanel,
   persistPanelPatch,
 } from "@/lib/user-data";
@@ -31,6 +38,7 @@ import type {
   Device,
   HomeListItem,
   InstallRequest,
+  LeadFlow,
   PanelObject,
 } from "@/types";
 import { installStatusLabels } from "@/types";
@@ -53,6 +61,8 @@ export function AppShell() {
   const [electricalDetails, setElectricalDetails] =
     useState<ElectricalDetails | null>(null);
   const [selectedCity, setSelectedCity] = useState<string | null>(null);
+  const [leadFlow, setLeadFlow] = useState<LeadFlow>("install");
+  const [activeRuleId, setActiveRuleId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -184,12 +194,7 @@ export function AppShell() {
     [activePanelId],
   );
 
-  const deletePanel = useCallback(() => {
-    if (!activePanelId) {
-      setScreen("objects");
-      return;
-    }
-    const id = activePanelId;
+  const deletePanelById = useCallback((id: string) => {
     setItems((prev) =>
       prev.filter((item) => !(item.kind === "panel" && item.id === id)),
     );
@@ -199,14 +204,80 @@ export function AppShell() {
         error instanceof Error ? error.message : "Не удалось удалить щиток",
       );
     });
-    setActivePanelId(null);
+    setActivePanelId((current) => (current === id ? null : current));
     setPhotoDataUrl(null);
     setDevices(null);
     setSafetyScore(null);
     setLinesCount(null);
     setAskNameOnBack(false);
+  }, []);
+
+  const deletePanel = useCallback(() => {
+    if (!activePanelId) {
+      setScreen("objects");
+      return;
+    }
+    deletePanelById(activePanelId);
     setScreen("objects");
-  }, [activePanelId]);
+  }, [activePanelId, deletePanelById]);
+
+  const deleteRequestById = useCallback((id: string) => {
+    setItems((prev) =>
+      prev.filter(
+        (item) => !(item.kind === "install_request" && item.id === id),
+      ),
+    );
+    void persistDeleteInstallRequest(id).catch((error) => {
+      console.error(error);
+      setItemsError(
+        error instanceof Error ? error.message : "Не удалось удалить заявку",
+      );
+    });
+    setActiveRequestId((current) => (current === id ? null : current));
+  }, []);
+
+  const renameRequest = useCallback(
+    (name: string) => {
+      if (!activeRequestId) return;
+      setItems((prev) =>
+        prev.map((item) =>
+          item.kind === "install_request" && item.id === activeRequestId
+            ? { ...item, title: name }
+            : item,
+        ),
+      );
+      void persistInstallRequestPatch(activeRequestId, { title: name }).catch(
+        (error) => {
+          console.error(error);
+          setItemsError(
+            error instanceof Error
+              ? error.message
+              : "Не удалось переименовать заявку",
+          );
+        },
+      );
+    },
+    [activeRequestId],
+  );
+
+  const deleteRequest = useCallback(() => {
+    if (!activeRequestId) {
+      setScreen("objects");
+      return;
+    }
+    deleteRequestById(activeRequestId);
+    setScreen("objects");
+  }, [activeRequestId, deleteRequestById]);
+
+  const deleteHomeItem = useCallback(
+    (id: string) => {
+      const item = items.find((entry) => entry.id === id);
+      if (!item) return;
+      if (item.kind === "panel") deletePanelById(id);
+      else deleteRequestById(id);
+    },
+    [deletePanelById, deleteRequestById, items],
+  );
 
   const submitLead = useCallback(
     (payload: {
@@ -214,6 +285,27 @@ export function AppShell() {
       phone?: string;
       name: string;
     }) => {
+      if (leadFlow === "master") {
+        const id = `master-${Date.now()}`;
+        void persistMasterApplication({
+          id,
+          city: selectedCity ?? "—",
+          contactMethod: payload.contactMethod,
+          phone: payload.phone,
+          name: payload.name,
+        }).catch((error) => {
+          console.error(error);
+          setItemsError(
+            error instanceof Error
+              ? error.message
+              : "Не удалось отправить заявку мастера",
+          );
+        });
+        setLeadFlow("install");
+        setScreen("objects");
+        return;
+      }
+
       const id = `request-${Date.now()}`;
       const createdAt = new Date().toLocaleDateString("ru-RU");
       const setupTitle = noPanelSetupId
@@ -224,7 +316,7 @@ export function AppShell() {
         kind: "install_request",
         id,
         title: "Заявка",
-        subtitle: "На установку щитка",
+        subtitle: "Заявка на установку щитка",
         status: "new",
         statusLabel: installStatusLabels.new,
         createdAt,
@@ -250,7 +342,7 @@ export function AppShell() {
       setActiveRequestId(id);
       setScreen("objects");
     },
-    [electricalDetails, noPanelSetupId, selectedCity],
+    [electricalDetails, leadFlow, noPanelSetupId, selectedCity],
   );
 
   return (
@@ -276,7 +368,13 @@ export function AppShell() {
                 setActiveRequestId(id);
                 setScreen("request-details");
               }}
+              onDeleteItem={deleteHomeItem}
               onNoPanel={() => setScreen("no-panel-options")}
+              onMenuSelect={(id) => {
+                if (id === "about") setScreen("about-service");
+                if (id === "electrical") setScreen("electrical-rules");
+                if (id === "master") setScreen("become-master");
+              }}
             />
           )}
           {screen === "photo" && (
@@ -333,7 +431,10 @@ export function AppShell() {
             <PanelAdvantagesScreen
               key="panel-advantages"
               onBack={() => setScreen("no-panel-detail")}
-              onInstall={() => setScreen("electrical-details")}
+              onInstall={() => {
+                setLeadFlow("install");
+                setScreen("electrical-details");
+              }}
             />
           )}
           {screen === "electrical-details" && (
@@ -342,14 +443,29 @@ export function AppShell() {
               onBack={() => setScreen("panel-advantages")}
               onContinue={(details) => {
                 setElectricalDetails(details);
+                setLeadFlow("install");
                 setScreen("city-select");
               }}
             />
           )}
           {screen === "city-select" && (
             <CitySelectScreen
-              key="city-select"
-              onBack={() => setScreen("electrical-details")}
+              key={`city-${leadFlow}`}
+              title={
+                leadFlow === "master"
+                  ? "В каком городе работаете?"
+                  : "В каком городе установить щиток?"
+              }
+              description={
+                leadFlow === "master"
+                  ? "Укажите город — так мы поймём, где вы можете брать заявки."
+                  : "Наши мастера-эксперты есть уже во многих городах. Укажите свой город, мы проверим."
+              }
+              onBack={() =>
+                setScreen(
+                  leadFlow === "master" ? "become-master" : "electrical-details",
+                )
+              }
               onConfirm={(city) => {
                 setSelectedCity(city);
                 setScreen("lead-contact");
@@ -358,8 +474,9 @@ export function AppShell() {
           )}
           {screen === "lead-contact" && selectedCity && (
             <LeadContactScreen
-              key={`lead-${selectedCity}`}
+              key={`lead-${leadFlow}-${selectedCity}`}
               city={selectedCity}
+              variant={leadFlow}
               onBack={() => setScreen("city-select")}
               onFinish={submitLead}
             />
@@ -369,6 +486,42 @@ export function AppShell() {
               key={`request-${activeRequest.id}`}
               request={activeRequest}
               onBack={() => setScreen("objects")}
+              onRename={renameRequest}
+              onDelete={deleteRequest}
+            />
+          )}
+          {screen === "about-service" && (
+            <AboutServiceScreen
+              key="about-service"
+              onBack={() => setScreen("objects")}
+            />
+          )}
+          {screen === "electrical-rules" && (
+            <ElectricalRulesScreen
+              key="electrical-rules"
+              onBack={() => setScreen("objects")}
+              onOpenRule={(id) => {
+                setActiveRuleId(id);
+                setScreen("electrical-rule-detail");
+              }}
+            />
+          )}
+          {screen === "electrical-rule-detail" && activeRuleId && (
+            <ElectricalRuleDetailScreen
+              key={`rule-${activeRuleId}`}
+              ruleId={activeRuleId}
+              onBack={() => setScreen("electrical-rules")}
+            />
+          )}
+          {screen === "become-master" && (
+            <BecomeMasterScreen
+              key="become-master"
+              onBack={() => setScreen("objects")}
+              onConfirm={() => {
+                setLeadFlow("master");
+                setSelectedCity(null);
+                setScreen("city-select");
+              }}
             />
           )}
         </AnimatePresence>

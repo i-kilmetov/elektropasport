@@ -32,6 +32,7 @@ export function LeadContactScreen({
   city,
   onBack,
   onFinish,
+  variant = "install",
 }: {
   city: string;
   onBack: () => void;
@@ -40,6 +41,7 @@ export function LeadContactScreen({
     phone?: string;
     name: string;
   }) => void;
+  variant?: "install" | "master";
 }) {
   const [step, setStep] = useState<Step>("contact");
   const [digits, setDigits] = useState("");
@@ -67,11 +69,24 @@ export function LeadContactScreen({
         <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-300">
           <Check className="h-8 w-8" />
         </div>
-        <h1 className="mb-2 text-[24px] font-bold text-white">Заявка принята</h1>
+        <h1 className="mb-2 text-[24px] font-bold text-white">
+          {variant === "master" ? "Заявка отправлена" : "Заявка принята"}
+        </h1>
         <p className="mb-8 max-w-sm text-[15px] leading-relaxed text-white/55">
-          Спасибо{displayName ? `, ${displayName}` : ""}! Мастер из города{" "}
-          <span className="font-semibold text-white">{city}</span> свяжется с
-          вами в ближайшее время.
+          {variant === "master" ? (
+            <>
+              Спасибо{displayName ? `, ${displayName}` : ""}! Мы получили вашу
+              заявку из города{" "}
+              <span className="font-semibold text-white">{city}</span> и свяжемся
+              для обсуждения сотрудничества.
+            </>
+          ) : (
+            <>
+              Спасибо{displayName ? `, ${displayName}` : ""}! Мастер из города{" "}
+              <span className="font-semibold text-white">{city}</span> свяжется с
+              вами в ближайшее время.
+            </>
+          )}
         </p>
         <Button
           className="w-full max-w-sm"
@@ -115,7 +130,7 @@ export function LeadContactScreen({
           Введите имя
         </h2>
         <p className="mb-6 text-[15px] text-white/50">
-          Чтобы мастер знал, как к вам обратиться.
+          Чтобы мы знали, как к вам обратиться.
         </p>
 
         <input
@@ -156,17 +171,28 @@ export function LeadContactScreen({
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <h1 className="text-[20px] font-semibold text-white">Связь с мастером</h1>
+        <h1 className="text-[20px] font-semibold text-white">
+          {variant === "master" ? "Контакты для связи" : "Связь с мастером"}
+        </h1>
       </header>
 
       <div className="mb-5 rounded-[20px] border border-emerald-400/20 bg-emerald-500/10 p-4">
         <h2 className="mb-1 text-[18px] font-semibold text-white">
-          Отличные новости!
+          {variant === "master" ? "Почти готово" : "Отличные новости!"}
         </h2>
         <p className="text-[14px] leading-relaxed text-emerald-50/85">
-          В городе <span className="font-semibold text-white">{city}</span> есть
-          замечательные мастера-эксперты по установке электрощитков. Оставьте
-          контакт — подберём специалиста.
+          {variant === "master" ? (
+            <>
+              Оставьте телефон или Telegram — менеджер сервиса свяжется с вами в
+              городе <span className="font-semibold text-white">{city}</span>.
+            </>
+          ) : (
+            <>
+              В городе <span className="font-semibold text-white">{city}</span> есть
+              замечательные мастера-эксперты по установке электрощитов. Оставьте
+              контакт — подберём специалиста.
+            </>
+          )}
         </p>
       </div>
 

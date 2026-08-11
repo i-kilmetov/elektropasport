@@ -1,10 +1,13 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { ClipboardList, Menu, Plus } from "lucide-react";
 import { BreakerIcon } from "@/components/icons/breaker-icon";
+import { MainMenuSheet } from "@/components/screens/main-menu-sheet";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
+import { SwipeableRow } from "@/components/ui/swipeable-row";
 import { cn } from "@/lib/utils";
 import type { HomeListItem } from "@/types";
 
@@ -15,7 +18,9 @@ export function ObjectsScreen({
   onAdd,
   onOpenPanel,
   onOpenRequest,
+  onDeleteItem,
   onNoPanel,
+  onMenuSelect,
 }: {
   items: HomeListItem[];
   loading?: boolean;
@@ -23,19 +28,24 @@ export function ObjectsScreen({
   onAdd: () => void;
   onOpenPanel: (id: string) => void;
   onOpenRequest: (id: string) => void;
+  onDeleteItem: (id: string) => void;
   onNoPanel: () => void;
+  onMenuSelect: (id: "about" | "electrical" | "master") => void;
 }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+
   return (
     <motion.section
       initial={{ opacity: 0, x: 40 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -40 }}
       transition={{ duration: 0.35 }}
-      className="flex min-h-dvh flex-col px-5 pb-8 pt-[max(1.25rem,env(safe-area-inset-top))]"
+      className="relative flex min-h-dvh flex-col px-5 pb-8 pt-[max(1.25rem,env(safe-area-inset-top))]"
     >
       <header className="mb-6 flex items-center justify-between">
         <button
           type="button"
+          onClick={() => setMenuOpen(true)}
           className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/80 backdrop-blur-xl"
           aria-label="Меню"
         >
@@ -81,80 +91,85 @@ export function ObjectsScreen({
           items.map((obj, i) => {
             const isRequest = obj.kind === "install_request";
             return (
-              <motion.button
+              <motion.div
                 key={obj.id}
-                type="button"
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.06 * i }}
-                onClick={() =>
-                  isRequest ? onOpenRequest(obj.id) : onOpenPanel(obj.id)
-                }
-                className="text-left"
               >
-                <GlassCard
-                  className={cn(
-                    "flex items-center gap-4 p-4 transition-colors",
-                    isRequest
-                      ? "border-rose-400/40 bg-rose-500/10 hover:bg-rose-500/15"
-                      : "hover:bg-white/[0.09]",
-                  )}
-                >
-                  <div
-                    className={cn(
-                      "flex h-14 w-14 shrink-0 items-center justify-center rounded-[18px]",
-                      isRequest
-                        ? "bg-rose-500/20 text-rose-300"
-                        : "bg-gradient-to-br from-violet-500/30 to-violet-600/10 text-violet-300",
-                    )}
+                <SwipeableRow onDelete={() => onDeleteItem(obj.id)}>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      isRequest ? onOpenRequest(obj.id) : onOpenPanel(obj.id)
+                    }
+                    className="w-full text-left"
                   >
-                    {isRequest ? (
-                      <ClipboardList className="h-6 w-6" />
-                    ) : (
-                      <BreakerIcon className="h-7 w-7" />
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="mb-0.5 flex items-center justify-between gap-2">
-                      <h2
+                    <GlassCard
+                      className={cn(
+                        "flex items-center gap-4 rounded-[24px] p-4 transition-colors",
+                        isRequest
+                          ? "border-rose-400/40 bg-rose-500/10 hover:bg-rose-500/15"
+                          : "hover:bg-white/[0.09]",
+                      )}
+                    >
+                      <div
                         className={cn(
-                          "truncate text-[17px] font-semibold",
-                          isRequest ? "text-rose-100" : "text-white",
+                          "flex h-14 w-14 shrink-0 items-center justify-center rounded-[18px]",
+                          isRequest
+                            ? "bg-rose-500/20 text-rose-300"
+                            : "bg-gradient-to-br from-violet-500/30 to-violet-600/10 text-violet-300",
                         )}
                       >
-                        {obj.title}
-                      </h2>
-                      {isRequest ? (
-                        <span className="shrink-0 rounded-full bg-rose-500/25 px-2 py-0.5 text-[11px] font-medium text-rose-200">
-                          {obj.statusLabel}
-                        </span>
-                      ) : (
-                        <span className="shrink-0 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium text-emerald-300">
-                          {obj.safety}%
-                        </span>
-                      )}
-                    </div>
-                    <p
-                      className={cn(
-                        "truncate text-[13px]",
-                        isRequest ? "text-rose-100/65" : "text-white/45",
-                      )}
-                    >
-                      {isRequest ? obj.subtitle : obj.address}
-                    </p>
-                    <p
-                      className={cn(
-                        "mt-1 text-[12px]",
-                        isRequest ? "text-rose-100/50" : "text-white/35",
-                      )}
-                    >
-                      {isRequest
-                        ? `Статус: ${obj.statusLabel} · ${obj.createdAt}`
-                        : `${obj.breakers} устройств · ${obj.lastCheck}`}
-                    </p>
-                  </div>
-                </GlassCard>
-              </motion.button>
+                        {isRequest ? (
+                          <ClipboardList className="h-6 w-6" />
+                        ) : (
+                          <BreakerIcon className="h-7 w-7" />
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="mb-0.5 flex items-center justify-between gap-2">
+                          <h2
+                            className={cn(
+                              "truncate text-[17px] font-semibold",
+                              isRequest ? "text-rose-100" : "text-white",
+                            )}
+                          >
+                            {obj.title}
+                          </h2>
+                          {isRequest ? (
+                            <span className="shrink-0 rounded-full bg-rose-500/25 px-2 py-0.5 text-[11px] font-medium text-rose-200">
+                              {obj.statusLabel}
+                            </span>
+                          ) : (
+                            <span className="shrink-0 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium text-emerald-300">
+                              {obj.safety}%
+                            </span>
+                          )}
+                        </div>
+                        <p
+                          className={cn(
+                            "truncate text-[13px]",
+                            isRequest ? "text-rose-100/65" : "text-white/45",
+                          )}
+                        >
+                          {isRequest ? obj.subtitle : obj.address}
+                        </p>
+                        <p
+                          className={cn(
+                            "mt-1 text-[12px]",
+                            isRequest ? "text-rose-100/50" : "text-white/35",
+                          )}
+                        >
+                          {isRequest
+                            ? `Статус: ${obj.statusLabel} · ${obj.createdAt}`
+                            : `${obj.breakers} устройств · ${obj.lastCheck}`}
+                        </p>
+                      </div>
+                    </GlassCard>
+                  </button>
+                </SwipeableRow>
+              </motion.div>
             );
           })
         )}
@@ -173,6 +188,18 @@ export function ObjectsScreen({
           У меня нет щитка
         </button>
       </div>
+
+      <AnimatePresence>
+        {menuOpen && (
+          <MainMenuSheet
+            onClose={() => setMenuOpen(false)}
+            onSelect={(id) => {
+              setMenuOpen(false);
+              onMenuSelect(id);
+            }}
+          />
+        )}
+      </AnimatePresence>
     </motion.section>
   );
 }

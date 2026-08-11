@@ -10,9 +10,13 @@ import { filterCities } from "@/lib/cities";
 export function CitySelectScreen({
   onBack,
   onConfirm,
+  title = "Ваш город",
+  description = "Начните вводить название — подскажем города.",
 }: {
   onBack: () => void;
   onConfirm: (city: string) => void;
+  title?: string;
+  description?: string;
 }) {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
@@ -45,12 +49,9 @@ export function CitySelectScreen({
       </header>
 
       <h2 className="mb-2 text-[26px] font-bold tracking-tight text-white">
-        В каком городе установить щиток?
+        {title}
       </h2>
-      <p className="mb-5 text-[15px] text-white/50">
-        Наши мастера-эксперты есть уже во многих городах. Укажите свой город, мы
-        проверим.
-      </p>
+      <p className="mb-5 text-[15px] text-white/50">{description}</p>
 
       <label className="relative mb-3 block">
         <MapPin className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35" />

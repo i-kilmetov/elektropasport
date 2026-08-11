@@ -162,7 +162,10 @@ function rowToRequest(row: RequestRow): InstallRequest {
     kind: "install_request",
     id: row.id,
     title: row.title,
-    subtitle: row.subtitle,
+    subtitle:
+      row.subtitle === "На установку щитка"
+        ? "Заявка на установку щитка"
+        : row.subtitle,
     status,
     statusLabel: row.status_label || installStatusLabels[status] || row.status,
     createdAt: row.created_at_label,
@@ -318,6 +321,74 @@ export async function insertInstallRequest(
     )
   `;
   return request;
+}
+
+export async function updateInstallRequest(
+  telegramUserId: number,
+  id: string,
+  patch: Partial<Pick<InstallRequest, "title">>,
+): Promise<InstallRequest | null> {
+  const sql = getSql();
+  const rows = (await sql`
+    UPDATE install_requests SET
+      title = COALESCE(${patch.title ?? null}, title)
+    WHERE id = ${id} AND telegram_user_id = ${telegramUserId}
+    RETURNING
+      id, title, subtitle, status, status_label, created_at_label,
+      city, contact_method, phone, name, dwelling, phases, power_kw,
+      setup_title, created_at
+  `) as RequestRow[];
+  return rows[0] ? rowToRequest(rows[0]) : null;
+}
+
+export async function deleteInstallRequest(
+  telegramUserId: number,
+  id: string,
+): Promise<boolean> {
+  const sql = getSql();
+  const rows = await sql`
+    DELETE FROM install_requests
+    WHERE id = ${id} AND telegram_user_id = ${telegramUserId}
+    RETURNING id
+  `;
+  return rows.length > 0;
+}
+
+export async function insertMasterApplication(
+  telegramUserId: number,
+  payload: {
+    id: string;
+    city: string;
+    contactMethod: "phone" | "telegram";
+    phone?: string;
+    name: string;
+  },
+): Promise<void> {
+  const sql = getSql();
+  await sql`
+    CREATE TABLE IF NOT EXISTS master_applications (
+      id TEXT PRIMARY KEY,
+      telegram_user_id BIGINT NOT NULL REFERENCES users(telegram_id) ON DELETE CASCADE,
+      city TEXT NOT NULL,
+      contact_method TEXT NOT NULL,
+      phone TEXT,
+      name TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+  await sql`
+    INSERT INTO master_applications (
+      id, telegram_user_id, city, contact_method, phone, name, created_at
+    ) VALUES (
+      ${payload.id},
+      ${telegramUserId},
+      ${payload.city},
+      ${payload.contactMethod},
+      ${payload.phone ?? null},
+      ${payload.name},
+      NOW()
+    )
+  `;
 }
 
 export class DbError extends Error {

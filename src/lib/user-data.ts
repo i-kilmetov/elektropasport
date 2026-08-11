@@ -223,3 +223,71 @@ export async function persistInstallRequest(
     throw new Error(await parseError(res));
   }
 }
+
+export async function persistInstallRequestPatch(
+  id: string,
+  patch: Partial<Pick<InstallRequest, "title">>,
+): Promise<void> {
+  const items = readLocalItems().map((item) =>
+    item.kind === "install_request" && item.id === id
+      ? { ...item, ...patch }
+      : item,
+  );
+  writeLocalItems(items);
+
+  if (!canUseServer()) return;
+
+  const res = await fetch(`/api/install-requests/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders(),
+    },
+    body: JSON.stringify(patch),
+  });
+
+  if (!res.ok) {
+    if (res.status === 503) return;
+    throw new Error(await parseError(res));
+  }
+}
+
+export async function persistDeleteInstallRequest(id: string): Promise<void> {
+  writeLocalItems(readLocalItems().filter((item) => item.id !== id));
+
+  if (!canUseServer()) return;
+
+  const res = await fetch(`/api/install-requests/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+
+  if (!res.ok) {
+    if (res.status === 503 || res.status === 404) return;
+    throw new Error(await parseError(res));
+  }
+}
+
+export async function persistMasterApplication(payload: {
+  id: string;
+  city: string;
+  contactMethod: "phone" | "telegram";
+  phone?: string;
+  name: string;
+}): Promise<void> {
+  if (!canUseServer()) return;
+
+  const res = await fetch("/api/master-applications", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders(),
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    if (res.status === 503) return;
+    throw new Error(await parseError(res));
+  }
+}
