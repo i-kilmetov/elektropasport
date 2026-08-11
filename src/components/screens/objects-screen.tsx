@@ -1,39 +1,21 @@
 "use client";
 
 import { motion } from "framer-motion";
-import {
-  Building2,
-  Home,
-  Menu,
-  Plus,
-  TreePine,
-  Warehouse,
-} from "lucide-react";
+import { Menu, Plus, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
-import { panelObjects } from "@/lib/mock-data";
-import type { ObjectType } from "@/types";
-
-const typeIcons: Record<ObjectType, typeof Home> = {
-  apartment: Building2,
-  house: Home,
-  garage: Warehouse,
-  dacha: TreePine,
-};
-
-const typeColors: Record<ObjectType, string> = {
-  apartment: "from-violet-500/30 to-violet-600/10 text-violet-300",
-  house: "from-emerald-500/30 to-emerald-600/10 text-emerald-300",
-  garage: "from-slate-400/30 to-slate-500/10 text-slate-300",
-  dacha: "from-amber-600/30 to-amber-700/10 text-amber-300",
-};
+import type { PanelObject } from "@/types";
 
 export function ObjectsScreen({
+  panels,
   onAdd,
   onOpen,
+  onNoPanel,
 }: {
+  panels: PanelObject[];
   onAdd: () => void;
-  onOpen: () => void;
+  onOpen: (id: string) => void;
+  onNoPanel: () => void;
 }) {
   return (
     <motion.section
@@ -63,23 +45,37 @@ export function ObjectsScreen({
       </header>
 
       <div className="flex flex-1 flex-col gap-3">
-        {panelObjects.map((obj, i) => {
-          const Icon = typeIcons[obj.type];
-          return (
+        {panels.length === 0 ? (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex flex-1 flex-col items-center justify-center px-4 text-center"
+          >
+            <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-[24px] border border-white/10 bg-white/5 text-[var(--accent)]">
+              <Zap className="h-9 w-9" />
+            </div>
+            <h2 className="mb-2 text-[22px] font-semibold text-white">
+              Щитков пока нет
+            </h2>
+            <p className="max-w-[280px] text-[15px] leading-relaxed text-white/45">
+              Добавьте первый щиток по фото — или расскажите, как у вас устроена
+              электрика, если щитка нет.
+            </p>
+          </motion.div>
+        ) : (
+          panels.map((obj, i) => (
             <motion.button
               key={obj.id}
               type="button"
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.08 * i }}
-              onClick={onOpen}
+              transition={{ delay: 0.06 * i }}
+              onClick={() => onOpen(obj.id)}
               className="text-left"
             >
               <GlassCard className="flex items-center gap-4 p-4 transition-colors hover:bg-white/[0.09]">
-                <div
-                  className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-[18px] bg-gradient-to-br ${typeColors[obj.type]}`}
-                >
-                  <Icon className="h-6 w-6" />
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[18px] bg-gradient-to-br from-violet-500/30 to-violet-600/10 text-violet-300">
+                  <Zap className="h-6 w-6" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="mb-0.5 flex items-center justify-between gap-2">
@@ -92,34 +88,27 @@ export function ObjectsScreen({
                   </div>
                   <p className="truncate text-[13px] text-white/45">{obj.address}</p>
                   <p className="mt-1 text-[12px] text-white/35">
-                    {obj.breakers} автоматов · {obj.lastCheck}
+                    {obj.breakers} устройств · {obj.lastCheck}
                   </p>
                 </div>
               </GlassCard>
             </motion.button>
-          );
-        })}
-
-        <motion.button
-          type="button"
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          onClick={onAdd}
-          className="mt-1"
-        >
-          <div className="flex flex-col items-center justify-center gap-2 rounded-[20px] border border-dashed border-[var(--accent)]/40 bg-[var(--accent)]/5 px-4 py-8 text-[var(--accent)]">
-            <Plus className="h-7 w-7" />
-            <span className="text-[15px] font-medium">Добавить щиток</span>
-          </div>
-        </motion.button>
+          ))
+        )}
       </div>
 
-      <div className="mt-6">
+      <div className="mt-6 space-y-4">
         <Button className="w-full" onClick={onAdd}>
           <Plus className="h-5 w-5" />
           Добавить щиток
         </Button>
+        <button
+          type="button"
+          onClick={onNoPanel}
+          className="w-full text-center text-[15px] font-medium text-white/55 underline decoration-white/25 underline-offset-4 transition-colors hover:text-white/85"
+        >
+          У меня нет щитка
+        </button>
       </div>
     </motion.section>
   );

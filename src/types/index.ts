@@ -30,6 +30,8 @@ export interface PanelObject {
   lastCheck: string;
   breakers: number;
   safety: number;
+  devices?: Device[];
+  linesCount?: number;
 }
 
 export type AppScreen =
@@ -37,7 +39,10 @@ export type AppScreen =
   | "objects"
   | "photo"
   | "analysis"
-  | "scheme";
+  | "scheme"
+  | "no-panel-options"
+  | "no-panel-detail"
+  | "city-select";
 
 export interface AnalyzePanelResult {
   devices: Device[];
