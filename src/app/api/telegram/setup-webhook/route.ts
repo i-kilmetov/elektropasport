@@ -10,8 +10,24 @@ export async function GET(request: Request) {
   const key = url.searchParams.get("key")?.trim() ?? "";
   const expected = process.env.TELEGRAM_SETUP_KEY?.trim();
 
-  if (!expected || key !== expected) {
-    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!expected) {
+    return Response.json(
+      {
+        error: "TELEGRAM_SETUP_KEY не задан на сервере",
+        hint: "Добавьте переменную в Vercel → Settings → Environment Variables (Production) и сделайте Redeploy",
+      },
+      { status: 401 },
+    );
+  }
+
+  if (!key || key !== expected) {
+    return Response.json(
+      {
+        error: "Неверный key в URL",
+        hint: "Значение ?key=... должно точно совпадать с TELEGRAM_SETUP_KEY (без кавычек и пробелов)",
+      },
+      { status: 401 },
+    );
   }
 
   const origin = process.env.VERCEL_PROJECT_PRODUCTION_URL
