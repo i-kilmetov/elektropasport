@@ -4,6 +4,7 @@ import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ClipboardList, Menu, Plus } from "lucide-react";
 import { BreakerIcon } from "@/components/icons/breaker-icon";
+import { SchemeMiniPreview } from "@/components/icons/scheme-mini-preview";
 import { MainMenuSheet } from "@/components/screens/main-menu-sheet";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -119,26 +120,25 @@ export function ObjectsScreen({
                     >
                       <div
                         className={cn(
-                          "flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[18px]",
+                          "h-14 w-14 shrink-0 overflow-hidden rounded-[18px]",
                           isRequest
-                            ? "bg-rose-500/20 text-rose-300"
-                            : "bg-white/10 text-[var(--accent)]",
+                            ? "flex items-center justify-center bg-rose-500/20 text-rose-300"
+                            : "bg-[#121218]",
                         )}
                       >
                         {isRequest ? (
                           <ClipboardList className="h-6 w-6" />
                         ) : obj.kind === "panel" &&
-                          (obj.photoThumbDataUrl || obj.photoDataUrl) ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={obj.photoThumbDataUrl ?? obj.photoDataUrl}
-                            alt=""
-                            className="h-full w-full object-cover"
-                            loading="lazy"
-                            decoding="async"
+                          obj.devices &&
+                          obj.devices.length > 0 ? (
+                          <SchemeMiniPreview
+                            devices={obj.devices}
+                            railCount={obj.railCount}
                           />
                         ) : (
-                          <BreakerIcon className="h-7 w-7" />
+                          <div className="flex h-full w-full items-center justify-center bg-white/10 text-[var(--accent)]">
+                            <BreakerIcon className="h-7 w-7" />
+                          </div>
                         )}
                       </div>
                       <div className="min-w-0 flex-1">
