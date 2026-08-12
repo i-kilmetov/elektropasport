@@ -62,3 +62,13 @@ export function hapticNotification(
     // ignore
   }
 }
+
+/** Light tap for buttons that open another screen. */
+export function hapticNav(): void {
+  hapticImpact("light");
+}
+
+/** Feedback when the user deletes a panel or request. */
+export function hapticDelete(): void {
+  hapticNotification("error");
+}

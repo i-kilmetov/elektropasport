@@ -18,6 +18,7 @@ import { NoPanelOptionsScreen } from "@/components/screens/no-panel-options-scre
 import { ObjectsScreen } from "@/components/screens/objects-screen";
 import { PanelAdvantagesScreen } from "@/components/screens/panel-advantages-screen";
 import { PhotoScreen } from "@/components/screens/photo-screen";
+import { ProfileScreen } from "@/components/screens/profile-screen";
 import { RequestDetailsScreen } from "@/components/screens/request-details-screen";
 import { SchemeScreen } from "@/components/screens/scheme-screen";
 import { TelegramAuthScreen } from "@/components/screens/telegram-auth-screen";
@@ -26,7 +27,12 @@ import {
   WelcomeScreen,
 } from "@/components/screens/welcome-screen";
 import { canUseServerAuth } from "@/lib/client-auth";
-import { hapticImpact, hapticNotification } from "@/lib/haptics";
+import {
+  hapticDelete,
+  hapticImpact,
+  hapticNav,
+  hapticNotification,
+} from "@/lib/haptics";
 import { getNoPanelSetup, type NoPanelSetupId } from "@/lib/no-panel-setups";
 import {
   fetchHomeItems,
@@ -83,6 +89,11 @@ export function AppShell() {
   const [selectedCity, setSelectedCity] = useState<string | null>(null);
   const [leadFlow, setLeadFlow] = useState<LeadFlow>("install");
   const [activeRuleId, setActiveRuleId] = useState<string | null>(null);
+
+  const go = useCallback((next: AppScreen) => {
+    hapticNav();
+    setScreen(next);
+  }, []);
 
   useEffect(() => {
     if (readSkipOnboarding()) {
@@ -152,22 +163,22 @@ export function AppShell() {
 
   const handlePhoto = useCallback((dataUrl: string) => {
     setPhotoDataUrl(dataUrl);
-    setScreen("analysis");
-  }, []);
+    go("analysis");
+  }, [go]);
 
   const requireTelegramAuth = useCallback((action: "add-panel" | "no-panel") => {
     if (canUseServerAuth()) {
       if (action === "add-panel") {
         setPhotoDataUrl(null);
-        setScreen("photo");
+        go("photo");
       } else {
-        setScreen("no-panel-options");
+        go("no-panel-options");
       }
       return;
     }
     setPendingAuthAction(action);
-    setScreen("telegram-auth");
-  }, []);
+    go("telegram-auth");
+  }, [go]);
 
   const handleAnalysisDone = useCallback(
     (result: AnalyzePanelResult) => {
@@ -226,9 +237,9 @@ export function AppShell() {
       setSafetyScore(panel?.safety ?? null);
       setLinesCount(panel?.linesCount ?? null);
       setRailCount(panel?.railCount ?? 1);
-      setScreen("scheme");
+      go("scheme");
     },
-    [items],
+    [go, items],
   );
 
   const renamePanel = useCallback(
@@ -257,7 +268,42 @@ export function AppShell() {
     [activePanelId],
   );
 
+  const renameHomeItem = useCallback((id: string, name: string) => {
+    setItems((prev) => {
+      const item = prev.find((entry) => entry.id === id);
+      if (item?.kind === "panel") {
+        void persistPanelPatch(id, { title: name, named: true }).catch(
+          (error) => {
+            console.error(error);
+            setItemsError(
+              error instanceof Error
+                ? error.message
+                : "Не удалось переименовать щиток",
+            );
+          },
+        );
+      } else if (item?.kind === "install_request") {
+        void persistInstallRequestPatch(id, { title: name }).catch((error) => {
+          console.error(error);
+          setItemsError(
+            error instanceof Error
+              ? error.message
+              : "Не удалось переименовать заявку",
+          );
+        });
+      }
+      return prev.map((entry) => {
+        if (entry.id !== id) return entry;
+        if (entry.kind === "panel") {
+          return { ...entry, title: name, named: true };
+        }
+        return { ...entry, title: name };
+      });
+    });
+  }, []);
+
   const deletePanelById = useCallback((id: string) => {
+    hapticDelete();
     setItems((prev) =>
       prev.filter((item) => !(item.kind === "panel" && item.id === id)),
     );
@@ -340,6 +386,7 @@ export function AppShell() {
   );
 
   const deleteRequestById = useCallback((id: string) => {
+    hapticDelete();
     setItems((prev) =>
       prev.filter(
         (item) => !(item.kind === "install_request" && item.id === id),
@@ -500,7 +547,7 @@ export function AppShell() {
       <div className="relative z-10">
         <AnimatePresence mode="wait">
           {screen === "welcome" && (
-            <WelcomeScreen key="welcome" onStart={() => setScreen("objects")} />
+            <WelcomeScreen key="welcome" onStart={() => go("objects")} />
           )}
           {screen === "objects" && (
             <ObjectsScreen
@@ -512,14 +559,16 @@ export function AppShell() {
               onOpenPanel={openPanel}
               onOpenRequest={(id) => {
                 setActiveRequestId(id);
-                setScreen("request-details");
+                go("request-details");
               }}
               onDeleteItem={deleteHomeItem}
+              onRenameItem={renameHomeItem}
               onNoPanel={() => requireTelegramAuth("no-panel")}
               onMenuSelect={(id) => {
-                if (id === "about") setScreen("about-service");
-                if (id === "electrical") setScreen("electrical-rules");
-                if (id === "master") setScreen("become-master");
+                if (id === "profile") go("profile");
+                if (id === "about") go("about-service");
+                if (id === "electrical") go("electrical-rules");
+                if (id === "master") go("become-master");
               }}
             />
           )}
@@ -530,14 +579,14 @@ export function AppShell() {
               onBack={() => {
                 setPendingAuthAction(null);
                 sessionStorage.removeItem("ep_pending_auth_action");
-                setScreen("objects");
+                go("objects");
               }}
             />
           )}
           {screen === "photo" && (
             <PhotoScreen
               key="photo"
-              onBack={() => setScreen("objects")}
+              onBack={() => go("objects")}
               onCapture={handlePhoto}
             />
           )}
@@ -558,7 +607,7 @@ export function AppShell() {
               title={activePanel?.title ?? "Щиток"}
               photoDataUrl={activePanel?.photoDataUrl ?? photoDataUrl}
               askNameOnBack={askNameOnBack}
-              onBack={() => setScreen("objects")}
+              onBack={() => go("objects")}
               onRename={renamePanel}
               onDelete={deletePanel}
               onAssignCircuit={assignCircuitLabel}
@@ -572,10 +621,10 @@ export function AppShell() {
           {screen === "no-panel-options" && (
             <NoPanelOptionsScreen
               key="no-panel-options"
-              onBack={() => setScreen("objects")}
+              onBack={() => go("objects")}
               onSelect={(id) => {
                 setNoPanelSetupId(id);
-                setScreen("no-panel-detail");
+                go("no-panel-detail");
               }}
             />
           )}
@@ -583,31 +632,31 @@ export function AppShell() {
             <NoPanelDetailScreen
               key={`detail-${noPanelSetupId}`}
               setupId={noPanelSetupId}
-              onBack={() => setScreen("no-panel-options")}
-              onContinue={() => setScreen("panel-advantages")}
+              onBack={() => go("no-panel-options")}
+              onContinue={() => go("panel-advantages")}
             />
           )}
           {screen === "panel-advantages" && (
             <PanelAdvantagesScreen
               key={`advantages-${noPanelSetupId ?? "default"}`}
               setupId={noPanelSetupId}
-              onBack={() => setScreen("no-panel-detail")}
+              onBack={() => go("no-panel-detail")}
               onInstall={() => {
                 setLeadFlow("install");
                 setElectricalDetails(null);
                 setSelectedCity(null);
-                setScreen("lead-contact");
+                go("lead-contact");
               }}
             />
           )}
           {screen === "electrical-details" && (
             <ElectricalDetailsScreen
               key="electrical-details"
-              onBack={() => setScreen("panel-advantages")}
+              onBack={() => go("panel-advantages")}
               onContinue={(details) => {
                 setElectricalDetails(details);
                 setLeadFlow("install");
-                setScreen("lead-contact");
+                go("lead-contact");
               }}
             />
           )}
@@ -625,13 +674,13 @@ export function AppShell() {
                   : "Укажите город — мы свяжемся и подскажем, как правильно собрать щиток в вашей ситуации."
               }
               onBack={() =>
-                setScreen(
+                go(
                   leadFlow === "master" ? "become-master" : "panel-advantages",
                 )
               }
               onConfirm={(city) => {
                 setSelectedCity(city);
-                setScreen("lead-contact");
+                go("lead-contact");
               }}
             />
           )}
@@ -640,37 +689,40 @@ export function AppShell() {
               key={`lead-${leadFlow}`}
               variant={leadFlow}
               onBack={() =>
-                setScreen(
+                go(
                   leadFlow === "master" ? "city-select" : "panel-advantages",
                 )
               }
               onFinish={submitLead}
-              onGoHome={() => setScreen("objects")}
+              onGoHome={() => go("objects")}
             />
           )}
           {screen === "request-details" && activeRequest && (
             <RequestDetailsScreen
               key={`request-${activeRequest.id}`}
               request={activeRequest}
-              onBack={() => setScreen("objects")}
+              onBack={() => go("objects")}
               onRename={renameRequest}
               onDelete={deleteRequest}
               onUpdate={updateRequest}
             />
           )}
+          {screen === "profile" && (
+            <ProfileScreen key="profile" onBack={() => go("objects")} />
+          )}
           {screen === "about-service" && (
             <AboutServiceScreen
               key="about-service"
-              onBack={() => setScreen("objects")}
+              onBack={() => go("objects")}
             />
           )}
           {screen === "electrical-rules" && (
             <ElectricalRulesScreen
               key="electrical-rules"
-              onBack={() => setScreen("objects")}
+              onBack={() => go("objects")}
               onOpenRule={(id) => {
                 setActiveRuleId(id);
-                setScreen("electrical-rule-detail");
+                go("electrical-rule-detail");
               }}
             />
           )}
@@ -678,17 +730,17 @@ export function AppShell() {
             <ElectricalRuleDetailScreen
               key={`rule-${activeRuleId}`}
               ruleId={activeRuleId}
-              onBack={() => setScreen("electrical-rules")}
+              onBack={() => go("electrical-rules")}
             />
           )}
           {screen === "become-master" && (
             <BecomeMasterScreen
               key="become-master"
-              onBack={() => setScreen("objects")}
+              onBack={() => go("objects")}
               onConfirm={() => {
                 setLeadFlow("master");
                 setSelectedCity(null);
-                setScreen("city-select");
+                go("city-select");
               }}
             />
           )}

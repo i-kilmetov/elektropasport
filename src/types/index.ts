@@ -95,6 +95,7 @@ export type AppScreen =
   | "lead-contact"
   | "request-details"
   | "about-service"
+  | "profile"
   | "electrical-rules"
   | "electrical-rule-detail"
   | "become-master"

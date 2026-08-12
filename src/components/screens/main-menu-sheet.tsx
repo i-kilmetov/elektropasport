@@ -1,23 +1,44 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { ArrowRight, BookOpen, Info, Wrench, X } from "lucide-react";
+import {
+  ArrowRight,
+  BookOpen,
+  Info,
+  UserRound,
+  Wrench,
+  X,
+} from "lucide-react";
+import { Portal } from "@/components/ui/portal";
 
-const items = [
+export type MainMenuId = "profile" | "about" | "electrical" | "master";
+
+const items: Array<{
+  id: MainMenuId;
+  title: string;
+  description: string;
+  icon: typeof Info;
+}> = [
   {
-    id: "about" as const,
+    id: "profile",
+    title: "Личный кабинет",
+    description: "Данные из Telegram и контакты",
+    icon: UserRound,
+  },
+  {
+    id: "about",
     title: "О сервисе",
     description: "Как работает Электропаспорт",
     icon: Info,
   },
   {
-    id: "electrical" as const,
+    id: "electrical",
     title: "Важное об электрике",
     description: "ПУЭ и базовые правила безопасности",
     icon: BookOpen,
   },
   {
-    id: "master" as const,
+    id: "master",
     title: "Стать мастером",
     description: "Присоединиться к команде",
     icon: Wrench,
@@ -29,60 +50,62 @@ export function MainMenuSheet({
   onSelect,
 }: {
   onClose: () => void;
-  onSelect: (id: "about" | "electrical" | "master") => void;
+  onSelect: (id: MainMenuId) => void;
 }) {
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="absolute inset-0 z-50 flex items-end bg-black/60 backdrop-blur-sm"
-      onClick={onClose}
-    >
+    <Portal>
       <motion.div
-        initial={{ y: 40 }}
-        animate={{ y: 0 }}
-        exit={{ y: 40 }}
-        transition={{ type: "spring", stiffness: 320, damping: 30 }}
-        onClick={(e) => e.stopPropagation()}
-        className="w-full rounded-t-[28px] border border-black/8 bg-white p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-2xl"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[100] flex items-end bg-black/60 backdrop-blur-sm"
+        onClick={onClose}
       >
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-[20px] font-semibold text-zinc-900">Меню</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-black/8 bg-zinc-100 text-zinc-600"
-            aria-label="Закрыть"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-
-        <div className="space-y-2">
-          {items.map((item) => (
+        <motion.div
+          initial={{ y: 40 }}
+          animate={{ y: 0 }}
+          exit={{ y: 40 }}
+          transition={{ type: "spring", stiffness: 320, damping: 30 }}
+          onClick={(e) => e.stopPropagation()}
+          className="w-full max-w-[430px] mx-auto rounded-t-[28px] border border-black/8 bg-white p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-2xl"
+        >
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-[20px] font-semibold text-zinc-900">Меню</h2>
             <button
-              key={item.id}
               type="button"
-              onClick={() => onSelect(item.id)}
-              className="flex w-full items-center gap-3 rounded-[20px] border border-black/8 bg-zinc-50 px-4 py-3.5 text-left transition-colors hover:bg-zinc-100"
+              onClick={onClose}
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-black/8 bg-zinc-100 text-zinc-600"
+              aria-label="Закрыть"
             >
-              <span className="flex h-11 w-11 items-center justify-center rounded-[16px] bg-[var(--accent)]/15 text-[var(--accent)]">
-                <item.icon className="h-5 w-5" />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-[16px] font-semibold text-zinc-900">
-                  {item.title}
-                </span>
-                <span className="mt-0.5 block text-[13px] text-zinc-500">
-                  {item.description}
-                </span>
-              </span>
-              <ArrowRight className="h-4 w-4 text-zinc-400" />
+              <X className="h-4 w-4" />
             </button>
-          ))}
-        </div>
+          </div>
+
+          <div className="space-y-2">
+            {items.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => onSelect(item.id)}
+                className="flex w-full items-center gap-3 rounded-[20px] border border-black/8 bg-zinc-50 px-4 py-3.5 text-left transition-colors hover:bg-zinc-100"
+              >
+                <span className="flex h-11 w-11 items-center justify-center rounded-[16px] bg-[var(--accent)]/15 text-[var(--accent)]">
+                  <item.icon className="h-5 w-5" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[16px] font-semibold text-zinc-900">
+                    {item.title}
+                  </span>
+                  <span className="mt-0.5 block text-[13px] text-zinc-500">
+                    {item.description}
+                  </span>
+                </span>
+                <ArrowRight className="h-4 w-4 text-zinc-400" />
+              </button>
+            ))}
+          </div>
+        </motion.div>
       </motion.div>
-    </motion.div>
+    </Portal>
   );
 }

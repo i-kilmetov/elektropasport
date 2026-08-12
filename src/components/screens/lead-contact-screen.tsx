@@ -6,26 +6,13 @@ import { ArrowLeft, Check, Clock3, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { hapticNotification } from "@/lib/haptics";
 import { getTelegramUserName } from "@/lib/telegram-user";
+import {
+  formatPhoneDigits,
+  getUserProfile,
+  saveUserProfile,
+} from "@/lib/user-profile";
 
 type Step = "contact" | "done";
-
-function formatPhoneDigits(digits: string): string {
-  const d = digits.replace(/\D/g, "").slice(0, 10);
-  const p1 = d.slice(0, 3);
-  const p2 = d.slice(3, 6);
-  const p3 = d.slice(6, 8);
-  const p4 = d.slice(8, 10);
-  let out = "";
-  if (!p1) return out;
-  if (d.length <= 3) return p1;
-  out = `(${p1}) `;
-  if (p2) out += p2;
-  if (p2.length === 3 && p3) out += "-";
-  if (p3) out += p3;
-  if (p3.length === 2 && p4) out += "-";
-  if (p4) out += p4;
-  return out;
-}
 
 export function LeadContactScreen({
   onBack,
@@ -43,7 +30,9 @@ export function LeadContactScreen({
   variant?: "install" | "master";
 }) {
   const [step, setStep] = useState<Step>("contact");
-  const [digits, setDigits] = useState("");
+  const [digits, setDigits] = useState(
+    () => getUserProfile().phoneDigits?.replace(/\D/g, "").slice(0, 10) ?? "",
+  );
   const [consent, setConsent] = useState(false);
   const [displayName, setDisplayName] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -63,6 +52,7 @@ export function LeadContactScreen({
         phone: `+7${digits}`,
         name,
       });
+      saveUserProfile({ phoneDigits: digits });
       hapticNotification("success");
     } finally {
       setSubmitting(false);
@@ -180,4 +170,3 @@ export function LeadContactScreen({
     </motion.section>
   );
 }
-

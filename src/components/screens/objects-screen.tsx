@@ -1,17 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ClipboardList, Menu, Plus } from "lucide-react";
 import { BreakerIcon } from "@/components/icons/breaker-icon";
 import { SchemeMiniPreview } from "@/components/icons/scheme-mini-preview";
-import { MainMenuSheet } from "@/components/screens/main-menu-sheet";
+import {
+  MainMenuSheet,
+  type MainMenuId,
+} from "@/components/screens/main-menu-sheet";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { GlassCard } from "@/components/ui/glass-card";
+import { ItemActionsSheet } from "@/components/ui/item-actions-sheet";
+import { NameDialog } from "@/components/ui/name-dialog";
 import { SwipeableRow } from "@/components/ui/swipeable-row";
 import { cn } from "@/lib/utils";
 import type { HomeListItem } from "@/types";
+
+const LONG_PRESS_MS = 420;
 
 export function ObjectsScreen({
   items,
@@ -21,6 +28,7 @@ export function ObjectsScreen({
   onOpenPanel,
   onOpenRequest,
   onDeleteItem,
+  onRenameItem,
   onNoPanel,
   onMenuSelect,
 }: {
@@ -31,13 +39,36 @@ export function ObjectsScreen({
   onOpenPanel: (id: string) => void;
   onOpenRequest: (id: string) => void;
   onDeleteItem: (id: string) => void;
+  onRenameItem: (id: string, name: string) => void;
   onNoPanel: () => void;
-  onMenuSelect: (id: "about" | "electrical" | "master") => void;
+  onMenuSelect: (id: MainMenuId) => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [actionsItemId, setActionsItemId] = useState<string | null>(null);
+  const [renameItemId, setRenameItemId] = useState<string | null>(null);
+  const longPressedRef = useRef(false);
+  const timerRef = useRef<number | null>(null);
 
   const pendingDelete = items.find((item) => item.id === pendingDeleteId);
+  const actionsItem = items.find((item) => item.id === actionsItemId);
+  const renameItem = items.find((item) => item.id === renameItemId);
+
+  const clearPressTimer = () => {
+    if (timerRef.current != null) {
+      window.clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  };
+
+  const startLongPress = (id: string) => {
+    longPressedRef.current = false;
+    clearPressTimer();
+    timerRef.current = window.setTimeout(() => {
+      longPressedRef.current = true;
+      setActionsItemId(id);
+    }, LONG_PRESS_MS);
+  };
 
   return (
     <motion.section
@@ -105,10 +136,20 @@ export function ObjectsScreen({
                 <SwipeableRow onDelete={() => setPendingDeleteId(obj.id)}>
                   <button
                     type="button"
-                    onClick={() =>
-                      isRequest ? onOpenRequest(obj.id) : onOpenPanel(obj.id)
-                    }
-                    className="w-full text-left"
+                    onClick={() => {
+                      if (longPressedRef.current) {
+                        longPressedRef.current = false;
+                        return;
+                      }
+                      if (isRequest) onOpenRequest(obj.id);
+                      else onOpenPanel(obj.id);
+                    }}
+                    onPointerDown={() => startLongPress(obj.id)}
+                    onPointerUp={clearPressTimer}
+                    onPointerLeave={clearPressTimer}
+                    onPointerCancel={clearPressTimer}
+                    onContextMenu={(e) => e.preventDefault()}
+                    className="w-full touch-manipulation text-left select-none"
                   >
                     <GlassCard
                       className={cn(
@@ -210,6 +251,50 @@ export function ObjectsScreen({
             onSelect={(id) => {
               setMenuOpen(false);
               onMenuSelect(id);
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {actionsItem && (
+          <ItemActionsSheet
+            title={actionsItem.title}
+            onClose={() => setActionsItemId(null)}
+            onRename={() => {
+              setRenameItemId(actionsItem.id);
+              setActionsItemId(null);
+            }}
+            onDelete={() => {
+              setPendingDeleteId(actionsItem.id);
+              setActionsItemId(null);
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {renameItem && (
+          <NameDialog
+            title={
+              renameItem.kind === "panel"
+                ? "Переименовать щиток"
+                : "Переименовать заявку"
+            }
+            description={
+              renameItem.kind === "panel"
+                ? "Например: «Квартира», «Дача», «Щиток на кухне»"
+                : "Короткое название, чтобы быстрее найти заявку"
+            }
+            placeholder={
+              renameItem.kind === "panel" ? "Название щитка" : "Название заявки"
+            }
+            initialValue={renameItem.title}
+            confirmLabel="Сохранить"
+            onCancel={() => setRenameItemId(null)}
+            onConfirm={(name) => {
+              onRenameItem(renameItem.id, name);
+              setRenameItemId(null);
             }}
           />
         )}

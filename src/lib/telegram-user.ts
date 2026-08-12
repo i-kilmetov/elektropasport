@@ -1,16 +1,28 @@
 import { getBrowserAuthUser } from "@/lib/client-auth";
 
-export function getTelegramUserName(): string {
-  if (typeof window === "undefined") return "";
+export type TelegramProfileInfo = {
+  id?: number;
+  firstName?: string;
+  lastName?: string;
+  username?: string;
+  photoUrl?: string;
+  languageCode?: string;
+};
+
+export function getTelegramProfileInfo(): TelegramProfileInfo {
+  if (typeof window === "undefined") return {};
 
   const webAppUser = (
     window.Telegram?.WebApp as
       | {
           initDataUnsafe?: {
             user?: {
+              id?: number;
               first_name?: string;
               last_name?: string;
               username?: string;
+              photo_url?: string;
+              language_code?: string;
             };
           };
         }
@@ -18,23 +30,33 @@ export function getTelegramUserName(): string {
   )?.initDataUnsafe?.user;
 
   if (webAppUser) {
-    const full = [webAppUser.first_name, webAppUser.last_name]
-      .filter(Boolean)
-      .join(" ")
-      .trim();
-    if (full) return full;
-    if (webAppUser.username) return webAppUser.username;
+    return {
+      id: webAppUser.id,
+      firstName: webAppUser.first_name,
+      lastName: webAppUser.last_name,
+      username: webAppUser.username,
+      photoUrl: webAppUser.photo_url,
+      languageCode: webAppUser.language_code,
+    };
   }
 
   const browserUser = getBrowserAuthUser();
   if (browserUser) {
-    const full = [browserUser.firstName, browserUser.lastName]
-      .filter(Boolean)
-      .join(" ")
-      .trim();
-    if (full) return full;
-    if (browserUser.username) return browserUser.username;
+    return {
+      id: browserUser.telegramId,
+      firstName: browserUser.firstName,
+      lastName: browserUser.lastName,
+      username: browserUser.username,
+    };
   }
 
+  return {};
+}
+
+export function getTelegramUserName(): string {
+  const info = getTelegramProfileInfo();
+  const full = [info.firstName, info.lastName].filter(Boolean).join(" ").trim();
+  if (full) return full;
+  if (info.username) return info.username;
   return "Пользователь Telegram";
 }
