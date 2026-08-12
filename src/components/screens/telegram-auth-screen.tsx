@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, QrCode } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
-import { getTelegramBotUsername } from "@/lib/client-auth";
 
 export function TelegramAuthScreen({
   pendingAction,
@@ -14,8 +13,7 @@ export function TelegramAuthScreen({
   pendingAction?: "add-panel" | "no-panel";
   onBack: () => void;
 }) {
-  const widgetRef = useRef<HTMLDivElement>(null);
-  const botUsername = getTelegramBotUsername();
+  const [starting, setStarting] = useState(false);
 
   useEffect(() => {
     if (pendingAction) {
@@ -23,29 +21,10 @@ export function TelegramAuthScreen({
     }
   }, [pendingAction]);
 
-  useEffect(() => {
-    if (!botUsername || !widgetRef.current) return;
-
-    const origin = window.location.origin;
-    const container = widgetRef.current;
-    container.innerHTML = "";
-
-    const script = document.createElement("script");
-    script.src = "https://telegram.org/js/telegram-widget.js?22";
-    script.async = true;
-    script.setAttribute("data-telegram-login", botUsername);
-    script.setAttribute("data-size", "large");
-    script.setAttribute("data-radius", "16");
-    script.setAttribute(
-      "data-auth-url",
-      `${origin}/auth/telegram/callback`,
-    );
-    container.appendChild(script);
-
-    return () => {
-      container.innerHTML = "";
-    };
-  }, [botUsername]);
+  const handleLogin = () => {
+    setStarting(true);
+    window.location.assign("/api/auth/telegram/start");
+  };
 
   return (
     <motion.section
@@ -68,22 +47,22 @@ export function TelegramAuthScreen({
 
       <div className="flex flex-1 flex-col items-center justify-center">
         <GlassCard className="w-full max-w-sm space-y-5 p-6 text-center">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-sky-300">
+            <QrCode className="h-8 w-8" strokeWidth={1.75} />
+          </div>
           <div>
             <h2 className="text-[22px] font-bold tracking-tight text-white">
               Войдите через Telegram
             </h2>
             <p className="mt-2 text-[14px] leading-relaxed text-white/50">
-              Используйте свой аккаунт Telegram, чтобы сохранять щитки и заявки.
+              Откроется страница Telegram с QR-кодом. Отсканируйте его в
+              приложении Telegram на телефоне — без входа в бота.
             </p>
           </div>
 
-          {botUsername ? (
-            <div ref={widgetRef} className="flex min-h-[52px] justify-center" />
-          ) : (
-            <p className="text-[13px] text-amber-100/80">
-              Вход через Telegram временно недоступен.
-            </p>
-          )}
+          <Button className="w-full" disabled={starting} onClick={handleLogin}>
+            {starting ? "Открываем Telegram…" : "Войти по QR-коду"}
+          </Button>
         </GlassCard>
       </div>
 

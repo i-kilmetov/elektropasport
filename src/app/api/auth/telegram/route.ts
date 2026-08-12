@@ -7,19 +7,38 @@ import {
 } from "@/lib/telegram-auth";
 import { signSessionToken } from "@/lib/session-token";
 import { dbErrorResponse, ensureSchema, upsertUser } from "@/lib/db";
+import {
+  getTelegramClientId,
+  validateTelegramIdToken,
+} from "@/lib/telegram-oauth";
 
 export async function POST(request: Request) {
   try {
-    const botToken = getBotToken();
-    if (!botToken) {
-      return Response.json(
-        { error: "BOT_TOKEN не настроен на сервере" },
-        { status: 503 },
-      );
+    const body = (await request.json()) as TelegramLoginWidgetData & {
+      id_token?: string;
+    };
+
+    let user;
+    if (body.id_token) {
+      const clientId = getTelegramClientId();
+      if (!clientId) {
+        return Response.json(
+          { error: "TELEGRAM_CLIENT_ID / BOT_TOKEN не настроен" },
+          { status: 503 },
+        );
+      }
+      user = await validateTelegramIdToken(body.id_token, clientId);
+    } else {
+      const botToken = getBotToken();
+      if (!botToken) {
+        return Response.json(
+          { error: "BOT_TOKEN не настроен на сервере" },
+          { status: 503 },
+        );
+      }
+      user = validateTelegramLoginWidget(body, botToken);
     }
 
-    const body = (await request.json()) as TelegramLoginWidgetData;
-    const user = validateTelegramLoginWidget(body, botToken);
     await ensureSchema();
     await upsertUser(user);
 

@@ -32,6 +32,26 @@ npm run dev
 
 Таблицы создаются автоматически при первом запросе.
 
+## Вход в браузере (QR Telegram)
+
+В Mini App вход автоматический через `initData`. В обычном браузере:
+
+1. Кнопка **Войти по QR-коду** открывает `oauth.telegram.org` с QR.
+2. Пользователь сканирует QR в приложении Telegram на телефоне (без `/start` в боте).
+3. После подтверждения возвращается на `/auth/telegram/callback`.
+
+В [@BotFather](https://t.me/BotFather) → ваш бот → **Login Widget / Web Login** добавьте:
+
+- Allowed URL / domain: `https://elektropasport.vercel.app`
+- Redirect URI: `https://elektropasport.vercel.app/auth/telegram/callback`
+
+Рекомендуется также задать в Vercel:
+
+- `TELEGRAM_CLIENT_ID` — Client ID из BotFather (обычно numeric id бота)
+- `TELEGRAM_CLIENT_SECRET` — Client Secret из BotFather (современный OIDC-поток)
+
+Без Client Secret используется legacy-редирект на ту же QR-страницу Telegram.
+
 ## Уведомления о заявках в Telegram
 
 1. Узнайте свой numeric id в [@userinfobot](https://t.me/userinfobot).

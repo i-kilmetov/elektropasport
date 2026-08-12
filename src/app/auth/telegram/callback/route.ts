@@ -3,9 +3,19 @@ import {
   getBotToken,
   validateTelegramLoginWidget,
   type TelegramLoginWidgetData,
+  type ValidatedTelegramUser,
 } from "@/lib/telegram-auth";
 import { signSessionToken } from "@/lib/session-token";
 import { ensureSchema, upsertUser } from "@/lib/db";
+import {
+  canUseOidcLogin,
+  exchangeAuthorizationCode,
+  getTelegramClientId,
+  getTelegramClientSecret,
+  oauthCookieHeader,
+  readOAuthCookie,
+  validateTelegramIdToken,
+} from "@/lib/telegram-oauth";
 
 function parseLoginParams(url: URL): TelegramLoginWidgetData | null {
   const id = url.searchParams.get("id");
@@ -31,38 +41,25 @@ function escapeJsString(value: string): string {
     .replace(/</g, "\\u003c");
 }
 
-export async function GET(request: Request) {
-  try {
-    const botToken = getBotToken();
-    if (!botToken) {
-      return NextResponse.redirect(new URL("/?auth_error=config", request.url));
-    }
+function appOrigin(request: Request): string {
+  const url = new URL(request.url);
+  const proto = request.headers.get("x-forwarded-proto") ?? url.protocol.replace(":", "");
+  const host =
+    request.headers.get("x-forwarded-host") ??
+    request.headers.get("host") ??
+    url.host;
+  return `${proto}://${host}`;
+}
 
-    const url = new URL(request.url);
-    const raw = parseLoginParams(url);
-    if (!raw || !Number.isFinite(raw.id)) {
-      return NextResponse.redirect(new URL("/?auth_error=invalid", request.url));
-    }
+function sessionHtml(user: ValidatedTelegramUser, token: string): string {
+  const userJson = JSON.stringify({
+    telegramId: user.telegramId,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    username: user.username,
+  });
 
-    const user = validateTelegramLoginWidget(raw, botToken);
-    await ensureSchema();
-    await upsertUser(user);
-
-    const token = signSessionToken({
-      telegramId: user.telegramId,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      username: user.username,
-    });
-
-    const userJson = JSON.stringify({
-      telegramId: user.telegramId,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      username: user.username,
-    });
-
-    const html = `<!DOCTYPE html>
+  return `<!DOCTYPE html>
 <html lang="ru">
 <head>
   <meta charset="utf-8" />
@@ -79,10 +76,63 @@ export async function GET(request: Request) {
   </script>
 </body>
 </html>`;
+}
 
-    return new NextResponse(html, {
-      headers: { "Content-Type": "text/html; charset=utf-8" },
-    });
+async function finishLogin(user: ValidatedTelegramUser): Promise<NextResponse> {
+  await ensureSchema();
+  await upsertUser(user);
+  const token = signSessionToken({
+    telegramId: user.telegramId,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    username: user.username,
+  });
+  return new NextResponse(sessionHtml(user, token), {
+    headers: {
+      "Content-Type": "text/html; charset=utf-8",
+      "Set-Cookie": oauthCookieHeader(null),
+    },
+  });
+}
+
+export async function GET(request: Request) {
+  try {
+    const url = new URL(request.url);
+    const code = url.searchParams.get("code");
+    const state = url.searchParams.get("state");
+
+    if (code && state && canUseOidcLogin()) {
+      const pkce = readOAuthCookie(request);
+      if (!pkce || pkce.state !== state) {
+        return NextResponse.redirect(new URL("/?auth_error=state", request.url));
+      }
+
+      const clientId = getTelegramClientId();
+      const clientSecret = getTelegramClientSecret();
+      const redirectUri = `${appOrigin(request)}/auth/telegram/callback`;
+      const idToken = await exchangeAuthorizationCode({
+        code,
+        redirectUri,
+        codeVerifier: pkce.verifier,
+        clientId,
+        clientSecret,
+      });
+      const user = await validateTelegramIdToken(idToken, clientId);
+      return finishLogin(user);
+    }
+
+    const botToken = getBotToken();
+    if (!botToken) {
+      return NextResponse.redirect(new URL("/?auth_error=config", request.url));
+    }
+
+    const raw = parseLoginParams(url);
+    if (!raw || !Number.isFinite(raw.id)) {
+      return NextResponse.redirect(new URL("/?auth_error=invalid", request.url));
+    }
+
+    const user = validateTelegramLoginWidget(raw, botToken);
+    return finishLogin(user);
   } catch {
     return NextResponse.redirect(new URL("/?auth_error=failed", request.url));
   }
