@@ -68,6 +68,8 @@ function formatInstallRequestMessage(
   extras?: {
     username?: string;
     botCanMessage?: boolean;
+    headline?: string;
+    footer?: string;
   },
 ): string {
   const contact =
@@ -79,7 +81,7 @@ function formatInstallRequestMessage(
   const botCanMessage = extras?.botCanMessage;
 
   const lines = [
-    "🔌 Новая заявка на установку щитка",
+    extras?.headline ?? "🔌 Новая заявка на установку щитка",
     "",
     `Статус: ${request.statusLabel}`,
     `Имя: ${request.name}`,
@@ -103,10 +105,44 @@ function formatInstallRequestMessage(
         : "Бот пока не может писать пользователю — нужен /start в боте ⚠️"
       : null,
     "",
-    "Нажмите кнопку ниже, чтобы сменить статус.",
+    extras?.footer ?? "Нажмите кнопку ниже, чтобы сменить статус.",
   ];
 
   return lines.filter((line) => line !== null).join("\n");
+}
+
+async function sendAdminInstallRequestMessage(params: {
+  request: InstallRequest;
+  customerTelegramId: number;
+  extras?: {
+    username?: string;
+    botCanMessage?: boolean;
+    headline?: string;
+    footer?: string;
+  };
+  withStatusKeyboard: boolean;
+}): Promise<void> {
+  const chatId = adminChatId();
+  if (!chatId) {
+    console.warn("TELEGRAM_ADMIN_CHAT_ID not set — skip lead notification");
+    return;
+  }
+
+  const result = await telegramApi("sendMessage", {
+    chat_id: Number(chatId),
+    text: formatInstallRequestMessage(
+      params.request,
+      params.customerTelegramId,
+      params.extras,
+    ),
+    reply_markup: params.withStatusKeyboard
+      ? statusKeyboard(params.request.id)
+      : undefined,
+    disable_web_page_preview: true,
+  });
+  if (!result.ok) {
+    throw new Error(result.error);
+  }
 }
 
 export async function sendTelegramUserMessage(
@@ -139,21 +175,53 @@ export async function notifyAdminNewInstallRequest(
     botCanMessage?: boolean;
   },
 ): Promise<void> {
-  const chatId = adminChatId();
-  if (!chatId) {
-    console.warn("TELEGRAM_ADMIN_CHAT_ID not set — skip lead notification");
-    return;
-  }
-
-  const result = await telegramApi("sendMessage", {
-    chat_id: Number(chatId),
-    text: formatInstallRequestMessage(request, customerTelegramId, extras),
-    reply_markup: statusKeyboard(request.id),
-    disable_web_page_preview: true,
+  await sendAdminInstallRequestMessage({
+    request,
+    customerTelegramId,
+    extras,
+    withStatusKeyboard: true,
   });
-  if (!result.ok) {
-    throw new Error(result.error);
-  }
+}
+
+/** User deleted the request in the app — cancelled, no status controls. */
+export async function notifyAdminInstallRequestDeletedByUser(
+  request: InstallRequest,
+  customerTelegramId: number,
+  extras?: { username?: string },
+): Promise<void> {
+  await sendAdminInstallRequestMessage({
+    request: {
+      ...request,
+      status: "cancelled",
+      statusLabel: installStatusLabels.cancelled,
+    },
+    customerTelegramId,
+    extras: {
+      ...extras,
+      headline: "🗑 Пользователь удалил заявку",
+      footer:
+        "Статус: Отменена. Управление статусом недоступно — заявка удалена пользователем.",
+    },
+    withStatusKeyboard: false,
+  });
+}
+
+/** User changed status in the app (e.g. restored after admin cancel). */
+export async function notifyAdminInstallRequestStatusChangedByUser(
+  request: InstallRequest,
+  customerTelegramId: number,
+  extras?: { username?: string },
+): Promise<void> {
+  await sendAdminInstallRequestMessage({
+    request,
+    customerTelegramId,
+    extras: {
+      ...extras,
+      headline: `🔄 Пользователь сменил статус: ${request.statusLabel}`,
+      footer: "Нажмите кнопку ниже, чтобы сменить статус.",
+    },
+    withStatusKeyboard: true,
+  });
 }
 
 export async function notifyAdminMasterApplication(payload: {
@@ -206,12 +274,16 @@ export async function editMessageText(params: {
   messageId: number;
   text: string;
   requestId: string;
+  withStatusKeyboard?: boolean;
 }): Promise<void> {
   await telegramApi("editMessageText", {
     chat_id: params.chatId,
     message_id: params.messageId,
     text: params.text,
-    reply_markup: statusKeyboard(params.requestId),
+    reply_markup:
+      params.withStatusKeyboard === false
+        ? { inline_keyboard: [] }
+        : statusKeyboard(params.requestId),
     disable_web_page_preview: true,
   });
 }
