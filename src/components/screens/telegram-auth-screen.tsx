@@ -83,7 +83,6 @@ export function TelegramAuthScreen({
     script.setAttribute("data-size", "large");
     script.setAttribute("data-radius", "16");
     script.setAttribute("data-onauth", "onTelegramAuth(user)");
-    script.setAttribute("data-request-access", "write");
     container.appendChild(script);
 
     return () => {
@@ -128,6 +127,25 @@ export function TelegramAuthScreen({
               {loading && (
                 <p className="text-[13px] text-white/45">Входим…</p>
               )}
+              <div className="w-full space-y-2 text-left text-[12px] leading-relaxed text-white/45">
+                <p>
+                  После ввода номера откройте приложение{" "}
+                  <strong className="font-medium text-white/70">Telegram</strong>{" "}
+                  на телефоне — там придёт запрос на подтверждение входа.
+                </p>
+                <p>
+                  Если сообщения нет, сначала откройте бота{" "}
+                  <a
+                    href={`https://t.me/${botUsername}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-medium text-[var(--accent)] underline underline-offset-2"
+                  >
+                    @{botUsername}
+                  </a>{" "}
+                  и нажмите «Start», затем повторите вход.
+                </p>
+              </div>
             </div>
           ) : (
             <p className="rounded-[14px] border border-amber-400/20 bg-amber-500/10 px-3 py-2 text-[13px] text-amber-100/80">
