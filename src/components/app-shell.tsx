@@ -21,7 +21,10 @@ import { PhotoScreen } from "@/components/screens/photo-screen";
 import { RequestDetailsScreen } from "@/components/screens/request-details-screen";
 import { SchemeScreen } from "@/components/screens/scheme-screen";
 import { TelegramAuthScreen } from "@/components/screens/telegram-auth-screen";
-import { WelcomeScreen } from "@/components/screens/welcome-screen";
+import {
+  ONBOARDING_SKIP_KEY,
+  WelcomeScreen,
+} from "@/components/screens/welcome-screen";
 import { canUseServerAuth } from "@/lib/client-auth";
 import { getNoPanelSetup, type NoPanelSetupId } from "@/lib/no-panel-setups";
 import {
@@ -45,8 +48,18 @@ import type {
 } from "@/types";
 import { installStatusLabels } from "@/types";
 
+function readSkipOnboarding(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return localStorage.getItem(ONBOARDING_SKIP_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
 export function AppShell() {
   const [screen, setScreen] = useState<AppScreen>("welcome");
+  const [onboardingReady, setOnboardingReady] = useState(false);
   const [items, setItems] = useState<HomeListItem[]>([]);
   const [itemsLoading, setItemsLoading] = useState(true);
   const [itemsError, setItemsError] = useState<string | null>(null);
@@ -69,6 +82,13 @@ export function AppShell() {
   const [selectedCity, setSelectedCity] = useState<string | null>(null);
   const [leadFlow, setLeadFlow] = useState<LeadFlow>("install");
   const [activeRuleId, setActiveRuleId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (readSkipOnboarding()) {
+      setScreen("objects");
+    }
+    setOnboardingReady(true);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -436,6 +456,12 @@ export function AppShell() {
     },
     [electricalDetails, leadFlow, noPanelSetupId, selectedCity],
   );
+
+  if (!onboardingReady) {
+    return (
+      <div className="relative mx-auto min-h-dvh w-full max-w-[430px] overflow-hidden bg-[var(--bg)] text-white shadow-[0_0_80px_rgba(0,0,0,0.5)]" />
+    );
+  }
 
   return (
     <div className="relative mx-auto min-h-dvh w-full max-w-[430px] overflow-hidden bg-[var(--bg)] text-white shadow-[0_0_80px_rgba(0,0,0,0.5)]">

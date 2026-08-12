@@ -2,10 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, Check, Phone } from "lucide-react";
+import { ArrowLeft, Check, Clock3, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getTelegramUserName } from "@/lib/telegram-user";
-import { cn } from "@/lib/utils";
 
 type Step = "contact" | "done";
 
@@ -124,14 +123,17 @@ export function LeadContactScreen({
         </h1>
       </header>
 
-      <div className="mb-5 rounded-[20px] border border-emerald-400/20 bg-emerald-500/10 p-4">
-        <h2 className="mb-1 text-[18px] font-semibold text-white">
-          {variant === "master" ? "Почти готово" : "Отличные новости!"}
-        </h2>
-        <p className="text-[14px] leading-relaxed text-emerald-50/85">
+      <div className="mb-5 rounded-[20px] border border-sky-400/20 bg-sky-500/10 p-4">
+        <div className="mb-2 flex items-center gap-2 text-sky-200">
+          <Clock3 className="h-4 w-4 shrink-0" />
+          <h2 className="text-[15px] font-semibold text-white">
+            Как мы свяжемся
+          </h2>
+        </div>
+        <p className="text-[14px] leading-relaxed text-sky-50/85">
           {variant === "master"
-            ? "Оставьте телефон — менеджер сервиса свяжется с вами."
-            : "Оставьте телефон — подберём мастера и перезвоним."}
+            ? "Оставьте номер телефона — менеджер сервиса позвонит в течение рабочего дня, обычно в течение нескольких часов."
+            : "Оставьте номер телефона — мы перезвоним в течение рабочего дня, обычно в течение нескольких часов, чтобы уточнить детали и подобрать мастера."}
         </p>
       </div>
 
@@ -176,3 +178,4 @@ export function LeadContactScreen({
     </motion.section>
   );
 }
+
