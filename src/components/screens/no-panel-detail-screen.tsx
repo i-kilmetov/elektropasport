@@ -1,7 +1,8 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { ArrowLeft, ShieldAlert } from "lucide-react";
+import { ArrowLeft, ShieldAlert, Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
 import {
   getNoPanelSetup,
@@ -19,7 +20,7 @@ export function NoPanelDetailScreen({
   onContinue: () => void;
 }) {
   const setup = getNoPanelSetup(setupId);
-  const showLegacyBanner = setupId !== "other";
+  const isOpportunity = setup.tone === "opportunity";
 
   return (
     <motion.section
@@ -42,15 +43,26 @@ export function NoPanelDetailScreen({
         </h1>
       </header>
 
-      {showLegacyBanner && (
-        <div className="mb-5 flex items-start gap-3 rounded-[20px] border border-amber-400/20 bg-amber-500/10 p-4">
+      <div
+        className={`mb-5 flex items-start gap-3 rounded-[20px] border p-4 ${
+          isOpportunity
+            ? "border-emerald-400/20 bg-emerald-500/10"
+            : "border-amber-400/20 bg-amber-500/10"
+        }`}
+      >
+        {isOpportunity ? (
+          <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-emerald-300" />
+        ) : (
           <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-amber-300" />
-          <p className="text-[14px] leading-relaxed text-amber-100/90">
-            Такое исполнение часто встречается в старом жилом фонде и на дачах,
-            но уступает современному щитку по безопасности и удобству.
-          </p>
-        </div>
-      )}
+        )}
+        <p
+          className={`text-[14px] leading-relaxed ${
+            isOpportunity ? "text-emerald-50/90" : "text-amber-100/90"
+          }`}
+        >
+          {setup.banner}
+        </p>
+      </div>
 
       <div className="flex-1 space-y-3 overflow-y-auto pb-4">
         {setup.risks.map((risk) => {
@@ -76,14 +88,10 @@ export function NoPanelDetailScreen({
         })}
       </div>
 
-      <div className="mt-auto pt-2 text-center">
-        <button
-          type="button"
-          onClick={onContinue}
-          className="text-[16px] font-medium text-[var(--accent)] underline decoration-[var(--accent)]/35 underline-offset-4 transition-colors hover:text-white"
-        >
-          Как исправить?
-        </button>
+      <div className="mt-auto pt-2">
+        <Button className="w-full" size="lg" onClick={onContinue}>
+          Сделать правильно
+        </Button>
       </div>
     </motion.section>
   );

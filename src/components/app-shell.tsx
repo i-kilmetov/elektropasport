@@ -536,7 +536,8 @@ export function AppShell() {
               onBack={() => setScreen("no-panel-detail")}
               onInstall={() => {
                 setLeadFlow("install");
-                setScreen("electrical-details");
+                setElectricalDetails(null);
+                setScreen("city-select");
               }}
             />
           )}
@@ -557,16 +558,16 @@ export function AppShell() {
               title={
                 leadFlow === "master"
                   ? "В каком городе работаете?"
-                  : "В каком городе установить щиток?"
+                  : "В каком городе нужна консультация?"
               }
               description={
                 leadFlow === "master"
                   ? "Укажите город — так мы поймём, где вы можете брать заявки."
-                  : "Наши мастера-эксперты есть уже во многих городах. Укажите свой город, мы проверим."
+                  : "Укажите город — мы свяжемся и подскажем, как правильно собрать щиток в вашей ситуации."
               }
               onBack={() =>
                 setScreen(
-                  leadFlow === "master" ? "become-master" : "electrical-details",
+                  leadFlow === "master" ? "become-master" : "panel-advantages",
                 )
               }
               onConfirm={(city) => {
