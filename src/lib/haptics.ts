@@ -72,3 +72,30 @@ export function hapticNav(): void {
 export function hapticDelete(): void {
   hapticNotification("error");
 }
+
+/**
+ * iOS-like context-menu / home-screen long-press confirmation.
+ * Prefer selectionChanged + medium impact when both exist.
+ */
+export function hapticContextMenu(): void {
+  try {
+    const haptic = webAppHaptic() as
+      | {
+          impactOccurred?: (style: ImpactStyle) => void;
+          selectionChanged?: () => void;
+        }
+      | null;
+    if (haptic?.selectionChanged) {
+      haptic.selectionChanged();
+    }
+    if (haptic?.impactOccurred) {
+      haptic.impactOccurred("medium");
+      return;
+    }
+    if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+      navigator.vibrate([8, 30, 18]);
+    }
+  } catch {
+    // ignore
+  }
+}
