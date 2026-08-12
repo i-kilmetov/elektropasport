@@ -24,7 +24,9 @@ import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Progress } from "@/components/ui/progress";
+import { SpecCharacteristicCard } from "@/components/ui/spec-info-button";
 import { circuitIdentifySteps } from "@/lib/device-catalog";
+import { PanelDeviceGuideSection } from "@/components/screens/panel-device-guide-section";
 import {
   devices as mockDevices,
   linesCount as mockLinesCount,
@@ -161,12 +163,7 @@ function DeviceSheet({
 
         <div className="mb-5 grid grid-cols-2 gap-3">
           {specs.slice(0, 6).map(([key, value]) => (
-            <GlassCard key={key} className="p-3">
-              <div className="text-[12px] text-white/40">{key}</div>
-              <div className="mt-1 text-[15px] font-medium text-white">
-                {value}
-              </div>
-            </GlassCard>
+            <SpecCharacteristicCard key={key} label={key} value={value} />
           ))}
         </div>
 
@@ -329,7 +326,7 @@ export function SchemeScreen({
   const linesCount = linesProp ?? mockLinesCount;
 
   const [tab, setTab] = useState<"scheme" | "photo">("scheme");
-  const [showTerminals, setShowTerminals] = useState(true);
+  const [showTerminals, setShowTerminals] = useState(false);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
@@ -481,8 +478,9 @@ export function SchemeScreen({
       </div>
 
       {tab === "scheme" ? (
-        <div className="flex-1 overflow-x-auto px-5 pb-4">
-          <GlassCard className="p-4" style={{ minWidth: railMinWidth }}>
+        <div className="flex-1 overflow-y-auto px-5 pb-4">
+          <div className="overflow-x-auto">
+            <GlassCard className="p-4" style={{ minWidth: railMinWidth }}>
             <div className="mb-3 flex items-center justify-between">
               <span className="text-[13px] font-medium text-white/50">
                 DIN-рейка
@@ -509,8 +507,9 @@ export function SchemeScreen({
               ))}
             </div>
           </GlassCard>
+          </div>
 
-          <div className="mt-4 flex gap-4 text-[12px] text-white/50">
+          <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-[12px] text-white/50">
             <span className="flex items-center gap-1.5">
               <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
               Определён ({verified})
@@ -524,6 +523,8 @@ export function SchemeScreen({
               Не определён ({unknown})
             </span>
           </div>
+
+          <PanelDeviceGuideSection devices={railDevices} />
         </div>
       ) : (
         <div className="flex-1 overflow-y-auto px-5 pb-4">
