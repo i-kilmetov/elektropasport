@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { ArrowLeft, Check, Clock3, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { hapticNotification } from "@/lib/haptics";
 import { getTelegramUserName } from "@/lib/telegram-user";
 
 type Step = "contact" | "done";
@@ -62,6 +63,7 @@ export function LeadContactScreen({
         phone: `+7${digits}`,
         name,
       });
+      hapticNotification("success");
     } finally {
       setSubmitting(false);
       setStep("done");

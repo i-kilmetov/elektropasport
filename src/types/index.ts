@@ -31,6 +31,8 @@ export interface Device {
   brandKey?: string;
   /** Which DIN rail row this device is on (0-based, default 0) */
   rail?: number;
+  /** Switch state on the scheme. Default ON when undefined. */
+  powered?: boolean;
 }
 
 export type ObjectType = "apartment" | "house" | "garage" | "dacha";

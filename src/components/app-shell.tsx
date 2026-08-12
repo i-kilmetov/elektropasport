@@ -26,6 +26,7 @@ import {
   WelcomeScreen,
 } from "@/components/screens/welcome-screen";
 import { canUseServerAuth } from "@/lib/client-auth";
+import { hapticImpact, hapticNotification } from "@/lib/haptics";
 import { getNoPanelSetup, type NoPanelSetupId } from "@/lib/no-panel-setups";
 import {
   fetchHomeItems,
@@ -206,6 +207,7 @@ export function AppShell() {
       setSafetyScore(result.safetyScore);
       setLinesCount(result.linesCount);
       setRailCount(result.railCount ?? 1);
+      hapticNotification("success");
       setScreen("scheme");
     },
     [items, photoDataUrl],
@@ -297,6 +299,35 @@ export function AppShell() {
           const nextDevices = (item.devices ?? []).map((device) =>
             device.id === deviceId
               ? { ...device, circuitLabel: label }
+              : device,
+          );
+          const next = { ...item, devices: nextDevices };
+          void persistPanel(next).catch((error) => console.error(error));
+          return next;
+        }),
+      );
+    },
+    [activePanelId],
+  );
+
+  const toggleDevicePower = useCallback(
+    (deviceId: number) => {
+      if (!activePanelId) return;
+      hapticImpact("heavy");
+      setDevices((prev) => {
+        if (!prev) return prev;
+        return prev.map((device) =>
+          device.id === deviceId
+            ? { ...device, powered: device.powered === false }
+            : device,
+        );
+      });
+      setItems((prev) =>
+        prev.map((item) => {
+          if (item.kind !== "panel" || item.id !== activePanelId) return item;
+          const nextDevices = (item.devices ?? []).map((device) =>
+            device.id === deviceId
+              ? { ...device, powered: device.powered === false }
               : device,
           );
           const next = { ...item, devices: nextDevices };
@@ -531,6 +562,7 @@ export function AppShell() {
               onRename={renamePanel}
               onDelete={deletePanel}
               onAssignCircuit={assignCircuitLabel}
+              onToggleDevicePower={toggleDevicePower}
               devices={devices ?? undefined}
               safetyScore={safetyScore ?? undefined}
               linesCount={linesCount ?? undefined}

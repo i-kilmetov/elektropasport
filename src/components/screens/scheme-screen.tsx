@@ -57,11 +57,13 @@ function DeviceBlock({
   selected,
   showTerminals,
   onSelect,
+  onTogglePower,
 }: {
   device: Device;
   selected: boolean;
   showTerminals: boolean;
   onSelect: (clientY: number) => void;
+  onTogglePower?: (deviceId: number) => void;
 }) {
   const modules = deviceModules(device);
   const width = modules * MODULE_PX;
@@ -77,6 +79,7 @@ function DeviceBlock({
         selected={selected}
         showTerminals={showTerminals}
         onSelect={(event) => onSelect(event.clientY)}
+        onLongPress={() => onTogglePower?.(device.id)}
         brand={
           <BrandMark brandKey={device.brandKey} brand={device.manufacturer} />
         }
@@ -168,6 +171,17 @@ function DeviceSheet({
             <p className="text-[14px] text-zinc-500">
               {device.manufacturer ?? "Производитель не определён"}
               {device.model ? ` · ${device.model}` : ` · ${device.rating}`}
+            </p>
+            <p
+              className={`mt-1 text-[13px] font-medium ${
+                device.powered === false ? "text-zinc-400" : "text-emerald-600"
+              }`}
+            >
+              {device.powered === false ? "Выключен" : "Включён"}
+              <span className="font-normal text-zinc-400">
+                {" "}
+                · удержание для переключения
+              </span>
             </p>
             {device.circuitLabel?.trim() && (
               <p className="mt-1 text-[13px] text-zinc-600">
@@ -329,6 +343,7 @@ export function SchemeScreen({
   onRename,
   onDelete,
   onAssignCircuit,
+  onToggleDevicePower,
   devices: devicesProp,
   safetyScore: safetyProp,
   linesCount: linesProp,
@@ -341,6 +356,7 @@ export function SchemeScreen({
   onRename: (name: string) => void;
   onDelete: () => void;
   onAssignCircuit?: (deviceId: number, label: string) => void;
+  onToggleDevicePower?: (deviceId: number) => void;
   devices?: Device[];
   safetyScore?: number;
   linesCount?: number;
@@ -561,6 +577,7 @@ export function SchemeScreen({
                           setSheetAnchorY(clientY);
                           setSelectedId(device.id);
                         }}
+                        onTogglePower={onToggleDevicePower}
                       />
                     ))}
                   </div>
