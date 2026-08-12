@@ -55,6 +55,7 @@ export function AppShell() {
   const [devices, setDevices] = useState<Device[] | null>(null);
   const [safetyScore, setSafetyScore] = useState<number | null>(null);
   const [linesCount, setLinesCount] = useState<number | null>(null);
+  const [railCount, setRailCount] = useState<number | null>(null);
   const [noPanelSetupId, setNoPanelSetupId] = useState<NoPanelSetupId | null>(
     null,
   );
@@ -131,6 +132,7 @@ export function AppShell() {
         linesCount: result.linesCount,
         photoDataUrl: photoDataUrl ?? undefined,
         named: false,
+        railCount: result.railCount ?? 1,
       };
 
       setItems((prev) => [panel, ...prev]);
@@ -146,6 +148,7 @@ export function AppShell() {
       setDevices(result.devices);
       setSafetyScore(result.safetyScore);
       setLinesCount(result.linesCount);
+      setRailCount(result.railCount ?? 1);
       setScreen("scheme");
     },
     [items, photoDataUrl],
@@ -163,6 +166,7 @@ export function AppShell() {
       setDevices(panel?.devices ?? null);
       setSafetyScore(panel?.safety ?? null);
       setLinesCount(panel?.linesCount ?? null);
+      setRailCount(panel?.railCount ?? 1);
       setScreen("scheme");
     },
     [items],
@@ -460,6 +464,7 @@ export function AppShell() {
               devices={devices ?? undefined}
               safetyScore={safetyScore ?? undefined}
               linesCount={linesCount ?? undefined}
+              railCount={railCount ?? undefined}
             />
           )}
           {screen === "no-panel-options" && (

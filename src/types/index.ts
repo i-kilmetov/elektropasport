@@ -29,6 +29,8 @@ export interface Device {
   /** User-assigned room/line label after identification */
   circuitLabel?: string;
   brandKey?: string;
+  /** Which DIN rail row this device is on (0-based, default 0) */
+  rail?: number;
 }
 
 export type ObjectType = "apartment" | "house" | "garage" | "dacha";
@@ -46,6 +48,8 @@ export interface PanelObject {
   linesCount?: number;
   photoDataUrl?: string;
   named?: boolean;
+  /** Number of DIN rails (rows) in the panel, 1–4 */
+  railCount?: number;
 }
 
 export type InstallRequestStatus =
@@ -99,6 +103,7 @@ export interface AnalyzePanelResult {
   devices: Device[];
   safetyScore: number;
   linesCount: number;
+  railCount?: number;
 }
 
 export const installStatusLabels: Record<InstallRequestStatus, string> = {

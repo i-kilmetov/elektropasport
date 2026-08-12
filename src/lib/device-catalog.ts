@@ -382,41 +382,169 @@ export function productToDevice(
   };
 }
 
-/** Realistic demo apartment panel built from catalog SKUs (no room names). */
-export function buildDemoPanelDevices(): Device[] {
-  const pick = (id: string) => {
-    const p = getCatalogProduct(id);
-    if (!p) throw new Error(`Catalog miss: ${id}`);
-    return p;
-  };
+/* ---------- Random panel generator ---------- */
 
-  const picks: Array<{ id: string; status: DeviceStatus; confidence: number }> =
-    [
-      { id: "abb-main-3p-c63", status: "verified", confidence: 96 },
-      { id: "abb-rcd-4p-63a-30ma", status: "verified", confidence: 94 },
-      { id: "zubr-vr-63", status: "verified", confidence: 91 },
-      { id: "iek-spd-2", status: "verified", confidence: 89 },
-      { id: "dekraft-brk-1p-c16", status: "pending", confidence: 88 },
-      { id: "dekraft-brk-1p-c10", status: "verified", confidence: 93 },
-      { id: "schneider-diff-1pn-c16-30ma", status: "pending", confidence: 87 },
-      { id: "dekraft-brk-1p-c16", status: "verified", confidence: 95 },
-      { id: "abb-brk-1p-c10", status: "verified", confidence: 92 },
-      { id: "ekf-afdd-1pn-c16", status: "pending", confidence: 84 },
+const MAX_MODULES_PER_RAIL = 18;
+
+function rng(min: number, max: number): number {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+function pick<T>(arr: readonly T[]): T {
+  return arr[rng(0, arr.length - 1)];
+}
+function pickN<T>(arr: readonly T[], n: number): T[] {
+  const copy = [...arr];
+  const res: T[] = [];
+  for (let i = 0; i < n && copy.length > 0; i++) {
+    const idx = rng(0, copy.length - 1);
+    res.push(copy.splice(idx, 1)[0]);
+  }
+  return res;
+}
+
+function randomStatus(): { status: DeviceStatus; confidence: number } {
+  const r = Math.random();
+  if (r < 0.65) return { status: "verified", confidence: rng(88, 98) };
+  if (r < 0.9) return { status: "pending", confidence: rng(75, 88) };
+  return { status: "unknown", confidence: rng(50, 74) };
+}
+
+function productsOfCategory(category: CatalogCategory): CatalogProduct[] {
+  return deviceCatalog.filter((p) => p.category === category);
+}
+
+/**
+ * Build a random realistic panel: 1–4 rails, each ≤18 modules wide.
+ * Returns { devices, railCount, safetyScore, linesCount }.
+ */
+export function buildRandomPanel(): {
+  devices: Device[];
+  railCount: number;
+  safetyScore: number;
+  linesCount: number;
+} {
+  const railCount = rng(1, 4);
+  const allDevices: Device[] = [];
+  let deviceId = 1;
+  let totalLines = 0;
+  let verifiedCount = 0;
+  let totalCount = 0;
+
+  for (let rail = 0; rail < railCount; rail++) {
+    let modulesUsed = 0;
+    const railDevices: Device[] = [];
+
+    // First rail always gets main breaker
+    if (rail === 0) {
+      const mains = productsOfCategory("main_breaker");
+      if (mains.length > 0) {
+        const product = pick(mains);
+        if (modulesUsed + product.modules <= MAX_MODULES_PER_RAIL) {
+          const st = randomStatus();
+          railDevices.push({
+            ...productToDevice(product, {
+              id: deviceId++,
+              position: railDevices.length,
+              ...st,
+            }),
+            rail,
+          });
+          modulesUsed += product.modules;
+        }
+      }
+    }
+
+    // Maybe add an RCD or voltage relay at start of each rail (50% chance)
+    if (Math.random() < 0.5) {
+      const category: CatalogCategory =
+        Math.random() < 0.7 ? "rcd" : "voltage_relay";
+      const options = productsOfCategory(category);
+      if (options.length > 0) {
+        const product = pick(options);
+        if (modulesUsed + product.modules <= MAX_MODULES_PER_RAIL) {
+          const st = randomStatus();
+          railDevices.push({
+            ...productToDevice(product, {
+              id: deviceId++,
+              position: railDevices.length,
+              ...st,
+            }),
+            rail,
+          });
+          modulesUsed += product.modules;
+        }
+      }
+    }
+
+    // Maybe add SPD or AFDD (25% chance per rail)
+    if (Math.random() < 0.25) {
+      const category: CatalogCategory =
+        Math.random() < 0.5 ? "spd" : "afdd";
+      const options = productsOfCategory(category);
+      if (options.length > 0) {
+        const product = pick(options);
+        if (modulesUsed + product.modules <= MAX_MODULES_PER_RAIL) {
+          const st = randomStatus();
+          railDevices.push({
+            ...productToDevice(product, {
+              id: deviceId++,
+              position: railDevices.length,
+              ...st,
+            }),
+            rail,
+          });
+          modulesUsed += product.modules;
+        }
+      }
+    }
+
+    // Fill remaining space with breakers and diff breakers
+    const fillers: CatalogCategory[] = ["breaker", "breaker", "breaker", "diff_breaker"];
+    const breakerPool = [
+      ...productsOfCategory("breaker"),
+      ...productsOfCategory("diff_breaker"),
     ];
+    let safety = 0;
+    while (modulesUsed < MAX_MODULES_PER_RAIL && breakerPool.length > 0 && safety < 40) {
+      safety++;
+      const product = pick(breakerPool);
+      if (modulesUsed + product.modules > MAX_MODULES_PER_RAIL) continue;
+      const st = randomStatus();
+      railDevices.push({
+        ...productToDevice(product, {
+          id: deviceId++,
+          position: railDevices.length,
+          ...st,
+        }),
+        rail,
+      });
+      modulesUsed += product.modules;
+      totalLines++;
+    }
 
-  // Unique catalog ids for duplicate C16 picks — second use another brand
-  picks[7] = { id: "iek-brk-1p-c16", status: "verified", confidence: 95 };
+    for (const d of railDevices) {
+      totalCount++;
+      if (d.status === "verified") verifiedCount++;
+    }
 
-  const rail = picks.map((row, index) =>
-    productToDevice(pick(row.id), {
-      id: index + 1,
-      position: index,
-      status: row.status,
-      confidence: row.confidence,
-    }),
-  );
+    allDevices.push(...railDevices);
+  }
 
-  return rail;
+  const safetyScore = totalCount > 0
+    ? Math.round((verifiedCount / totalCount) * 100 * 0.85 + rng(5, 15))
+    : 50;
+
+  return {
+    devices: allDevices,
+    railCount,
+    safetyScore: Math.min(100, Math.max(30, safetyScore)),
+    linesCount: Math.max(totalLines, 1),
+  };
+}
+
+/** @deprecated Use buildRandomPanel() instead */
+export function buildDemoPanelDevices(): Device[] {
+  return buildRandomPanel().devices;
 }
 
 export const demoSafetyScore = 78;

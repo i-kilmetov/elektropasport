@@ -6,10 +6,8 @@ import { Check, Loader2 } from "lucide-react";
 import { GlassCard } from "@/components/ui/glass-card";
 import {
   analysisSteps,
-  devices as mockDevices,
-  linesCount as mockLinesCount,
-  safetyScore as mockSafetyScore,
 } from "@/lib/mock-data";
+import { buildRandomPanel } from "@/lib/device-catalog";
 import type { AnalyzePanelResult } from "@/types";
 
 export function AnalysisScreen({
@@ -37,18 +35,22 @@ export function AnalysisScreen({
       setStepIndex(
         Math.min(analysisSteps.length - 1, Math.floor(eased * analysisSteps.length)),
       );
+      // Generate random panel once when analysis "completes"
+      const estimatedDevices = 8; // just for progress animation
       setFoundCount(
-        Math.min(mockDevices.length, Math.floor(eased * mockDevices.length)),
+        Math.min(estimatedDevices, Math.floor(eased * estimatedDevices)),
       );
 
       if (t < 1) {
         frame = requestAnimationFrame(tick);
       } else {
         doneTimer = window.setTimeout(() => {
+          const panel = buildRandomPanel();
           onDone({
-            devices: mockDevices,
-            safetyScore: mockSafetyScore,
-            linesCount: mockLinesCount,
+            devices: panel.devices,
+            safetyScore: panel.safetyScore,
+            linesCount: panel.linesCount,
+            railCount: panel.railCount,
           });
         }, 450);
       }
@@ -62,7 +64,13 @@ export function AnalysisScreen({
   }, [onDone]);
 
   const foundDevices = useMemo(
-    () => mockDevices.slice(0, Math.max(0, foundCount)),
+    () => Array.from({ length: Math.max(0, foundCount) }, (_, i) => ({
+      id: i,
+      type: "breaker" as const,
+      name: `Прибор ${i + 1}`,
+      rating: "—",
+      status: "pending" as const,
+    })),
     [foundCount],
   );
 
@@ -161,7 +169,7 @@ export function AnalysisScreen({
             Найденные устройства
           </h2>
           <span className="text-[13px] tabular-nums text-[var(--accent)]">
-            {foundCount}/{mockDevices.length}
+            {foundCount}
           </span>
         </div>
         <ul className="max-h-40 space-y-2 overflow-hidden">

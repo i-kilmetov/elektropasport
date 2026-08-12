@@ -332,6 +332,7 @@ export function SchemeScreen({
   devices: devicesProp,
   safetyScore: safetyProp,
   linesCount: linesProp,
+  railCount,
 }: {
   title?: string;
   photoDataUrl?: string | null;
@@ -343,6 +344,7 @@ export function SchemeScreen({
   devices?: Device[];
   safetyScore?: number;
   linesCount?: number;
+  railCount?: number;
 }) {
   const devices =
     devicesProp && devicesProp.length > 0 ? devicesProp : mockDevices;
@@ -359,22 +361,34 @@ export function SchemeScreen({
   const [nameOnBackOpen, setNameOnBackOpen] = useState(false);
   const selected = devices.find((d) => d.id === selectedId) ?? null;
 
-  const railDevices = devices.filter(
+  const allRailDevices = devices.filter(
     (d) => d.type !== "pe_bus" && d.type !== "n_bus",
   );
+
+  // Group devices by rail
+  const numRails = railCount ?? Math.max(1, ...allRailDevices.map((d) => (d.rail ?? 0) + 1));
+  const rails = useMemo(() => {
+    const grouped: Device[][] = Array.from({ length: numRails }, () => []);
+    for (const d of allRailDevices) {
+      const r = Math.min(d.rail ?? 0, numRails - 1);
+      grouped[r].push(d);
+    }
+    return grouped;
+  }, [allRailDevices, numRails]);
 
   const verified = devices.filter((d) => d.status === "verified").length;
   const pending = devices.filter((d) => d.status === "pending").length;
   const unknown = devices.filter((d) => d.status === "unknown").length;
 
-  const modulesTotal = railDevices.reduce(
-    (sum, d) => sum + deviceModules(d),
-    0,
+  // widest rail determines the panel width
+  const widestRailModules = Math.max(
+    ...rails.map((rd) => rd.reduce((s, d) => s + deviceModules(d), 0)),
   );
+  const widestRailDevices = Math.max(...rails.map((rd) => rd.length));
   const railMinWidth = Math.max(
     320,
-    modulesTotal * MODULE_PX +
-      Math.max(0, railDevices.length - 1) * DEVICE_GAP_PX +
+    widestRailModules * MODULE_PX +
+      Math.max(0, widestRailDevices - 1) * DEVICE_GAP_PX +
       32,
   );
 
@@ -508,32 +522,51 @@ export function SchemeScreen({
             <GlassCard className="p-4" style={{ minWidth: railMinWidth }}>
             <div className="mb-3 flex items-center justify-between">
               <span className="text-[13px] font-medium text-white/50">
-                DIN-рейка
+                {numRails > 1 ? `${numRails} DIN-рейки` : "DIN-рейка"}
               </span>
               <span className="text-[12px] text-white/35">
-                {modulesTotal} модулей · {railDevices.length} приборов
+                {allRailDevices.length} приборов
               </span>
             </div>
 
-            <div className="mb-3 h-2 rounded-full bg-gradient-to-r from-zinc-500 via-zinc-300 to-zinc-500 shadow-inner" />
-
-            <div
-              className="mb-4 flex items-start"
-              style={{ gap: DEVICE_GAP_PX }}
-            >
-              {railDevices.map((device) => (
-                <DeviceBlock
-                  key={device.id}
-                  device={device}
-                  selected={selectedId === device.id}
-                  showTerminals={showTerminals}
-                  onSelect={(clientY) => {
-                    setSheetAnchorY(clientY);
-                    setSelectedId(device.id);
-                  }}
-                />
-              ))}
-            </div>
+            {rails.map((railDevices, railIdx) => {
+              const railModules = railDevices.reduce(
+                (s, d) => s + deviceModules(d),
+                0,
+              );
+              return (
+                <div key={railIdx} className={railIdx > 0 ? "mt-5" : ""}>
+                  {numRails > 1 && (
+                    <div className="mb-1.5 flex items-center justify-between">
+                      <span className="text-[11px] font-medium text-white/35">
+                        Ряд {railIdx + 1}
+                      </span>
+                      <span className="text-[11px] text-white/25">
+                        {railModules} мод.
+                      </span>
+                    </div>
+                  )}
+                  <div className="mb-2 h-2 rounded-full bg-gradient-to-r from-zinc-500 via-zinc-300 to-zinc-500 shadow-inner" />
+                  <div
+                    className="mb-2 flex items-start"
+                    style={{ gap: DEVICE_GAP_PX }}
+                  >
+                    {railDevices.map((device) => (
+                      <DeviceBlock
+                        key={device.id}
+                        device={device}
+                        selected={selectedId === device.id}
+                        showTerminals={showTerminals}
+                        onSelect={(clientY) => {
+                          setSheetAnchorY(clientY);
+                          setSelectedId(device.id);
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
           </GlassCard>
           </div>
 
@@ -552,7 +585,7 @@ export function SchemeScreen({
             </span>
           </div>
 
-          <PanelDeviceGuideSection devices={railDevices} />
+          <PanelDeviceGuideSection devices={allRailDevices} />
         </div>
       ) : (
         <div className="flex-1 overflow-y-auto px-5 pb-4">
