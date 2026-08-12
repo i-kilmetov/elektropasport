@@ -60,7 +60,7 @@ export function ObjectsScreen({
         <button
           type="button"
           onClick={onAdd}
-          className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--accent)] text-white shadow-[0_6px_24px_rgba(124,92,255,0.28)]"
+          className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--primary)] text-white shadow-[0_6px_20px_rgba(17,17,19,0.18)]"
           aria-label="Добавить щиток"
         >
           <Plus className="h-5 w-5" />

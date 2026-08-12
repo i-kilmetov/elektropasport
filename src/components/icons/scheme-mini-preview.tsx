@@ -107,15 +107,15 @@ export function SchemeMiniPreview({
         </linearGradient>
       </defs>
 
-      <rect x={0} y={0} width={SIZE} height={SIZE} rx={14} fill="#121218" />
+      <rect x={0} y={0} width={SIZE} height={SIZE} rx={14} fill="#f4f4f5" />
       <rect
         x={1.5}
         y={1.5}
         width={SIZE - 3}
         height={SIZE - 3}
         rx={12.5}
-        fill="#1a1a22"
-        stroke="rgba(255,255,255,0.08)"
+        fill="#fafafa"
+        stroke="rgba(17,17,19,0.08)"
         strokeWidth={1}
       />
 

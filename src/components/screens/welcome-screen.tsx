@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type CSSProperties } from "react";
+import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowUpRight, Shield, Zap } from "lucide-react";
 import { BreakerIcon } from "@/components/icons/breaker-icon";
@@ -184,17 +184,7 @@ export function WelcomeScreen({ onStart }: { onStart: () => void }) {
       </button>
 
       <div className="relative z-10 mt-5 space-y-2">
-        <Button
-          className="w-full"
-          size="lg"
-          onClick={goNext}
-          style={
-            {
-              ["--accent" as string]: card.accent,
-              boxShadow: `0 10px 36px ${card.glow}`,
-            } as CSSProperties
-          }
-        >
+        <Button className="w-full" size="lg" onClick={goNext}>
           {isLast ? "Начать" : "Далее"}
         </Button>
         {index > 0 ? (
