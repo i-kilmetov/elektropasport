@@ -373,14 +373,14 @@ export function AppShell() {
   );
 
   const submitLead = useCallback(
-    (payload: {
+    async (payload: {
       contactMethod: "phone" | "telegram";
       phone?: string;
       name: string;
     }) => {
       if (leadFlow === "master") {
         const id = `master-${Date.now()}`;
-        void persistMasterApplication({
+        await persistMasterApplication({
           id,
           city: selectedCity ?? "—",
           contactMethod: payload.contactMethod,
@@ -395,7 +395,6 @@ export function AppShell() {
           );
         });
         setLeadFlow("install");
-        setScreen("objects");
         return;
       }
 
@@ -424,7 +423,8 @@ export function AppShell() {
       };
 
       setItems((prev) => [request, ...prev]);
-      void persistInstallRequest(request).catch((error) => {
+      setActiveRequestId(id);
+      await persistInstallRequest(request).catch((error) => {
         console.error(error);
         setItemsError(
           error instanceof Error
@@ -432,8 +432,6 @@ export function AppShell() {
             : "Не удалось сохранить заявку",
         );
       });
-      setActiveRequestId(id);
-      setScreen("objects");
     },
     [electricalDetails, leadFlow, noPanelSetupId, selectedCity],
   );
@@ -532,7 +530,8 @@ export function AppShell() {
           )}
           {screen === "panel-advantages" && (
             <PanelAdvantagesScreen
-              key="panel-advantages"
+              key={`advantages-${noPanelSetupId ?? "default"}`}
+              setupId={noPanelSetupId}
               onBack={() => setScreen("no-panel-detail")}
               onInstall={() => {
                 setLeadFlow("install");
@@ -583,6 +582,7 @@ export function AppShell() {
               variant={leadFlow}
               onBack={() => setScreen("city-select")}
               onFinish={submitLead}
+              onGoHome={() => setScreen("objects")}
             />
           )}
           {screen === "request-details" && activeRequest && (

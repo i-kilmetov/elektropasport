@@ -193,10 +193,10 @@ export async function persistDeletePanel(id: string): Promise<void> {
 
 export async function persistInstallRequest(
   request: InstallRequest,
-): Promise<void> {
+): Promise<{ botCanMessage?: boolean }> {
   upsertLocalItem(request);
 
-  if (!canUseServer()) return;
+  if (!canUseServer()) return {};
 
   const res = await fetch("/api/install-requests", {
     method: "POST",
@@ -208,8 +208,15 @@ export async function persistInstallRequest(
   });
 
   if (!res.ok) {
-    if (res.status === 503) return;
+    if (res.status === 503) return {};
     throw new Error(await parseError(res));
+  }
+
+  try {
+    const data = (await res.json()) as { botCanMessage?: boolean };
+    return { botCanMessage: data.botCanMessage };
+  } catch {
+    return {};
   }
 }
 

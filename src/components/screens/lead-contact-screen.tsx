@@ -2,9 +2,10 @@
 
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, Check, MessageCircle, Phone } from "lucide-react";
+import { ArrowLeft, Check, ExternalLink, MessageCircle, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
+import { getTelegramBotUsername, openBotChat } from "@/lib/client-auth";
 import { getTelegramUserName } from "@/lib/telegram-user";
 import { cn } from "@/lib/utils";
 
@@ -32,6 +33,7 @@ export function LeadContactScreen({
   city,
   onBack,
   onFinish,
+  onGoHome,
   variant = "install",
 }: {
   city: string;
@@ -40,7 +42,8 @@ export function LeadContactScreen({
     contactMethod: "phone" | "telegram";
     phone?: string;
     name: string;
-  }) => void;
+  }) => void | Promise<void>;
+  onGoHome: () => void;
   variant?: "install" | "master";
 }) {
   const [step, setStep] = useState<Step>("contact");
@@ -48,14 +51,26 @@ export function LeadContactScreen({
   const [useTelegram, setUseTelegram] = useState(false);
   const [name, setName] = useState("");
   const [resolvedName, setResolvedName] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const botUsername = getTelegramBotUsername();
 
   const phoneDisplay = useMemo(() => formatPhoneDigits(digits), [digits]);
   const phoneValid = digits.length === 10;
   const displayName = resolvedName || name;
 
-  const goDone = (finalName: string) => {
+  const finish = async (finalName: string) => {
     setResolvedName(finalName);
-    setStep("done");
+    setSubmitting(true);
+    try {
+      await onFinish({
+        contactMethod: useTelegram ? "telegram" : "phone",
+        phone: useTelegram ? undefined : `+7${digits}`,
+        name: finalName.trim() || getTelegramUserName(),
+      });
+    } finally {
+      setSubmitting(false);
+      setStep("done");
+    }
   };
 
   if (step === "done") {
@@ -72,13 +87,19 @@ export function LeadContactScreen({
         <h1 className="mb-2 text-[24px] font-bold text-white">
           {variant === "master" ? "Заявка отправлена" : "Заявка принята"}
         </h1>
-        <p className="mb-8 max-w-sm text-[15px] leading-relaxed text-white/55">
+        <p className="mb-6 max-w-sm text-[15px] leading-relaxed text-white/55">
           {variant === "master" ? (
             <>
               Спасибо{displayName ? `, ${displayName}` : ""}! Мы получили вашу
               заявку из города{" "}
               <span className="font-semibold text-white">{city}</span> и свяжемся
               для обсуждения сотрудничества.
+            </>
+          ) : useTelegram ? (
+            <>
+              Спасибо{displayName ? `, ${displayName}` : ""}! Мы напишем вам в
+              Telegram. Если чат с ботом ещё не открыт — нажмите кнопку ниже,
+              иначе сообщение может не дойти.
             </>
           ) : (
             <>
@@ -88,15 +109,22 @@ export function LeadContactScreen({
             </>
           )}
         </p>
+
+        {useTelegram && botUsername && (
+          <Button
+            className="mb-3 w-full max-w-sm"
+            variant="secondary"
+            onClick={() => openBotChat("consult")}
+          >
+            <ExternalLink className="h-4 w-4" />
+            Открыть чат с ботом
+          </Button>
+        )}
+
         <Button
           className="w-full max-w-sm"
-          onClick={() =>
-            onFinish({
-              contactMethod: useTelegram ? "telegram" : "phone",
-              phone: useTelegram ? undefined : `+7${digits}`,
-              name: displayName.trim() || getTelegramUserName(),
-            })
-          }
+          onClick={onGoHome}
+          disabled={submitting}
         >
           На главную
         </Button>
@@ -145,8 +173,8 @@ export function LeadContactScreen({
           <Button
             className="w-full"
             size="lg"
-            disabled={!name.trim()}
-            onClick={() => goDone(name.trim())}
+            disabled={!name.trim() || submitting}
+            onClick={() => void finish(name.trim())}
           >
             Отправить заявку
           </Button>
@@ -224,8 +252,14 @@ export function LeadContactScreen({
       <button
         type="button"
         onClick={() => {
-          setUseTelegram((v) => !v);
-          if (!useTelegram) setDigits("");
+          setUseTelegram((v) => {
+            const next = !v;
+            if (next) {
+              setDigits("");
+              openBotChat("consult");
+            }
+            return next;
+          });
         }}
         className={cn(
           "mb-3 flex w-full items-center gap-3 rounded-[20px] border px-4 py-4 text-left transition-colors",
@@ -242,7 +276,7 @@ export function LeadContactScreen({
             Связаться со мной в Telegram
           </span>
           <span className="mt-0.5 block text-[12px] text-white/45">
-            Удобно, раз вы уже в Mini App
+            Откроем чат с ботом — так мы сможем вам написать
           </span>
         </span>
         <span
@@ -256,10 +290,32 @@ export function LeadContactScreen({
       </button>
 
       {useTelegram && (
-        <GlassCard className="mb-4 p-4 text-[13px] leading-relaxed text-white/55">
-          Если в Telegram включён запрет на сообщения от неизвестных контактов,
-          мастер может не дописать вам. Разрешите сообщения от всех или оставьте
-          телефон.
+        <GlassCard className="mb-4 space-y-2 p-4 text-[13px] leading-relaxed text-white/55">
+          <p>
+            Telegram не позволяет заранее узнать, открыты ли вам сообщения от
+            незнакомцев. Поэтому связь идёт через нашего бота
+            {botUsername ? (
+              <>
+                {" "}
+                <span className="font-medium text-white">@{botUsername}</span>
+              </>
+            ) : null}
+            .
+          </p>
+          <p>
+            Нажмите «Открыть чат с ботом», если окно не появилось само — после
+            /start бот сможет писать вам.
+          </p>
+          {botUsername && (
+            <button
+              type="button"
+              onClick={() => openBotChat("consult")}
+              className="inline-flex items-center gap-1.5 font-medium text-sky-300 underline decoration-sky-300/40 underline-offset-2"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+              Открыть чат с ботом
+            </button>
+          )}
         </GlassCard>
       )}
 
@@ -267,10 +323,11 @@ export function LeadContactScreen({
         <Button
           className="w-full"
           size="lg"
-          disabled={!useTelegram && !phoneValid}
+          disabled={(!useTelegram && !phoneValid) || submitting}
           onClick={() => {
             if (useTelegram) {
-              goDone(getTelegramUserName());
+              openBotChat("consult");
+              void finish(getTelegramUserName());
               return;
             }
             setStep("name");

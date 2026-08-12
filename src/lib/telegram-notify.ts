@@ -65,11 +65,18 @@ function statusKeyboard(requestId: string): InlineKeyboard {
 function formatInstallRequestMessage(
   request: InstallRequest,
   customerTelegramId: number,
+  extras?: {
+    username?: string;
+    botCanMessage?: boolean;
+  },
 ): string {
   const contact =
     request.contactMethod === "telegram"
       ? `Telegram · ${request.name}`
       : `Телефон · ${request.phone ?? "—"}`;
+
+  const username = extras?.username?.replace(/^@/, "");
+  const botCanMessage = extras?.botCanMessage;
 
   const lines = [
     "🔌 Новая заявка на установку щитка",
@@ -88,6 +95,13 @@ function formatInstallRequestMessage(
     `Дата: ${request.createdAt}`,
     `ID заявки: ${request.id}`,
     `Telegram user id: ${customerTelegramId}`,
+    username ? `Username: @${username}` : null,
+    username ? `Профиль: https://t.me/${username}` : null,
+    request.contactMethod === "telegram"
+      ? botCanMessage
+        ? "Бот может писать пользователю ✅"
+        : "Бот пока не может писать пользователю — нужен /start в боте ⚠️"
+      : null,
     "",
     "Нажмите кнопку ниже, чтобы сменить статус.",
   ];
@@ -95,9 +109,35 @@ function formatInstallRequestMessage(
   return lines.filter((line) => line !== null).join("\n");
 }
 
+export async function sendTelegramUserMessage(
+  chatId: number,
+  text: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const result = await telegramApi<{ message_id: number }>("sendMessage", {
+    chat_id: chatId,
+    text,
+    disable_web_page_preview: true,
+  });
+  if (!result.ok) return { ok: false, error: result.error };
+  return { ok: true };
+}
+
+/** Probe whether the bot can DM this user (user must have started the bot). */
+export async function canBotMessageUser(chatId: number): Promise<boolean> {
+  const result = await sendTelegramUserMessage(
+    chatId,
+    "Заявка получена. Мы скоро свяжемся с вами здесь в Telegram.",
+  );
+  return result.ok;
+}
+
 export async function notifyAdminNewInstallRequest(
   request: InstallRequest,
   customerTelegramId: number,
+  extras?: {
+    username?: string;
+    botCanMessage?: boolean;
+  },
 ): Promise<void> {
   const chatId = adminChatId();
   if (!chatId) {
@@ -107,7 +147,7 @@ export async function notifyAdminNewInstallRequest(
 
   const result = await telegramApi("sendMessage", {
     chat_id: Number(chatId),
-    text: formatInstallRequestMessage(request, customerTelegramId),
+    text: formatInstallRequestMessage(request, customerTelegramId, extras),
     reply_markup: statusKeyboard(request.id),
     disable_web_page_preview: true,
   });

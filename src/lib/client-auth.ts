@@ -81,3 +81,25 @@ export function getTelegramBotUsername(): string | null {
   const username = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME?.trim();
   return username || null;
 }
+
+/** Open chat with our bot so it can message the user later. */
+export function openBotChat(startParam?: string): void {
+  const username = getTelegramBotUsername();
+  if (!username || typeof window === "undefined") return;
+
+  const url = startParam
+    ? `https://t.me/${username}?start=${encodeURIComponent(startParam)}`
+    : `https://t.me/${username}`;
+
+  const webApp = window.Telegram?.WebApp as
+    | { openTelegramLink?: (url: string) => void }
+    | undefined;
+
+  if (webApp?.openTelegramLink) {
+    webApp.openTelegramLink(url);
+    return;
+  }
+
+  window.open(url, "_blank", "noopener,noreferrer");
+}
+
