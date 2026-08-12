@@ -424,6 +424,7 @@ export function AppShell() {
 
       setItems((prev) => [request, ...prev]);
       setActiveRequestId(id);
+      setItemsError(null);
       await persistInstallRequest(request).catch((error) => {
         console.error(error);
         setItemsError(

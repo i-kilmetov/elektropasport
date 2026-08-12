@@ -198,24 +198,31 @@ export async function persistInstallRequest(
 
   if (!canUseServer()) return {};
 
-  const res = await fetch("/api/install-requests", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...authHeaders(),
-    },
-    body: JSON.stringify({ request }),
-  });
-
-  if (!res.ok) {
-    if (res.status === 503) return {};
-    throw new Error(await parseError(res));
-  }
-
   try {
-    const data = (await res.json()) as { botCanMessage?: boolean };
-    return { botCanMessage: data.botCanMessage };
-  } catch {
+    const res = await fetch("/api/install-requests", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeaders(),
+      },
+      body: JSON.stringify({ request }),
+    });
+
+    if (!res.ok) {
+      if (res.status === 503) return {};
+      throw new Error(await parseError(res));
+    }
+
+    try {
+      const data = (await res.json()) as { botCanMessage?: boolean };
+      return { botCanMessage: data.botCanMessage };
+    } catch {
+      return {};
+    }
+  } catch (error) {
+    // Local copy is already saved. Network abort is common when Telegram
+    // opens on top of the Mini App / Safari tab ("Load failed").
+    console.error("persistInstallRequest network error", error);
     return {};
   }
 }

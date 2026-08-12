@@ -62,11 +62,15 @@ export function LeadContactScreen({
     setResolvedName(finalName);
     setSubmitting(true);
     try {
+      // Persist before opening Telegram — otherwise Safari/Mini App aborts fetch.
       await onFinish({
         contactMethod: useTelegram ? "telegram" : "phone",
         phone: useTelegram ? undefined : `+7${digits}`,
         name: finalName.trim() || getTelegramUserName(),
       });
+      if (useTelegram) {
+        openBotChat("consult");
+      }
     } finally {
       setSubmitting(false);
       setStep("done");
@@ -254,10 +258,7 @@ export function LeadContactScreen({
         onClick={() => {
           setUseTelegram((v) => {
             const next = !v;
-            if (next) {
-              setDigits("");
-              openBotChat("consult");
-            }
+            if (next) setDigits("");
             return next;
           });
         }}
@@ -276,7 +277,7 @@ export function LeadContactScreen({
             Связаться со мной в Telegram
           </span>
           <span className="mt-0.5 block text-[12px] text-white/45">
-            Откроем чат с ботом — так мы сможем вам написать
+            После отправки заявки откроем чат с ботом
           </span>
         </span>
         <span
@@ -303,19 +304,9 @@ export function LeadContactScreen({
             .
           </p>
           <p>
-            Нажмите «Открыть чат с ботом», если окно не появилось само — после
-            /start бот сможет писать вам.
+            После нажатия «Далее» заявка сохранится, затем откроется чат с
+            ботом — нажмите Start, чтобы мы могли вам писать.
           </p>
-          {botUsername && (
-            <button
-              type="button"
-              onClick={() => openBotChat("consult")}
-              className="inline-flex items-center gap-1.5 font-medium text-sky-300 underline decoration-sky-300/40 underline-offset-2"
-            >
-              <ExternalLink className="h-3.5 w-3.5" />
-              Открыть чат с ботом
-            </button>
-          )}
         </GlassCard>
       )}
 
@@ -326,7 +317,6 @@ export function LeadContactScreen({
           disabled={(!useTelegram && !phoneValid) || submitting}
           onClick={() => {
             if (useTelegram) {
-              openBotChat("consult");
               void finish(getTelegramUserName());
               return;
             }
