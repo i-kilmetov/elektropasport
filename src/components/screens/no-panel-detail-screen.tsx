@@ -33,12 +33,12 @@ export function NoPanelDetailScreen({
         <button
           type="button"
           onClick={onBack}
-          className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white backdrop-blur-xl"
+          className="flex h-11 w-11 items-center justify-center rounded-full border border-black/8 bg-zinc-100 text-zinc-900"
           aria-label="Назад"
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <h1 className="truncate text-[20px] font-semibold text-white">
+        <h1 className="truncate text-[20px] font-semibold text-zinc-900">
           {setup.title}
         </h1>
       </header>
@@ -51,13 +51,13 @@ export function NoPanelDetailScreen({
         }`}
       >
         {isOpportunity ? (
-          <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-emerald-300" />
+          <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
         ) : (
-          <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-amber-300" />
+          <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
         )}
         <p
           className={`text-[14px] leading-relaxed ${
-            isOpportunity ? "text-emerald-50/90" : "text-amber-100/90"
+            isOpportunity ? "text-emerald-900/80" : "text-amber-900/80"
           }`}
         >
           {setup.banner}
@@ -76,11 +76,11 @@ export function NoPanelDetailScreen({
                 >
                   <Icon className="h-4 w-4" />
                 </span>
-                <h3 className="text-[15px] font-semibold text-white">
+                <h3 className="text-[15px] font-semibold text-zinc-900">
                   {risk.title}
                 </h3>
               </div>
-              <p className="text-[14px] leading-relaxed text-white/55">
+              <p className="text-[14px] leading-relaxed text-zinc-500">
                 {risk.text}
               </p>
             </GlassCard>

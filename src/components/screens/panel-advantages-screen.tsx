@@ -54,22 +54,22 @@ export function PanelAdvantagesScreen({
         <button
           type="button"
           onClick={onBack}
-          className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white backdrop-blur-xl"
+          className="flex h-11 w-11 items-center justify-center rounded-full border border-black/8 bg-zinc-100 text-zinc-900"
           aria-label="Назад"
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <h1 className="text-[20px] font-semibold text-white">
+        <h1 className="text-[20px] font-semibold text-zinc-900">
           Сделать правильно
         </h1>
       </header>
 
       <div className="mb-5 flex items-center gap-3">
-        <div className="flex h-14 w-14 items-center justify-center rounded-[18px] border border-white/10 bg-[var(--accent)]/15 text-[var(--accent)]">
+        <div className="flex h-14 w-14 items-center justify-center rounded-[18px] border border-black/8 bg-[var(--accent)]/15 text-[var(--accent)]">
           <BreakerIcon className="h-8 w-8" />
         </div>
         <div>
-          <h2 className="text-[20px] font-bold leading-snug text-white">
+          <h2 className="text-[20px] font-bold leading-snug text-zinc-900">
             {isInletCable
               ? "С нуля можно сделать электрику правильно"
               : "Правильнее всего — собрать грамотный щиток"}
@@ -78,11 +78,11 @@ export function PanelAdvantagesScreen({
       </div>
 
       <GlassCard className="mb-4 p-4">
-        <div className="mb-2 flex items-center gap-2 text-emerald-300">
+        <div className="mb-2 flex items-center gap-2 text-emerald-600">
           <ShieldCheck className="h-4 w-4 shrink-0" />
           <span className="text-[13px] font-semibold">Цель</span>
         </div>
-        <p className="text-[14px] leading-relaxed text-white/65">
+        <p className="text-[14px] leading-relaxed text-zinc-600">
           {isInletCable
             ? "Пока есть только вводной кабель, можно сразу заложить современную схему: трассы, щиток, защиту и запас под будущую технику — без переделок после ремонта."
             : "Современный электрощиток с вводным автоматом, УЗО/дифавтоматами и раздельными линиями — самый надёжный способ сделать электрику безопасной, понятной и готовой к нагрузкам."}
@@ -91,7 +91,7 @@ export function PanelAdvantagesScreen({
 
       {isInletCable ? (
         <div className="mb-6 flex-1 space-y-3 overflow-y-auto pb-2">
-          <h3 className="text-[15px] font-semibold text-white/80">
+          <h3 className="text-[15px] font-semibold text-zinc-700">
             Этапы работ
           </h3>
           {inletStages.map((stage) => (
@@ -100,23 +100,23 @@ export function PanelAdvantagesScreen({
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--accent)]/15 text-[var(--accent)]">
                   <stage.icon className="h-4 w-4" />
                 </span>
-                <h4 className="text-[15px] font-semibold text-white">
+                <h4 className="text-[15px] font-semibold text-zinc-900">
                   {stage.title}
                 </h4>
               </div>
-              <p className="text-[14px] leading-relaxed text-white/55">
+              <p className="text-[14px] leading-relaxed text-zinc-500">
                 {stage.text}
               </p>
             </GlassCard>
           ))}
         </div>
       ) : (
-        <GlassCard className="mb-6 border-amber-400/20 bg-amber-500/10 p-4">
-          <div className="mb-2 flex items-center gap-2 text-amber-200">
+        <GlassCard className="mb-6 border-amber-200 bg-amber-50 p-4">
+          <div className="mb-2 flex items-center gap-2 text-amber-700">
             <AlertTriangle className="h-4 w-4 shrink-0" />
             <span className="text-[13px] font-semibold">Важный нюанс</span>
           </div>
-          <p className="text-[14px] leading-relaxed text-amber-50/90">
+          <p className="text-[14px] leading-relaxed text-amber-900/80">
             Если в квартире или доме уже собрана электрика в старом исполнении,
             сборка щитка будет ограничена существующей схемой и проводкой. Мы
             сделаем максимум в этих условиях — и подскажем, что можно улучшить

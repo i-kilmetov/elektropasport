@@ -2,13 +2,18 @@
 @import "tw-animate-css";
 
 :root {
-  --bg: #0b0b0f;
-  --foreground: #f5f5f7;
+  --bg: #ffffff;
+  --foreground: #111113;
+  --muted: #71717a;
   --accent: #7c5cff;
-  --accent-soft: rgba(124, 92, 255, 0.18);
-  --glass: rgba(255, 255, 255, 0.06);
+  --accent-soft: rgba(124, 92, 255, 0.12);
+  --primary: #111113;
+  --primary-foreground: #ffffff;
+  --card: #ffffff;
+  --border: rgba(17, 17, 19, 0.08);
+  --glass: #f4f4f5;
   --radius: 20px;
-  --background: #0b0b0f;
+  --background: #ffffff;
 }
 
 @theme inline {
@@ -30,7 +35,7 @@ body {
 
 body {
   margin: 0;
-  background: #050507;
+  background: #f7f7f8;
   color: var(--foreground);
   font-family:
     var(--font-sf),
@@ -44,5 +49,5 @@ body {
 }
 
 ::selection {
-  background: color-mix(in srgb, var(--accent) 40%, transparent);
+  background: color-mix(in srgb, var(--accent) 28%, transparent);
 }

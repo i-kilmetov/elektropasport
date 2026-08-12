@@ -51,16 +51,16 @@ export function ObjectsScreen({
         <button
           type="button"
           onClick={() => setMenuOpen(true)}
-          className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/80 backdrop-blur-xl"
+          className="flex h-11 w-11 items-center justify-center rounded-full border border-black/8 bg-zinc-100 text-zinc-900"
           aria-label="Меню"
         >
           <Menu className="h-5 w-5" />
         </button>
-        <h1 className="text-[20px] font-semibold text-white">Мои щитки</h1>
+        <h1 className="text-[20px] font-semibold text-zinc-900">Мои щитки</h1>
         <button
           type="button"
           onClick={onAdd}
-          className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--accent)] text-white shadow-[0_6px_24px_rgba(124,92,255,0.4)]"
+          className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--accent)] text-white shadow-[0_6px_24px_rgba(124,92,255,0.28)]"
           aria-label="Добавить щиток"
         >
           <Plus className="h-5 w-5" />
@@ -68,7 +68,7 @@ export function ObjectsScreen({
       </header>
 
       {error && (
-        <p className="mb-3 rounded-2xl border border-rose-400/30 bg-rose-500/10 px-3 py-2 text-[13px] text-rose-200">
+        <p className="mb-3 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-[13px] text-rose-700">
           {error}
         </p>
       )}
@@ -76,7 +76,7 @@ export function ObjectsScreen({
       <div className="flex flex-1 flex-col gap-3">
         {loading ? (
           <div className="flex flex-1 flex-col items-center justify-center px-4 text-center">
-            <p className="text-[15px] text-white/50">Загрузка…</p>
+            <p className="text-[15px] text-zinc-500">Загрузка…</p>
           </div>
         ) : items.length === 0 ? (
           <motion.div
@@ -84,10 +84,10 @@ export function ObjectsScreen({
             animate={{ opacity: 1, y: 0 }}
             className="flex flex-1 flex-col items-center justify-center px-4 text-center"
           >
-            <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-[24px] border border-white/10 bg-white/5 text-[var(--accent)]">
+            <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-[24px] border border-black/8 bg-zinc-100 text-[var(--accent)]">
               <BreakerIcon className="h-10 w-10" />
             </div>
-            <p className="max-w-[300px] text-[15px] leading-relaxed text-white/50">
+            <p className="max-w-[300px] text-[15px] leading-relaxed text-zinc-500">
               Сфотографируйте существующий щиток или расскажите, как у вас
               устроена электрика без него.
             </p>
@@ -114,16 +114,16 @@ export function ObjectsScreen({
                       className={cn(
                         "flex items-center gap-4 rounded-[24px] border p-4 transition-colors",
                         isRequest
-                          ? "border-rose-400/35 bg-[#2a1519] hover:bg-[#32181d]"
-                          : "border-white/10 bg-[#16161d] hover:bg-[#1b1b24]",
+                          ? "border-rose-200 bg-rose-50 hover:bg-rose-100/70"
+                          : "hover:bg-zinc-50",
                       )}
                     >
                       <div
                         className={cn(
                           "h-14 w-14 shrink-0 overflow-hidden rounded-[18px]",
                           isRequest
-                            ? "flex items-center justify-center bg-rose-500/20 text-rose-300"
-                            : "bg-[#121218]",
+                            ? "flex items-center justify-center bg-rose-500/15 text-rose-500"
+                            : "bg-zinc-100",
                         )}
                       >
                         {isRequest ? (
@@ -136,7 +136,7 @@ export function ObjectsScreen({
                             railCount={obj.railCount}
                           />
                         ) : (
-                          <div className="flex h-full w-full items-center justify-center bg-white/10 text-[var(--accent)]">
+                          <div className="flex h-full w-full items-center justify-center bg-zinc-100 text-[var(--accent)]">
                             <BreakerIcon className="h-7 w-7" />
                           </div>
                         )}
@@ -146,17 +146,17 @@ export function ObjectsScreen({
                           <h2
                             className={cn(
                               "truncate text-[17px] font-semibold",
-                              isRequest ? "text-rose-50" : "text-white",
+                              isRequest ? "text-rose-900" : "text-zinc-900",
                             )}
                           >
                             {obj.title}
                           </h2>
                           {isRequest ? (
-                            <span className="shrink-0 rounded-full bg-rose-500/25 px-2 py-0.5 text-[11px] font-medium text-rose-200">
+                            <span className="shrink-0 rounded-full bg-rose-500/15 px-2 py-0.5 text-[11px] font-medium text-rose-700">
                               {obj.statusLabel}
                             </span>
                           ) : (
-                            <span className="shrink-0 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium text-emerald-300">
+                            <span className="shrink-0 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
                               {obj.safety}%
                             </span>
                           )}
@@ -164,7 +164,7 @@ export function ObjectsScreen({
                         <p
                           className={cn(
                             "truncate text-[13px]",
-                            isRequest ? "text-rose-100/65" : "text-white/45",
+                            isRequest ? "text-rose-700/80" : "text-zinc-500",
                           )}
                         >
                           {isRequest ? obj.subtitle : obj.address}
@@ -172,7 +172,7 @@ export function ObjectsScreen({
                         <p
                           className={cn(
                             "mt-1 text-[12px]",
-                            isRequest ? "text-rose-100/45" : "text-white/35",
+                            isRequest ? "text-rose-600/70" : "text-zinc-400",
                           )}
                         >
                           {isRequest
@@ -197,7 +197,7 @@ export function ObjectsScreen({
         <button
           type="button"
           onClick={onNoPanel}
-          className="w-full text-center text-[15px] font-medium text-white/55 underline decoration-white/25 underline-offset-4 transition-colors hover:text-white/85"
+          className="w-full text-center text-[15px] font-medium text-zinc-500 underline decoration-zinc-300 underline-offset-4 transition-colors hover:text-zinc-800"
         >
           У меня нет щитка
         </button>

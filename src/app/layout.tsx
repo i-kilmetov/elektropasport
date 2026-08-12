@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   description: "Цифровой паспорт электрического щитка",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "black-translucent",
+    statusBarStyle: "default",
     title: "Электропаспорт",
   },
 };
@@ -25,16 +25,16 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: "cover",
-  themeColor: "#0B0B0F",
+  themeColor: "#ffffff",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="ru" className={`${manrope.variable} h-full antialiased dark`}>
+    <html lang="ru" className={`${manrope.variable} h-full antialiased`}>
       <head>
         <script src="https://telegram.org/js/telegram-web-app.js" defer />
       </head>
-      <body className="min-h-dvh bg-[#050507] font-sans text-white">
+      <body className="min-h-dvh bg-[#f7f7f8] font-sans text-[var(--foreground)]">
         <TelegramProvider>{children}</TelegramProvider>
       </body>
     </html>

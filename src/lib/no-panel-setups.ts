@@ -54,25 +54,25 @@ export const riskCategoryMeta: Record<
   RiskCategory,
   { icon: LucideIcon; className: string }
 > = {
-  person: { icon: User, className: "text-rose-300 bg-rose-500/15" },
+  person: { icon: User, className: "text-rose-600 bg-rose-500/15" },
   fire: {
     icon: FireExtinguisher,
-    className: "text-orange-300 bg-orange-500/15",
+    className: "text-orange-600 bg-orange-500/15",
   },
-  load: { icon: Gauge, className: "text-violet-300 bg-violet-500/15" },
-  ops: { icon: Wrench, className: "text-zinc-300 bg-zinc-500/15" },
-  norms: { icon: Scale, className: "text-amber-300 bg-amber-500/15" },
+  load: { icon: Gauge, className: "text-violet-600 bg-violet-500/15" },
+  ops: { icon: Wrench, className: "text-zinc-600 bg-zinc-500/15" },
+  norms: { icon: Scale, className: "text-amber-600 bg-amber-500/15" },
   control: {
     icon: ClipboardList,
-    className: "text-cyan-300 bg-cyan-500/15",
+    className: "text-cyan-600 bg-cyan-500/15",
   },
   reliability: {
     icon: ShieldCheck,
-    className: "text-teal-300 bg-teal-500/15",
+    className: "text-teal-600 bg-teal-500/15",
   },
   durability: {
     icon: Lightbulb,
-    className: "text-amber-300 bg-amber-500/15",
+    className: "text-amber-600 bg-amber-500/15",
   },
   action: {
     icon: LayoutGrid,
@@ -80,7 +80,7 @@ export const riskCategoryMeta: Record<
   },
   opportunity: {
     icon: Sparkles,
-    className: "text-emerald-300 bg-emerald-500/15",
+    className: "text-emerald-600 bg-emerald-500/15",
   },
 };
 
@@ -91,7 +91,7 @@ export const noPanelSetups: NoPanelSetup[] = [
     title: "Пробки (предохранители)",
     subtitle: "Керамические или автоматические «пробки» вместо линейных автоматов",
     icon: CircleDot,
-    iconClass: "from-amber-500/30 to-amber-700/10 text-amber-300",
+    iconClass: "from-amber-500/20 to-amber-100 text-amber-600",
     tone: "alarm",
     banner:
       "Такое исполнение часто встречается в старом жилом фонде. Для современной нагрузки и бытовой техники это уже небезопасно.",
@@ -123,7 +123,7 @@ export const noPanelSetups: NoPanelSetup[] = [
     title: "Только этажный щит",
     subtitle: "В квартире нет своего щитка — питание идёт из общего щита на площадке",
     icon: Building2,
-    iconClass: "from-slate-400/30 to-slate-700/10 text-slate-300",
+    iconClass: "from-slate-400/20 to-slate-100 text-slate-600",
     tone: "alarm",
     banner:
       "Частая схема в старых домах: в квартире нет своего щитка, всё завязано на этажный. Это ограничивает безопасность и контроль.",
@@ -155,7 +155,7 @@ export const noPanelSetups: NoPanelSetup[] = [
     title: "Есть только вводной кабель",
     subtitle: "Квартира или дом в черновом исполнении — щитка ещё нет",
     icon: Cable,
-    iconClass: "from-emerald-500/30 to-emerald-800/10 text-emerald-300",
+    iconClass: "from-emerald-500/20 to-emerald-100 text-emerald-600",
     tone: "opportunity",
     banner:
       "В квартирах и домах с черновым ремонтом это классическое исполнение. В этом есть свои плюсы: можно заранее грамотно проложить все трассы и собрать щиток максимально правильно.",
@@ -187,7 +187,7 @@ export const noPanelSetups: NoPanelSetup[] = [
     title: "Другое / Не знаю",
     subtitle: "Нестандартная схема или пока непонятно, как устроена электрика",
     icon: HelpCircle,
-    iconClass: "from-violet-500/30 to-violet-800/10 text-violet-300",
+    iconClass: "from-violet-500/20 to-violet-100 text-violet-600",
     tone: "alarm",
     banner:
       "Если схема неизвестна или смешанная, риски оценить сложнее — а значит, выше вероятность скрытых проблем.",

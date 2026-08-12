@@ -402,7 +402,7 @@ export function DeviceFace({
       className={cn(
         "block p-0 transition-shadow",
         selected &&
-          "rounded-[7px] ring-2 ring-[var(--accent)] ring-offset-2 ring-offset-[#0B0B0F]",
+          "rounded-[7px] ring-2 ring-[var(--accent)] ring-offset-2 ring-offset-white",
       )}
     >
       <DeviceFaceStatic

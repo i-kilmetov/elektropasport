@@ -22,7 +22,7 @@ export function ElectricalRuleDetailScreen({
         animate={{ opacity: 1 }}
         className="flex min-h-dvh flex-col items-center justify-center px-5"
       >
-        <p className="mb-4 text-white/50">Раздел не найден</p>
+        <p className="mb-4 text-zinc-500">Раздел не найден</p>
         <Button variant="secondary" onClick={onBack}>
           Назад
         </Button>
@@ -41,27 +41,27 @@ export function ElectricalRuleDetailScreen({
         <button
           type="button"
           onClick={onBack}
-          className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white backdrop-blur-xl"
+          className="flex h-11 w-11 items-center justify-center rounded-full border border-black/8 bg-zinc-100 text-zinc-900"
           aria-label="Назад"
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <h1 className="line-clamp-2 text-[18px] font-semibold text-white">
+        <h1 className="line-clamp-2 text-[18px] font-semibold text-zinc-900">
           {rule.title}
         </h1>
       </header>
 
-      <p className="mb-5 text-[15px] leading-relaxed text-white/50">
+      <p className="mb-5 text-[15px] leading-relaxed text-zinc-500">
         {rule.summary}
       </p>
 
       <div className="flex-1 space-y-3 overflow-y-auto pb-4">
         {rule.points.map((point, index) => (
           <GlassCard key={point} className="flex gap-3 p-4">
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/10 text-[12px] font-semibold text-white/70">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-[12px] font-semibold text-zinc-600">
               {index + 1}
             </span>
-            <p className="text-[14px] leading-relaxed text-white/75">{point}</p>
+            <p className="text-[14px] leading-relaxed text-zinc-700">{point}</p>
           </GlassCard>
         ))}
       </div>

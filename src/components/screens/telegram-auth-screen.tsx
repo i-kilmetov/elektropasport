@@ -37,24 +37,24 @@ export function TelegramAuthScreen({
         <button
           type="button"
           onClick={onBack}
-          className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white backdrop-blur-xl"
+          className="flex h-11 w-11 items-center justify-center rounded-full border border-black/8 bg-zinc-100 text-zinc-900"
           aria-label="Назад"
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <h1 className="text-[20px] font-semibold text-white">Вход</h1>
+        <h1 className="text-[20px] font-semibold text-zinc-900">Вход</h1>
       </header>
 
       <div className="flex flex-1 flex-col items-center justify-center">
         <GlassCard className="w-full max-w-sm space-y-5 p-6 text-center">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-sky-300">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-black/8 bg-sky-50 text-sky-600">
             <QrCode className="h-8 w-8" strokeWidth={1.75} />
           </div>
           <div>
-            <h2 className="text-[22px] font-bold tracking-tight text-white">
+            <h2 className="text-[22px] font-bold tracking-tight text-zinc-900">
               Войдите через Telegram
             </h2>
-            <p className="mt-2 text-[14px] leading-relaxed text-white/50">
+            <p className="mt-2 text-[14px] leading-relaxed text-zinc-500">
               Откроется страница Telegram с QR-кодом. Отсканируйте его в
               приложении Telegram на телефоне — без входа в бота.
             </p>

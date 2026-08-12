@@ -20,8 +20,8 @@ export function SpecCharacteristicCard({
     <GlassCard className="p-3">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          <div className="text-[12px] text-white/40">{label}</div>
-          <div className="mt-1 text-[15px] font-medium leading-snug text-white">
+          <div className="text-[12px] text-zinc-500">{label}</div>
+          <div className="mt-1 text-[15px] font-medium leading-snug text-zinc-900">
             {value}
           </div>
         </div>
@@ -34,14 +34,14 @@ export function SpecCharacteristicCard({
             "inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors",
             open
               ? "border-[var(--accent)]/40 bg-[var(--accent)]/15 text-[var(--accent)]"
-              : "border-white/10 bg-white/5 text-white/45 hover:text-white/70",
+              : "border-black/8 bg-zinc-100 text-zinc-500 hover:text-zinc-600",
           )}
         >
           <Info className="h-3 w-3" strokeWidth={2.25} />
         </button>
       </div>
       {open && (
-        <p className="mt-2.5 border-t border-white/8 pt-2.5 text-[12px] leading-relaxed text-white/55">
+        <p className="mt-2.5 border-t border-black/[0.06] pt-2.5 text-[12px] leading-relaxed text-zinc-500">
           {hint}
         </p>
       )}

@@ -459,13 +459,13 @@ export function AppShell() {
 
   if (!onboardingReady) {
     return (
-      <div className="relative mx-auto min-h-dvh w-full max-w-[430px] overflow-hidden bg-[var(--bg)] text-white shadow-[0_0_80px_rgba(0,0,0,0.5)]" />
+      <div className="relative mx-auto min-h-dvh w-full max-w-[430px] overflow-hidden bg-[var(--bg)] text-zinc-900 shadow-[0_0_40px_rgba(17,17,19,0.06)]" />
     );
   }
 
   return (
-    <div className="relative mx-auto min-h-dvh w-full max-w-[430px] overflow-hidden bg-[var(--bg)] text-white shadow-[0_0_80px_rgba(0,0,0,0.5)]">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(124,92,255,0.12),transparent_55%)]" />
+    <div className="relative mx-auto min-h-dvh w-full max-w-[430px] overflow-hidden bg-[var(--bg)] text-zinc-900 shadow-[0_0_40px_rgba(17,17,19,0.06)]">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(124,92,255,0.035),transparent_55%)]" />
       <div className="relative z-10">
         <AnimatePresence mode="wait">
           {screen === "welcome" && (

@@ -40,21 +40,21 @@ export function CitySelectScreen({
         <button
           type="button"
           onClick={onBack}
-          className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white backdrop-blur-xl"
+          className="flex h-11 w-11 items-center justify-center rounded-full border border-black/8 bg-zinc-100 text-zinc-900"
           aria-label="Назад"
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <h1 className="text-[20px] font-semibold text-white">Выбор города</h1>
+        <h1 className="text-[20px] font-semibold text-zinc-900">Выбор города</h1>
       </header>
 
-      <h2 className="mb-2 text-[26px] font-bold tracking-tight text-white">
+      <h2 className="mb-2 text-[26px] font-bold tracking-tight text-zinc-900">
         {title}
       </h2>
-      <p className="mb-5 text-[15px] text-white/50">{description}</p>
+      <p className="mb-5 text-[15px] text-zinc-500">{description}</p>
 
       <label className="relative mb-3 block">
-        <MapPin className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35" />
+        <MapPin className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
         <input
           value={query}
           onChange={(e) => {
@@ -63,7 +63,7 @@ export function CitySelectScreen({
           }}
           placeholder="Например, Казань"
           autoComplete="off"
-          className="h-14 w-full rounded-[20px] border border-white/10 bg-white/[0.06] pl-11 pr-4 text-[16px] text-white outline-none backdrop-blur-xl placeholder:text-white/30 focus:border-[var(--accent)]/50"
+          className="h-14 w-full rounded-[20px] border border-black/8 bg-zinc-50 pl-11 pr-4 text-[16px] text-zinc-900 outline-none backdrop-blur-xl placeholder:text-zinc-400 focus:border-[var(--accent)]/50"
         />
       </label>
 
@@ -71,7 +71,7 @@ export function CitySelectScreen({
         <GlassCard className="mb-4 overflow-hidden p-0">
           <ul className="max-h-[46vh] overflow-y-auto">
             {suggestions.length === 0 ? (
-              <li className="px-4 py-5 text-[14px] text-white/40">
+              <li className="px-4 py-5 text-[14px] text-zinc-500">
                 Город пока не найден. Проверьте написание или попробуйте другой.
               </li>
             ) : (
@@ -87,8 +87,8 @@ export function CitySelectScreen({
                       }}
                       className={`flex w-full items-center justify-between px-4 py-3.5 text-left text-[16px] transition-colors ${
                         active
-                          ? "bg-[var(--accent)]/20 text-white"
-                          : "text-white/80 hover:bg-white/5"
+                          ? "bg-[var(--accent)]/15 text-zinc-900"
+                          : "text-zinc-700 hover:bg-zinc-50"
                       }`}
                     >
                       <span>{city}</span>

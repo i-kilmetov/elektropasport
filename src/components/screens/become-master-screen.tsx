@@ -23,43 +23,43 @@ export function BecomeMasterScreen({
         <button
           type="button"
           onClick={onBack}
-          className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white backdrop-blur-xl"
+          className="flex h-11 w-11 items-center justify-center rounded-full border border-black/8 bg-zinc-100 text-zinc-900"
           aria-label="Назад"
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <h1 className="text-[20px] font-semibold text-white">Стать мастером</h1>
+        <h1 className="text-[20px] font-semibold text-zinc-900">Стать мастером</h1>
       </header>
 
       <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-[20px] bg-[var(--accent)]/15 text-[var(--accent)]">
         <BadgeCheck className="h-8 w-8" />
       </div>
 
-      <h2 className="mb-3 text-[26px] font-bold tracking-tight text-white">
+      <h2 className="mb-3 text-[26px] font-bold tracking-tight text-zinc-900">
         Ищем лучших специалистов
       </h2>
-      <p className="mb-5 text-[15px] leading-relaxed text-white/55">
+      <p className="mb-5 text-[15px] leading-relaxed text-zinc-500">
         Мы всегда в поиске сильных кадров для сервиса Электропаспорт — людей,
         которые аккуратно работают с электрикой, уважают клиента и отвечают за
         результат.
       </p>
 
       <GlassCard className="mb-4 flex gap-3 p-4">
-        <span className="mt-0.5 text-amber-300">
+        <span className="mt-0.5 text-amber-600">
           <GraduationCap className="h-5 w-5" />
         </span>
         <div>
-          <div className="mb-1 text-[15px] font-semibold text-white">
+          <div className="mb-1 text-[15px] font-semibold text-zinc-900">
             Обязательное условие
           </div>
-          <p className="text-[14px] leading-relaxed text-white/55">
+          <p className="text-[14px] leading-relaxed text-zinc-500">
             Наличие профильного образования и подтверждённой квалификации.
             Без этого к работе с заявками сервиса мы не подключаем.
           </p>
         </div>
       </GlassCard>
 
-      <GlassCard className="mb-6 space-y-2 p-4 text-[14px] leading-relaxed text-white/55">
+      <GlassCard className="mb-6 space-y-2 p-4 text-[14px] leading-relaxed text-zinc-500">
         <p>Что будет дальше:</p>
         <p>1. Укажете город</p>
         <p>2. Оставите телефон или Telegram</p>

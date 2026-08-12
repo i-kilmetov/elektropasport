@@ -73,24 +73,24 @@ export function ElectricalDetailsScreen({
         <button
           type="button"
           onClick={onBack}
-          className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white backdrop-blur-xl"
+          className="flex h-11 w-11 items-center justify-center rounded-full border border-black/8 bg-zinc-100 text-zinc-900"
           aria-label="Назад"
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <h1 className="text-[20px] font-semibold text-white">О вашей сети</h1>
+        <h1 className="text-[20px] font-semibold text-zinc-900">О вашей сети</h1>
       </header>
 
-      <h2 className="mb-2 text-[26px] font-bold tracking-tight text-white">
+      <h2 className="mb-2 text-[26px] font-bold tracking-tight text-zinc-900">
         Уточните параметры электрики
       </h2>
-      <p className="mb-6 text-[15px] leading-relaxed text-white/50">
+      <p className="mb-6 text-[15px] leading-relaxed text-zinc-500">
         Это поможет корректно подобрать щиток и защиту под ваш объект.
       </p>
 
       <div className="flex-1 space-y-6 overflow-y-auto pb-4">
         <div>
-          <div className="mb-3 text-[14px] font-medium text-white/70">Объект</div>
+          <div className="mb-3 text-[14px] font-medium text-zinc-600">Объект</div>
           <div className="grid grid-cols-2 gap-3">
             <button
               type="button"
@@ -99,11 +99,11 @@ export function ElectricalDetailsScreen({
                 "rounded-[20px] border p-4 text-left transition-colors",
                 dwelling === "apartment"
                   ? "border-[var(--accent)]/50 bg-[var(--accent)]/15"
-                  : "border-white/10 bg-white/[0.04]",
+                  : "border-black/8 bg-zinc-50",
               )}
             >
               <Building2 className="mb-2 h-5 w-5 text-[var(--accent)]" />
-              <div className="text-[15px] font-semibold text-white">Квартира</div>
+              <div className="text-[15px] font-semibold text-zinc-900">Квартира</div>
             </button>
             <button
               type="button"
@@ -112,17 +112,17 @@ export function ElectricalDetailsScreen({
                 "rounded-[20px] border p-4 text-left transition-colors",
                 dwelling === "house"
                   ? "border-[var(--accent)]/50 bg-[var(--accent)]/15"
-                  : "border-white/10 bg-white/[0.04]",
+                  : "border-black/8 bg-zinc-50",
               )}
             >
-              <Home className="mb-2 h-5 w-5 text-emerald-300" />
-              <div className="text-[15px] font-semibold text-white">Дом</div>
+              <Home className="mb-2 h-5 w-5 text-emerald-600" />
+              <div className="text-[15px] font-semibold text-zinc-900">Дом</div>
             </button>
           </div>
         </div>
 
         <div>
-          <div className="mb-3 text-[14px] font-medium text-white/70">
+          <div className="mb-3 text-[14px] font-medium text-zinc-600">
             Сколько фаз приходит
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -139,22 +139,22 @@ export function ElectricalDetailsScreen({
                 className={cn(
                   "rounded-[20px] border px-4 py-4 text-[15px] font-semibold transition-colors",
                   phases === value
-                    ? "border-[var(--accent)]/50 bg-[var(--accent)]/15 text-white"
-                    : "border-white/10 bg-white/[0.04] text-white/80",
+                    ? "border-[var(--accent)]/50 bg-[var(--accent)]/15 text-zinc-900"
+                    : "border-black/8 bg-zinc-50 text-zinc-700",
                 )}
               >
                 {label}
               </button>
             ))}
           </div>
-          <p className="mt-2 text-[12px] leading-relaxed text-white/40">
+          <p className="mt-2 text-[12px] leading-relaxed text-zinc-500">
             Обычно видно по числу проводов на вводе или по маркировке счётчика
             (однофазный / трёхфазный).
           </p>
         </div>
 
         <div>
-          <div className="mb-3 text-[14px] font-medium text-white/70">
+          <div className="mb-3 text-[14px] font-medium text-zinc-600">
             Выделенная мощность, кВт
           </div>
           <input
@@ -162,24 +162,24 @@ export function ElectricalDetailsScreen({
             value={powerKw}
             onChange={(e) => onPowerChange(e.target.value)}
             placeholder="Например, 7"
-            className="h-14 w-full rounded-[20px] border border-white/10 bg-white/[0.06] px-4 text-[16px] text-white outline-none placeholder:text-white/30 focus:border-[var(--accent)]/50"
+            className="h-14 w-full rounded-[20px] border border-black/8 bg-zinc-50 px-4 text-[16px] text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-[var(--accent)]/50"
           />
           {powerError && (
-            <p className="mt-2 text-[13px] leading-relaxed text-rose-300">
+            <p className="mt-2 text-[13px] leading-relaxed text-rose-600">
               {powerError}
             </p>
           )}
           <GlassCard className="mt-3 space-y-2 p-4">
-            <div className="flex items-start gap-2 text-[13px] text-white/70">
+            <div className="flex items-start gap-2 text-[13px] text-zinc-600">
               <Info className="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent)]" />
               <span>Где узнать выделенную мощность</span>
             </div>
-            <ul className="space-y-1.5 pl-1 text-[13px] leading-relaxed text-white/45">
+            <ul className="space-y-1.5 pl-1 text-[13px] leading-relaxed text-zinc-500">
               <li>• в договоре с энергосбытом / УК</li>
               <li>• в акте технологического присоединения</li>
               <li>• в личном кабинете энергокомпании</li>
             </ul>
-            <div className="border-t border-white/8 pt-2 text-[12px] text-white/35">
+            <div className="border-t border-black/[0.06] pt-2 text-[12px] text-zinc-400">
               {powerHints.map((hint) => (
                 <div key={hint} className="py-0.5">
                   {hint}

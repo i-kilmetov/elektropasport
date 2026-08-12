@@ -23,17 +23,17 @@ export function ElectricalRulesScreen({
         <button
           type="button"
           onClick={onBack}
-          className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white backdrop-blur-xl"
+          className="flex h-11 w-11 items-center justify-center rounded-full border border-black/8 bg-zinc-100 text-zinc-900"
           aria-label="Назад"
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <h1 className="text-[20px] font-semibold text-white">
+        <h1 className="text-[20px] font-semibold text-zinc-900">
           Важное об электрике
         </h1>
       </header>
 
-      <p className="mb-5 text-[15px] leading-relaxed text-white/50">
+      <p className="mb-5 text-[15px] leading-relaxed text-zinc-500">
         Краткие правила по мотивам ПУЭ и практики безопасной эксплуатации.
         Это памятка, а не замена нормам и работе специалиста.
       </p>
@@ -46,19 +46,19 @@ export function ElectricalRulesScreen({
             onClick={() => onOpenRule(rule.id)}
             className="w-full text-left"
           >
-            <GlassCard className="flex items-center gap-3 p-4 transition-colors hover:bg-white/[0.09]">
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[16px] bg-amber-500/15 text-amber-300">
+            <GlassCard className="flex items-center gap-3 p-4 transition-colors hover:bg-zinc-50">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[16px] bg-amber-500/15 text-amber-600">
                 <BookOpen className="h-5 w-5" />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block text-[16px] font-semibold text-white">
+                <span className="block text-[16px] font-semibold text-zinc-900">
                   {rule.title}
                 </span>
-                <span className="mt-0.5 block text-[13px] text-white/45">
+                <span className="mt-0.5 block text-[13px] text-zinc-500">
                   {rule.summary}
                 </span>
               </span>
-              <ArrowRight className="h-4 w-4 shrink-0 text-white/30" />
+              <ArrowRight className="h-4 w-4 shrink-0 text-zinc-400" />
             </GlassCard>
           </button>
         ))}

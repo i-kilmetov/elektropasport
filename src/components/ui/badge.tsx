@@ -3,9 +3,9 @@ import { cn } from "@/lib/utils";
 import type { DeviceStatus } from "@/types";
 
 const statusStyles: Record<DeviceStatus, string> = {
-  verified: "bg-emerald-500/15 text-emerald-300 border-emerald-400/20",
-  pending: "bg-amber-500/15 text-amber-300 border-amber-400/20",
-  unknown: "bg-white/10 text-white/50 border-white/10",
+  verified: "bg-emerald-500/12 text-emerald-700 border-emerald-500/20",
+  pending: "bg-amber-500/12 text-amber-700 border-amber-500/20",
+  unknown: "bg-zinc-100 text-zinc-500 border-zinc-200",
 };
 
 const statusLabels: Record<DeviceStatus, string> = {
@@ -27,7 +27,7 @@ export function Badge({
     <span
       className={cn(
         "inline-flex items-center rounded-full border px-2.5 py-1 text-[12px] font-medium",
-        status ? statusStyles[status] : "bg-white/10 text-white/70 border-white/10",
+        status ? statusStyles[status] : "bg-zinc-100 text-zinc-600 border-zinc-200",
         className,
       )}
     >

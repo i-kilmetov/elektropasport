@@ -79,32 +79,32 @@ export function CatalogPickerSheet({
             exit={{ y: "100%" }}
             transition={{ type: "spring", stiffness: 320, damping: 32 }}
             onClick={(e) => e.stopPropagation()}
-            className="flex max-h-[88dvh] w-full flex-col rounded-t-[28px] border border-white/10 bg-[#16161d]/98 shadow-2xl"
+            className="flex max-h-[88dvh] w-full flex-col rounded-t-[28px] border border-black/8 bg-white shadow-2xl"
           >
-            <div className="flex items-start justify-between gap-3 border-b border-white/8 px-5 pb-4 pt-5">
+            <div className="flex items-start justify-between gap-3 border-b border-black/[0.06] px-5 pb-4 pt-5">
               <div>
-                <h3 className="text-[20px] font-semibold text-white">{title}</h3>
-                <p className="mt-1 text-[13px] text-white/45">
+                <h3 className="text-[20px] font-semibold text-zinc-900">{title}</h3>
+                <p className="mt-1 text-[13px] text-zinc-500">
                   Примеры приборов из каталога — для ориентира при выборе
                 </p>
               </div>
               <button
                 type="button"
                 onClick={onClose}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/10 text-white/70"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-zinc-600"
                 aria-label="Закрыть"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            <div className="border-b border-white/8 px-5 py-3">
+            <div className="border-b border-black/[0.06] px-5 py-3">
               <div className="flex gap-2">
                 <input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Поиск по модели, номиналу…"
-                  className="h-10 min-w-0 flex-1 rounded-[14px] border border-white/10 bg-white/[0.06] px-3 text-[14px] text-white outline-none placeholder:text-white/30 focus:border-[var(--accent)]/50"
+                  className="h-10 min-w-0 flex-1 rounded-[14px] border border-black/8 bg-zinc-50 px-3 text-[14px] text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-[var(--accent)]/50"
                 />
                 <button
                   type="button"
@@ -113,7 +113,7 @@ export function CatalogPickerSheet({
                     "flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] border transition-colors",
                     filtersOpen
                       ? "border-[var(--accent)]/40 bg-[var(--accent)]/15 text-[var(--accent)]"
-                      : "border-white/10 bg-white/5 text-white/60",
+                      : "border-black/8 bg-zinc-100 text-zinc-600",
                   )}
                   aria-label="Фильтры"
                 >
@@ -124,11 +124,11 @@ export function CatalogPickerSheet({
               {filtersOpen && (
                 <div className="mt-3 grid grid-cols-2 gap-2">
                   <label className="space-y-1">
-                    <span className="text-[11px] text-white/40">Бренд</span>
+                    <span className="text-[11px] text-zinc-500">Бренд</span>
                     <select
                       value={brand}
                       onChange={(e) => setBrand(e.target.value)}
-                      className="h-9 w-full rounded-[12px] border border-white/10 bg-white/[0.06] px-2 text-[13px] text-white outline-none"
+                      className="h-9 w-full rounded-[12px] border border-black/8 bg-zinc-50 px-2 text-[13px] text-zinc-900 outline-none"
                     >
                       <option value="all">Все</option>
                       {brands.map((b) => (
@@ -139,7 +139,7 @@ export function CatalogPickerSheet({
                     </select>
                   </label>
                   <label className="space-y-1">
-                    <span className="text-[11px] text-white/40">Модули</span>
+                    <span className="text-[11px] text-zinc-500">Модули</span>
                     <select
                       value={String(modules)}
                       onChange={(e) =>
@@ -149,7 +149,7 @@ export function CatalogPickerSheet({
                             : Number(e.target.value),
                         )
                       }
-                      className="h-9 w-full rounded-[12px] border border-white/10 bg-white/[0.06] px-2 text-[13px] text-white outline-none"
+                      className="h-9 w-full rounded-[12px] border border-black/8 bg-zinc-50 px-2 text-[13px] text-zinc-900 outline-none"
                     >
                       <option value="all">Все</option>
                       {MODULE_OPTIONS.map((m) => (
@@ -160,11 +160,11 @@ export function CatalogPickerSheet({
                     </select>
                   </label>
                   <label className="col-span-2 space-y-1">
-                    <span className="text-[11px] text-white/40">Полюса</span>
+                    <span className="text-[11px] text-zinc-500">Полюса</span>
                     <select
                       value={poles}
                       onChange={(e) => setPoles(e.target.value)}
-                      className="h-9 w-full rounded-[12px] border border-white/10 bg-white/[0.06] px-2 text-[13px] text-white outline-none"
+                      className="h-9 w-full rounded-[12px] border border-black/8 bg-zinc-50 px-2 text-[13px] text-zinc-900 outline-none"
                     >
                       <option value="all">Все</option>
                       {polesOptions.map((p) => (
@@ -180,7 +180,7 @@ export function CatalogPickerSheet({
 
             <div className="flex-1 overflow-y-auto px-5 py-4">
               {products.length === 0 ? (
-                <p className="py-8 text-center text-[14px] text-white/40">
+                <p className="py-8 text-center text-[14px] text-zinc-500">
                   Ничего не найдено. Измените фильтры.
                 </p>
               ) : (
@@ -209,10 +209,10 @@ export function CatalogPickerSheet({
                             }
                           />
                           <div className="min-w-0 flex-1">
-                            <div className="text-[14px] font-semibold text-white">
+                            <div className="text-[14px] font-semibold text-zinc-900">
                               {product.displayName}
                             </div>
-                            <div className="mt-0.5 text-[12px] text-white/45">
+                            <div className="mt-0.5 text-[12px] text-zinc-500">
                               {product.brand} · {product.model}
                             </div>
                             <dl className="mt-2 space-y-1">
@@ -221,10 +221,10 @@ export function CatalogPickerSheet({
                                   key={key}
                                   className="flex gap-2 text-[11px] leading-snug"
                                 >
-                                  <dt className="shrink-0 text-white/35">
+                                  <dt className="shrink-0 text-zinc-400">
                                     {key}:
                                   </dt>
-                                  <dd className="text-white/70">{value}</dd>
+                                  <dd className="text-zinc-600">{value}</dd>
                                 </div>
                               ))}
                             </dl>
@@ -237,7 +237,7 @@ export function CatalogPickerSheet({
               )}
             </div>
 
-            <div className="border-t border-white/8 px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+            <div className="border-t border-black/[0.06] px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
               <Button className="w-full" variant="secondary" onClick={onClose}>
                 Закрыть
               </Button>

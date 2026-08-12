@@ -15,27 +15,27 @@ const cards = [
     title: "Электропаспорт",
     text: "Сервис для цифрового паспорта щитка: схема, линии и история — всё под рукой.",
     accent: "#7c5cff",
-    glow: "rgba(124, 92, 255, 0.45)",
+    glow: "rgba(124, 92, 255, 0.22)",
     gradient:
-      "radial-gradient(ellipse 80% 60% at 50% 20%, rgba(124,92,255,0.35), transparent 60%), linear-gradient(165deg, #161622 0%, #0c0c12 100%)",
+      "radial-gradient(ellipse 80% 60% at 50% 18%, rgba(124,92,255,0.14), transparent 58%), linear-gradient(165deg, #ffffff 0%, #f7f7f8 100%)",
   },
   {
     icon: Shield,
     title: "Безопасность и помощь",
     text: "Покажем риски устаревшей схемы и поможем сделать электрику правильно — с щитком или без.",
-    accent: "#34d399",
-    glow: "rgba(52, 211, 153, 0.35)",
+    accent: "#10b981",
+    glow: "rgba(16, 185, 129, 0.2)",
     gradient:
-      "radial-gradient(ellipse 80% 60% at 50% 20%, rgba(52,211,153,0.28), transparent 60%), linear-gradient(165deg, #121a18 0%, #0c0c12 100%)",
+      "radial-gradient(ellipse 80% 60% at 50% 18%, rgba(16,185,129,0.12), transparent 58%), linear-gradient(165deg, #ffffff 0%, #f4faf7 100%)",
   },
   {
     icon: ArrowUpRight,
     title: "Готово к будущему",
     text: "Закладываем запас под рост нагрузок, умный дом и апгрейды — без полной переделки позже.",
-    accent: "#38bdf8",
-    glow: "rgba(56, 189, 248, 0.35)",
+    accent: "#0ea5e9",
+    glow: "rgba(14, 165, 233, 0.2)",
     gradient:
-      "radial-gradient(ellipse 80% 60% at 50% 20%, rgba(56,189,248,0.28), transparent 60%), linear-gradient(165deg, #101820 0%, #0c0c12 100%)",
+      "radial-gradient(ellipse 80% 60% at 50% 18%, rgba(14,165,233,0.12), transparent 58%), linear-gradient(165deg, #ffffff 0%, #f3f9fc 100%)",
   },
 ] as const;
 
@@ -93,7 +93,7 @@ export function WelcomeScreen({ onStart }: { onStart: () => void }) {
               }}
               className={cn(
                 "h-1.5 rounded-full transition-all duration-300",
-                i === index ? "w-7" : "w-1.5 bg-white/20",
+                i === index ? "w-7" : "w-1.5 bg-zinc-200",
               )}
               style={
                 i === index
@@ -106,7 +106,7 @@ export function WelcomeScreen({ onStart }: { onStart: () => void }) {
         <button
           type="button"
           onClick={() => finish(true)}
-          className="rounded-full px-2 py-1 text-[12px] font-medium tracking-wide text-white/40 transition-colors hover:text-white/70"
+          className="rounded-full px-2 py-1 text-[12px] font-medium tracking-wide text-zinc-500 transition-colors hover:text-zinc-600"
         >
           Не показывать больше
         </button>
@@ -126,7 +126,7 @@ export function WelcomeScreen({ onStart }: { onStart: () => void }) {
             animate={{ opacity: 1, x: 0, scale: 1 }}
             exit={{ opacity: 0, x: direction * -56, scale: 0.98 }}
             transition={{ type: "spring", stiffness: 320, damping: 32 }}
-            className="relative flex flex-1 flex-col overflow-hidden rounded-[32px] border border-white/[0.08] shadow-[0_24px_80px_rgba(0,0,0,0.45)]"
+            className="relative flex flex-1 flex-col overflow-hidden rounded-[32px] border border-black/[0.06] bg-white shadow-[0_8px_32px_rgba(17,17,19,0.08)]"
             style={{ background: card.gradient }}
           >
             <div
@@ -134,7 +134,7 @@ export function WelcomeScreen({ onStart }: { onStart: () => void }) {
               style={{ background: card.glow }}
             />
             <div
-              className="pointer-events-none absolute -bottom-16 -left-8 h-40 w-40 rounded-full blur-3xl opacity-60"
+              className="pointer-events-none absolute -bottom-16 -left-8 h-40 w-40 rounded-full blur-3xl opacity-70"
               style={{ background: card.glow }}
             />
 
@@ -144,10 +144,10 @@ export function WelcomeScreen({ onStart }: { onStart: () => void }) {
                   initial={{ scale: 0.85, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   transition={{ type: "spring", stiffness: 260, damping: 18 }}
-                  className="mb-10 flex h-[88px] w-[88px] items-center justify-center rounded-[28px] border border-white/15 bg-white/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] backdrop-blur-xl"
+                  className="mb-10 flex h-[88px] w-[88px] items-center justify-center rounded-[28px] border border-black/8 bg-white shadow-[0_1px_2px_rgba(17,17,19,0.04)]"
                   style={{
                     color: card.accent,
-                    boxShadow: `0 12px 40px ${card.glow}`,
+                    boxShadow: `0 12px 36px ${card.glow}`,
                   }}
                 >
                   <Icon className="h-11 w-11" strokeWidth={1.75} />
@@ -167,16 +167,16 @@ export function WelcomeScreen({ onStart }: { onStart: () => void }) {
                   </span>
                 </div>
 
-                <h1 className="mb-4 max-w-[280px] text-[34px] font-bold leading-[1.1] tracking-tight text-white">
+                <h1 className="mb-4 max-w-[280px] text-[34px] font-bold leading-[1.1] tracking-tight text-zinc-900">
                   {card.title}
                 </h1>
-                <p className="max-w-[300px] text-[16px] leading-relaxed text-white/55">
+                <p className="max-w-[300px] text-[16px] leading-relaxed text-zinc-500">
                   {card.text}
                 </p>
               </div>
 
-              <div className="mt-10 flex items-center gap-2 text-white/30">
-                <span className="h-px flex-1 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+              <div className="mt-10 flex items-center gap-2 text-zinc-400">
+                <span className="h-px flex-1 bg-gradient-to-r from-transparent via-zinc-300 to-transparent" />
               </div>
             </div>
           </motion.div>
@@ -201,7 +201,7 @@ export function WelcomeScreen({ onStart }: { onStart: () => void }) {
           <button
             type="button"
             onClick={goPrev}
-            className="w-full py-2.5 text-center text-[14px] font-medium text-white/40 transition-colors hover:text-white/70"
+            className="w-full py-2.5 text-center text-[14px] font-medium text-zinc-500 transition-colors hover:text-zinc-600"
           >
             Назад
           </button>

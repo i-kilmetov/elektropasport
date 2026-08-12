@@ -58,10 +58,10 @@ function NameDialog({
         exit={{ y: 40, opacity: 0 }}
         transition={{ type: "spring", stiffness: 320, damping: 30 }}
         onClick={(e) => e.stopPropagation()}
-        className="w-full rounded-t-[28px] border border-white/10 bg-[#16161d] p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-2xl sm:max-w-sm sm:rounded-[28px]"
+        className="w-full rounded-t-[28px] border border-black/8 bg-white p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-2xl sm:max-w-sm sm:rounded-[28px]"
       >
-        <h3 className="mb-2 text-[20px] font-semibold text-white">{title}</h3>
-        <p className="mb-4 text-[14px] text-white/50">
+        <h3 className="mb-2 text-[20px] font-semibold text-zinc-900">{title}</h3>
+        <p className="mb-4 text-[14px] text-zinc-500">
           Например: «Установка на даче», «Щиток в квартире»
         </p>
         <input
@@ -69,7 +69,7 @@ function NameDialog({
           value={value}
           onChange={(e) => setValue(e.target.value)}
           placeholder="Название заявки"
-          className="mb-4 h-14 w-full rounded-[20px] border border-white/10 bg-white/[0.06] px-4 text-[16px] text-white outline-none placeholder:text-white/30 focus:border-[var(--accent)]/50"
+          className="mb-4 h-14 w-full rounded-[20px] border border-black/8 bg-zinc-50 px-4 text-[16px] text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-[var(--accent)]/50"
           onKeyDown={(e) => {
             if (e.key === "Enter" && value.trim()) onConfirm(value.trim());
           }}
@@ -100,18 +100,18 @@ function StatusProgress({ status }: { status: InstallRequestStatus }) {
     <GlassCard className="space-y-4 p-4">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <div className="text-[12px] text-white/40">Статус заявки</div>
+          <div className="text-[12px] text-zinc-500">Статус заявки</div>
           <div
             className={cn(
               "mt-0.5 text-[16px] font-semibold",
-              cancelled ? "text-rose-300" : "text-white",
+              cancelled ? "text-rose-600" : "text-zinc-900",
             )}
           >
             {installStatusLabels[status]}
           </div>
         </div>
         {!cancelled && (
-          <span className="rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-medium text-white/70">
+          <span className="rounded-full bg-zinc-100 px-2.5 py-1 text-[11px] font-medium text-zinc-600">
             {activeIndex + 1}/3
           </span>
         )}
@@ -131,14 +131,14 @@ function StatusProgress({ status }: { status: InstallRequestStatus }) {
               <div
                 className={cn(
                   "mx-auto mb-1.5 h-2.5 w-2.5 rounded-full",
-                  reached ? "bg-[var(--accent)]" : "bg-white/15",
-                  current && "ring-2 ring-[var(--accent)]/40 ring-offset-2 ring-offset-[#16161d]",
+                  reached ? "bg-[var(--accent)]" : "bg-zinc-200",
+                  current && "ring-2 ring-[var(--accent)]/40 ring-offset-2 ring-offset-white",
                 )}
               />
               <div
                 className={cn(
                   "text-[11px] leading-tight",
-                  current ? "font-medium text-white" : "text-white/40",
+                  current ? "font-medium text-zinc-900" : "text-zinc-500",
                 )}
               >
                 {step.label}
@@ -225,19 +225,19 @@ export function RequestDetailsScreen({
         <button
           type="button"
           onClick={onBack}
-          className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white backdrop-blur-xl"
+          className="flex h-11 w-11 items-center justify-center rounded-full border border-black/8 bg-zinc-100 text-zinc-900"
           aria-label="Назад"
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <h1 className="flex-1 truncate text-center text-[20px] font-semibold text-white">
+        <h1 className="flex-1 truncate text-center text-[20px] font-semibold text-zinc-900">
           Детали заявки
         </h1>
         <div className="relative">
           <button
             type="button"
             onClick={() => setMenuOpen((v) => !v)}
-            className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white backdrop-blur-xl"
+            className="flex h-11 w-11 items-center justify-center rounded-full border border-black/8 bg-zinc-100 text-zinc-900"
             aria-label="Ещё"
           >
             <MoreHorizontal className="h-5 w-5" />
@@ -248,22 +248,22 @@ export function RequestDetailsScreen({
                 initial={{ opacity: 0, y: -6, scale: 0.96 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -6, scale: 0.96 }}
-                className="absolute right-0 top-12 z-30 min-w-[180px] overflow-hidden rounded-[18px] border border-white/10 bg-[#1b1b24]/95 shadow-2xl backdrop-blur-xl"
+                className="absolute right-0 top-12 z-30 min-w-[180px] overflow-hidden rounded-[18px] border border-black/8 bg-white shadow-2xl backdrop-blur-xl"
               >
                 <button
                   type="button"
-                  className="flex w-full items-center gap-2 px-4 py-3 text-left text-[15px] text-white hover:bg-white/5"
+                  className="flex w-full items-center gap-2 px-4 py-3 text-left text-[15px] text-zinc-900 hover:bg-zinc-50"
                   onClick={() => {
                     setMenuOpen(false);
                     setRenameOpen(true);
                   }}
                 >
-                  <Pencil className="h-4 w-4 text-white/60" />
+                  <Pencil className="h-4 w-4 text-zinc-600" />
                   Переименовать
                 </button>
                 <button
                   type="button"
-                  className="flex w-full items-center gap-2 px-4 py-3 text-left text-[15px] text-rose-300 hover:bg-white/5"
+                  className="flex w-full items-center gap-2 px-4 py-3 text-left text-[15px] text-rose-600 hover:bg-zinc-50"
                   onClick={() => {
                     setMenuOpen(false);
                     setDeleteOpen(true);
@@ -278,15 +278,15 @@ export function RequestDetailsScreen({
         </div>
       </header>
 
-      <div className="mb-4 flex items-center gap-3 rounded-[20px] border border-white/10 bg-white/[0.06] p-4">
-        <span className="flex h-12 w-12 items-center justify-center rounded-[16px] bg-white/10 text-[var(--accent)]">
+      <div className="mb-4 flex items-center gap-3 rounded-[20px] border border-black/8 bg-zinc-50 p-4">
+        <span className="flex h-12 w-12 items-center justify-center rounded-[16px] bg-zinc-100 text-[var(--accent)]">
           <ClipboardList className="h-6 w-6" />
         </span>
         <div>
-          <div className="text-[18px] font-semibold text-white">
+          <div className="text-[18px] font-semibold text-zinc-900">
             {request.title}
           </div>
-          <div className="text-[13px] text-white/50">{request.subtitle}</div>
+          <div className="text-[13px] text-zinc-500">{request.subtitle}</div>
         </div>
       </div>
 
@@ -312,10 +312,10 @@ export function RequestDetailsScreen({
         {request.status === "new" && (
           <GlassCard className="space-y-3 p-4">
             <div>
-              <div className="mb-1 text-[15px] font-semibold text-white">
+              <div className="mb-1 text-[15px] font-semibold text-zinc-900">
                 Точный адрес
               </div>
-              <p className="text-[13px] leading-relaxed text-white/45">
+              <p className="text-[13px] leading-relaxed text-zinc-500">
                 Эта информация поможет ускорить работу по выбору мастера.
               </p>
             </div>
@@ -324,7 +324,7 @@ export function RequestDetailsScreen({
               onChange={(e) => setAddress(e.target.value)}
               rows={3}
               placeholder="Улица, дом, квартира / участок"
-              className="w-full resize-none rounded-[18px] border border-white/10 bg-white/[0.06] px-4 py-3 text-[15px] text-white outline-none placeholder:text-white/30 focus:border-[var(--accent)]/50"
+              className="w-full resize-none rounded-[18px] border border-black/8 bg-zinc-50 px-4 py-3 text-[15px] text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-[var(--accent)]/50"
             />
             <Button
               className="w-full"
@@ -339,7 +339,7 @@ export function RequestDetailsScreen({
 
         {rows.map(([label, value]) => (
           <GlassCard key={label} className="flex items-start gap-3 p-4">
-            <span className="mt-0.5 text-white/35">
+            <span className="mt-0.5 text-zinc-400">
               {label === "Город" || label === "Адрес" ? (
                 <MapPin className="h-4 w-4" />
               ) : label === "Контакт" || label.startsWith("Телефон") ? (
@@ -355,8 +355,8 @@ export function RequestDetailsScreen({
               )}
             </span>
             <div>
-              <div className="text-[12px] text-white/40">{label}</div>
-              <div className="mt-0.5 text-[15px] font-medium text-white">
+              <div className="text-[12px] text-zinc-500">{label}</div>
+              <div className="mt-0.5 text-[15px] font-medium text-zinc-900">
                 {value}
               </div>
             </div>

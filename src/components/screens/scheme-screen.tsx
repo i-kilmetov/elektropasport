@@ -68,7 +68,7 @@ function DeviceBlock({
 
   return (
     <div className="flex flex-col items-stretch" style={{ width, flex: "none" }}>
-      <span className="mb-1 line-clamp-1 text-left text-[10px] font-medium leading-tight text-white/55">
+      <span className="mb-1 line-clamp-1 text-left text-[10px] font-medium leading-tight text-zinc-500">
         {typeShort[device.type]}
       </span>
       <DeviceFace
@@ -83,7 +83,7 @@ function DeviceBlock({
       />
       <DeviceStatusBar status={device.status} />
       {device.circuitLabel?.trim() && (
-        <span className="mt-1 line-clamp-2 text-left text-[10px] font-medium leading-tight text-white/70">
+        <span className="mt-1 line-clamp-2 text-left text-[10px] font-medium leading-tight text-zinc-600">
           {device.circuitLabel.trim()}
         </span>
       )}
@@ -154,23 +154,23 @@ function DeviceSheet({
         transition={{ type: "spring", stiffness: 320, damping: 32 }}
         onClick={(e) => e.stopPropagation()}
         style={{ top: sheetTop }}
-        className="fixed left-0 right-0 mx-auto max-h-[85dvh] w-full max-w-lg overflow-y-auto rounded-[28px] border border-white/10 bg-[#16161d]/95 p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-2xl backdrop-blur-2xl"
+        className="fixed left-0 right-0 mx-auto max-h-[85dvh] w-full max-w-lg overflow-y-auto rounded-[28px] border border-black/8 bg-white p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-2xl backdrop-blur-2xl"
       >
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
             <div className="mb-2 flex flex-wrap items-center gap-2">
               <BrandMark brandKey={device.brandKey} brand={device.manufacturer} />
-              <h3 className="text-[20px] font-semibold text-white">
+              <h3 className="text-[20px] font-semibold text-zinc-900">
                 {device.name}
               </h3>
               <Badge status={device.status} />
             </div>
-            <p className="text-[14px] text-white/45">
+            <p className="text-[14px] text-zinc-500">
               {device.manufacturer ?? "Производитель не определён"}
               {device.model ? ` · ${device.model}` : ` · ${device.rating}`}
             </p>
             {device.circuitLabel?.trim() && (
-              <p className="mt-1 text-[13px] text-white/60">
+              <p className="mt-1 text-[13px] text-zinc-600">
                 Линия: {device.circuitLabel.trim()}
               </p>
             )}
@@ -178,7 +178,7 @@ function DeviceSheet({
           <button
             type="button"
             onClick={onClose}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white/70"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-zinc-100 text-zinc-600"
             aria-label="Закрыть"
           >
             <X className="h-4 w-4" />
@@ -194,18 +194,18 @@ function DeviceSheet({
         {typeof device.confidence === "number" && (
           <div className="mb-5">
             <div className="mb-2 flex items-center justify-between text-[13px]">
-              <span className="text-white/50">Вероятность распознавания</span>
-              <span className="font-medium text-white">{device.confidence}%</span>
+              <span className="text-zinc-500">Вероятность распознавания</span>
+              <span className="font-medium text-zinc-900">{device.confidence}%</span>
             </div>
             <Progress value={device.confidence} />
           </div>
         )}
 
         <GlassCard className="mb-5 space-y-3 p-4">
-          <div className="text-[15px] font-semibold text-white">
+          <div className="text-[15px] font-semibold text-zinc-900">
             Как определить, за что отвечает прибор
           </div>
-          <p className="text-[13px] leading-relaxed text-white/50">
+          <p className="text-[13px] leading-relaxed text-zinc-500">
             После фотографии помещение ещё неизвестно. Пройдите шаги ниже и
             подпишите линию сами.
           </p>
@@ -213,9 +213,9 @@ function DeviceSheet({
             {circuitIdentifySteps.map((step, index) => (
               <li
                 key={step}
-                className="flex gap-2.5 text-[13px] leading-relaxed text-white/75"
+                className="flex gap-2.5 text-[13px] leading-relaxed text-zinc-700"
               >
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/10 text-[11px] font-semibold text-white/70">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-[11px] font-semibold text-zinc-600">
                   {index + 1}
                 </span>
                 <span>{step}</span>
@@ -226,7 +226,7 @@ function DeviceSheet({
             value={label}
             onChange={(e) => setLabel(e.target.value)}
             placeholder="Например: Кухня розетки"
-            className="h-12 w-full rounded-[16px] border border-white/10 bg-white/[0.06] px-3 text-[15px] text-white outline-none placeholder:text-white/30 focus:border-[var(--accent)]/50"
+            className="h-12 w-full rounded-[16px] border border-black/8 bg-zinc-50 px-3 text-[15px] text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-[var(--accent)]/50"
           />
           <Button
             className="w-full"
@@ -282,10 +282,10 @@ function NameDialog({
         exit={{ y: 40, opacity: 0 }}
         transition={{ type: "spring", stiffness: 320, damping: 30 }}
         onClick={(e) => e.stopPropagation()}
-        className="w-full rounded-t-[28px] border border-white/10 bg-[#16161d] p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-2xl sm:max-w-sm sm:rounded-[28px]"
+        className="w-full rounded-t-[28px] border border-black/8 bg-white p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-2xl sm:max-w-sm sm:rounded-[28px]"
       >
-        <h3 className="mb-2 text-[20px] font-semibold text-white">{title}</h3>
-        <p className="mb-4 text-[14px] text-white/50">
+        <h3 className="mb-2 text-[20px] font-semibold text-zinc-900">{title}</h3>
+        <p className="mb-4 text-[14px] text-zinc-500">
           Например: «Квартира», «Дача», «Щиток на кухне»
         </p>
         <input
@@ -293,7 +293,7 @@ function NameDialog({
           value={value}
           onChange={(e) => setValue(e.target.value)}
           placeholder="Название щитка"
-          className="mb-4 h-14 w-full rounded-[20px] border border-white/10 bg-white/[0.06] px-4 text-[16px] text-white outline-none placeholder:text-white/30 focus:border-[var(--accent)]/50"
+          className="mb-4 h-14 w-full rounded-[20px] border border-black/8 bg-zinc-50 px-4 text-[16px] text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-[var(--accent)]/50"
           onKeyDown={(e) => {
             if (e.key === "Enter" && value.trim()) onConfirm(value.trim());
           }}
@@ -411,19 +411,19 @@ export function SchemeScreen({
         <button
           type="button"
           onClick={handleBack}
-          className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white backdrop-blur-xl"
+          className="flex h-11 w-11 items-center justify-center rounded-full border border-black/8 bg-zinc-100 text-zinc-900"
           aria-label="Назад"
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <h1 className="max-w-[55%] truncate text-center text-[20px] font-semibold text-white">
+        <h1 className="max-w-[55%] truncate text-center text-[20px] font-semibold text-zinc-900">
           {title}
         </h1>
         <div className="relative">
           <button
             type="button"
             onClick={() => setMenuOpen((v) => !v)}
-            className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white backdrop-blur-xl"
+            className="flex h-11 w-11 items-center justify-center rounded-full border border-black/8 bg-zinc-100 text-zinc-900"
             aria-label="Ещё"
           >
             <MoreHorizontal className="h-5 w-5" />
@@ -434,22 +434,22 @@ export function SchemeScreen({
                 initial={{ opacity: 0, y: -6, scale: 0.96 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -6, scale: 0.96 }}
-                className="absolute right-0 top-12 z-30 min-w-[180px] overflow-hidden rounded-[18px] border border-white/10 bg-[#1b1b24]/95 shadow-2xl backdrop-blur-xl"
+                className="absolute right-0 top-12 z-30 min-w-[180px] overflow-hidden rounded-[18px] border border-black/8 bg-white shadow-2xl backdrop-blur-xl"
               >
                 <button
                   type="button"
-                  className="flex w-full items-center gap-2 px-4 py-3 text-left text-[15px] text-white hover:bg-white/5"
+                  className="flex w-full items-center gap-2 px-4 py-3 text-left text-[15px] text-zinc-900 hover:bg-zinc-50"
                   onClick={() => {
                     setMenuOpen(false);
                     setRenameOpen(true);
                   }}
                 >
-                  <Pencil className="h-4 w-4 text-white/60" />
+                  <Pencil className="h-4 w-4 text-zinc-600" />
                   Переименовать
                 </button>
                 <button
                   type="button"
-                  className="flex w-full items-center gap-2 px-4 py-3 text-left text-[15px] text-rose-300 hover:bg-white/5"
+                  className="flex w-full items-center gap-2 px-4 py-3 text-left text-[15px] text-rose-600 hover:bg-zinc-50"
                   onClick={() => {
                     setMenuOpen(false);
                     setDeleteOpen(true);
@@ -471,8 +471,8 @@ export function SchemeScreen({
           className={cn(
             "rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors",
             tab === "scheme"
-              ? "bg-white/10 text-white"
-              : "text-white/40 hover:text-white/70",
+              ? "bg-zinc-100 text-zinc-900"
+              : "text-zinc-500 hover:text-zinc-700",
           )}
         >
           Схема
@@ -483,8 +483,8 @@ export function SchemeScreen({
           className={cn(
             "rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors",
             tab === "photo"
-              ? "bg-white/10 text-white"
-              : "text-white/40 hover:text-white/70",
+              ? "bg-zinc-100 text-zinc-900"
+              : "text-zinc-500 hover:text-zinc-700",
           )}
         >
           Фото
@@ -496,13 +496,13 @@ export function SchemeScreen({
             aria-checked={showTerminals}
             aria-label="Показать клеммы для проводов"
             onClick={() => setShowTerminals((v) => !v)}
-            className="ml-auto flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-2.5 py-1.5"
+            className="ml-auto flex items-center gap-2 rounded-full border border-black/8 bg-zinc-100 px-2.5 py-1.5"
           >
-            <span className="text-[12px] font-medium text-white/55">Клеммы</span>
+            <span className="text-[12px] font-medium text-zinc-600">Клеммы</span>
             <span
               className={cn(
                 "relative h-5 w-9 rounded-full transition-colors",
-                showTerminals ? "bg-emerald-500/90" : "bg-white/15",
+                showTerminals ? "bg-emerald-500/90" : "bg-zinc-300",
               )}
             >
               <span
@@ -521,10 +521,10 @@ export function SchemeScreen({
           <div className="overflow-x-auto">
             <GlassCard className="p-4" style={{ minWidth: railMinWidth }}>
             <div className="mb-3 flex items-center justify-between">
-              <span className="text-[13px] font-medium text-white/50">
+              <span className="text-[13px] font-medium text-zinc-500">
                 {numRails > 1 ? `${numRails} DIN-рейки` : "DIN-рейка"}
               </span>
-              <span className="text-[12px] text-white/35">
+              <span className="text-[12px] text-zinc-400">
                 {allRailDevices.length} приборов
               </span>
             </div>
@@ -538,10 +538,10 @@ export function SchemeScreen({
                 <div key={railIdx} className={railIdx > 0 ? "mt-5" : ""}>
                   {numRails > 1 && (
                     <div className="mb-1.5 flex items-center justify-between">
-                      <span className="text-[11px] font-medium text-white/35">
+                      <span className="text-[11px] font-medium text-zinc-400">
                         Ряд {railIdx + 1}
                       </span>
-                      <span className="text-[11px] text-white/25">
+                      <span className="text-[11px] text-zinc-400">
                         {railModules} мод.
                       </span>
                     </div>
@@ -570,7 +570,7 @@ export function SchemeScreen({
           </GlassCard>
           </div>
 
-          <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-[12px] text-white/50">
+          <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-[12px] text-zinc-500">
             <span className="flex items-center gap-1.5">
               <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
               Определён ({verified})
@@ -580,7 +580,7 @@ export function SchemeScreen({
               Требует проверки ({pending})
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-full bg-white/30" />
+              <span className="h-2.5 w-2.5 rounded-full bg-zinc-300" />
               Не определён ({unknown})
             </span>
           </div>
@@ -595,10 +595,10 @@ export function SchemeScreen({
               <img
                 src={photoDataUrl}
                 alt="Фото щитка"
-                className="max-h-[60vh] w-full object-contain bg-black"
+                className="max-h-[60vh] w-full object-contain bg-zinc-100"
               />
             ) : (
-              <div className="flex aspect-[4/3] flex-col items-center justify-center gap-3 text-white/40">
+              <div className="flex aspect-[4/3] flex-col items-center justify-center gap-3 text-zinc-400">
                 <ImageIcon className="h-10 w-10" />
                 <p className="text-[14px]">Фото щитка недоступно</p>
               </div>
@@ -607,24 +607,24 @@ export function SchemeScreen({
         </div>
       )}
 
-      <div className="border-t border-white/8 bg-[#0B0B0F]/80 px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-4 backdrop-blur-xl">
+      <div className="border-t border-black/[0.06] bg-white/95 px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-4 backdrop-blur-xl">
         <div className="grid grid-cols-2 gap-3">
           <GlassCard className="p-4">
-            <div className="mb-1 text-[12px] text-white/40">Количество линий</div>
-            <div className="text-[28px] font-bold tabular-nums text-white">
+            <div className="mb-1 text-[12px] text-zinc-500">Количество линий</div>
+            <div className="text-[28px] font-bold tabular-nums text-zinc-900">
               {linesCount}
             </div>
           </GlassCard>
           <GlassCard className="p-4">
-            <div className="mb-1 flex items-center gap-1.5 text-[12px] text-white/40">
-              <Shield className="h-3.5 w-3.5 text-emerald-400" />
+            <div className="mb-1 flex items-center gap-1.5 text-[12px] text-zinc-500">
+              <Shield className="h-3.5 w-3.5 text-emerald-500" />
               Уровень безопасности
             </div>
             <div className="flex items-end gap-2">
-              <span className="text-[28px] font-bold tabular-nums text-emerald-300">
+              <span className="text-[28px] font-bold tabular-nums text-emerald-600">
                 {safetyScore}%
               </span>
-              <span className="mb-1.5 text-[12px] text-white/40">
+              <span className="mb-1.5 text-[12px] text-zinc-500">
                 {safetyLabel(safetyScore)}
               </span>
             </div>

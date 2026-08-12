@@ -55,20 +55,20 @@ export function AboutServiceScreen({ onBack }: { onBack: () => void }) {
         <button
           type="button"
           onClick={onBack}
-          className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white backdrop-blur-xl"
+          className="flex h-11 w-11 items-center justify-center rounded-full border border-black/8 bg-zinc-100 text-zinc-900"
           aria-label="Назад"
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <h1 className="text-[20px] font-semibold text-white">О сервисе</h1>
+        <h1 className="text-[20px] font-semibold text-zinc-900">О сервисе</h1>
       </header>
 
       <div className="flex-1 space-y-4 overflow-y-auto pb-4">
         <div>
-          <h2 className="mb-2 text-[26px] font-bold tracking-tight text-white">
+          <h2 className="mb-2 text-[26px] font-bold tracking-tight text-zinc-900">
             Электропаспорт
           </h2>
-          <p className="text-[15px] leading-relaxed text-white/55">
+          <p className="text-[15px] leading-relaxed text-zinc-500">
             Сервис помогает навести порядок в домашней электрике: сохранить
             схему щитка, понять состав устройств и быстро связаться с мастером,
             если щитка нет или нужна установка.
@@ -77,27 +77,27 @@ export function AboutServiceScreen({ onBack }: { onBack: () => void }) {
 
         <GlassCard className="space-y-4 p-4">
           <div>
-            <h3 className="text-[16px] font-semibold text-white">
+            <h3 className="text-[16px] font-semibold text-zinc-900">
               Открытые данные
             </h3>
-            <p className="mt-1 text-[13px] leading-relaxed text-white/45">
+            <p className="mt-1 text-[13px] leading-relaxed text-zinc-500">
               Живые цифры сервиса — без прикрас. Считаем все щитки пользователей
               и мастеров, которые подали заявку на подключение.
             </p>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-[16px] border border-white/8 bg-black/20 px-3 py-4">
-              <div className="text-[40px] font-bold leading-none tracking-tight tabular-nums text-white">
+            <div className="rounded-[16px] border border-black/[0.06] bg-zinc-50 px-3 py-4">
+              <div className="text-[40px] font-bold leading-none tracking-tight tabular-nums text-zinc-900">
                 {formatCount(
                   statsError ? null : stats === null ? undefined : stats.panelsCount,
                 )}
               </div>
-              <div className="mt-2 text-[13px] leading-snug text-white/50">
+              <div className="mt-2 text-[13px] leading-snug text-zinc-500">
                 щитков добавлено пользователями
               </div>
             </div>
-            <div className="rounded-[16px] border border-white/8 bg-black/20 px-3 py-4">
-              <div className="text-[40px] font-bold leading-none tracking-tight tabular-nums text-white">
+            <div className="rounded-[16px] border border-black/[0.06] bg-zinc-50 px-3 py-4">
+              <div className="text-[40px] font-bold leading-none tracking-tight tabular-nums text-zinc-900">
                 {formatCount(
                   statsError
                     ? null
@@ -106,13 +106,13 @@ export function AboutServiceScreen({ onBack }: { onBack: () => void }) {
                       : stats.mastersCount,
                 )}
               </div>
-              <div className="mt-2 text-[13px] leading-snug text-white/50">
+              <div className="mt-2 text-[13px] leading-snug text-zinc-500">
                 мастеров подали заявку на подключение
               </div>
             </div>
           </div>
           {statsError && (
-            <p className="text-[12px] text-white/35">
+            <p className="text-[12px] text-zinc-400">
               Сейчас не удалось загрузить статистику. Попробуйте открыть раздел
               позже.
             </p>
@@ -120,8 +120,8 @@ export function AboutServiceScreen({ onBack }: { onBack: () => void }) {
         </GlassCard>
 
         <GlassCard className="space-y-3 p-4">
-          <h3 className="text-[16px] font-semibold text-white">Что мы делаем</h3>
-          <p className="text-[14px] leading-relaxed text-white/55">
+          <h3 className="text-[16px] font-semibold text-zinc-900">Что мы делаем</h3>
+          <p className="text-[14px] leading-relaxed text-zinc-500">
             Вы фотографируете щиток — мы формируем понятную схему и карточку
             объекта. Если щитка нет, помогаем описать ситуацию и оставить заявку
             на установку. Все ваши щитки и заявки сохраняются в аккаунте
@@ -130,8 +130,8 @@ export function AboutServiceScreen({ onBack }: { onBack: () => void }) {
         </GlassCard>
 
         <GlassCard className="space-y-3 p-4">
-          <h3 className="text-[16px] font-semibold text-white">Для кого</h3>
-          <p className="text-[14px] leading-relaxed text-white/55">
+          <h3 className="text-[16px] font-semibold text-zinc-900">Для кого</h3>
+          <p className="text-[14px] leading-relaxed text-zinc-500">
             Для владельцев квартир и домов, которым важно понимать свою
             электрику без сложных терминов — и для тех, кто хочет вызвать
             проверенного специалиста без долгих поисков.
@@ -139,8 +139,8 @@ export function AboutServiceScreen({ onBack }: { onBack: () => void }) {
         </GlassCard>
 
         <GlassCard className="space-y-3 p-4">
-          <h3 className="text-[16px] font-semibold text-white">Важно знать</h3>
-          <p className="text-[14px] leading-relaxed text-white/55">
+          <h3 className="text-[16px] font-semibold text-zinc-900">Важно знать</h3>
+          <p className="text-[14px] leading-relaxed text-zinc-500">
             Электропаспорт не заменяет проектную документацию и очный осмотр
             электрика. Сервис помогает структурировать информацию и ускорить
             связь с мастером, но работы с напряжением должен выполнять

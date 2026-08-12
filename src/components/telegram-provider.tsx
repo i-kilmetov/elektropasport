@@ -24,13 +24,13 @@ export function TelegramProvider({ children }: { children: ReactNode }) {
               tgWebAppPlatform: "web",
               tgWebAppVersion: "8.0",
               tgWebAppThemeParams: {
-                bg_color: "#0B0B0F",
-                text_color: "#FFFFFF",
-                hint_color: "#AAAAAA",
+                bg_color: "#FFFFFF",
+                text_color: "#111113",
+                hint_color: "#71717A",
                 link_color: "#7C5CFF",
-                button_color: "#7C5CFF",
+                button_color: "#111113",
                 button_text_color: "#FFFFFF",
-                secondary_bg_color: "#16161D",
+                secondary_bg_color: "#F4F4F5",
               },
             },
           });

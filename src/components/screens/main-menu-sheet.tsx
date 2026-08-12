@@ -45,14 +45,14 @@ export function MainMenuSheet({
         exit={{ y: 40 }}
         transition={{ type: "spring", stiffness: 320, damping: 30 }}
         onClick={(e) => e.stopPropagation()}
-        className="w-full rounded-t-[28px] border border-white/10 bg-[#16161d] p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-2xl"
+        className="w-full rounded-t-[28px] border border-black/8 bg-white p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-2xl"
       >
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-[20px] font-semibold text-white">Меню</h2>
+          <h2 className="text-[20px] font-semibold text-zinc-900">Меню</h2>
           <button
             type="button"
             onClick={onClose}
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/70"
+            className="flex h-10 w-10 items-center justify-center rounded-full border border-black/8 bg-zinc-100 text-zinc-600"
             aria-label="Закрыть"
           >
             <X className="h-4 w-4" />
@@ -65,20 +65,20 @@ export function MainMenuSheet({
               key={item.id}
               type="button"
               onClick={() => onSelect(item.id)}
-              className="flex w-full items-center gap-3 rounded-[20px] border border-white/10 bg-white/[0.04] px-4 py-3.5 text-left transition-colors hover:bg-white/[0.07]"
+              className="flex w-full items-center gap-3 rounded-[20px] border border-black/8 bg-zinc-50 px-4 py-3.5 text-left transition-colors hover:bg-zinc-100"
             >
               <span className="flex h-11 w-11 items-center justify-center rounded-[16px] bg-[var(--accent)]/15 text-[var(--accent)]">
                 <item.icon className="h-5 w-5" />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block text-[16px] font-semibold text-white">
+                <span className="block text-[16px] font-semibold text-zinc-900">
                   {item.title}
                 </span>
-                <span className="mt-0.5 block text-[13px] text-white/45">
+                <span className="mt-0.5 block text-[13px] text-zinc-500">
                   {item.description}
                 </span>
               </span>
-              <ArrowRight className="h-4 w-4 text-white/30" />
+              <ArrowRight className="h-4 w-4 text-zinc-400" />
             </button>
           ))}
         </div>
