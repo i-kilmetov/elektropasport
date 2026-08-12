@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,25 +11,14 @@ import {
   type BrowserAuthUser,
 } from "@/lib/client-auth";
 
-declare global {
-  interface Window {
-    onTelegramAuth?: (user: TelegramWidgetUser) => void;
-  }
-}
-
-type TelegramWidgetUser = {
-  id: number;
-  first_name?: string;
-  last_name?: string;
-  username?: string;
-  photo_url?: string;
-  auth_date: number;
-  hash: string;
+type AuthSession = {
+  pollToken: string;
+  botUrl: string;
 };
 
 export function TelegramAuthScreen({
   title = "Войдите через Telegram",
-  description = "Чтобы сохранить щиток или заявку в вашем аккаунте, подтвердите вход через Telegram.",
+  description = "Нажмите кнопку — откроется Telegram. Подтвердите вход и вернитесь на эту страницу.",
   onBack,
   onSuccess,
 }: {
@@ -38,58 +27,85 @@ export function TelegramAuthScreen({
   onBack: () => void;
   onSuccess: () => void;
 }) {
-  const widgetRef = useRef<HTMLDivElement>(null);
   const botUsername = getTelegramBotUsername();
-  const [loading, setLoading] = useState(false);
+  const [session, setSession] = useState<AuthSession | null>(null);
+  const [waiting, setWaiting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const pollRef = useRef<number | null>(null);
+
+  const stopPolling = useCallback(() => {
+    if (pollRef.current != null) {
+      window.clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+  }, []);
 
   useEffect(() => {
-    if (!botUsername || !widgetRef.current) return;
-
-    window.onTelegramAuth = async (user: TelegramWidgetUser) => {
-      setLoading(true);
-      setError(null);
+    if (!botUsername) return;
+    let cancelled = false;
+    void (async () => {
       try {
-        const res = await fetch("/api/auth/telegram", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(user),
-        });
-        const data = (await res.json()) as {
-          token?: string;
-          user?: BrowserAuthUser;
-          error?: string;
-        };
-        if (!res.ok || !data.token || !data.user) {
-          throw new Error(data.error || "Не удалось войти через Telegram");
-        }
-        saveBrowserSession(data.token, data.user);
-        onSuccess();
+        const res = await fetch("/api/auth/bot/start", { method: "POST" });
+        const data = (await res.json()) as AuthSession & { error?: string };
+        if (!res.ok) throw new Error(data.error || "Не удалось начать вход");
+        if (!cancelled) setSession({ pollToken: data.pollToken, botUrl: data.botUrl });
       } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "Не удалось войти через Telegram",
-        );
-      } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setError(
+            err instanceof Error ? err.message : "Не удалось начать вход",
+          );
+        }
       }
-    };
-
-    const container = widgetRef.current;
-    container.innerHTML = "";
-    const script = document.createElement("script");
-    script.src = "https://telegram.org/js/telegram-widget.js?22";
-    script.async = true;
-    script.setAttribute("data-telegram-login", botUsername);
-    script.setAttribute("data-size", "large");
-    script.setAttribute("data-radius", "16");
-    script.setAttribute("data-onauth", "onTelegramAuth(user)");
-    container.appendChild(script);
-
+    })();
     return () => {
-      delete window.onTelegramAuth;
-      container.innerHTML = "";
+      cancelled = true;
+      stopPolling();
     };
-  }, [botUsername, onSuccess]);
+  }, [botUsername, stopPolling]);
+
+  const startPolling = useCallback(
+    (pollToken: string) => {
+      stopPolling();
+      setWaiting(true);
+      setError(null);
+
+      pollRef.current = window.setInterval(() => {
+        void (async () => {
+          try {
+            const res = await fetch(
+              `/api/auth/bot/poll?token=${encodeURIComponent(pollToken)}`,
+            );
+            const data = (await res.json()) as {
+              status?: "pending" | "complete";
+              token?: string;
+              user?: BrowserAuthUser;
+              error?: string;
+            };
+            if (!res.ok) throw new Error(data.error || "Ошибка проверки входа");
+            if (data.status === "complete" && data.token && data.user) {
+              stopPolling();
+              saveBrowserSession(data.token, data.user);
+              setWaiting(false);
+              onSuccess();
+            }
+          } catch (err) {
+            stopPolling();
+            setWaiting(false);
+            setError(
+              err instanceof Error ? err.message : "Не удалось войти",
+            );
+          }
+        })();
+      }, 2000);
+    },
+    [onSuccess, stopPolling],
+  );
+
+  const handleLogin = () => {
+    if (!session) return;
+    window.open(session.botUrl, "_blank", "noopener,noreferrer");
+    startPolling(session.pollToken);
+  };
 
   return (
     <motion.section
@@ -122,35 +138,16 @@ export function TelegramAuthScreen({
           </div>
 
           {botUsername ? (
-            <div className="flex min-h-[52px] flex-col items-center justify-center gap-3">
-              <div ref={widgetRef} className="flex justify-center" />
-              {loading && (
-                <p className="text-[13px] text-white/45">Входим…</p>
-              )}
-              <div className="w-full space-y-2 text-left text-[12px] leading-relaxed text-white/45">
-                <p>
-                  После ввода номера откройте приложение{" "}
-                  <strong className="font-medium text-white/70">Telegram</strong>{" "}
-                  на телефоне — там придёт запрос на подтверждение входа.
-                </p>
-                <p>
-                  Если сообщения нет, сначала откройте бота{" "}
-                  <a
-                    href={`https://t.me/${botUsername}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-medium text-[var(--accent)] underline underline-offset-2"
-                  >
-                    @{botUsername}
-                  </a>{" "}
-                  и нажмите «Start», затем повторите вход.
-                </p>
-              </div>
-            </div>
+            <Button
+              className="w-full"
+              disabled={!session || waiting}
+              onClick={handleLogin}
+            >
+              {waiting ? "Ожидаем подтверждение…" : "Войти через Telegram"}
+            </Button>
           ) : (
-            <p className="rounded-[14px] border border-amber-400/20 bg-amber-500/10 px-3 py-2 text-[13px] text-amber-100/80">
-              Не задан NEXT_PUBLIC_TELEGRAM_BOT_USERNAME — вход через Telegram
-              недоступен в браузере.
+            <p className="text-[13px] text-amber-100/80">
+              Вход через Telegram временно недоступен.
             </p>
           )}
 
@@ -159,11 +156,6 @@ export function TelegramAuthScreen({
               {error}
             </p>
           )}
-
-          <p className="text-[12px] leading-relaxed text-white/35">
-            В Telegram Mini App вход происходит автоматически. В браузере мы
-            используем официальный виджет Telegram Login.
-          </p>
         </GlassCard>
       </div>
 
