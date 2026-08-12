@@ -186,7 +186,9 @@ export function RequestDetailsScreen({
         : "—";
 
   const rows: Array<[string, string]> = [
-    ["Город", request.city],
+    ...(request.city && request.city !== "—"
+      ? ([["Город", request.city]] as Array<[string, string]>)
+      : []),
     ...(request.exactAddress
       ? ([["Адрес", request.exactAddress]] as Array<[string, string]>)
       : []),

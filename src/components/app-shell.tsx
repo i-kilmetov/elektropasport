@@ -412,7 +412,7 @@ export function AppShell() {
         status: "new",
         statusLabel: installStatusLabels.new,
         createdAt,
-        city: selectedCity ?? "—",
+        city: "—",
         contactMethod: payload.contactMethod,
         phone: payload.phone,
         name: payload.name,
@@ -537,7 +537,8 @@ export function AppShell() {
               onInstall={() => {
                 setLeadFlow("install");
                 setElectricalDetails(null);
-                setScreen("city-select");
+                setSelectedCity(null);
+                setScreen("lead-contact");
               }}
             />
           )}
@@ -548,7 +549,7 @@ export function AppShell() {
               onContinue={(details) => {
                 setElectricalDetails(details);
                 setLeadFlow("install");
-                setScreen("city-select");
+                setScreen("lead-contact");
               }}
             />
           )}
@@ -576,12 +577,15 @@ export function AppShell() {
               }}
             />
           )}
-          {screen === "lead-contact" && selectedCity && (
+          {screen === "lead-contact" && (
             <LeadContactScreen
-              key={`lead-${leadFlow}-${selectedCity}`}
-              city={selectedCity}
+              key={`lead-${leadFlow}`}
               variant={leadFlow}
-              onBack={() => setScreen("city-select")}
+              onBack={() =>
+                setScreen(
+                  leadFlow === "master" ? "city-select" : "panel-advantages",
+                )
+              }
               onFinish={submitLead}
               onGoHome={() => setScreen("objects")}
             />

@@ -84,7 +84,7 @@ function formatInstallRequestMessage(
     `Статус: ${request.statusLabel}`,
     `Имя: ${request.name}`,
     `Контакт: ${contact}`,
-    `Город: ${request.city}`,
+    request.city && request.city !== "—" ? `Город: ${request.city}` : null,
     request.exactAddress ? `Адрес: ${request.exactAddress}` : null,
     request.dwelling
       ? `Объект: ${request.dwelling === "house" ? "Дом" : "Квартира"}`

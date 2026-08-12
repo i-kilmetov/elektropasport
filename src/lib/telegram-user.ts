@@ -1,7 +1,9 @@
+import { getBrowserAuthUser } from "@/lib/client-auth";
+
 export function getTelegramUserName(): string {
   if (typeof window === "undefined") return "";
 
-  const user = (
+  const webAppUser = (
     window.Telegram?.WebApp as
       | {
           initDataUnsafe?: {
@@ -15,10 +17,24 @@ export function getTelegramUserName(): string {
       | undefined
   )?.initDataUnsafe?.user;
 
-  if (!user) return "Пользователь Telegram";
+  if (webAppUser) {
+    const full = [webAppUser.first_name, webAppUser.last_name]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+    if (full) return full;
+    if (webAppUser.username) return webAppUser.username;
+  }
 
-  const full = [user.first_name, user.last_name].filter(Boolean).join(" ").trim();
-  if (full) return full;
-  if (user.username) return user.username;
+  const browserUser = getBrowserAuthUser();
+  if (browserUser) {
+    const full = [browserUser.firstName, browserUser.lastName]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+    if (full) return full;
+    if (browserUser.username) return browserUser.username;
+  }
+
   return "Пользователь Telegram";
 }

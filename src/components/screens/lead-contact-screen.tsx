@@ -2,14 +2,12 @@
 
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, Check, ExternalLink, MessageCircle, Phone } from "lucide-react";
+import { ArrowLeft, Check, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { GlassCard } from "@/components/ui/glass-card";
-import { getTelegramBotUsername, openBotChat } from "@/lib/client-auth";
 import { getTelegramUserName } from "@/lib/telegram-user";
 import { cn } from "@/lib/utils";
 
-type Step = "contact" | "name" | "done";
+type Step = "contact" | "done";
 
 function formatPhoneDigits(digits: string): string {
   const d = digits.replace(/\D/g, "").slice(0, 10);
@@ -30,17 +28,15 @@ function formatPhoneDigits(digits: string): string {
 }
 
 export function LeadContactScreen({
-  city,
   onBack,
   onFinish,
   onGoHome,
   variant = "install",
 }: {
-  city: string;
   onBack: () => void;
   onFinish: (payload: {
-    contactMethod: "phone" | "telegram";
-    phone?: string;
+    contactMethod: "phone";
+    phone: string;
     name: string;
   }) => void | Promise<void>;
   onGoHome: () => void;
@@ -48,29 +44,25 @@ export function LeadContactScreen({
 }) {
   const [step, setStep] = useState<Step>("contact");
   const [digits, setDigits] = useState("");
-  const [useTelegram, setUseTelegram] = useState(false);
-  const [name, setName] = useState("");
-  const [resolvedName, setResolvedName] = useState("");
+  const [consent, setConsent] = useState(false);
+  const [displayName, setDisplayName] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const botUsername = getTelegramBotUsername();
 
   const phoneDisplay = useMemo(() => formatPhoneDigits(digits), [digits]);
   const phoneValid = digits.length === 10;
-  const displayName = resolvedName || name;
+  const canSubmit = phoneValid && consent && !submitting;
 
-  const finish = async (finalName: string) => {
-    setResolvedName(finalName);
+  const submit = async () => {
+    if (!canSubmit) return;
+    const name = getTelegramUserName();
+    setDisplayName(name);
     setSubmitting(true);
     try {
-      // Persist before opening Telegram — otherwise Safari/Mini App aborts fetch.
       await onFinish({
-        contactMethod: useTelegram ? "telegram" : "phone",
-        phone: useTelegram ? undefined : `+7${digits}`,
-        name: finalName.trim() || getTelegramUserName(),
+        contactMethod: "phone",
+        phone: `+7${digits}`,
+        name,
       });
-      if (useTelegram) {
-        openBotChat("consult");
-      }
     } finally {
       setSubmitting(false);
       setStep("done");
@@ -91,98 +83,22 @@ export function LeadContactScreen({
         <h1 className="mb-2 text-[24px] font-bold text-white">
           {variant === "master" ? "Заявка отправлена" : "Заявка принята"}
         </h1>
-        <p className="mb-6 max-w-sm text-[15px] leading-relaxed text-white/55">
+        <p className="mb-8 max-w-sm text-[15px] leading-relaxed text-white/55">
           {variant === "master" ? (
             <>
               Спасибо{displayName ? `, ${displayName}` : ""}! Мы получили вашу
-              заявку из города{" "}
-              <span className="font-semibold text-white">{city}</span> и свяжемся
-              для обсуждения сотрудничества.
-            </>
-          ) : useTelegram ? (
-            <>
-              Спасибо{displayName ? `, ${displayName}` : ""}! Мы напишем вам в
-              Telegram. Если чат с ботом ещё не открыт — нажмите кнопку ниже,
-              иначе сообщение может не дойти.
+              заявку и свяжемся для обсуждения сотрудничества.
             </>
           ) : (
             <>
-              Спасибо{displayName ? `, ${displayName}` : ""}! Мастер из города{" "}
-              <span className="font-semibold text-white">{city}</span> свяжется с
-              вами в ближайшее время.
+              Спасибо{displayName ? `, ${displayName}` : ""}! Мастер свяжется с
+              вами по телефону в ближайшее время.
             </>
           )}
         </p>
-
-        {useTelegram && botUsername && (
-          <Button
-            className="mb-3 w-full max-w-sm"
-            variant="secondary"
-            onClick={() => openBotChat("consult")}
-          >
-            <ExternalLink className="h-4 w-4" />
-            Открыть чат с ботом
-          </Button>
-        )}
-
-        <Button
-          className="w-full max-w-sm"
-          onClick={onGoHome}
-          disabled={submitting}
-        >
+        <Button className="w-full max-w-sm" onClick={onGoHome}>
           На главную
         </Button>
-      </motion.section>
-    );
-  }
-
-  if (step === "name") {
-    return (
-      <motion.section
-        initial={{ opacity: 0, x: 40 }}
-        animate={{ opacity: 1, x: 0 }}
-        exit={{ opacity: 0, x: -40 }}
-        className="flex min-h-dvh flex-col px-5 pb-8 pt-[max(1.25rem,env(safe-area-inset-top))]"
-      >
-        <header className="mb-6 flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => setStep("contact")}
-            className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white backdrop-blur-xl"
-            aria-label="Назад"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </button>
-          <h1 className="text-[20px] font-semibold text-white">
-            Как к вам обращаться?
-          </h1>
-        </header>
-
-        <h2 className="mb-2 text-[26px] font-bold tracking-tight text-white">
-          Введите имя
-        </h2>
-        <p className="mb-6 text-[15px] text-white/50">
-          Чтобы мы знали, как к вам обратиться.
-        </p>
-
-        <input
-          autoFocus
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Ваше имя"
-          className="mb-4 h-14 w-full rounded-[20px] border border-white/10 bg-white/[0.06] px-4 text-[16px] text-white outline-none placeholder:text-white/30 focus:border-[var(--accent)]/50"
-        />
-
-        <div className="mt-auto">
-          <Button
-            className="w-full"
-            size="lg"
-            disabled={!name.trim() || submitting}
-            onClick={() => void finish(name.trim())}
-          >
-            Отправить заявку
-          </Button>
-        </div>
       </motion.section>
     );
   }
@@ -213,117 +129,48 @@ export function LeadContactScreen({
           {variant === "master" ? "Почти готово" : "Отличные новости!"}
         </h2>
         <p className="text-[14px] leading-relaxed text-emerald-50/85">
-          {variant === "master" ? (
-            <>
-              Оставьте телефон или Telegram — менеджер сервиса свяжется с вами в
-              городе <span className="font-semibold text-white">{city}</span>.
-            </>
-          ) : (
-            <>
-              В городе <span className="font-semibold text-white">{city}</span> есть
-              замечательные мастера-эксперты по установке электрощитов. Оставьте
-              контакт — подберём специалиста.
-            </>
-          )}
+          {variant === "master"
+            ? "Оставьте телефон — менеджер сервиса свяжется с вами."
+            : "Оставьте телефон — подберём мастера и перезвоним."}
         </p>
       </div>
 
       <div className="mb-3 text-[14px] font-medium text-white/70">Телефон</div>
-      <label
-        className={cn(
-          "mb-4 flex h-14 items-center gap-2 rounded-[20px] border bg-white/[0.06] px-4",
-          useTelegram
-            ? "border-white/8 opacity-45"
-            : "border-white/10 focus-within:border-[var(--accent)]/50",
-        )}
-      >
+      <label className="mb-5 flex h-14 items-center gap-2 rounded-[20px] border border-white/10 bg-white/[0.06] px-4 focus-within:border-[var(--accent)]/50">
         <Phone className="h-4 w-4 shrink-0 text-white/40" />
         <span className="text-[16px] font-medium text-white/80">+7</span>
         <input
           inputMode="numeric"
-          disabled={useTelegram}
           value={phoneDisplay}
           onChange={(e) => {
-            const only = e.target.value.replace(/\D/g, "").slice(0, 10);
-            setDigits(only);
-            setUseTelegram(false);
+            setDigits(e.target.value.replace(/\D/g, "").slice(0, 10));
           }}
           placeholder="999 000-00-00"
-          className="h-full flex-1 bg-transparent text-[16px] text-white outline-none placeholder:text-white/30 disabled:cursor-not-allowed"
+          className="h-full flex-1 bg-transparent text-[16px] text-white outline-none placeholder:text-white/30"
         />
       </label>
 
-      <button
-        type="button"
-        onClick={() => {
-          setUseTelegram((v) => {
-            const next = !v;
-            if (next) setDigits("");
-            return next;
-          });
-        }}
-        className={cn(
-          "mb-3 flex w-full items-center gap-3 rounded-[20px] border px-4 py-4 text-left transition-colors",
-          useTelegram
-            ? "border-sky-400/40 bg-sky-500/15"
-            : "border-white/10 bg-white/[0.04]",
-        )}
-      >
-        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-sky-500/20 text-sky-300">
-          <MessageCircle className="h-5 w-5" />
-        </span>
-        <span className="flex-1">
-          <span className="block text-[15px] font-semibold text-white">
-            Связаться со мной в Telegram
-          </span>
-          <span className="mt-0.5 block text-[12px] text-white/45">
-            После отправки заявки откроем чат с ботом
-          </span>
-        </span>
-        <span
-          className={cn(
-            "h-5 w-5 rounded-full border",
-            useTelegram
-              ? "border-sky-300 bg-sky-400"
-              : "border-white/30 bg-transparent",
-          )}
+      <label className="mb-4 flex cursor-pointer items-start gap-3 rounded-[18px] border border-white/10 bg-white/[0.04] p-4">
+        <input
+          type="checkbox"
+          checked={consent}
+          onChange={(e) => setConsent(e.target.checked)}
+          className="mt-1 h-4 w-4 shrink-0 rounded border-white/30 accent-[var(--accent)]"
         />
-      </button>
-
-      {useTelegram && (
-        <GlassCard className="mb-4 space-y-2 p-4 text-[13px] leading-relaxed text-white/55">
-          <p>
-            Telegram не позволяет заранее узнать, открыты ли вам сообщения от
-            незнакомцев. Поэтому связь идёт через нашего бота
-            {botUsername ? (
-              <>
-                {" "}
-                <span className="font-medium text-white">@{botUsername}</span>
-              </>
-            ) : null}
-            .
-          </p>
-          <p>
-            После нажатия «Далее» заявка сохранится, затем откроется чат с
-            ботом — нажмите Start, чтобы мы могли вам писать.
-          </p>
-        </GlassCard>
-      )}
+        <span className="text-[13px] leading-relaxed text-white/60">
+          Я согласен(а) на обработку персональных данных (номер телефона) для
+          связи по заявке.
+        </span>
+      </label>
 
       <div className="mt-auto">
         <Button
           className="w-full"
           size="lg"
-          disabled={(!useTelegram && !phoneValid) || submitting}
-          onClick={() => {
-            if (useTelegram) {
-              void finish(getTelegramUserName());
-              return;
-            }
-            setStep("name");
-          }}
+          disabled={!canSubmit}
+          onClick={() => void submit()}
         >
-          Далее
+          Отправить заявку
         </Button>
       </div>
     </motion.section>
