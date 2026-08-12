@@ -23,6 +23,7 @@ import { SchemeScreen } from "@/components/screens/scheme-screen";
 import { TelegramAuthScreen } from "@/components/screens/telegram-auth-screen";
 import { WelcomeScreen } from "@/components/screens/welcome-screen";
 import { canUseServerAuth } from "@/lib/client-auth";
+import { dataUrlToThumbnail } from "@/lib/image";
 import { getNoPanelSetup, type NoPanelSetupId } from "@/lib/no-panel-setups";
 import {
   fetchHomeItems,
@@ -111,6 +112,52 @@ export function AppShell() {
     }
   }, []);
 
+  // Backfill tiny thumbs for older panels that only have full photo locally.
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const targets = items.filter(
+        (item): item is PanelObject =>
+          item.kind === "panel" &&
+          Boolean(item.photoDataUrl) &&
+          !item.photoThumbDataUrl,
+      );
+      if (targets.length === 0) return;
+
+      const thumbs = new Map<string, string>();
+      for (const panel of targets) {
+        try {
+          thumbs.set(
+            panel.id,
+            await dataUrlToThumbnail(panel.photoDataUrl as string),
+          );
+        } catch {
+          // skip broken photo
+        }
+      }
+      if (cancelled || thumbs.size === 0) return;
+
+      setItems((prev) => {
+        const next = prev.map((item) => {
+          if (item.kind !== "panel") return item;
+          const thumb = thumbs.get(item.id);
+          if (!thumb || item.photoThumbDataUrl) return item;
+          return { ...item, photoThumbDataUrl: thumb };
+        });
+        return next;
+      });
+
+      for (const panel of targets) {
+        const thumb = thumbs.get(panel.id);
+        if (!thumb) continue;
+        void persistPanel({ ...panel, photoThumbDataUrl: thumb });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [items]);
+
   const activePanel = useMemo(
     () =>
       items.find(
@@ -150,41 +197,56 @@ export function AppShell() {
 
   const handleAnalysisDone = useCallback(
     (result: AnalyzePanelResult) => {
-      const today = new Date();
-      const lastCheck = today.toLocaleDateString("ru-RU");
-      const panelCount = items.filter((i) => i.kind === "panel").length;
-      const id = `panel-${Date.now()}`;
-      const panel: PanelObject = {
-        kind: "panel",
-        id,
-        type: "apartment",
-        title: `Щиток ${panelCount + 1}`,
-        address: "Добавлен по фото",
-        lastCheck,
-        breakers: result.devices.length,
-        safety: result.safetyScore,
-        devices: result.devices,
-        linesCount: result.linesCount,
-        photoDataUrl: photoDataUrl ?? undefined,
-        named: false,
-        railCount: result.railCount ?? 1,
-      };
+      void (async () => {
+        const today = new Date();
+        const lastCheck = today.toLocaleDateString("ru-RU");
+        const panelCount = items.filter((i) => i.kind === "panel").length;
+        const id = `panel-${Date.now()}`;
 
-      setItems((prev) => [panel, ...prev]);
-      setItemsError(null);
-      void persistPanel(panel).catch((error) => {
-        console.error(error);
-        setItemsError(
-          error instanceof Error ? error.message : "Не удалось сохранить щиток",
-        );
-      });
-      setActivePanelId(id);
-      setAskNameOnBack(true);
-      setDevices(result.devices);
-      setSafetyScore(result.safetyScore);
-      setLinesCount(result.linesCount);
-      setRailCount(result.railCount ?? 1);
-      setScreen("scheme");
+        let photoThumbDataUrl: string | undefined;
+        if (photoDataUrl) {
+          try {
+            photoThumbDataUrl = await dataUrlToThumbnail(photoDataUrl);
+          } catch {
+            photoThumbDataUrl = undefined;
+          }
+        }
+
+        const panel: PanelObject = {
+          kind: "panel",
+          id,
+          type: "apartment",
+          title: `Щиток ${panelCount + 1}`,
+          address: "Добавлен по фото",
+          lastCheck,
+          breakers: result.devices.length,
+          safety: result.safetyScore,
+          devices: result.devices,
+          linesCount: result.linesCount,
+          photoDataUrl: photoDataUrl ?? undefined,
+          photoThumbDataUrl,
+          named: false,
+          railCount: result.railCount ?? 1,
+        };
+
+        setItems((prev) => [panel, ...prev]);
+        setItemsError(null);
+        void persistPanel(panel).catch((error) => {
+          console.error(error);
+          setItemsError(
+            error instanceof Error
+              ? error.message
+              : "Не удалось сохранить щиток",
+          );
+        });
+        setActivePanelId(id);
+        setAskNameOnBack(true);
+        setDevices(result.devices);
+        setSafetyScore(result.safetyScore);
+        setLinesCount(result.linesCount);
+        setRailCount(result.railCount ?? 1);
+        setScreen("scheme");
+      })();
     },
     [items, photoDataUrl],
   );

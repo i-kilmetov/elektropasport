@@ -119,7 +119,7 @@ export function ObjectsScreen({
                     >
                       <div
                         className={cn(
-                          "flex h-14 w-14 shrink-0 items-center justify-center rounded-[18px]",
+                          "flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[18px]",
                           isRequest
                             ? "bg-rose-500/20 text-rose-300"
                             : "bg-white/10 text-[var(--accent)]",
@@ -127,6 +127,16 @@ export function ObjectsScreen({
                       >
                         {isRequest ? (
                           <ClipboardList className="h-6 w-6" />
+                        ) : obj.kind === "panel" &&
+                          (obj.photoThumbDataUrl || obj.photoDataUrl) ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={obj.photoThumbDataUrl ?? obj.photoDataUrl}
+                            alt=""
+                            className="h-full w-full object-cover"
+                            loading="lazy"
+                            decoding="async"
+                          />
                         ) : (
                           <BreakerIcon className="h-7 w-7" />
                         )}

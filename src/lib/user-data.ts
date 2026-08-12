@@ -45,6 +45,7 @@ function panelForApi(panel: PanelObject): PanelObject {
   return {
     ...panel,
     photoDataUrl: undefined,
+    photoThumbDataUrl: undefined,
   };
 }
 
@@ -89,16 +90,24 @@ export async function fetchHomeItems(): Promise<HomeListItem[]> {
   // Preserve local-only photos when server has the same panel without photo
   const localById = new Map(
     readLocalItems()
-      .filter((i): i is PanelObject => i.kind === "panel" && Boolean(i.photoDataUrl))
-      .map((i) => [i.id, i.photoDataUrl]),
+      .filter((i): i is PanelObject => i.kind === "panel")
+      .map((i) => [
+        i.id,
+        {
+          photoDataUrl: i.photoDataUrl,
+          photoThumbDataUrl: i.photoThumbDataUrl,
+        },
+      ]),
   );
   const merged = data.items.map((item) => {
     if (item.kind !== "panel") return item;
-    const localPhoto = localById.get(item.id);
-    if (localPhoto && !item.photoDataUrl) {
-      return { ...item, photoDataUrl: localPhoto };
-    }
-    return item;
+    const local = localById.get(item.id);
+    if (!local) return item;
+    return {
+      ...item,
+      photoDataUrl: item.photoDataUrl ?? local.photoDataUrl,
+      photoThumbDataUrl: item.photoThumbDataUrl ?? local.photoThumbDataUrl,
+    };
   });
   writeLocalItems(merged);
   return merged;

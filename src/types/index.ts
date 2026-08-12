@@ -47,6 +47,8 @@ export interface PanelObject {
   devices?: Device[];
   linesCount?: number;
   photoDataUrl?: string;
+  /** Small JPEG data URL for home list (~112px). */
+  photoThumbDataUrl?: string;
   named?: boolean;
   /** Number of DIN rails (rows) in the panel, 1–4 */
   railCount?: number;
