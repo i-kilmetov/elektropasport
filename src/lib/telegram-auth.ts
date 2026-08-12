@@ -1,4 +1,5 @@
-import { createHmac, timingSafeEqual } from "crypto";
+import { createHash, createHmac, timingSafeEqual } from "crypto";
+import { verifySessionToken } from "@/lib/session-token";
 
 export type TelegramWebAppUser = {
   id: number;
@@ -96,12 +97,93 @@ export function getBotToken(): string {
 
 export function requireTelegramUser(request: Request): ValidatedTelegramUser {
   const botToken = getBotToken();
-  if (!botToken) {
-    throw new AuthError("BOT_TOKEN не настроен на сервере", 503);
-  }
 
   const initData = extractInitData(request);
-  return validateTelegramInitData(initData, botToken);
+  if (initData) {
+    if (!botToken) {
+      throw new AuthError("BOT_TOKEN не настроен на сервере", 503);
+    }
+    return validateTelegramInitData(initData, botToken);
+  }
+
+  const bearer = extractBearerToken(request);
+  if (bearer) {
+    const session = verifySessionToken(bearer);
+    return {
+      telegramId: session.telegramId,
+      firstName: session.firstName,
+      lastName: session.lastName,
+      username: session.username,
+    };
+  }
+
+  throw new AuthError("Требуется авторизация через Telegram", 401);
+}
+
+export type TelegramLoginWidgetData = {
+  id: number;
+  first_name?: string;
+  last_name?: string;
+  username?: string;
+  photo_url?: string;
+  auth_date: number;
+  hash: string;
+};
+
+/**
+ * Validates data from Telegram Login Widget (browser).
+ * @see https://core.telegram.org/widgets/login#checking-authorization
+ */
+export function validateTelegramLoginWidget(
+  raw: TelegramLoginWidgetData,
+  botToken: string,
+): ValidatedTelegramUser {
+  if (!botToken?.trim()) {
+    throw new AuthError("BOT_TOKEN не настроен на сервере", 503);
+  }
+  if (!raw?.hash || !raw?.id) {
+    throw new AuthError("Некорректные данные Telegram Login");
+  }
+
+  const checkEntries = Object.entries(raw)
+    .filter(([key]) => key !== "hash")
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, value]) => `${key}=${value}`);
+
+  const dataCheckString = checkEntries.join("\n");
+  const secretKey = createHash("sha256").update(botToken).digest();
+  const calculated = createHmac("sha256", secretKey)
+    .update(dataCheckString)
+    .digest("hex");
+
+  const calculatedBuf = Buffer.from(calculated, "hex");
+  const hashBuf = Buffer.from(raw.hash, "hex");
+  if (
+    calculatedBuf.length !== hashBuf.length ||
+    !timingSafeEqual(calculatedBuf, hashBuf)
+  ) {
+    throw new AuthError("Подпись Telegram Login неверна");
+  }
+
+  const age = Math.floor(Date.now() / 1000) - Number(raw.auth_date);
+  if (!Number.isFinite(age) || age > MAX_AUTH_AGE_SEC) {
+    throw new AuthError("Сессия Telegram устарела — войдите снова");
+  }
+
+  return {
+    telegramId: raw.id,
+    firstName: raw.first_name,
+    lastName: raw.last_name,
+    username: raw.username,
+  };
+}
+
+function extractBearerToken(request: Request): string {
+  const auth = request.headers.get("authorization") ?? "";
+  if (auth.toLowerCase().startsWith("bearer ")) {
+    return auth.slice(7).trim();
+  }
+  return "";
 }
 
 function extractInitData(request: Request): string {

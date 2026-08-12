@@ -95,7 +95,8 @@ export type AppScreen =
   | "about-service"
   | "electrical-rules"
   | "electrical-rule-detail"
-  | "become-master";
+  | "become-master"
+  | "telegram-auth";
 
 export type LeadFlow = "install" | "master";
 

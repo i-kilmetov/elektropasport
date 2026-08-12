@@ -20,7 +20,9 @@ import { PanelAdvantagesScreen } from "@/components/screens/panel-advantages-scr
 import { PhotoScreen } from "@/components/screens/photo-screen";
 import { RequestDetailsScreen } from "@/components/screens/request-details-screen";
 import { SchemeScreen } from "@/components/screens/scheme-screen";
+import { TelegramAuthScreen } from "@/components/screens/telegram-auth-screen";
 import { WelcomeScreen } from "@/components/screens/welcome-screen";
+import { canUseServerAuth } from "@/lib/client-auth";
 import { getNoPanelSetup, type NoPanelSetupId } from "@/lib/no-panel-setups";
 import {
   fetchHomeItems,
@@ -56,6 +58,9 @@ export function AppShell() {
   const [safetyScore, setSafetyScore] = useState<number | null>(null);
   const [linesCount, setLinesCount] = useState<number | null>(null);
   const [railCount, setRailCount] = useState<number | null>(null);
+  const [pendingAuthAction, setPendingAuthAction] = useState<
+    "add-panel" | "no-panel" | null
+  >(null);
   const [noPanelSetupId, setNoPanelSetupId] = useState<NoPanelSetupId | null>(
     null,
   );
@@ -111,6 +116,33 @@ export function AppShell() {
   const handlePhoto = useCallback((dataUrl: string) => {
     setPhotoDataUrl(dataUrl);
     setScreen("analysis");
+  }, []);
+
+  const continueAfterAuth = useCallback(() => {
+    const action = pendingAuthAction;
+    setPendingAuthAction(null);
+    if (action === "add-panel") {
+      setPhotoDataUrl(null);
+      setScreen("photo");
+      return;
+    }
+    if (action === "no-panel") {
+      setScreen("no-panel-options");
+    }
+  }, [pendingAuthAction]);
+
+  const requireTelegramAuth = useCallback((action: "add-panel" | "no-panel") => {
+    if (canUseServerAuth()) {
+      if (action === "add-panel") {
+        setPhotoDataUrl(null);
+        setScreen("photo");
+      } else {
+        setScreen("no-panel-options");
+      }
+      return;
+    }
+    setPendingAuthAction(action);
+    setScreen("telegram-auth");
   }, []);
 
   const handleAnalysisDone = useCallback(
@@ -415,21 +447,30 @@ export function AppShell() {
               items={items}
               loading={itemsLoading}
               error={itemsError}
-              onAdd={() => {
-                setPhotoDataUrl(null);
-                setScreen("photo");
-              }}
+              onAdd={() => requireTelegramAuth("add-panel")}
               onOpenPanel={openPanel}
               onOpenRequest={(id) => {
                 setActiveRequestId(id);
                 setScreen("request-details");
               }}
               onDeleteItem={deleteHomeItem}
-              onNoPanel={() => setScreen("no-panel-options")}
+              onNoPanel={() => requireTelegramAuth("no-panel")}
               onMenuSelect={(id) => {
                 if (id === "about") setScreen("about-service");
                 if (id === "electrical") setScreen("electrical-rules");
                 if (id === "master") setScreen("become-master");
+              }}
+            />
+          )}
+          {screen === "telegram-auth" && (
+            <TelegramAuthScreen
+              key="telegram-auth"
+              onBack={() => {
+                setPendingAuthAction(null);
+                setScreen("objects");
+              }}
+              onSuccess={() => {
+                continueAfterAuth();
               }}
             />
           )}

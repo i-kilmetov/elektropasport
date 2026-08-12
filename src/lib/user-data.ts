@@ -1,27 +1,16 @@
 import type { HomeListItem, InstallRequest, PanelObject } from "@/types";
+import {
+  authHeaders,
+  canUseServerAuth,
+} from "@/lib/client-auth";
 
 const LOCAL_KEY = "elektropasport:home-items";
 
 /** In-flight ops per panel id so rename/delete wait for create. */
 const panelOps = new Map<string, Promise<unknown>>();
 
-function getInitData(): string | null {
-  if (typeof window === "undefined") return null;
-  const webApp = window.Telegram?.WebApp as
-    | { initData?: string }
-    | undefined;
-  const initData = webApp?.initData?.trim();
-  return initData || null;
-}
-
-function authHeaders(): HeadersInit {
-  const initData = getInitData();
-  if (!initData) return {};
-  return { Authorization: `tma ${initData}` };
-}
-
 function canUseServer(): boolean {
-  return Boolean(getInitData());
+  return canUseServerAuth();
 }
 
 function readLocalItems(): HomeListItem[] {
