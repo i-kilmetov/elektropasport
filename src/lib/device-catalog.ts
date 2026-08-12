@@ -299,6 +299,59 @@ export function catalogCategoryToDeviceType(
   return category;
 }
 
+export function deviceTypeToCategory(type: DeviceType): CatalogCategory | null {
+  if (type === "pe_bus" || type === "n_bus") return null;
+  return type;
+}
+
+export type CatalogFilters = {
+  brand?: string;
+  modules?: number;
+  poles?: string;
+  search?: string;
+};
+
+export function filterCatalogProducts(
+  category: CatalogCategory,
+  filters: CatalogFilters = {},
+): CatalogProduct[] {
+  const q = filters.search?.trim().toLowerCase();
+  return deviceCatalog.filter((product) => {
+    if (product.category !== category) return false;
+    if (filters.brand && filters.brand !== "all" && product.brand !== filters.brand)
+      return false;
+    if (filters.modules && product.modules !== filters.modules) return false;
+    if (filters.poles && filters.poles !== "all" && product.poles !== filters.poles)
+      return false;
+    if (q) {
+      const haystack = [
+        product.displayName,
+        product.model,
+        product.brand,
+        product.rating,
+        product.poles,
+        ...Object.values(product.characteristics),
+      ]
+        .join(" ")
+        .toLowerCase();
+      if (!haystack.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+export function getCatalogBrands(category: CatalogCategory): string[] {
+  return [...new Set(deviceCatalog.filter((p) => p.category === category).map((p) => p.brand))].sort();
+}
+
+export function getSampleCatalogDevice(type: DeviceType): Device | null {
+  const category = deviceTypeToCategory(type);
+  if (!category) return null;
+  const product = deviceCatalog.find((p) => p.category === category);
+  if (!product) return null;
+  return productToDevice(product, { id: 0, position: 0, status: "verified" });
+}
+
 export function productToDevice(
   product: CatalogProduct,
   opts: {

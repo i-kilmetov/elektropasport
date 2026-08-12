@@ -1,4 +1,5 @@
 import type { Device, DeviceType } from "@/types";
+import { getSampleCatalogDevice } from "@/lib/device-catalog";
 
 export type DeviceGuideEntry = {
   title: string;
@@ -65,15 +66,27 @@ export const panelGuideDisclaimer =
   "Электропаспорт показывает, какие приборы видны на фото и в схеме. Сервис не проверяет, правильно ли они соединены между собой, подобраны ли номиналы и исправно ли всё работает на самом деле. Окончательную оценку может дать только очный осмотр электрика.";
 
 export function summarizePanelDevices(devices: Device[]): {
-  present: Array<{ type: RailDeviceType; count: number; guide: DeviceGuideEntry }>;
-  missing: Array<{ type: RailDeviceType; guide: DeviceGuideEntry }>;
+  present: Array<{
+    type: RailDeviceType;
+    count: number;
+    guide: DeviceGuideEntry;
+    sample: Device;
+  }>;
+  missing: Array<{
+    type: RailDeviceType;
+    guide: DeviceGuideEntry;
+    sample: Device;
+  }>;
 } {
   const counts = new Map<RailDeviceType, number>();
+  const samples = new Map<RailDeviceType, Device>();
+
   for (const device of devices) {
     if (device.type === "pe_bus" || device.type === "n_bus") continue;
     const type = device.type as RailDeviceType;
     if (!RAIL_TYPES.includes(type)) continue;
     counts.set(type, (counts.get(type) ?? 0) + 1);
+    if (!samples.has(type)) samples.set(type, device);
   }
 
   const present = RAIL_TYPES.filter((type) => (counts.get(type) ?? 0) > 0).map(
@@ -81,14 +94,28 @@ export function summarizePanelDevices(devices: Device[]): {
       type,
       count: counts.get(type) ?? 0,
       guide: deviceTypeGuide[type],
+      sample: samples.get(type)!,
     }),
   );
 
   const missing = RAIL_TYPES.filter((type) => !(counts.get(type) ?? 0)).map(
-    (type) => ({
-      type,
-      guide: deviceTypeGuide[type],
-    }),
+    (type) => {
+      const sample =
+        getSampleCatalogDevice(type) ??
+        ({
+          id: 0,
+          type,
+          name: deviceTypeGuide[type].title,
+          rating: "—",
+          status: "unknown" as const,
+          modules: 1,
+        } satisfies Device);
+      return {
+        type,
+        guide: deviceTypeGuide[type],
+        sample,
+      };
+    },
   );
 
   return { present, missing };

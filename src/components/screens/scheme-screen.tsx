@@ -61,7 +61,7 @@ function DeviceBlock({
   device: Device;
   selected: boolean;
   showTerminals: boolean;
-  onSelect: () => void;
+  onSelect: (clientY: number) => void;
 }) {
   const modules = deviceModules(device);
   const width = modules * MODULE_PX;
@@ -76,7 +76,7 @@ function DeviceBlock({
         modules={modules}
         selected={selected}
         showTerminals={showTerminals}
-        onSelect={onSelect}
+        onSelect={(event) => onSelect(event.clientY)}
         brand={
           <BrandMark brandKey={device.brandKey} brand={device.manufacturer} />
         }
@@ -91,16 +91,32 @@ function DeviceBlock({
   );
 }
 
+function computeSheetTop(anchorY: number | null): number {
+  if (typeof window === "undefined") return 80;
+  const margin = 12;
+  const maxH = window.innerHeight * 0.85;
+  if (anchorY === null) {
+    return Math.max(margin, window.innerHeight - maxH - margin);
+  }
+  let top = anchorY - 56;
+  top = Math.max(margin, top);
+  top = Math.min(top, window.innerHeight - maxH - margin);
+  return top;
+}
+
 function DeviceSheet({
   device,
+  anchorY,
   onClose,
   onAssignCircuit,
 }: {
   device: Device;
+  anchorY: number | null;
   onClose: () => void;
   onAssignCircuit: (deviceId: number, label: string) => void;
 }) {
   const [label, setLabel] = useState(device.circuitLabel ?? "");
+  const [sheetTop, setSheetTop] = useState(() => computeSheetTop(anchorY));
   const specs = useMemo(() => {
     const fromCatalog = Object.entries(device.characteristics ?? {});
     if (fromCatalog.length > 0) return fromCatalog;
@@ -116,21 +132,29 @@ function DeviceSheet({
     setLabel(device.circuitLabel ?? "");
   }, [device.circuitLabel, device.id]);
 
+  useEffect(() => {
+    setSheetTop(computeSheetTop(anchorY));
+    const onResize = () => setSheetTop(computeSheetTop(anchorY));
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [anchorY, device.id]);
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="absolute inset-0 z-40 flex items-end bg-black/55 backdrop-blur-sm"
+      className="fixed inset-0 z-50 bg-black/55 backdrop-blur-sm"
       onClick={onClose}
     >
       <motion.div
-        initial={{ y: "100%" }}
-        animate={{ y: 0 }}
-        exit={{ y: "100%" }}
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 16 }}
         transition={{ type: "spring", stiffness: 320, damping: 32 }}
         onClick={(e) => e.stopPropagation()}
-        className="max-h-[85dvh] w-full overflow-y-auto rounded-t-[28px] border border-white/10 bg-[#16161d]/95 p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-2xl backdrop-blur-2xl"
+        style={{ top: sheetTop }}
+        className="fixed left-0 right-0 mx-auto max-h-[85dvh] w-full max-w-lg overflow-y-auto rounded-[28px] border border-white/10 bg-[#16161d]/95 p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-2xl backdrop-blur-2xl"
       >
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
@@ -327,6 +351,7 @@ export function SchemeScreen({
 
   const [tab, setTab] = useState<"scheme" | "photo">("scheme");
   const [showTerminals, setShowTerminals] = useState(false);
+  const [sheetAnchorY, setSheetAnchorY] = useState<number | null>(null);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
@@ -502,7 +527,10 @@ export function SchemeScreen({
                   device={device}
                   selected={selectedId === device.id}
                   showTerminals={showTerminals}
-                  onSelect={() => setSelectedId(device.id)}
+                  onSelect={(clientY) => {
+                    setSheetAnchorY(clientY);
+                    setSelectedId(device.id);
+                  }}
                 />
               ))}
             </div>
@@ -576,7 +604,11 @@ export function SchemeScreen({
         {selected && tab === "scheme" && (
           <DeviceSheet
             device={selected}
-            onClose={() => setSelectedId(null)}
+            anchorY={sheetAnchorY}
+            onClose={() => {
+              setSelectedId(null);
+              setSheetAnchorY(null);
+            }}
             onAssignCircuit={(deviceId, circuitLabel) => {
               onAssignCircuit?.(deviceId, circuitLabel);
             }}

@@ -278,27 +278,27 @@ const statusBarClass: Record<Device["status"], string> = {
   unknown: "bg-white/35",
 };
 
-export function DeviceFace({
+export function deviceFaceHeight(showTerminals: boolean): number {
+  return BODY_HEIGHT_PX + (showTerminals ? TERMINAL_HEIGHT_PX * 2 : 0);
+}
+
+export function DeviceFaceStatic({
   device,
   modules,
-  selected,
-  showTerminals,
-  onSelect,
+  showTerminals = false,
   brand,
+  className,
 }: {
   device: Device;
   modules: number;
-  selected: boolean;
-  showTerminals: boolean;
-  onSelect: () => void;
+  showTerminals?: boolean;
   brand?: ReactNode;
+  className?: string;
 }) {
   const width = modules * MODULE_PX;
 
   return (
-    <button
-      type="button"
-      onClick={onSelect}
+    <div
       style={{
         width,
         minWidth: width,
@@ -306,9 +306,8 @@ export function DeviceFace({
         boxSizing: "border-box",
       }}
       className={cn(
-        "relative flex w-full min-w-0 flex-col overflow-hidden rounded-[7px] border border-zinc-500/70 bg-zinc-300 text-left text-zinc-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] transition-shadow",
-        selected &&
-          "ring-2 ring-[var(--accent)] ring-offset-2 ring-offset-[#0B0B0F]",
+        "relative flex w-full min-w-0 flex-col overflow-hidden rounded-[7px] border border-zinc-500/70 bg-zinc-300 text-left text-zinc-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)]",
+        className,
       )}
     >
       <ModuleDividers modules={modules} />
@@ -333,6 +332,85 @@ export function DeviceFace({
         <RatingBlock rating={device.rating} poles={device.poles} />
       </div>
       {showTerminals && <TerminalRow modules={modules} side="bottom" />}
+    </div>
+  );
+}
+
+export function DeviceMiniPreview({
+  device,
+  scale = 0.38,
+  showTerminals = false,
+  brand,
+}: {
+  device: Device;
+  scale?: number;
+  showTerminals?: boolean;
+  brand?: ReactNode;
+}) {
+  const modules = device.modules && device.modules > 0 ? device.modules : 1;
+  const width = modules * MODULE_PX;
+  const height = deviceFaceHeight(showTerminals);
+
+  return (
+    <div
+      className="relative shrink-0 overflow-hidden"
+      style={{ width: width * scale, height: height * scale }}
+      aria-hidden
+    >
+      <div
+        className="absolute left-0 top-0 origin-top-left"
+        style={{ width, transform: `scale(${scale})` }}
+      >
+        <DeviceFaceStatic
+          device={device}
+          modules={modules}
+          showTerminals={showTerminals}
+          brand={brand}
+        />
+      </div>
+    </div>
+  );
+}
+
+export function DeviceFace({
+  device,
+  modules,
+  selected,
+  showTerminals,
+  onSelect,
+  brand,
+}: {
+  device: Device;
+  modules: number;
+  selected: boolean;
+  showTerminals: boolean;
+  onSelect: (event: React.MouseEvent<HTMLButtonElement>) => void;
+  brand?: ReactNode;
+}) {
+  const width = modules * MODULE_PX;
+
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      style={{
+        width,
+        minWidth: width,
+        maxWidth: width,
+        boxSizing: "border-box",
+      }}
+      className={cn(
+        "block p-0 transition-shadow",
+        selected &&
+          "rounded-[7px] ring-2 ring-[var(--accent)] ring-offset-2 ring-offset-[#0B0B0F]",
+      )}
+    >
+      <DeviceFaceStatic
+        device={device}
+        modules={modules}
+        showTerminals={showTerminals}
+        brand={brand}
+      />
     </button>
   );
 }
