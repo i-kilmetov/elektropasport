@@ -95,6 +95,22 @@ export function AppShell() {
     };
   }, []);
 
+  useEffect(() => {
+    const pending = sessionStorage.getItem("ep_pending_auth_action") as
+      | "add-panel"
+      | "no-panel"
+      | null;
+    if (!pending || !canUseServerAuth()) return;
+
+    sessionStorage.removeItem("ep_pending_auth_action");
+    if (pending === "add-panel") {
+      setPhotoDataUrl(null);
+      setScreen("photo");
+    } else if (pending === "no-panel") {
+      setScreen("no-panel-options");
+    }
+  }, []);
+
   const activePanel = useMemo(
     () =>
       items.find(
@@ -117,19 +133,6 @@ export function AppShell() {
     setPhotoDataUrl(dataUrl);
     setScreen("analysis");
   }, []);
-
-  const continueAfterAuth = useCallback(() => {
-    const action = pendingAuthAction;
-    setPendingAuthAction(null);
-    if (action === "add-panel") {
-      setPhotoDataUrl(null);
-      setScreen("photo");
-      return;
-    }
-    if (action === "no-panel") {
-      setScreen("no-panel-options");
-    }
-  }, [pendingAuthAction]);
 
   const requireTelegramAuth = useCallback((action: "add-panel" | "no-panel") => {
     if (canUseServerAuth()) {
@@ -465,12 +468,11 @@ export function AppShell() {
           {screen === "telegram-auth" && (
             <TelegramAuthScreen
               key="telegram-auth"
+              pendingAction={pendingAuthAction ?? undefined}
               onBack={() => {
                 setPendingAuthAction(null);
+                sessionStorage.removeItem("ep_pending_auth_action");
                 setScreen("objects");
-              }}
-              onSuccess={() => {
-                continueAfterAuth();
               }}
             />
           )}

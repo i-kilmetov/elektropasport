@@ -94,22 +94,6 @@ export async function ensureSchema(): Promise<void> {
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )
       `;
-      await sql`
-        CREATE TABLE IF NOT EXISTS browser_auth_sessions (
-          poll_token TEXT PRIMARY KEY,
-          start_code TEXT NOT NULL UNIQUE,
-          telegram_user_id BIGINT,
-          first_name TEXT,
-          last_name TEXT,
-          username TEXT,
-          expires_at TIMESTAMPTZ NOT NULL,
-          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        )
-      `;
-      await sql`
-        CREATE INDEX IF NOT EXISTS browser_auth_start_code_idx
-        ON browser_auth_sessions (start_code)
-      `;
     })().catch((error) => {
       schemaReady = null;
       throw error;

@@ -2,32 +2,15 @@ import {
   adminUpdateInstallRequest,
   ensureSchema,
   getInstallRequestById,
-  upsertUser,
 } from "@/lib/db";
-import {
-  completeBrowserAuthSession,
-  parseWebAuthStartCode,
-} from "@/lib/browser-auth-sessions";
 import {
   answerCallbackQuery,
   editMessageText,
   parseStatusCallback,
-  sendTelegramChatMessage,
 } from "@/lib/telegram-notify";
 import { installStatusLabels } from "@/types";
 
 type TelegramUpdate = {
-  message?: {
-    message_id: number;
-    from?: {
-      id: number;
-      first_name?: string;
-      last_name?: string;
-      username?: string;
-    };
-    chat: { id: number };
-    text?: string;
-  };
   callback_query?: {
     id: string;
     from?: { id: number };
@@ -53,36 +36,6 @@ function verifySecret(request: Request): boolean {
   return got === expected;
 }
 
-async function handleWebAuthStart(update: TelegramUpdate): Promise<boolean> {
-  const message = update.message;
-  const startCode = parseWebAuthStartCode(message?.text);
-  if (!startCode || !message?.from?.id) return false;
-
-  await ensureSchema();
-  await upsertUser({
-    telegramId: message.from.id,
-    firstName: message.from.first_name,
-    lastName: message.from.last_name,
-    username: message.from.username,
-  });
-
-  const ok = await completeBrowserAuthSession(startCode, {
-    telegramId: message.from.id,
-    firstName: message.from.first_name,
-    lastName: message.from.last_name,
-    username: message.from.username,
-  });
-
-  await sendTelegramChatMessage(
-    message.chat.id,
-    ok
-      ? "✅ Вход подтверждён. Вернитесь в браузер — страница обновится автоматически."
-      : "Ссылка для входа устарела или уже использована. Запросите новую на сайте.",
-  );
-
-  return true;
-}
-
 export async function POST(request: Request) {
   try {
     if (!verifySecret(request)) {
@@ -90,11 +43,6 @@ export async function POST(request: Request) {
     }
 
     const update = (await request.json()) as TelegramUpdate;
-
-    if (await handleWebAuthStart(update)) {
-      return Response.json({ ok: true });
-    }
-
     const callback = update.callback_query;
     if (!callback?.id) {
       return Response.json({ ok: true });

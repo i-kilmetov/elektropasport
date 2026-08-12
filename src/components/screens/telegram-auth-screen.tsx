@@ -1,111 +1,51 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
-import {
-  getTelegramBotUsername,
-  saveBrowserSession,
-  type BrowserAuthUser,
-} from "@/lib/client-auth";
-
-type AuthSession = {
-  pollToken: string;
-  botUrl: string;
-};
+import { getTelegramBotUsername } from "@/lib/client-auth";
 
 export function TelegramAuthScreen({
-  title = "Войдите через Telegram",
-  description = "Нажмите кнопку — откроется Telegram. Подтвердите вход и вернитесь на эту страницу.",
+  pendingAction,
   onBack,
-  onSuccess,
 }: {
-  title?: string;
-  description?: string;
+  pendingAction?: "add-panel" | "no-panel";
   onBack: () => void;
-  onSuccess: () => void;
 }) {
+  const widgetRef = useRef<HTMLDivElement>(null);
   const botUsername = getTelegramBotUsername();
-  const [session, setSession] = useState<AuthSession | null>(null);
-  const [waiting, setWaiting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const pollRef = useRef<number | null>(null);
-
-  const stopPolling = useCallback(() => {
-    if (pollRef.current != null) {
-      window.clearInterval(pollRef.current);
-      pollRef.current = null;
-    }
-  }, []);
 
   useEffect(() => {
-    if (!botUsername) return;
-    let cancelled = false;
-    void (async () => {
-      try {
-        const res = await fetch("/api/auth/bot/start", { method: "POST" });
-        const data = (await res.json()) as AuthSession & { error?: string };
-        if (!res.ok) throw new Error(data.error || "Не удалось начать вход");
-        if (!cancelled) setSession({ pollToken: data.pollToken, botUrl: data.botUrl });
-      } catch (err) {
-        if (!cancelled) {
-          setError(
-            err instanceof Error ? err.message : "Не удалось начать вход",
-          );
-        }
-      }
-    })();
+    if (pendingAction) {
+      sessionStorage.setItem("ep_pending_auth_action", pendingAction);
+    }
+  }, [pendingAction]);
+
+  useEffect(() => {
+    if (!botUsername || !widgetRef.current) return;
+
+    const origin = window.location.origin;
+    const container = widgetRef.current;
+    container.innerHTML = "";
+
+    const script = document.createElement("script");
+    script.src = "https://telegram.org/js/telegram-widget.js?22";
+    script.async = true;
+    script.setAttribute("data-telegram-login", botUsername);
+    script.setAttribute("data-size", "large");
+    script.setAttribute("data-radius", "16");
+    script.setAttribute(
+      "data-auth-url",
+      `${origin}/auth/telegram/callback`,
+    );
+    container.appendChild(script);
+
     return () => {
-      cancelled = true;
-      stopPolling();
+      container.innerHTML = "";
     };
-  }, [botUsername, stopPolling]);
-
-  const startPolling = useCallback(
-    (pollToken: string) => {
-      stopPolling();
-      setWaiting(true);
-      setError(null);
-
-      pollRef.current = window.setInterval(() => {
-        void (async () => {
-          try {
-            const res = await fetch(
-              `/api/auth/bot/poll?token=${encodeURIComponent(pollToken)}`,
-            );
-            const data = (await res.json()) as {
-              status?: "pending" | "complete";
-              token?: string;
-              user?: BrowserAuthUser;
-              error?: string;
-            };
-            if (!res.ok) throw new Error(data.error || "Ошибка проверки входа");
-            if (data.status === "complete" && data.token && data.user) {
-              stopPolling();
-              saveBrowserSession(data.token, data.user);
-              setWaiting(false);
-              onSuccess();
-            }
-          } catch (err) {
-            stopPolling();
-            setWaiting(false);
-            setError(
-              err instanceof Error ? err.message : "Не удалось войти",
-            );
-          }
-        })();
-      }, 2000);
-    },
-    [onSuccess, stopPolling],
-  );
-
-  const handleLogin = () => {
-    if (!session) return;
-    window.open(session.botUrl, "_blank", "noopener,noreferrer");
-    startPolling(session.pollToken);
-  };
+  }, [botUsername]);
 
   return (
     <motion.section
@@ -123,37 +63,25 @@ export function TelegramAuthScreen({
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <h1 className="text-[20px] font-semibold text-white">Авторизация</h1>
+        <h1 className="text-[20px] font-semibold text-white">Вход</h1>
       </header>
 
       <div className="flex flex-1 flex-col items-center justify-center">
         <GlassCard className="w-full max-w-sm space-y-5 p-6 text-center">
           <div>
             <h2 className="text-[22px] font-bold tracking-tight text-white">
-              {title}
+              Войдите через Telegram
             </h2>
             <p className="mt-2 text-[14px] leading-relaxed text-white/50">
-              {description}
+              Используйте свой аккаунт Telegram, чтобы сохранять щитки и заявки.
             </p>
           </div>
 
           {botUsername ? (
-            <Button
-              className="w-full"
-              disabled={!session || waiting}
-              onClick={handleLogin}
-            >
-              {waiting ? "Ожидаем подтверждение…" : "Войти через Telegram"}
-            </Button>
+            <div ref={widgetRef} className="flex min-h-[52px] justify-center" />
           ) : (
             <p className="text-[13px] text-amber-100/80">
               Вход через Telegram временно недоступен.
-            </p>
-          )}
-
-          {error && (
-            <p className="rounded-[14px] border border-rose-400/25 bg-rose-500/10 px-3 py-2 text-[13px] text-rose-200">
-              {error}
             </p>
           )}
         </GlassCard>

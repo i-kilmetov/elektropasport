@@ -257,16 +257,3 @@ export async function sendAdminTestMessage(): Promise<{
     adminChatConfigured,
   };
 }
-
-export async function sendTelegramChatMessage(
-  chatId: number,
-  text: string,
-): Promise<{ ok: boolean; error?: string }> {
-  const result = await telegramApi<{ message_id: number }>("sendMessage", {
-    chat_id: chatId,
-    text,
-    disable_web_page_preview: true,
-  });
-  if (!result.ok) return { ok: false, error: result.error };
-  return { ok: true };
-}
