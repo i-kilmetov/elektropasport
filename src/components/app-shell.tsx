@@ -79,8 +79,11 @@ export function AppShell() {
   const [linesCount, setLinesCount] = useState<number | null>(null);
   const [railCount, setRailCount] = useState<number | null>(null);
   const [pendingAuthAction, setPendingAuthAction] = useState<
-    "add-panel" | "no-panel" | null
+    "add-panel" | "no-panel" | "call-master" | null
   >(null);
+  const [leadBackScreen, setLeadBackScreen] = useState<AppScreen>(
+    "panel-advantages",
+  );
   const [noPanelSetupId, setNoPanelSetupId] = useState<NoPanelSetupId | null>(
     null,
   );
@@ -131,6 +134,7 @@ export function AppShell() {
     const pending = sessionStorage.getItem("ep_pending_auth_action") as
       | "add-panel"
       | "no-panel"
+      | "call-master"
       | null;
     if (!pending || !canUseServerAuth()) return;
 
@@ -140,6 +144,10 @@ export function AppShell() {
       setScreen("photo");
     } else if (pending === "no-panel") {
       setScreen("no-panel-options");
+    } else if (pending === "call-master") {
+      setLeadFlow("install");
+      setLeadBackScreen("scheme");
+      setScreen("lead-contact");
     }
   }, []);
 
@@ -177,6 +185,19 @@ export function AppShell() {
       return;
     }
     setPendingAuthAction(action);
+    go("telegram-auth");
+  }, [go]);
+
+  const startCallMaster = useCallback(() => {
+    setLeadFlow("install");
+    setElectricalDetails(null);
+    setSelectedCity(null);
+    setLeadBackScreen("scheme");
+    if (canUseServerAuth()) {
+      go("lead-contact");
+      return;
+    }
+    setPendingAuthAction("call-master");
     go("telegram-auth");
   }, [go]);
 
@@ -648,6 +669,7 @@ export function AppShell() {
               onAssignCircuit={assignCircuitLabel}
               onToggleDevicePower={toggleDevicePower}
               onAssessSafety={assessPanelSafety}
+              onCallMaster={startCallMaster}
               devices={devices ?? undefined}
               safetyScore={safetyScore}
               phases={activePanel?.phases}
@@ -683,6 +705,7 @@ export function AppShell() {
                 setLeadFlow("install");
                 setElectricalDetails(null);
                 setSelectedCity(null);
+                setLeadBackScreen("panel-advantages");
                 go("lead-contact");
               }}
             />
@@ -694,6 +717,7 @@ export function AppShell() {
               onContinue={(details) => {
                 setElectricalDetails(details);
                 setLeadFlow("install");
+                setLeadBackScreen("electrical-details");
                 go("lead-contact");
               }}
             />
@@ -718,6 +742,7 @@ export function AppShell() {
               }
               onConfirm={(city) => {
                 setSelectedCity(city);
+                setLeadBackScreen("city-select");
                 go("lead-contact");
               }}
             />
@@ -727,9 +752,7 @@ export function AppShell() {
               key={`lead-${leadFlow}`}
               variant={leadFlow}
               onBack={() =>
-                go(
-                  leadFlow === "master" ? "city-select" : "panel-advantages",
-                )
+                go(leadFlow === "master" ? "city-select" : leadBackScreen)
               }
               onFinish={submitLead}
               onGoHome={() => go("objects")}

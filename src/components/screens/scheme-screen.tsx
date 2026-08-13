@@ -24,7 +24,10 @@ import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Progress } from "@/components/ui/progress";
-import { SpecCharacteristicCard } from "@/components/ui/spec-info-button";
+import {
+  HintInfoButton,
+  SpecCharacteristicCard,
+} from "@/components/ui/spec-info-button";
 import { SafetyParamsSheet } from "@/components/ui/safety-params-sheet";
 import { circuitIdentifySteps } from "@/lib/device-catalog";
 import { PanelDeviceGuideSection } from "@/components/screens/panel-device-guide-section";
@@ -334,6 +337,7 @@ export function SchemeScreen({
   onAssignCircuit,
   onToggleDevicePower,
   onAssessSafety,
+  onCallMaster,
   devices: devicesProp,
   safetyScore: safetyProp,
   phases,
@@ -354,6 +358,7 @@ export function SchemeScreen({
     powerKw: string;
     safety: number;
   }) => void;
+  onCallMaster?: () => void;
   devices?: Device[];
   safetyScore?: number | null;
   phases?: "1" | "3";
@@ -378,6 +383,7 @@ export function SchemeScreen({
   const [safetyOpen, setSafetyOpen] = useState(false);
   const [safetyAssessing, setSafetyAssessing] = useState(false);
   const [safetyProgress, setSafetyProgress] = useState(0);
+  const [safetyHintOpen, setSafetyHintOpen] = useState(false);
   const safetyFrameRef = useRef<number | null>(null);
   const selected = devices.find((d) => d.id === selectedId) ?? null;
 
@@ -588,7 +594,10 @@ export function SchemeScreen({
             </span>
           </div>
 
-          <PanelDeviceGuideSection devices={allRailDevices} />
+          <PanelDeviceGuideSection
+            devices={allRailDevices}
+            onCallMaster={onCallMaster}
+          />
         </div>
       ) : (
         <div className="flex-1 overflow-y-auto px-5 pb-4">
@@ -619,9 +628,16 @@ export function SchemeScreen({
             </div>
           </GlassCard>
           <GlassCard className="p-4">
-            <div className="mb-1 flex items-center gap-1.5 text-[12px] text-zinc-500">
-              <Shield className="h-3.5 w-3.5 text-emerald-500" />
-              Уровень безопасности
+            <div className="mb-1 flex items-center justify-between gap-2 text-[12px] text-zinc-500">
+              <span className="flex items-center gap-1.5">
+                <Shield className="h-3.5 w-3.5 text-emerald-500" />
+                Уровень безопасности
+              </span>
+              <HintInfoButton
+                label="Как считается уровень безопасности"
+                open={safetyHintOpen}
+                onToggle={() => setSafetyHintOpen((v) => !v)}
+              />
             </div>
             {safetyKnown && typeof safetyScore === "number" ? (
               <>
@@ -657,13 +673,13 @@ export function SchemeScreen({
                 </button>
               </>
             )}
+            {safetyHintOpen && (
+              <p className="mt-2.5 border-t border-black/[0.06] pt-2.5 text-[11px] leading-relaxed text-zinc-500">
+                {safetyScoreDisclaimer}
+              </p>
+            )}
           </GlassCard>
         </div>
-        {safetyKnown && (
-          <p className="mt-3 text-[11px] leading-relaxed text-zinc-400">
-            {safetyScoreDisclaimer}
-          </p>
-        )}
       </div>
 
       <AnimatePresence>

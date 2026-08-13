@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, type MouseEvent, type ReactNode } from "react";
+import { useRef, useState, type MouseEvent, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import type { Device, DeviceType } from "@/types";
 
@@ -496,22 +496,45 @@ export function DeviceFace({
 }) {
   const width = modules * MODULE_PX;
   const timerRef = useRef<number | null>(null);
+  const liftTimerRef = useRef<number | null>(null);
+  const settleTimerRef = useRef<number | null>(null);
   const longPressedRef = useRef(false);
+  const [lifted, setLifted] = useState(false);
 
-  const clearTimer = () => {
+  const clearTimers = () => {
     if (timerRef.current != null) {
       window.clearTimeout(timerRef.current);
       timerRef.current = null;
+    }
+    if (liftTimerRef.current != null) {
+      window.clearTimeout(liftTimerRef.current);
+      liftTimerRef.current = null;
     }
   };
 
   const startPress = () => {
     longPressedRef.current = false;
-    clearTimer();
+    clearTimers();
+    liftTimerRef.current = window.setTimeout(() => {
+      setLifted(true);
+    }, 80);
     timerRef.current = window.setTimeout(() => {
       longPressedRef.current = true;
+      setLifted(true);
       onLongPress?.();
+      if (settleTimerRef.current != null) {
+        window.clearTimeout(settleTimerRef.current);
+      }
+      settleTimerRef.current = window.setTimeout(() => {
+        setLifted(false);
+        settleTimerRef.current = null;
+      }, 220);
     }, LONG_PRESS_MS);
+  };
+
+  const endPress = () => {
+    clearTimers();
+    if (!longPressedRef.current) setLifted(false);
   };
 
   return (
@@ -525,9 +548,9 @@ export function DeviceFace({
         onSelect(event);
       }}
       onPointerDown={startPress}
-      onPointerUp={clearTimer}
-      onPointerLeave={clearTimer}
-      onPointerCancel={clearTimer}
+      onPointerUp={endPress}
+      onPointerLeave={endPress}
+      onPointerCancel={endPress}
       onContextMenu={(event) => event.preventDefault()}
       style={{
         width,
@@ -537,7 +560,8 @@ export function DeviceFace({
         touchAction: "manipulation",
       }}
       className={cn(
-        "block p-0 transition-shadow select-none",
+        "block origin-center p-0 select-none transition-[transform,box-shadow] duration-200 ease-out",
+        lifted && "relative z-20 scale-[1.08]",
         selected &&
           "rounded-[8px] ring-2 ring-[var(--accent)] ring-offset-2 ring-offset-white",
       )}

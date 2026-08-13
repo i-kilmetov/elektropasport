@@ -10,7 +10,7 @@ export function TelegramAuthScreen({
   pendingAction,
   onBack,
 }: {
-  pendingAction?: "add-panel" | "no-panel";
+  pendingAction?: "add-panel" | "no-panel" | "call-master";
   onBack: () => void;
 }) {
   const [starting, setStarting] = useState(false);

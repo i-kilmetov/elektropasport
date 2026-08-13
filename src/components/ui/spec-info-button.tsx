@@ -6,6 +6,33 @@ import { GlassCard } from "@/components/ui/glass-card";
 import { getCharacteristicHint } from "@/lib/characteristic-hints";
 import { cn } from "@/lib/utils";
 
+export function HintInfoButton({
+  label,
+  open,
+  onToggle,
+}: {
+  label: string;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      aria-expanded={open}
+      onClick={onToggle}
+      className={cn(
+        "inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full transition-colors",
+        open
+          ? "bg-[var(--accent)]/15 text-[var(--accent)]"
+          : "bg-zinc-200 text-zinc-500 hover:text-zinc-600",
+      )}
+    >
+      <Info className="h-3 w-3" strokeWidth={2.25} />
+    </button>
+  );
+}
+
 export function SpecCharacteristicCard({
   label,
   value,
@@ -25,20 +52,11 @@ export function SpecCharacteristicCard({
             {value}
           </div>
         </div>
-        <button
-          type="button"
-          aria-label={`Пояснение: ${label}`}
-          aria-expanded={open}
-          onClick={() => setOpen((v) => !v)}
-          className={cn(
-            "inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors",
-            open
-              ? "border-[var(--accent)]/40 bg-[var(--accent)]/15 text-[var(--accent)]"
-              : "border-black/8 bg-zinc-100 text-zinc-500 hover:text-zinc-600",
-          )}
-        >
-          <Info className="h-3 w-3" strokeWidth={2.25} />
-        </button>
+        <HintInfoButton
+          label={`Пояснение: ${label}`}
+          open={open}
+          onToggle={() => setOpen((v) => !v)}
+        />
       </div>
       {open && (
         <p className="mt-2.5 border-t border-black/[0.06] pt-2.5 text-[12px] leading-relaxed text-zinc-500">

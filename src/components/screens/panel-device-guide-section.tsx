@@ -84,7 +84,13 @@ function GuideRow({
   );
 }
 
-export function PanelDeviceGuideSection({ devices }: { devices: Device[] }) {
+export function PanelDeviceGuideSection({
+  devices,
+  onCallMaster,
+}: {
+  devices: Device[];
+  onCallMaster?: () => void;
+}) {
   const [open, setOpen] = useState(false);
   const [pickerType, setPickerType] = useState<DeviceType | null>(null);
 
@@ -188,7 +194,16 @@ export function PanelDeviceGuideSection({ devices }: { devices: Device[] }) {
                 )}
 
                 <p className="rounded-[14px] border border-amber-200 bg-amber-50 px-3.5 py-3 text-[12px] leading-relaxed text-amber-900/75">
-                  {panelGuideDisclaimer}
+                  {panelGuideDisclaimer}{" "}
+                  {onCallMaster && (
+                    <button
+                      type="button"
+                      onClick={onCallMaster}
+                      className="font-semibold text-amber-950 underline decoration-amber-800/40 underline-offset-2"
+                    >
+                      Вызвать мастера
+                    </button>
+                  )}
                 </p>
               </div>
             </motion.div>
