@@ -28,10 +28,11 @@ import type { HomeListItem, InstallRequest, PanelObject } from "@/types";
 const LONG_PRESS_MS = 480;
 const LIFT_DELAY_MS = 90;
 const MOVE_CANCEL_PX = 10;
-const PAGE_SPRING = { type: "spring" as const, stiffness: 420, damping: 40 };
-/** Ignore tiny tap/drag noise; only intentional swipes change tabs. */
-const SWIPE_DISTANCE = 72;
-const SWIPE_VELOCITY = 550;
+const PAGE_SPRING = { type: "spring" as const, stiffness: 380, damping: 38 };
+/** Ignore taps and tiny jitter; only a real horizontal swipe changes tabs. */
+const SWIPE_DISTANCE = 80;
+const SWIPE_VELOCITY = 700;
+const SWIPE_MIN_OFFSET = 28;
 
 function HomeListCard({
   item,
@@ -313,28 +314,39 @@ export function ObjectsScreen({
     void animate(x, -page * pagerWidth, PAGE_SPRING);
   }, [page, pagerWidth, x]);
 
+  const snapTo = (next: 0 | 1) => {
+    if (!pagerWidth) return;
+    void animate(x, -next * pagerWidth, PAGE_SPRING);
+  };
+
   const settlePage = (next: 0 | 1) => {
     pageRef.current = next;
     setPage(next);
-    if (pagerWidth) {
-      void animate(x, -next * pagerWidth, PAGE_SPRING);
-    }
+    snapTo(next);
   };
 
   const onPagerDragEnd = (_: unknown, info: PanInfo) => {
-    const current = pageRef.current;
+    const current = pageRef.current as 0 | 1;
     const { offset, velocity } = info;
-    const wentLeft =
-      velocity.x < -SWIPE_VELOCITY || offset.x < -SWIPE_DISTANCE;
-    const wentRight =
-      velocity.x > SWIPE_VELOCITY || offset.x > SWIPE_DISTANCE;
+    const absOffset = Math.abs(offset.x);
+    const committed =
+      absOffset >= SWIPE_DISTANCE ||
+      (absOffset >= SWIPE_MIN_OFFSET && Math.abs(velocity.x) >= SWIPE_VELOCITY);
 
-    let next: 0 | 1 = current as 0 | 1;
-    if (wentLeft) next = Math.min(1, current + 1) as 0 | 1;
-    else if (wentRight) next = Math.max(0, current - 1) as 0 | 1;
+    if (!committed) {
+      snapTo(current);
+      return;
+    }
 
-    // Always snap to a concrete page — even when next === current.
-    settlePage(next);
+    if (offset.x < 0 && current === 0) {
+      settlePage(1);
+      return;
+    }
+    if (offset.x > 0 && current === 1) {
+      settlePage(0);
+      return;
+    }
+    snapTo(current);
   };
 
   const renderList = (
@@ -438,8 +450,11 @@ export function ObjectsScreen({
           className="flex h-full touch-pan-y"
           drag="x"
           dragDirectionLock
-          dragElastic={0.12}
-          dragConstraints={{ left: 0, right: 0 }}
+          dragElastic={0.16}
+          dragConstraints={{
+            left: pagerWidth ? -pagerWidth : 0,
+            right: 0,
+          }}
           dragMomentum={false}
           style={{
             x,
