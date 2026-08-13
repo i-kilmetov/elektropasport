@@ -211,6 +211,7 @@ export async function persistInstallRequest(
         ...authHeaders(),
       },
       body: JSON.stringify({ request }),
+      keepalive: true,
     });
 
     if (!res.ok) {

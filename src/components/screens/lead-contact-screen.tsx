@@ -1,11 +1,29 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, Check, Clock3, Phone } from "lucide-react";
+import {
+  ArrowLeft,
+  Building2,
+  Check,
+  Clock3,
+  Home,
+  MapPin,
+  Phone,
+} from "lucide-react";
 import { TelegramAppIcon } from "@/components/icons/telegram-app-icon";
+import type {
+  DwellingType,
+  PhaseCount,
+} from "@/components/screens/electrical-details-screen";
 import { Button } from "@/components/ui/button";
 import { hapticImpact, hapticNotification } from "@/lib/haptics";
+import { filterCities } from "@/lib/cities";
+import {
+  clearPendingInstallLead,
+  writePendingInstallLead,
+  type PendingInstallLead,
+} from "@/lib/pending-lead";
 import { getTelegramUserName } from "@/lib/telegram-user";
 import {
   formatPhoneDigits,
@@ -16,20 +34,30 @@ import { cn } from "@/lib/utils";
 
 type Step = "contact" | "done";
 
+export type LeadFinishPayload = {
+  id?: string;
+  contactMethod: "phone" | "telegram";
+  phone: string;
+  name: string;
+  city?: string;
+  dwelling?: DwellingType;
+  phases?: PhaseCount;
+  powerKw?: string;
+  setupTitle?: string;
+};
+
 export function LeadContactScreen({
   onBack,
   onFinish,
   onGoHome,
   variant = "install",
+  setupTitle,
 }: {
   onBack: () => void;
-  onFinish: (payload: {
-    contactMethod: "phone" | "telegram";
-    phone: string;
-    name: string;
-  }) => void | Promise<void>;
+  onFinish: (payload: LeadFinishPayload) => void | Promise<void>;
   onGoHome: () => void;
   variant?: "install" | "master";
+  setupTitle?: string;
 }) {
   const [step, setStep] = useState<Step>("contact");
   const [digits, setDigits] = useState(
@@ -39,29 +67,98 @@ export function LeadContactScreen({
   const [consent, setConsent] = useState(false);
   const [displayName, setDisplayName] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [cityQuery, setCityQuery] = useState("");
+  const [cityPicked, setCityPicked] = useState(false);
+  const [dwelling, setDwelling] = useState<DwellingType | null>(null);
+  const [phases, setPhases] = useState<PhaseCount | null>(null);
+  const [powerKw, setPowerKw] = useState("");
+
+  const pendingRef = useRef<PendingInstallLead | null>(null);
+  const flushedRef = useRef(false);
 
   const phoneDisplay = useMemo(() => formatPhoneDigits(digits), [digits]);
   const phoneValid = digits.length === 10;
   const canSubmit = phoneValid && consent && !submitting;
 
+  const citySuggestions = useMemo(() => {
+    const trimmed = cityQuery.trim();
+    if (trimmed.length < 2) return [];
+    return filterCities(trimmed);
+  }, [cityQuery]);
+
+  const syncPending = (patch: Partial<PendingInstallLead>) => {
+    const current = pendingRef.current;
+    if (!current) return;
+    const next = { ...current, ...patch };
+    pendingRef.current = next;
+    writePendingInstallLead(next);
+  };
+
+  const flushLead = () => {
+    if (variant !== "install" || flushedRef.current) return;
+    const draft = pendingRef.current;
+    if (!draft) return;
+    flushedRef.current = true;
+    clearPendingInstallLead();
+    void onFinish(draft);
+  };
+
+  const flushLeadRef = useRef(flushLead);
+  flushLeadRef.current = flushLead;
+
+  useEffect(() => {
+    if (step !== "done" || variant !== "install") return;
+
+    const onHide = () => {
+      if (document.visibilityState === "hidden") flushLeadRef.current();
+    };
+    const onPageHide = () => flushLeadRef.current();
+
+    document.addEventListener("visibilitychange", onHide);
+    window.addEventListener("pagehide", onPageHide);
+    return () => {
+      document.removeEventListener("visibilitychange", onHide);
+      window.removeEventListener("pagehide", onPageHide);
+    };
+  }, [step, variant]);
+
   const submit = async () => {
     if (!canSubmit) return;
     const name = getTelegramUserName();
     setDisplayName(name);
-    setSubmitting(true);
-    try {
-      await onFinish({
-        contactMethod:
-          variant === "install" && preferTelegram ? "telegram" : "phone",
-        phone: `+7${digits}`,
-        name,
-      });
-      saveUserProfile({ phoneDigits: digits });
-      hapticNotification("success");
-    } finally {
-      setSubmitting(false);
-      setStep("done");
+    saveUserProfile({ phoneDigits: digits });
+    hapticNotification("success");
+
+    if (variant === "master") {
+      setSubmitting(true);
+      try {
+        await onFinish({
+          contactMethod: "phone",
+          phone: `+7${digits}`,
+          name,
+        });
+      } finally {
+        setSubmitting(false);
+        setStep("done");
+      }
+      return;
     }
+
+    const draft: PendingInstallLead = {
+      id: `request-${Date.now()}`,
+      contactMethod: preferTelegram ? "telegram" : "phone",
+      phone: `+7${digits}`,
+      name,
+      setupTitle,
+    };
+    pendingRef.current = draft;
+    writePendingInstallLead(draft);
+    setStep("done");
+  };
+
+  const goHome = () => {
+    flushLead();
+    onGoHome();
   };
 
   if (step === "done") {
@@ -70,36 +167,188 @@ export function LeadContactScreen({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="flex min-h-dvh flex-col items-center justify-center px-6 pb-10 pt-[max(2rem,env(safe-area-inset-top))] text-center"
+        className="flex min-h-dvh flex-col px-5 pb-8 pt-[max(2rem,env(safe-area-inset-top))]"
       >
-        <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-600">
-          <Check className="h-8 w-8" />
+        <div className="mb-5 flex flex-col items-center text-center">
+          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-600">
+            <Check className="h-8 w-8" />
+          </div>
+          <h1 className="mb-2 text-[24px] font-bold text-zinc-900">
+            {variant === "master" ? "Заявка отправлена" : "Заявка принята"}
+          </h1>
+          <p className="max-w-sm text-[15px] leading-relaxed text-zinc-500">
+            {variant === "master" ? (
+              <>
+                Спасибо{displayName ? `, ${displayName}` : ""}! Мы получили вашу
+                заявку и свяжемся для обсуждения сотрудничества.
+              </>
+            ) : preferTelegram ? (
+              <>
+                Спасибо{displayName ? `, ${displayName}` : ""}! Напишем вам в
+                Telegram, если сообщения от всех открыты. Если закрыты —
+                позвоним на указанный номер.
+              </>
+            ) : (
+              <>
+                Спасибо{displayName ? `, ${displayName}` : ""}! Мастер свяжется
+                с вами по телефону в ближайшее время.
+              </>
+            )}
+          </p>
         </div>
-        <h1 className="mb-2 text-[24px] font-bold text-zinc-900">
-          {variant === "master" ? "Заявка отправлена" : "Заявка принята"}
-        </h1>
-        <p className="mb-8 max-w-sm text-[15px] leading-relaxed text-zinc-500">
-          {variant === "master" ? (
-            <>
-              Спасибо{displayName ? `, ${displayName}` : ""}! Мы получили вашу
-              заявку и свяжемся для обсуждения сотрудничества.
-            </>
-          ) : preferTelegram ? (
-            <>
-              Спасибо{displayName ? `, ${displayName}` : ""}! Напишем вам в
-              Telegram, если сообщения от всех открыты. Если закрыты — мастер
-              позвонит на указанный номер.
-            </>
-          ) : (
-            <>
-              Спасибо{displayName ? `, ${displayName}` : ""}! Мастер свяжется с
-              вами по телефону в ближайшее время.
-            </>
-          )}
-        </p>
-        <Button className="w-full max-w-sm" onClick={onGoHome}>
-          На главную
-        </Button>
+
+        {variant === "install" && (
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pb-4">
+            <div>
+              <h2 className="text-[16px] font-semibold text-zinc-900">
+                Уточните детали
+              </h2>
+              <p className="mt-1 text-[13px] leading-relaxed text-zinc-500">
+                Необязательно, но так мы быстрее и точнее проконсультируем.
+              </p>
+            </div>
+
+            <div>
+              <div className="mb-2 text-[13px] font-medium text-zinc-600">
+                Город
+              </div>
+              <label className="relative block">
+                <MapPin className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
+                <input
+                  value={cityQuery}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    setCityQuery(next);
+                    setCityPicked(false);
+                    syncPending({ city: next.trim() || undefined });
+                  }}
+                  placeholder="Например, Казань"
+                  autoComplete="off"
+                  className="h-12 w-full rounded-[20px] border border-black/8 bg-zinc-50 pl-11 pr-4 text-[15px] text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-[var(--accent)]/50"
+                />
+              </label>
+              {!cityPicked && citySuggestions.length > 0 && (
+                <ul className="mt-2 overflow-hidden rounded-[18px] border border-black/8 bg-white">
+                  {citySuggestions.map((city) => (
+                    <li key={city}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCityQuery(city);
+                          setCityPicked(true);
+                          syncPending({ city });
+                        }}
+                        className="flex w-full px-4 py-2.5 text-left text-[15px] text-zinc-700 hover:bg-zinc-50"
+                      >
+                        {city}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            <div>
+              <div className="mb-2 text-[13px] font-medium text-zinc-600">
+                Объект
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDwelling("apartment");
+                    syncPending({ dwelling: "apartment" });
+                  }}
+                  className={cn(
+                    "flex items-center gap-2 rounded-[18px] border px-3 py-3 text-left transition-colors",
+                    dwelling === "apartment"
+                      ? "border-[var(--accent)]/50 bg-[var(--accent)]/15"
+                      : "border-black/8 bg-zinc-50",
+                  )}
+                >
+                  <Building2 className="h-4 w-4 text-[var(--accent)]" />
+                  <span className="text-[14px] font-semibold text-zinc-900">
+                    Квартира
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDwelling("house");
+                    syncPending({ dwelling: "house" });
+                  }}
+                  className={cn(
+                    "flex items-center gap-2 rounded-[18px] border px-3 py-3 text-left transition-colors",
+                    dwelling === "house"
+                      ? "border-[var(--accent)]/50 bg-[var(--accent)]/15"
+                      : "border-black/8 bg-zinc-50",
+                  )}
+                >
+                  <Home className="h-4 w-4 text-emerald-600" />
+                  <span className="text-[14px] font-semibold text-zinc-900">
+                    Дом
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <div className="mb-2 text-[13px] font-medium text-zinc-600">
+                Количество фаз
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {(
+                  [
+                    ["1", "1 фаза"],
+                    ["3", "3 фазы"],
+                  ] as const
+                ).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => {
+                      setPhases(value);
+                      syncPending({ phases: value });
+                    }}
+                    className={cn(
+                      "rounded-[18px] border px-3 py-3 text-[14px] font-semibold transition-colors",
+                      phases === value
+                        ? "border-[var(--accent)]/50 bg-[var(--accent)]/15 text-zinc-900"
+                        : "border-black/8 bg-zinc-50 text-zinc-700",
+                    )}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <div className="mb-2 text-[13px] font-medium text-zinc-600">
+                Выделенная мощность, кВт
+              </div>
+              <input
+                inputMode="decimal"
+                value={powerKw}
+                onChange={(e) => {
+                  const next = e.target.value.replace(/[^\d.,]/g, "");
+                  setPowerKw(next);
+                  syncPending({
+                    powerKw: next.trim().replace(",", ".") || undefined,
+                  });
+                }}
+                placeholder="Например, 7"
+                className="h-12 w-full rounded-[20px] border border-black/8 bg-zinc-50 px-4 text-[15px] text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-[var(--accent)]/50"
+              />
+            </div>
+          </div>
+        )}
+
+        <div className="mt-auto shrink-0 pt-2">
+          <Button className="w-full" size="lg" onClick={goHome}>
+            На главную
+          </Button>
+        </div>
       </motion.section>
     );
   }

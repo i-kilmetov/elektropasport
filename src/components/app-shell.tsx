@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import { AboutServiceScreen } from "@/components/screens/about-service-screen";
 import { AnalysisScreen } from "@/components/screens/analysis-screen";
@@ -12,7 +12,10 @@ import {
 } from "@/components/screens/electrical-details-screen";
 import { ElectricalRuleDetailScreen } from "@/components/screens/electrical-rule-detail-screen";
 import { ElectricalRulesScreen } from "@/components/screens/electrical-rules-screen";
-import { LeadContactScreen } from "@/components/screens/lead-contact-screen";
+import {
+  LeadContactScreen,
+  type LeadFinishPayload,
+} from "@/components/screens/lead-contact-screen";
 import { NoPanelDetailScreen } from "@/components/screens/no-panel-detail-screen";
 import { NoPanelOptionsScreen } from "@/components/screens/no-panel-options-screen";
 import { ObjectsScreen } from "@/components/screens/objects-screen";
@@ -32,6 +35,10 @@ import {
   WelcomeScreen,
 } from "@/components/screens/welcome-screen";
 import { canUseServerAuth } from "@/lib/client-auth";
+import {
+  clearPendingInstallLead,
+  readPendingInstallLead,
+} from "@/lib/pending-lead";
 import {
   hapticDelete,
   hapticImpact,
@@ -100,6 +107,7 @@ export function AppShell() {
   const [selectedCity, setSelectedCity] = useState<string | null>(null);
   const [leadFlow, setLeadFlow] = useState<LeadFlow>("install");
   const [activeRuleId, setActiveRuleId] = useState<string | null>(null);
+  const submittedLeadIds = useRef(new Set<string>());
 
   const go = useCallback((next: AppScreen) => {
     hapticNav();
@@ -557,16 +565,14 @@ export function AppShell() {
   );
 
   const submitLead = useCallback(
-    async (payload: {
-      contactMethod: "phone" | "telegram";
-      phone?: string;
-      name: string;
-    }) => {
+    async (payload: LeadFinishPayload) => {
       if (leadFlow === "master") {
-        const id = `master-${Date.now()}`;
+        const id = payload.id ?? `master-${Date.now()}`;
+        if (submittedLeadIds.current.has(id)) return;
+        submittedLeadIds.current.add(id);
         await persistMasterApplication({
           id,
-          city: selectedCity ?? "—",
+          city: payload.city?.trim() || selectedCity || "—",
           contactMethod: payload.contactMethod,
           phone: payload.phone,
           name: payload.name,
@@ -581,13 +587,18 @@ export function AppShell() {
         return;
       }
 
-      const id = `request-${Date.now()}`;
+      const id = payload.id ?? `request-${Date.now()}`;
+      if (submittedLeadIds.current.has(id)) return;
+      submittedLeadIds.current.add(id);
+
       const createdAt = new Date().toLocaleDateString("ru-RU");
-      const setupTitle = requestNeedId
-        ? getRequestNeedTitle(requestNeedId)
-        : noPanelSetupId
-          ? getNoPanelSetup(noPanelSetupId).title
-          : undefined;
+      const setupTitle =
+        payload.setupTitle ??
+        (requestNeedId
+          ? getRequestNeedTitle(requestNeedId)
+          : noPanelSetupId
+            ? getNoPanelSetup(noPanelSetupId).title
+            : undefined);
 
       const request: InstallRequest = {
         kind: "install_request",
@@ -599,19 +610,23 @@ export function AppShell() {
         status: "new",
         statusLabel: installStatusLabels.new,
         createdAt,
-        city: "—",
+        city: payload.city?.trim() || selectedCity || "—",
         contactMethod: payload.contactMethod,
         phone: payload.phone,
         name: payload.name,
-        dwelling: electricalDetails?.dwelling,
-        phases: electricalDetails?.phases,
-        powerKw: electricalDetails?.powerKw,
+        dwelling: payload.dwelling ?? electricalDetails?.dwelling,
+        phases: payload.phases ?? electricalDetails?.phases,
+        powerKw: payload.powerKw ?? electricalDetails?.powerKw,
         setupTitle,
       };
 
-      setItems((prev) => [request, ...prev]);
+      setItems((prev) => {
+        if (prev.some((item) => item.id === id)) return prev;
+        return [request, ...prev];
+      });
       setActiveRequestId(id);
       setItemsError(null);
+      clearPendingInstallLead();
       await persistInstallRequest(request).catch((error) => {
         console.error(error);
         setItemsError(
@@ -623,6 +638,15 @@ export function AppShell() {
     },
     [electricalDetails, leadFlow, noPanelSetupId, requestNeedId, selectedCity],
   );
+
+  const submitLeadRef = useRef(submitLead);
+  submitLeadRef.current = submitLead;
+
+  useEffect(() => {
+    const pending = readPendingInstallLead();
+    if (!pending) return;
+    void submitLeadRef.current(pending);
+  }, []);
 
   if (!onboardingReady) {
     return (
@@ -796,6 +820,13 @@ export function AppShell() {
             <LeadContactScreen
               key={`lead-${leadFlow}-${requestNeedId ?? "default"}`}
               variant={leadFlow}
+              setupTitle={
+                requestNeedId
+                  ? getRequestNeedTitle(requestNeedId)
+                  : noPanelSetupId
+                    ? getNoPanelSetup(noPanelSetupId).title
+                    : undefined
+              }
               onBack={() =>
                 go(leadFlow === "master" ? "city-select" : leadBackScreen)
               }
