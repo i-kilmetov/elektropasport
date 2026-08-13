@@ -42,11 +42,13 @@ export async function ensureSchema(): Promise<void> {
           address TEXT NOT NULL,
           last_check TEXT NOT NULL,
           breakers INT NOT NULL,
-          safety INT NOT NULL,
+          safety INT,
           devices JSONB,
           lines_count INT,
           photo_data_url TEXT,
           named BOOLEAN NOT NULL DEFAULT FALSE,
+          phases TEXT,
+          power_kw TEXT,
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
           updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )
@@ -82,6 +84,18 @@ export async function ensureSchema(): Promise<void> {
       await sql`
         ALTER TABLE install_requests
         ADD COLUMN IF NOT EXISTS exact_address TEXT
+      `;
+      await sql`
+        ALTER TABLE panels
+        ADD COLUMN IF NOT EXISTS phases TEXT
+      `;
+      await sql`
+        ALTER TABLE panels
+        ADD COLUMN IF NOT EXISTS power_kw TEXT
+      `;
+      await sql`
+        ALTER TABLE panels
+        ALTER COLUMN safety DROP NOT NULL
       `;
       await sql`
         CREATE TABLE IF NOT EXISTS master_applications (
@@ -128,11 +142,13 @@ type PanelRow = {
   address: string;
   last_check: string;
   breakers: number;
-  safety: number;
+  safety: number | null;
   devices: Device[] | null;
   lines_count: number | null;
   photo_data_url: string | null;
   named: boolean;
+  phases: string | null;
+  power_kw: string | null;
   created_at: string;
 };
 
@@ -169,6 +185,9 @@ function rowToPanel(row: PanelRow): PanelObject {
     linesCount: row.lines_count ?? undefined,
     photoDataUrl: row.photo_data_url ?? undefined,
     named: row.named,
+    phases:
+      row.phases === "1" || row.phases === "3" ? row.phases : undefined,
+    powerKw: row.power_kw ?? undefined,
   };
 }
 
@@ -212,7 +231,7 @@ export async function listHomeItems(
   const panels = (await sql`
     SELECT
       id, type, title, address, last_check, breakers, safety,
-      devices, lines_count, photo_data_url, named, created_at
+      devices, lines_count, photo_data_url, named, phases, power_kw, created_at
     FROM panels
     WHERE telegram_user_id = ${telegramUserId}
   `) as PanelRow[];
@@ -251,7 +270,8 @@ export async function insertPanel(
   await sql`
     INSERT INTO panels (
       id, telegram_user_id, type, title, address, last_check, breakers, safety,
-      devices, lines_count, photo_data_url, named, created_at, updated_at
+      devices, lines_count, photo_data_url, named, phases, power_kw,
+      created_at, updated_at
     ) VALUES (
       ${panel.id},
       ${telegramUserId},
@@ -265,6 +285,8 @@ export async function insertPanel(
       ${panel.linesCount ?? null},
       ${null},
       ${panel.named ?? false},
+      ${panel.phases ?? null},
+      ${panel.powerKw ?? null},
       NOW(),
       NOW()
     )
@@ -277,6 +299,8 @@ export async function insertPanel(
       devices = EXCLUDED.devices,
       lines_count = EXCLUDED.lines_count,
       named = EXCLUDED.named,
+      phases = EXCLUDED.phases,
+      power_kw = EXCLUDED.power_kw,
       updated_at = NOW()
     WHERE panels.telegram_user_id = ${telegramUserId}
   `;
@@ -286,7 +310,12 @@ export async function insertPanel(
 export async function updatePanel(
   telegramUserId: number,
   id: string,
-  patch: Partial<Pick<PanelObject, "title" | "named" | "address">>,
+  patch: Partial<
+    Pick<
+      PanelObject,
+      "title" | "named" | "address" | "safety" | "phases" | "powerKw"
+    >
+  >,
 ): Promise<PanelObject | null> {
   const sql = getSql();
   const rows = (await sql`
@@ -294,11 +323,14 @@ export async function updatePanel(
       title = COALESCE(${patch.title ?? null}, title),
       named = COALESCE(${patch.named ?? null}, named),
       address = COALESCE(${patch.address ?? null}, address),
+      safety = COALESCE(${patch.safety ?? null}, safety),
+      phases = COALESCE(${patch.phases ?? null}, phases),
+      power_kw = COALESCE(${patch.powerKw ?? null}, power_kw),
       updated_at = NOW()
     WHERE id = ${id} AND telegram_user_id = ${telegramUserId}
     RETURNING
       id, type, title, address, last_check, breakers, safety,
-      devices, lines_count, photo_data_url, named, created_at
+      devices, lines_count, photo_data_url, named, phases, power_kw, created_at
   `) as PanelRow[];
   return rows[0] ? rowToPanel(rows[0]) : null;
 }

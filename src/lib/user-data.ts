@@ -128,7 +128,12 @@ export async function persistPanel(panel: PanelObject): Promise<void> {
 
 export async function persistPanelPatch(
   id: string,
-  patch: Partial<Pick<PanelObject, "title" | "named" | "address">>,
+  patch: Partial<
+    Pick<
+      PanelObject,
+      "title" | "named" | "address" | "safety" | "phases" | "powerKw"
+    >
+  >,
 ): Promise<void> {
   return enqueuePanelOp(id, async () => {
     const items = readLocalItems().map((item) =>

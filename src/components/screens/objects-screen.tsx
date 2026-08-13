@@ -177,15 +177,19 @@ function HomeListCard({
               >
                 {item.title}
               </h2>
-              {isRequest ? (
-                <span className="shrink-0 rounded-full bg-rose-500/15 px-2 py-0.5 text-[11px] font-medium text-rose-700">
-                  {item.statusLabel}
-                </span>
-              ) : (
-                <span className="shrink-0 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
-                  {item.safety}%
-                </span>
-              )}
+                          {isRequest ? (
+                            <span className="shrink-0 rounded-full bg-rose-500/15 px-2 py-0.5 text-[11px] font-medium text-rose-700">
+                              {item.statusLabel}
+                            </span>
+                          ) : (
+                            <span className="shrink-0 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
+                              {item.phases &&
+                              item.powerKw?.trim() &&
+                              typeof item.safety === "number"
+                                ? `${item.safety}%`
+                                : "—"}
+                            </span>
+                          )}
             </div>
             <p
               className={cn(

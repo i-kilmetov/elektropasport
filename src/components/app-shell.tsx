@@ -194,7 +194,7 @@ export function AppShell() {
         address: "Добавлен по фото",
         lastCheck,
         breakers: result.devices.length,
-        safety: result.safetyScore,
+        safety: null,
         devices: result.devices,
         linesCount: result.linesCount,
         photoDataUrl: photoDataUrl ?? undefined,
@@ -215,7 +215,7 @@ export function AppShell() {
       setActivePanelId(id);
       setAskNameOnBack(true);
       setDevices(result.devices);
-      setSafetyScore(result.safetyScore);
+      setSafetyScore(null);
       setLinesCount(result.linesCount);
       setRailCount(result.railCount ?? 1);
       hapticNotification("success");
@@ -234,7 +234,11 @@ export function AppShell() {
       setAskNameOnBack(false);
       setPhotoDataUrl(panel?.photoDataUrl ?? null);
       setDevices(panel?.devices ?? null);
-      setSafetyScore(panel?.safety ?? null);
+      setSafetyScore(
+        panel?.phases && panel.powerKw?.trim() && typeof panel.safety === "number"
+          ? panel.safety
+          : null,
+      );
       setLinesCount(panel?.linesCount ?? null);
       setRailCount(panel?.railCount ?? 1);
       go("scheme");
@@ -378,6 +382,38 @@ export function AppShell() {
           );
           const next = { ...item, devices: nextDevices };
           void persistPanel(next).catch((error) => console.error(error));
+          return next;
+        }),
+      );
+    },
+    [activePanelId],
+  );
+
+  const assessPanelSafety = useCallback(
+    (payload: { phases: "1" | "3"; powerKw: string; safety: number }) => {
+      if (!activePanelId) return;
+      setSafetyScore(payload.safety);
+      setItems((prev) =>
+        prev.map((item) => {
+          if (item.kind !== "panel" || item.id !== activePanelId) return item;
+          const next = {
+            ...item,
+            phases: payload.phases,
+            powerKw: payload.powerKw,
+            safety: payload.safety,
+          };
+          void persistPanelPatch(activePanelId, {
+            phases: payload.phases,
+            powerKw: payload.powerKw,
+            safety: payload.safety,
+          }).catch((error) => {
+            console.error(error);
+            setItemsError(
+              error instanceof Error
+                ? error.message
+                : "Не удалось сохранить оценку безопасности",
+            );
+          });
           return next;
         }),
       );
@@ -612,8 +648,11 @@ export function AppShell() {
               onDelete={deletePanel}
               onAssignCircuit={assignCircuitLabel}
               onToggleDevicePower={toggleDevicePower}
+              onAssessSafety={assessPanelSafety}
               devices={devices ?? undefined}
-              safetyScore={safetyScore ?? undefined}
+              safetyScore={safetyScore}
+              phases={activePanel?.phases}
+              powerKw={activePanel?.powerKw}
               linesCount={linesCount ?? undefined}
               railCount={railCount ?? undefined}
             />

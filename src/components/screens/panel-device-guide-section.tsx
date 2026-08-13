@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Check, ChevronDown } from "lucide-react";
 import { BrandMark } from "@/components/icons/brand-mark";
@@ -22,7 +22,7 @@ function PreviewWithCount({
   count: number;
 }) {
   return (
-    <div className="flex shrink-0 flex-col items-center">
+    <div className="flex w-14 shrink-0 flex-col items-center">
       <DeviceMiniPreview
         device={device}
         scale={0.36}
@@ -41,6 +41,46 @@ function PreviewWithCount({
         </span>
       )}
     </div>
+  );
+}
+
+function GuideRow({
+  sample,
+  count,
+  title,
+  body,
+  badge,
+  dashed = false,
+}: {
+  sample: Device;
+  count: number;
+  title: string;
+  body: string;
+  badge: ReactNode;
+  dashed?: boolean;
+}) {
+  return (
+    <li
+      className={cn(
+        "relative rounded-[16px] bg-zinc-50 px-3 py-3 pr-[4.75rem]",
+        dashed
+          ? "border border-dashed border-black/8"
+          : "border border-black/[0.06]",
+      )}
+    >
+      <div className="absolute right-2.5 top-2.5 z-[1]">{badge}</div>
+      <div className="flex items-start gap-3">
+        <PreviewWithCount device={sample} count={count} />
+        <div className="min-w-0 flex-1 pt-0.5">
+          <span className="block text-[15px] font-semibold text-zinc-900">
+            {title}
+          </span>
+          <p className="mt-1.5 text-[13px] leading-relaxed text-zinc-500">
+            {body}
+          </p>
+        </div>
+      </div>
+    </li>
   );
 }
 
@@ -96,25 +136,18 @@ export function PanelDeviceGuideSection({ devices }: { devices: Device[] }) {
                 {present.length > 0 && (
                   <ul className="space-y-3">
                     {present.map(({ type, count, guide, sample }) => (
-                      <li
+                      <GuideRow
                         key={type}
-                        className="rounded-[16px] border border-black/[0.06] bg-zinc-50 px-3 py-3"
-                      >
-                        <div className="flex gap-2.5">
-                          <span className="mt-3 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-600">
+                        sample={sample}
+                        count={count}
+                        title={guide.title}
+                        body={guide.role}
+                        badge={
+                          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-600">
                             <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
                           </span>
-                          <PreviewWithCount device={sample} count={count} />
-                          <div className="min-w-0 flex-1">
-                            <span className="text-[15px] font-semibold text-zinc-900">
-                              {guide.title}
-                            </span>
-                            <p className="mt-1.5 text-[13px] leading-relaxed text-zinc-500">
-                              {guide.role}
-                            </p>
-                          </div>
-                        </div>
-                      </li>
+                        }
+                      />
                     ))}
                   </ul>
                 )}
@@ -132,29 +165,23 @@ export function PanelDeviceGuideSection({ devices }: { devices: Device[] }) {
                     </div>
                     <ul className="space-y-3">
                       {missing.map(({ type, guide, sample }) => (
-                        <li
+                        <GuideRow
                           key={type}
-                          className="relative rounded-[16px] border border-dashed border-black/8 bg-zinc-50 px-3 py-3"
-                        >
-                          <button
-                            type="button"
-                            onClick={() => setPickerType(type)}
-                            className="absolute right-3 top-3 rounded-full border border-black/10 bg-zinc-100 px-2.5 py-1 text-[11px] font-semibold text-zinc-700 transition-colors hover:bg-zinc-200"
-                          >
-                            Выбрать
-                          </button>
-                          <div className="flex gap-3 pr-16">
-                            <PreviewWithCount device={sample} count={1} />
-                            <div className="min-w-0 flex-1">
-                              <span className="text-[15px] font-semibold text-zinc-800">
-                                {guide.title}
-                              </span>
-                              <p className="mt-1.5 text-[13px] leading-relaxed text-zinc-500">
-                                {guide.benefit}
-                              </p>
-                            </div>
-                          </div>
-                        </li>
+                          sample={sample}
+                          count={1}
+                          title={guide.title}
+                          body={guide.benefit}
+                          dashed
+                          badge={
+                            <button
+                              type="button"
+                              onClick={() => setPickerType(type)}
+                              className="rounded-full border border-black/10 bg-zinc-100 px-2.5 py-1 text-[11px] font-semibold text-zinc-700 transition-colors hover:bg-zinc-200"
+                            >
+                              Выбрать
+                            </button>
+                          }
+                        />
                       ))}
                     </ul>
                   </>

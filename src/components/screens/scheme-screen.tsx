@@ -25,13 +25,18 @@ import { GlassCard } from "@/components/ui/glass-card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Progress } from "@/components/ui/progress";
 import { SpecCharacteristicCard } from "@/components/ui/spec-info-button";
+import { SafetyParamsSheet } from "@/components/ui/safety-params-sheet";
 import { circuitIdentifySteps } from "@/lib/device-catalog";
 import { PanelDeviceGuideSection } from "@/components/screens/panel-device-guide-section";
 import {
   devices as mockDevices,
   linesCount as mockLinesCount,
-  safetyScore as mockSafetyScore,
 } from "@/lib/mock-data";
+import {
+  computePanelSafetyScore,
+  safetyLabel,
+  safetyScoreDisclaimer,
+} from "@/lib/safety-score";
 import { cn } from "@/lib/utils";
 import type { Device, DeviceType } from "@/types";
 
@@ -329,12 +334,6 @@ function NameDialog({
   );
 }
 
-function safetyLabel(score: number): string {
-  if (score >= 80) return "хороший";
-  if (score >= 60) return "средний";
-  return "низкий";
-}
-
 export function SchemeScreen({
   title = "Щиток",
   photoDataUrl,
@@ -344,8 +343,11 @@ export function SchemeScreen({
   onDelete,
   onAssignCircuit,
   onToggleDevicePower,
+  onAssessSafety,
   devices: devicesProp,
   safetyScore: safetyProp,
+  phases,
+  powerKw,
   linesCount: linesProp,
   railCount,
 }: {
@@ -357,14 +359,23 @@ export function SchemeScreen({
   onDelete: () => void;
   onAssignCircuit?: (deviceId: number, label: string) => void;
   onToggleDevicePower?: (deviceId: number) => void;
+  onAssessSafety?: (payload: {
+    phases: "1" | "3";
+    powerKw: string;
+    safety: number;
+  }) => void;
   devices?: Device[];
-  safetyScore?: number;
+  safetyScore?: number | null;
+  phases?: "1" | "3";
+  powerKw?: string;
   linesCount?: number;
   railCount?: number;
 }) {
   const devices =
     devicesProp && devicesProp.length > 0 ? devicesProp : mockDevices;
-  const safetyScore = safetyProp ?? mockSafetyScore;
+  const safetyKnown =
+    Boolean(phases && powerKw?.trim()) && typeof safetyProp === "number";
+  const safetyScore = safetyKnown ? safetyProp : null;
   const linesCount = linesProp ?? mockLinesCount;
 
   const [tab, setTab] = useState<"scheme" | "photo">("scheme");
@@ -375,6 +386,7 @@ export function SchemeScreen({
   const [renameOpen, setRenameOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [nameOnBackOpen, setNameOnBackOpen] = useState(false);
+  const [safetyOpen, setSafetyOpen] = useState(false);
   const selected = devices.find((d) => d.id === selectedId) ?? null;
 
   const allRailDevices = devices.filter(
@@ -637,17 +649,47 @@ export function SchemeScreen({
               <Shield className="h-3.5 w-3.5 text-emerald-500" />
               Уровень безопасности
             </div>
-            <div className="flex items-end gap-2">
-              <span className="text-[28px] font-bold tabular-nums text-emerald-600">
-                {safetyScore}%
-              </span>
-              <span className="mb-1.5 text-[12px] text-zinc-500">
-                {safetyLabel(safetyScore)}
-              </span>
-            </div>
-            <Progress value={safetyScore} className="mt-2 h-1.5" />
+            {safetyKnown && typeof safetyScore === "number" ? (
+              <>
+                <div className="flex items-end gap-2">
+                  <span className="text-[28px] font-bold tabular-nums text-emerald-600">
+                    {safetyScore}%
+                  </span>
+                  <span className="mb-1.5 text-[12px] text-zinc-500">
+                    {safetyLabel(safetyScore)}
+                  </span>
+                </div>
+                <Progress value={safetyScore} className="mt-2 h-1.5" />
+                <button
+                  type="button"
+                  onClick={() => setSafetyOpen(true)}
+                  className="mt-2 text-[12px] font-medium text-zinc-500 underline decoration-zinc-300 underline-offset-2 hover:text-zinc-800"
+                >
+                  Изменить параметры
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="text-[22px] font-bold text-zinc-400">Неизвестен</div>
+                <p className="mt-1 text-[11px] leading-snug text-zinc-400">
+                  Нужны фазы и выделенная мощность
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setSafetyOpen(true)}
+                  className="mt-2 text-[12px] font-semibold text-[var(--accent)]"
+                >
+                  Указать параметры
+                </button>
+              </>
+            )}
           </GlassCard>
         </div>
+        {safetyKnown && (
+          <p className="mt-3 text-[11px] leading-relaxed text-zinc-400">
+            {safetyScoreDisclaimer}
+          </p>
+        )}
       </div>
 
       <AnimatePresence>
@@ -724,6 +766,30 @@ export function SchemeScreen({
             onConfirm={() => {
               setDeleteOpen(false);
               onDelete();
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {safetyOpen && (
+          <SafetyParamsSheet
+            initialPhases={phases}
+            initialPowerKw={powerKw}
+            onCancel={() => setSafetyOpen(false)}
+            onConfirm={({ phases: nextPhases, powerKw: nextPower }) => {
+              const powerNum = Number(nextPower.replace(",", "."));
+              const safety = computePanelSafetyScore(
+                allRailDevices,
+                nextPhases,
+                powerNum,
+              );
+              onAssessSafety?.({
+                phases: nextPhases,
+                powerKw: nextPower,
+                safety,
+              });
+              setSafetyOpen(false);
             }}
           />
         )}

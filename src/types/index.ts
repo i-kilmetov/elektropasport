@@ -45,13 +45,18 @@ export interface PanelObject {
   address: string;
   lastCheck: string;
   breakers: number;
-  safety: number;
+  /** null / omitted until user provides phases + power and score is computed */
+  safety: number | null;
   devices?: Device[];
   linesCount?: number;
   photoDataUrl?: string;
   named?: boolean;
   /** Number of DIN rails (rows) in the panel, 1–4 */
   railCount?: number;
+  /** Declared supply phases for safety assessment */
+  phases?: "1" | "3";
+  /** Declared allocated power in kW */
+  powerKw?: string;
 }
 
 export type InstallRequestStatus =

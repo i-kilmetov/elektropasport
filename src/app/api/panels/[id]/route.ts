@@ -21,7 +21,10 @@ export async function PATCH(request: Request, context: RouteContext) {
 
     const { id } = await context.params;
     const body = (await request.json()) as Partial<
-      Pick<PanelObject, "title" | "named" | "address">
+      Pick<
+        PanelObject,
+        "title" | "named" | "address" | "safety" | "phases" | "powerKw"
+      >
     >;
 
     const panel = await updatePanel(user.telegramId, id, body);
