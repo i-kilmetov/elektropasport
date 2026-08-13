@@ -11,6 +11,7 @@ import {
   MapPin,
   Phone,
 } from "lucide-react";
+import { RequestTicket } from "@/components/icons/request-ticket";
 import { TelegramAppIcon } from "@/components/icons/telegram-app-icon";
 import type {
   DwellingType,
@@ -18,7 +19,9 @@ import type {
 } from "@/components/screens/electrical-details-screen";
 import { Button } from "@/components/ui/button";
 import { hapticImpact, hapticNotification } from "@/lib/haptics";
-import { filterCities } from "@/lib/cities";
+import { completeCity } from "@/lib/cities";
+import { allocateRequestPublicCode } from "@/lib/user-data";
+import type { RequestTypeCode } from "@/lib/request-codes";
 import {
   clearPendingInstallLead,
   writePendingInstallLead,
@@ -44,6 +47,7 @@ export type LeadFinishPayload = {
   phases?: PhaseCount;
   powerKw?: string;
   setupTitle?: string;
+  publicCode?: string;
 };
 
 export function LeadContactScreen({
@@ -52,12 +56,14 @@ export function LeadContactScreen({
   onGoHome,
   variant = "install",
   setupTitle,
+  typeCode = "U",
 }: {
   onBack: () => void;
   onFinish: (payload: LeadFinishPayload) => void | Promise<void>;
   onGoHome: () => void;
   variant?: "install" | "master";
   setupTitle?: string;
+  typeCode?: RequestTypeCode;
 }) {
   const [step, setStep] = useState<Step>("contact");
   const [digits, setDigits] = useState(
@@ -68,7 +74,8 @@ export function LeadContactScreen({
   const [displayName, setDisplayName] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [cityQuery, setCityQuery] = useState("");
-  const [cityPicked, setCityPicked] = useState(false);
+  const [publicCode, setPublicCode] = useState<string | null>(null);
+  const [detailsToast, setDetailsToast] = useState(false);
   const [dwelling, setDwelling] = useState<DwellingType | null>(null);
   const [phases, setPhases] = useState<PhaseCount | null>(null);
   const [powerKw, setPowerKw] = useState("");
@@ -80,11 +87,9 @@ export function LeadContactScreen({
   const phoneValid = digits.length === 10;
   const canSubmit = phoneValid && consent && !submitting;
 
-  const citySuggestions = useMemo(() => {
-    const trimmed = cityQuery.trim();
-    if (trimmed.length < 2) return [];
-    return filterCities(trimmed);
-  }, [cityQuery]);
+  const hasDetails = Boolean(
+    cityQuery.trim() || dwelling || phases || powerKw.trim(),
+  );
 
   const syncPending = (patch: Partial<PendingInstallLead>) => {
     const current = pendingRef.current;
@@ -144,20 +149,33 @@ export function LeadContactScreen({
       return;
     }
 
-    const draft: PendingInstallLead = {
-      id: `request-${Date.now()}`,
-      contactMethod: preferTelegram ? "telegram" : "phone",
-      phone: `+7${digits}`,
-      name,
-      setupTitle,
-    };
-    pendingRef.current = draft;
-    writePendingInstallLead(draft);
-    setStep("done");
+    setSubmitting(true);
+    try {
+      const code = await allocateRequestPublicCode(typeCode);
+      const draft: PendingInstallLead = {
+        id: `request-${Date.now()}`,
+        contactMethod: preferTelegram ? "telegram" : "phone",
+        phone: `+7${digits}`,
+        name,
+        setupTitle,
+        publicCode: code,
+      };
+      pendingRef.current = draft;
+      writePendingInstallLead(draft);
+      setPublicCode(code);
+      setStep("done");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const goHome = () => {
     flushLead();
+    if (hasDetails) {
+      setDetailsToast(true);
+      window.setTimeout(() => onGoHome(), 1400);
+      return;
+    }
     onGoHome();
   };
 
@@ -167,33 +185,25 @@ export function LeadContactScreen({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="flex min-h-dvh flex-col px-5 pb-8 pt-[max(2rem,env(safe-area-inset-top))]"
+        className="relative flex min-h-dvh flex-col px-5 pb-8 pt-[max(2rem,env(safe-area-inset-top))]"
       >
         <div className="mb-5 flex flex-col items-center text-center">
-          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-600">
-            <Check className="h-8 w-8" />
-          </div>
+          {variant === "install" && publicCode ? (
+            <div className="mb-4 w-full">
+              <RequestTicket publicCode={publicCode} />
+            </div>
+          ) : (
+            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-600">
+              <Check className="h-8 w-8" />
+            </div>
+          )}
           <h1 className="mb-2 text-[24px] font-bold text-zinc-900">
             {variant === "master" ? "Заявка отправлена" : "Заявка принята"}
           </h1>
           <p className="max-w-sm text-[15px] leading-relaxed text-zinc-500">
-            {variant === "master" ? (
-              <>
-                Спасибо{displayName ? `, ${displayName}` : ""}! Мы получили вашу
-                заявку и свяжемся для обсуждения сотрудничества.
-              </>
-            ) : preferTelegram ? (
-              <>
-                Спасибо{displayName ? `, ${displayName}` : ""}! Напишем вам в
-                Telegram, если сообщения от всех открыты. Если закрыты —
-                позвоним на указанный номер.
-              </>
-            ) : (
-              <>
-                Спасибо{displayName ? `, ${displayName}` : ""}! Мастер свяжется
-                с вами по телефону в ближайшее время.
-              </>
-            )}
+            {variant === "master"
+              ? `Спасибо${displayName ? `, ${displayName}` : ""}! Мы получили вашу заявку и свяжемся для обсуждения сотрудничества.`
+              : "Свяжемся с вами в ближайшее время."}
           </p>
         </div>
 
@@ -217,9 +227,25 @@ export function LeadContactScreen({
                 <input
                   value={cityQuery}
                   onChange={(e) => {
-                    const next = e.target.value;
+                    const input = e.target;
+                    const next = input.value;
+                    const native = e.nativeEvent as InputEvent;
+                    const deleting = native.inputType?.startsWith("delete");
+                    if (deleting || next.trim().length < 2) {
+                      setCityQuery(next);
+                      syncPending({ city: next.trim() || undefined });
+                      return;
+                    }
+                    const match = completeCity(next);
+                    if (match && match !== next) {
+                      setCityQuery(match);
+                      syncPending({ city: match });
+                      requestAnimationFrame(() => {
+                        input.setSelectionRange(next.length, match.length);
+                      });
+                      return;
+                    }
                     setCityQuery(next);
-                    setCityPicked(false);
                     syncPending({ city: next.trim() || undefined });
                   }}
                   placeholder="Например, Казань"
@@ -227,25 +253,6 @@ export function LeadContactScreen({
                   className="h-12 w-full rounded-[20px] border border-black/8 bg-zinc-50 pl-11 pr-4 text-[15px] text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-[var(--accent)]/50"
                 />
               </label>
-              {!cityPicked && citySuggestions.length > 0 && (
-                <ul className="mt-2 overflow-hidden rounded-[18px] border border-black/8 bg-white">
-                  {citySuggestions.map((city) => (
-                    <li key={city}>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setCityQuery(city);
-                          setCityPicked(true);
-                          syncPending({ city });
-                        }}
-                        className="flex w-full px-4 py-2.5 text-left text-[15px] text-zinc-700 hover:bg-zinc-50"
-                      >
-                        {city}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
             </div>
 
             <div>
@@ -345,10 +352,31 @@ export function LeadContactScreen({
         )}
 
         <div className="mt-auto shrink-0 pt-2">
-          <Button className="w-full" size="lg" onClick={goHome}>
-            На главную
+          <Button
+            className="w-full"
+            size="lg"
+            disabled={detailsToast}
+            onClick={goHome}
+          >
+            {hasDetails ? "Отправить и на главную" : "На главную"}
           </Button>
         </div>
+
+        <AnimatePresence>
+          {detailsToast && (
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: [0, 1, 1, 0], y: 0 }}
+              transition={{ duration: 1.3, times: [0, 0.12, 0.72, 1] }}
+              exit={{ opacity: 0 }}
+              className="pointer-events-none absolute inset-x-5 bottom-[max(6.5rem,env(safe-area-inset-bottom))] z-20"
+            >
+              <div className="rounded-[18px] bg-zinc-900 px-4 py-3 text-center text-[14px] font-medium text-white shadow-lg">
+                Детали к заявке отправлены
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.section>
     );
   }

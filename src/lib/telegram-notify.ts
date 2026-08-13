@@ -83,6 +83,7 @@ function formatInstallRequestMessage(
   const lines = [
     extras?.headline ?? "🔌 Новая заявка на установку щитка",
     "",
+    request.publicCode ? `Номер: ${request.publicCode}` : null,
     `Статус: ${request.statusLabel}`,
     `Имя: ${request.name}`,
     `Контакт: ${contact}`,

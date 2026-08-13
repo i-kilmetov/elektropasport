@@ -186,6 +186,9 @@ export function RequestDetailsScreen({
         : "—";
 
   const rows: Array<[string, string]> = [
+    ...(request.publicCode
+      ? ([["Номер заявки", request.publicCode]] as Array<[string, string]>)
+      : []),
     ...(request.city && request.city !== "—"
       ? ([["Город", request.city]] as Array<[string, string]>)
       : []),
@@ -231,7 +234,7 @@ export function RequestDetailsScreen({
           <ArrowLeft className="h-5 w-5" />
         </button>
         <h1 className="flex-1 truncate text-center text-[20px] font-semibold text-zinc-900">
-          Детали заявки
+          {request.publicCode ?? "Детали заявки"}
         </h1>
         <div className="relative">
           <button

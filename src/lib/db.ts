@@ -9,6 +9,10 @@ import type {
 } from "@/types";
 import { installStatusLabels } from "@/types";
 import type { ValidatedTelegramUser } from "@/lib/telegram-auth";
+import {
+  formatRequestPublicCode,
+  type RequestTypeCode,
+} from "@/lib/request-codes";
 
 let schemaReady: Promise<void> | null = null;
 
@@ -84,6 +88,16 @@ export async function ensureSchema(): Promise<void> {
       await sql`
         ALTER TABLE install_requests
         ADD COLUMN IF NOT EXISTS exact_address TEXT
+      `;
+      await sql`
+        ALTER TABLE install_requests
+        ADD COLUMN IF NOT EXISTS public_code TEXT
+      `;
+      await sql`
+        CREATE TABLE IF NOT EXISTS request_code_counters (
+          type_code TEXT PRIMARY KEY,
+          last_number INT NOT NULL DEFAULT 0
+        )
       `;
       await sql`
         ALTER TABLE panels
@@ -168,6 +182,7 @@ type RequestRow = {
   power_kw: string | null;
   setup_title: string | null;
   exact_address: string | null;
+  public_code: string | null;
   created_at: string;
 };
 
@@ -221,6 +236,7 @@ function rowToRequest(row: RequestRow): InstallRequest {
     powerKw: row.power_kw ?? undefined,
     setupTitle: row.setup_title ?? undefined,
     exactAddress: row.exact_address ?? undefined,
+    publicCode: row.public_code ?? undefined,
   };
 }
 
@@ -240,7 +256,7 @@ export async function listHomeItems(
     SELECT
       id, title, subtitle, status, status_label, created_at_label,
       city, contact_method, phone, name, dwelling, phases, power_kw,
-      setup_title, exact_address, created_at
+      setup_title, exact_address, public_code, created_at
     FROM install_requests
     WHERE telegram_user_id = ${telegramUserId}
   `) as RequestRow[];
@@ -348,6 +364,21 @@ export async function deletePanel(
   return rows.length > 0;
 }
 
+export async function allocateRequestPublicCode(
+  typeCode: RequestTypeCode,
+): Promise<string> {
+  const sql = getSql();
+  const rows = (await sql`
+    INSERT INTO request_code_counters (type_code, last_number)
+    VALUES (${typeCode}, 1)
+    ON CONFLICT (type_code) DO UPDATE
+    SET last_number = request_code_counters.last_number + 1
+    RETURNING last_number
+  `) as Array<{ last_number: number }>;
+  const sequence = Number(rows[0]?.last_number ?? 1);
+  return formatRequestPublicCode(typeCode, sequence);
+}
+
 export async function insertInstallRequest(
   telegramUserId: number,
   request: InstallRequest,
@@ -357,7 +388,7 @@ export async function insertInstallRequest(
     INSERT INTO install_requests (
       id, telegram_user_id, title, subtitle, status, status_label,
       created_at_label, city, contact_method, phone, name,
-      dwelling, phases, power_kw, setup_title, created_at
+      dwelling, phases, power_kw, setup_title, public_code, created_at
     ) VALUES (
       ${request.id},
       ${telegramUserId},
@@ -374,6 +405,7 @@ export async function insertInstallRequest(
       ${request.phases ?? null},
       ${request.powerKw ?? null},
       ${request.setupTitle ?? null},
+      ${request.publicCode ?? null},
       NOW()
     )
   `;
@@ -398,7 +430,7 @@ export async function updateInstallRequest(
     RETURNING
       id, title, subtitle, status, status_label, created_at_label,
       city, contact_method, phone, name, dwelling, phases, power_kw,
-      setup_title, exact_address, created_at
+      setup_title, exact_address, public_code, created_at
   `) as RequestRow[];
   return rows[0] ? rowToRequest(rows[0]) : null;
 }
@@ -411,7 +443,7 @@ export async function getInstallRequestById(
     SELECT
       id, telegram_user_id, title, subtitle, status, status_label, created_at_label,
       city, contact_method, phone, name, dwelling, phases, power_kw,
-      setup_title, exact_address, created_at
+      setup_title, exact_address, public_code, created_at
     FROM install_requests
     WHERE id = ${id}
     LIMIT 1
@@ -442,7 +474,7 @@ export async function adminUpdateInstallRequest(
     RETURNING
       id, title, subtitle, status, status_label, created_at_label,
       city, contact_method, phone, name, dwelling, phases, power_kw,
-      setup_title, exact_address, created_at
+      setup_title, exact_address, public_code, created_at
   `) as RequestRow[];
   return rows[0] ? rowToRequest(rows[0]) : null;
 }

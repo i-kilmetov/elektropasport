@@ -183,7 +183,7 @@ function HomeListCard({
                   isRequest ? "text-rose-900" : "text-zinc-900",
                 )}
               >
-                {item.title}
+                {isRequest && item.publicCode ? item.publicCode : item.title}
               </h2>
               {isRequest ? (
                 <span className="shrink-0 rounded-full bg-rose-500/15 px-2 py-0.5 text-[11px] font-medium text-rose-700">

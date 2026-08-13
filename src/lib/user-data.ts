@@ -3,6 +3,10 @@ import {
   authHeaders,
   canUseServerAuth,
 } from "@/lib/client-auth";
+import {
+  formatRequestPublicCode,
+  type RequestTypeCode,
+} from "@/lib/request-codes";
 
 const LOCAL_KEY = "elektropasport:home-items";
 
@@ -194,6 +198,52 @@ export async function persistDeletePanel(id: string): Promise<void> {
       throw new Error(await parseError(res));
     }
   });
+}
+
+const LOCAL_CODE_COUNTERS_KEY = "elektropasport:request-code-counters";
+
+function allocateLocalRequestPublicCode(typeCode: RequestTypeCode): string {
+  try {
+    const raw = localStorage.getItem(LOCAL_CODE_COUNTERS_KEY);
+    const counters = raw
+      ? (JSON.parse(raw) as Record<string, number>)
+      : {};
+    const next = (counters[typeCode] ?? 0) + 1;
+    counters[typeCode] = next;
+    localStorage.setItem(LOCAL_CODE_COUNTERS_KEY, JSON.stringify(counters));
+    return formatRequestPublicCode(typeCode, next);
+  } catch {
+    return formatRequestPublicCode(typeCode, Date.now() % 10000);
+  }
+}
+
+export async function allocateRequestPublicCode(
+  typeCode: RequestTypeCode,
+): Promise<string> {
+  if (!canUseServer()) {
+    return allocateLocalRequestPublicCode(typeCode);
+  }
+
+  try {
+    const res = await fetch("/api/install-requests/next-code", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeaders(),
+      },
+      body: JSON.stringify({ typeCode }),
+    });
+    if (!res.ok) {
+      return allocateLocalRequestPublicCode(typeCode);
+    }
+    const data = (await res.json()) as { publicCode?: string };
+    if (data.publicCode && /^[A-Z]-\d{4}$/.test(data.publicCode)) {
+      return data.publicCode;
+    }
+  } catch {
+    // fall through to local
+  }
+  return allocateLocalRequestPublicCode(typeCode);
 }
 
 export async function persistInstallRequest(

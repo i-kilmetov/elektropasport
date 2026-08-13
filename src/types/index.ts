@@ -82,6 +82,7 @@ export interface InstallRequest {
   powerKw?: string;
   setupTitle?: string;
   exactAddress?: string;
+  publicCode?: string;
 }
 
 export type HomeListItem = PanelObject | InstallRequest;

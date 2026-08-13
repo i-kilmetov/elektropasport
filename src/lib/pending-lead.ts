@@ -12,6 +12,7 @@ export type PendingInstallLead = {
   phases?: ElectricalDetails["phases"];
   powerKw?: string;
   setupTitle?: string;
+  publicCode?: string;
 };
 
 export function readPendingInstallLead(): PendingInstallLead | null {

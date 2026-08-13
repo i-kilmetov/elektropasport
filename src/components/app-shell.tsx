@@ -46,6 +46,7 @@ import {
   hapticNotification,
 } from "@/lib/haptics";
 import { getNoPanelSetup, type NoPanelSetupId } from "@/lib/no-panel-setups";
+import { resolveRequestTypeCode } from "@/lib/request-codes";
 import {
   fetchHomeItems,
   persistDeleteInstallRequest,
@@ -214,6 +215,7 @@ export function AppShell() {
     setElectricalDetails(null);
     setSelectedCity(null);
     setRequestNeedId(null);
+    setNoPanelSetupId(null);
     setLeadBackScreen("scheme");
     if (canUseServerAuth()) {
       go("lead-contact");
@@ -603,10 +605,11 @@ export function AppShell() {
       const request: InstallRequest = {
         kind: "install_request",
         id,
-        title: "Заявка",
+        title: payload.publicCode ?? "Заявка",
         subtitle: setupTitle
           ? `Заявка: ${setupTitle}`
           : "Заявка на установку щитка",
+        publicCode: payload.publicCode,
         status: "new",
         statusLabel: installStatusLabels.new,
         createdAt,
@@ -827,6 +830,11 @@ export function AppShell() {
                     ? getNoPanelSetup(noPanelSetupId).title
                     : undefined
               }
+              typeCode={resolveRequestTypeCode({
+                requestNeedId,
+                noPanelSetupId,
+                callMaster: leadBackScreen === "scheme",
+              })}
               onBack={() =>
                 go(leadFlow === "master" ? "city-select" : leadBackScreen)
               }
