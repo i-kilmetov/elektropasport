@@ -136,7 +136,7 @@ export function ProfileScreen({ onBack }: { onBack: () => void }) {
       initial={{ opacity: 0, x: 40 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -40 }}
-      className="relative flex min-h-dvh flex-col px-5 pb-8 pt-[max(1.25rem,env(safe-area-inset-top))]"
+      className="relative flex min-h-dvh min-w-0 flex-col overflow-x-hidden px-5 pb-8 pt-[max(1.25rem,env(safe-area-inset-top))]"
     >
       <header className="mb-6 flex items-center gap-3">
         <button
@@ -153,7 +153,7 @@ export function ProfileScreen({ onBack }: { onBack: () => void }) {
         </h1>
       </header>
 
-      <div className="flex-1 space-y-5 overflow-y-auto pb-4">
+      <div className="min-w-0 flex-1 space-y-5 overflow-x-hidden overflow-y-auto pb-4">
         <GlassCard className="flex items-center gap-4 p-4">
           <button
             type="button"
@@ -175,12 +175,12 @@ export function ProfileScreen({ onBack }: { onBack: () => void }) {
           </div>
         </GlassCard>
 
-        <div>
+        <div className="min-w-0">
           <h3 className="mb-2 text-[14px] font-medium text-zinc-600">
             Дополнительно
           </h3>
-          <GlassCard className="space-y-4 p-4">
-            <label className="block">
+          <GlassCard className="space-y-4 overflow-hidden p-4">
+            <label className="block min-w-0">
               <span className="mb-1.5 block text-[13px] text-zinc-500">
                 Дата рождения
               </span>
@@ -188,7 +188,7 @@ export function ProfileScreen({ onBack }: { onBack: () => void }) {
                 type="date"
                 value={birthDate}
                 onChange={(e) => setBirthDate(e.target.value)}
-                className="h-12 w-full rounded-[16px] border border-black/8 bg-zinc-50 px-3 text-[15px] text-zinc-900 outline-none focus:border-zinc-300"
+                className="h-12 w-full min-w-0 max-w-full rounded-[16px] border border-black/8 bg-zinc-50 px-3 text-[15px] text-zinc-900 outline-none focus:border-zinc-300"
               />
             </label>
 
@@ -212,13 +212,15 @@ export function ProfileScreen({ onBack }: { onBack: () => void }) {
               </div>
             </div>
 
-            <label className="block">
+            <label className="block min-w-0">
               <span className="mb-1.5 block text-[13px] text-zinc-500">
                 Номер телефона
               </span>
-              <span className="flex h-12 items-center gap-2 rounded-[16px] border border-black/8 bg-zinc-50 px-3 focus-within:border-zinc-300">
+              <span className="flex h-12 min-w-0 items-center gap-2 rounded-[16px] border border-black/8 bg-zinc-50 px-3 focus-within:border-zinc-300">
                 <Phone className="h-4 w-4 shrink-0 text-zinc-500" />
-                <span className="text-[15px] font-medium text-zinc-700">+7</span>
+                <span className="shrink-0 text-[15px] font-medium text-zinc-700">
+                  +7
+                </span>
                 <input
                   inputMode="numeric"
                   value={phoneDisplay}
@@ -226,7 +228,7 @@ export function ProfileScreen({ onBack }: { onBack: () => void }) {
                     setDigits(e.target.value.replace(/\D/g, "").slice(0, 10));
                   }}
                   placeholder="999 000-00-00"
-                  className="h-full flex-1 bg-transparent text-[15px] text-zinc-900 outline-none placeholder:text-zinc-400"
+                  className="h-full min-w-0 flex-1 bg-transparent text-[15px] text-zinc-900 outline-none placeholder:text-zinc-400"
                 />
               </span>
               <span className="mt-1.5 block text-[12px] leading-relaxed text-zinc-400">

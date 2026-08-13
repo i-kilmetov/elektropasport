@@ -47,21 +47,45 @@ export function buildPanelShareUrl(token: string): string {
   return `https://t.me/${bot}?startapp=${encodeURIComponent(token)}`;
 }
 
-export async function sharePanelLink(url: string): Promise<"telegram" | "native" | "clipboard"> {
-  const text = "Щиток в Электропаспорте";
-  const telegramShare = `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`;
+const SHARE_TEXT = "Щиток в Электропаспорте";
+
+export async function shareViaNative(url: string): Promise<void> {
+  if (typeof navigator === "undefined" || !("share" in navigator)) {
+    throw new Error("Системное меню недоступно");
+  }
+  await navigator.share({ title: SHARE_TEXT, url, text: SHARE_TEXT });
+}
+
+export async function shareViaTelegram(url: string): Promise<void> {
+  const telegramShare = `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(SHARE_TEXT)}`;
   const webApp = window.Telegram?.WebApp as
-    | { openTelegramLink?: (link: string) => void }
+    | {
+        openTelegramLink?: (link: string) => void;
+        openLink?: (link: string) => void;
+      }
     | undefined;
 
   if (webApp?.openTelegramLink) {
     webApp.openTelegramLink(telegramShare);
-    return "telegram";
+    return;
   }
+  if (webApp?.openLink) {
+    webApp.openLink(telegramShare);
+    return;
+  }
+  window.open(telegramShare, "_blank", "noopener,noreferrer");
+}
 
-  if (typeof navigator !== "undefined" && navigator.share) {
+export async function copyShareLink(url: string): Promise<void> {
+  await navigator.clipboard.writeText(url);
+}
+
+export async function sharePanelLink(
+  url: string,
+): Promise<"telegram" | "native" | "clipboard"> {
+  if (typeof navigator !== "undefined" && "share" in navigator) {
     try {
-      await navigator.share({ title: text, url, text });
+      await shareViaNative(url);
       return "native";
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") {
@@ -70,6 +94,6 @@ export async function sharePanelLink(url: string): Promise<"telegram" | "native"
     }
   }
 
-  await navigator.clipboard.writeText(url);
+  await copyShareLink(url);
   return "clipboard";
 }

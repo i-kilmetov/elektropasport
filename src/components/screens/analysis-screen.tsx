@@ -111,13 +111,12 @@ export function AnalysisScreen({
             cy="80"
             r="68"
             fill="none"
-            stroke="var(--accent)"
+            stroke="#3f3f46"
             strokeWidth="10"
             strokeLinecap="round"
             strokeDasharray={2 * Math.PI * 68}
             animate={{ strokeDashoffset: 2 * Math.PI * 68 * (1 - progress / 100) }}
             transition={{ ease: "easeOut", duration: 0.2 }}
-            style={{ filter: "drop-shadow(0 0 12px rgba(124,92,255,0.55))" }}
           />
         </svg>
         <div className="text-center">
@@ -139,7 +138,7 @@ export function AnalysisScreen({
                   done
                     ? "bg-emerald-500/15 text-emerald-600"
                     : active
-                      ? "bg-[var(--accent)]/20 text-[var(--accent)]"
+                      ? "bg-zinc-200 text-zinc-700"
                       : "bg-zinc-100 text-zinc-400"
                 }`}
               >
@@ -168,7 +167,7 @@ export function AnalysisScreen({
           <h2 className="text-[15px] font-medium text-zinc-600">
             Найденные устройства
           </h2>
-          <span className="text-[13px] tabular-nums text-[var(--accent)]">
+          <span className="text-[13px] tabular-nums text-zinc-600">
             {foundCount}
           </span>
         </div>

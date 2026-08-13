@@ -112,7 +112,7 @@ export function CatalogPickerSheet({
                   className={cn(
                     "flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] border transition-colors",
                     filtersOpen
-                      ? "border-[var(--accent)]/40 bg-[var(--accent)]/15 text-[var(--accent)]"
+                      ? "border-zinc-300 bg-zinc-200 text-zinc-700"
                       : "border-black/8 bg-zinc-100 text-zinc-600",
                   )}
                   aria-label="Фильтры"

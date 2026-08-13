@@ -87,7 +87,7 @@ export function FeedbackScreen({ onBack }: { onBack: () => void }) {
         </h1>
       </header>
 
-      <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-[20px] bg-[var(--accent)]/15 text-[var(--accent)]">
+      <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-[20px] bg-zinc-100 text-zinc-600">
         <MessageCircle className="h-8 w-8" />
       </div>
 

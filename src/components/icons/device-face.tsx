@@ -597,7 +597,7 @@ export function DeviceFace({
         "block origin-center p-0 select-none",
         lifted && "relative z-20",
         selected &&
-          "rounded-[8px] ring-2 ring-[var(--accent)] ring-offset-2 ring-offset-white",
+          "rounded-[8px] ring-2 ring-zinc-900 ring-offset-2 ring-offset-white",
       )}
       aria-pressed={isDevicePowered(device)}
     >

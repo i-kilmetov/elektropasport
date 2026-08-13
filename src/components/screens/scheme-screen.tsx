@@ -7,12 +7,12 @@ import {
   ImageIcon,
   MoreHorizontal,
   Pencil,
-  Share2,
   Shield,
   Trash2,
   X,
 } from "lucide-react";
 import { BrandMark } from "@/components/icons/brand-mark";
+import { IosShareIcon } from "@/components/icons/ios-share-icon";
 import { BreakerIcon } from "@/components/icons/breaker-icon";
 import {
   DeviceFace,
@@ -24,6 +24,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { ShareSheet } from "@/components/ui/share-sheet";
 import { Progress } from "@/components/ui/progress";
 import {
   HintInfoButton,
@@ -356,7 +357,7 @@ export function SchemeScreen({
   onSaveShared?: () => void;
   onBack: () => void;
   onRename: (name: string) => void;
-  onShare?: () => void;
+  onShare?: () => Promise<string>;
   onDelete: () => void;
   onAssignCircuit?: (deviceId: number, label: string) => void;
   onToggleDevicePower?: (deviceId: number) => void;
@@ -388,6 +389,7 @@ export function SchemeScreen({
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [nameOnBackOpen, setNameOnBackOpen] = useState(false);
   const [saveSharedOpen, setSaveSharedOpen] = useState(false);
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [safetyOpen, setSafetyOpen] = useState(false);
   const [safetyAssessing, setSafetyAssessing] = useState(false);
   const [safetyProgress, setSafetyProgress] = useState(0);
@@ -490,10 +492,13 @@ export function SchemeScreen({
                     className="flex w-full items-center gap-2 px-4 py-3 text-left text-[15px] text-zinc-900 hover:bg-zinc-50"
                     onClick={() => {
                       setMenuOpen(false);
-                      onShare?.();
+                      void (async () => {
+                        const url = await onShare?.();
+                        if (url) setShareUrl(url);
+                      })();
                     }}
                   >
-                    <Share2 className="h-4 w-4 text-zinc-600" />
+                    <IosShareIcon className="h-4 w-4 text-zinc-600" />
                     Поделиться
                   </button>
                   <button
@@ -694,7 +699,7 @@ export function SchemeScreen({
                 <button
                   type="button"
                   onClick={() => setSafetyOpen(true)}
-                  className="mt-2 text-[12px] font-semibold text-[var(--accent)]"
+                  className="mt-2 text-[12px] font-semibold text-zinc-700"
                 >
                   Указать параметры
                 </button>
@@ -770,6 +775,12 @@ export function SchemeScreen({
               onBack();
             }}
           />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {shareUrl && (
+          <ShareSheet url={shareUrl} onClose={() => setShareUrl(null)} />
         )}
       </AnimatePresence>
 

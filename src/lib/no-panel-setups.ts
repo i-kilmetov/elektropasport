@@ -76,7 +76,7 @@ export const riskCategoryMeta: Record<
   },
   action: {
     icon: LayoutGrid,
-    className: "text-[var(--accent)] bg-[var(--accent)]/15",
+    className: "text-zinc-600 bg-zinc-100",
   },
   opportunity: {
     icon: Sparkles,

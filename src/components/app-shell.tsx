@@ -64,7 +64,6 @@ import {
 import {
   getTelegramStartParam,
   isPanelShareToken,
-  sharePanelLink,
 } from "@/lib/panel-share";
 import type {
   AnalyzePanelResult,
@@ -435,20 +434,18 @@ export function AppShell() {
 
   const shareActivePanel = useCallback(async () => {
     const panelId = activePanelId ?? sharedPreview?.panel.id;
-    if (!panelId) return;
+    if (!panelId) return "";
     try {
       const { url } = await createPanelShare(panelId);
-      const method = await sharePanelLink(url);
-      if (method === "clipboard") {
-        hapticNotification("success");
-        setItemsError(null);
-      }
+      setItemsError(null);
+      return url;
     } catch (error) {
       setItemsError(
         error instanceof Error
           ? error.message
           : "Не удалось создать ссылку на щиток",
       );
+      return "";
     }
   }, [activePanelId, sharedPreview]);
 
@@ -822,13 +819,18 @@ export function AppShell() {
   return (
     <div
       className={cn(
-        "relative mx-auto w-full max-w-[430px] bg-[var(--bg)] text-zinc-900 shadow-[0_0_40px_rgba(17,17,19,0.06)]",
+        "relative mx-auto w-full max-w-[430px] shadow-[0_0_40px_rgba(17,17,19,0.06)]",
+        screen === "welcome"
+          ? "bg-black text-white"
+          : "bg-[var(--bg)] text-zinc-900",
         screen === "objects"
           ? "flex h-[var(--app-height,100dvh)] flex-col overflow-hidden"
           : "min-h-[var(--app-height,100dvh)] overflow-hidden",
       )}
     >
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(124,92,255,0.035),transparent_55%)]" />
+      {screen !== "welcome" && (
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(17,17,19,0.035),transparent_55%)]" />
+      )}
       <div
         className={cn(
           "relative z-10",
@@ -908,7 +910,7 @@ export function AppShell() {
                 go("objects");
               }}
               onSaveShared={saveSharedPanel}
-              onShare={() => void shareActivePanel()}
+              onShare={shareActivePanel}
               onRename={renamePanel}
               onDelete={deletePanel}
               onAssignCircuit={assignCircuitLabel}

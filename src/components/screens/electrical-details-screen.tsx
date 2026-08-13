@@ -98,11 +98,11 @@ export function ElectricalDetailsScreen({
               className={cn(
                 "rounded-[20px] border p-4 text-left transition-colors",
                 dwelling === "apartment"
-                  ? "border-[var(--accent)]/50 bg-[var(--accent)]/15"
+                  ? "border-zinc-900 bg-zinc-900/5"
                   : "border-black/8 bg-zinc-50",
               )}
             >
-              <Building2 className="mb-2 h-5 w-5 text-[var(--accent)]" />
+              <Building2 className="mb-2 h-5 w-5 text-zinc-600" />
               <div className="text-[15px] font-semibold text-zinc-900">Квартира</div>
             </button>
             <button
@@ -111,7 +111,7 @@ export function ElectricalDetailsScreen({
               className={cn(
                 "rounded-[20px] border p-4 text-left transition-colors",
                 dwelling === "house"
-                  ? "border-[var(--accent)]/50 bg-[var(--accent)]/15"
+                  ? "border-zinc-900 bg-zinc-900/5"
                   : "border-black/8 bg-zinc-50",
               )}
             >
@@ -139,7 +139,7 @@ export function ElectricalDetailsScreen({
                 className={cn(
                   "rounded-[20px] border px-4 py-4 text-[15px] font-semibold transition-colors",
                   phases === value
-                    ? "border-[var(--accent)]/50 bg-[var(--accent)]/15 text-zinc-900"
+                    ? "border-zinc-900 bg-zinc-900/5 text-zinc-900"
                     : "border-black/8 bg-zinc-50 text-zinc-700",
                 )}
               >
@@ -171,7 +171,7 @@ export function ElectricalDetailsScreen({
           )}
           <GlassCard className="mt-3 space-y-2 p-4">
             <div className="flex items-start gap-2 text-[13px] text-zinc-600">
-              <Info className="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent)]" />
+              <Info className="mt-0.5 h-4 w-4 shrink-0 text-zinc-500" />
               <span>Где узнать выделенную мощность</span>
             </div>
             <ul className="space-y-1.5 pl-1 text-[13px] leading-relaxed text-zinc-500">

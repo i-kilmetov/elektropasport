@@ -172,7 +172,7 @@ function HomeListCard({
                 railCount={item.railCount}
               />
             ) : (
-              <div className="flex h-full w-full items-center justify-center bg-zinc-100 text-[var(--accent)]">
+              <div className="flex h-full w-full items-center justify-center bg-zinc-100 text-zinc-500">
                 <BreakerIcon className="h-7 w-7" />
               </div>
             )}
@@ -225,7 +225,7 @@ function EmptyState({
 }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center px-4 text-center">
-      <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-[24px] border border-black/8 bg-zinc-100 text-[var(--accent)]">
+      <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-[24px] border border-black/8 bg-zinc-100 text-zinc-500">
         {icon}
       </div>
       <p className="max-w-[300px] text-[15px] leading-relaxed text-zinc-500">

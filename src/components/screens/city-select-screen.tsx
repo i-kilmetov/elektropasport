@@ -87,13 +87,13 @@ export function CitySelectScreen({
                       }}
                       className={`flex w-full items-center justify-between px-4 py-3.5 text-left text-[16px] transition-colors ${
                         active
-                          ? "bg-[var(--accent)]/15 text-zinc-900"
+                          ? "bg-zinc-100 text-zinc-900"
                           : "text-zinc-700 hover:bg-zinc-50"
                       }`}
                     >
                       <span>{city}</span>
                       {active && (
-                        <Check className="h-4 w-4 text-[var(--accent)]" />
+                        <Check className="h-4 w-4 text-zinc-700" />
                       )}
                     </button>
                   </li>

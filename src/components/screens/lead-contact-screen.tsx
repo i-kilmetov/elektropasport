@@ -455,7 +455,7 @@ export function LeadContactScreen({
           type="checkbox"
           checked={consent}
           onChange={(e) => setConsent(e.target.checked)}
-          className="mt-1 h-4 w-4 shrink-0 rounded border-black/20 accent-[var(--accent)]"
+          className="mt-1 h-4 w-4 shrink-0 rounded border-black/20 accent-zinc-800"
         />
         <span className="text-[13px] leading-relaxed text-zinc-600">
           Я согласен(а) на обработку персональных данных (номер телефона) для

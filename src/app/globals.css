@@ -52,3 +52,26 @@ body {
 ::selection {
   background: color-mix(in srgb, var(--accent) 28%, transparent);
 }
+
+input,
+textarea,
+select {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+input[type="date"],
+input[type="datetime-local"],
+input[type="time"],
+input[type="month"],
+input[type="week"] {
+  display: block;
+  width: 100%;
+}
+
+input[type="date"]::-webkit-datetime-edit,
+input[type="date"]::-webkit-date-and-time-value {
+  min-width: 0;
+  max-width: 100%;
+}

@@ -65,7 +65,7 @@ export function PanelAdvantagesScreen({
       </header>
 
       <div className="mb-5 flex items-center gap-3">
-        <div className="flex h-14 w-14 items-center justify-center rounded-[18px] border border-black/8 bg-[var(--accent)]/15 text-[var(--accent)]">
+        <div className="flex h-14 w-14 items-center justify-center rounded-[18px] border border-black/8 bg-zinc-100 text-zinc-600">
           <BreakerIcon className="h-8 w-8" />
         </div>
         <div>
@@ -97,7 +97,7 @@ export function PanelAdvantagesScreen({
           {inletStages.map((stage) => (
             <GlassCard key={stage.title} className="p-4">
               <div className="mb-2 flex items-center gap-3">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--accent)]/15 text-[var(--accent)]">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-zinc-600">
                   <stage.icon className="h-4 w-4" />
                 </span>
                 <h4 className="text-[15px] font-semibold text-zinc-900">

@@ -91,7 +91,7 @@ export function RequestTypeScreen({
               className="text-left"
             >
               <GlassCard className="flex items-center gap-3 p-4 transition-colors hover:bg-zinc-50">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[16px] bg-[var(--accent)]/15 text-[var(--accent)]">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[16px] bg-zinc-100 text-zinc-600">
                   <Icon className="h-5 w-5" />
                 </div>
                 <div className="min-w-0 flex-1">
