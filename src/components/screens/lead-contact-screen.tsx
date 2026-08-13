@@ -75,7 +75,6 @@ export function LeadContactScreen({
   const [submitting, setSubmitting] = useState(false);
   const [cityQuery, setCityQuery] = useState("");
   const [publicCode, setPublicCode] = useState<string | null>(null);
-  const [detailsToast, setDetailsToast] = useState(false);
   const [dwelling, setDwelling] = useState<DwellingType | null>(null);
   const [phases, setPhases] = useState<PhaseCount | null>(null);
   const [powerKw, setPowerKw] = useState("");
@@ -171,11 +170,6 @@ export function LeadContactScreen({
 
   const goHome = () => {
     flushLead();
-    if (hasDetails) {
-      setDetailsToast(true);
-      window.setTimeout(() => onGoHome(), 1400);
-      return;
-    }
     onGoHome();
   };
 
@@ -214,7 +208,8 @@ export function LeadContactScreen({
                 Уточните детали
               </h2>
               <p className="mt-1 text-[13px] leading-relaxed text-zinc-500">
-                Необязательно, но так мы быстрее и точнее проконсультируем.
+                Эти данные помогут нам быстрее и точнее вам помочь. Можно не
+                заполнять.
               </p>
             </div>
 
@@ -269,11 +264,11 @@ export function LeadContactScreen({
                   className={cn(
                     "flex items-center gap-2 rounded-[18px] border px-3 py-3 text-left transition-colors",
                     dwelling === "apartment"
-                      ? "border-[var(--accent)]/50 bg-[var(--accent)]/15"
+                      ? "border-rose-200 bg-rose-50"
                       : "border-black/8 bg-zinc-50",
                   )}
                 >
-                  <Building2 className="h-4 w-4 text-[var(--accent)]" />
+                  <Building2 className="h-4 w-4 text-rose-400" />
                   <span className="text-[14px] font-semibold text-zinc-900">
                     Квартира
                   </span>
@@ -287,11 +282,11 @@ export function LeadContactScreen({
                   className={cn(
                     "flex items-center gap-2 rounded-[18px] border px-3 py-3 text-left transition-colors",
                     dwelling === "house"
-                      ? "border-[var(--accent)]/50 bg-[var(--accent)]/15"
+                      ? "border-rose-200 bg-rose-50"
                       : "border-black/8 bg-zinc-50",
                   )}
                 >
-                  <Home className="h-4 w-4 text-emerald-600" />
+                  <Home className="h-4 w-4 text-rose-400" />
                   <span className="text-[14px] font-semibold text-zinc-900">
                     Дом
                   </span>
@@ -320,7 +315,7 @@ export function LeadContactScreen({
                     className={cn(
                       "rounded-[18px] border px-3 py-3 text-[14px] font-semibold transition-colors",
                       phases === value
-                        ? "border-[var(--accent)]/50 bg-[var(--accent)]/15 text-zinc-900"
+                        ? "border-rose-200 bg-rose-50 text-zinc-900"
                         : "border-black/8 bg-zinc-50 text-zinc-700",
                     )}
                   >
@@ -352,31 +347,10 @@ export function LeadContactScreen({
         )}
 
         <div className="mt-auto shrink-0 pt-2">
-          <Button
-            className="w-full"
-            size="lg"
-            disabled={detailsToast}
-            onClick={goHome}
-          >
-            {hasDetails ? "Отправить и на главную" : "На главную"}
+          <Button className="w-full" size="lg" onClick={goHome}>
+            {hasDetails ? "Отправить" : "На главную"}
           </Button>
         </div>
-
-        <AnimatePresence>
-          {detailsToast && (
-            <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: [0, 1, 1, 0], y: 0 }}
-              transition={{ duration: 1.3, times: [0, 0.12, 0.72, 1] }}
-              exit={{ opacity: 0 }}
-              className="pointer-events-none absolute inset-x-5 bottom-[max(6.5rem,env(safe-area-inset-bottom))] z-20"
-            >
-              <div className="rounded-[18px] bg-zinc-900 px-4 py-3 text-center text-[14px] font-medium text-white shadow-lg">
-                Детали к заявке отправлены
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
       </motion.section>
     );
   }
