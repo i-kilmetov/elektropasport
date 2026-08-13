@@ -4,14 +4,13 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowLeft,
-  ClipboardList,
+  Building2,
   MapPin,
   MessageCircle,
   MoreHorizontal,
   Pencil,
   Phone,
   Trash2,
-  User,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -23,6 +22,7 @@ import {
   installStatusLabels,
   installStatusProgress,
   installStatusSteps,
+  installStatusTone,
 } from "@/types";
 
 function NameDialog({
@@ -93,33 +93,28 @@ function NameDialog({
 
 function StatusProgress({ status }: { status: InstallRequestStatus }) {
   const cancelled = status === "cancelled";
+  const tone = installStatusTone(status);
   const activeIndex =
     status === "new" ? 0 : status === "in_progress" ? 1 : status === "done" ? 2 : -1;
 
   return (
-    <GlassCard className="space-y-4 p-4">
+    <div className="space-y-3">
       <div className="flex items-center justify-between gap-3">
-        <div>
-          <div className="text-[12px] text-zinc-500">Статус заявки</div>
-          <div
-            className={cn(
-              "mt-0.5 text-[16px] font-semibold",
-              cancelled ? "text-rose-600" : "text-zinc-900",
-            )}
-          >
-            {installStatusLabels[status]}
-          </div>
-        </div>
-        {!cancelled && (
-          <span className="rounded-full bg-zinc-100 px-2.5 py-1 text-[11px] font-medium text-zinc-600">
-            {activeIndex + 1}/3
-          </span>
-        )}
+        <div className="text-[13px] font-medium text-zinc-500">Статус</div>
+        <span
+          className={cn(
+            "rounded-full px-2.5 py-1 text-[12px] font-semibold",
+            tone.badge,
+          )}
+        >
+          {installStatusLabels[status]}
+        </span>
       </div>
 
       <Progress
         value={installStatusProgress(status)}
         className={cn(cancelled && "opacity-40")}
+        indicatorClassName={tone.bar}
       />
 
       <div className="grid grid-cols-3 gap-2">
@@ -131,8 +126,8 @@ function StatusProgress({ status }: { status: InstallRequestStatus }) {
               <div
                 className={cn(
                   "mx-auto mb-1.5 h-2.5 w-2.5 rounded-full",
-                  reached ? "bg-[var(--accent)]" : "bg-zinc-200",
-                  current && "ring-2 ring-[var(--accent)]/40 ring-offset-2 ring-offset-white",
+                  reached ? tone.dot : "bg-zinc-200",
+                  current && `ring-2 ${tone.ring} ring-offset-2 ring-offset-white`,
                 )}
               />
               <div
@@ -147,7 +142,26 @@ function StatusProgress({ status }: { status: InstallRequestStatus }) {
           );
         })}
       </div>
-    </GlassCard>
+    </div>
+  );
+}
+
+function DetailItem({
+  label,
+  value,
+  wide,
+}: {
+  label: string;
+  value: string;
+  wide?: boolean;
+}) {
+  return (
+    <div className={cn(wide && "col-span-2")}>
+      <div className="text-[11px] text-zinc-400">{label}</div>
+      <div className="mt-0.5 text-[14px] font-medium leading-snug text-zinc-900">
+        {value}
+      </div>
+    </div>
   );
 }
 
@@ -183,32 +197,26 @@ export function RequestDetailsScreen({
       ? "Дом"
       : request.dwelling === "apartment"
         ? "Квартира"
-        : "—";
+        : null;
 
-  const rows: Array<[string, string]> = [
-    ...(request.publicCode
-      ? ([["Номер заявки", request.publicCode]] as Array<[string, string]>)
-      : []),
-    ...(request.city && request.city !== "—"
-      ? ([["Город", request.city]] as Array<[string, string]>)
-      : []),
-    ...(request.exactAddress
-      ? ([["Адрес", request.exactAddress]] as Array<[string, string]>)
-      : []),
-    [
-      "Контакт",
-      request.contactMethod === "telegram"
-        ? "Telegram, если закрыты сообщения — звонок"
-        : "Телефон",
-    ],
-    ["Телефон", request.phone ?? "—"],
-    ["Имя", request.name],
-    ["Объект", dwellingLabel],
-    ["Фаз", request.phases ? `${request.phases}` : "—"],
-    ["Мощность", request.powerKw ? `${request.powerKw} кВт` : "—"],
-    ["Текущая схема", request.setupTitle ?? "—"],
-    ["Дата заявки", request.createdAt],
-  ];
+  const objectFields = [
+    request.city && request.city !== "—"
+      ? { label: "Город", value: request.city }
+      : null,
+    request.exactAddress
+      ? { label: "Адрес", value: request.exactAddress, wide: true }
+      : null,
+    dwellingLabel ? { label: "Объект", value: dwellingLabel } : null,
+    request.phases ? { label: "Фазы", value: request.phases } : null,
+    request.powerKw
+      ? { label: "Мощность", value: `${request.powerKw} кВт` }
+      : null,
+    request.setupTitle
+      ? { label: "Задача", value: request.setupTitle, wide: true }
+      : null,
+  ].filter((field): field is { label: string; value: string; wide?: boolean } =>
+    Boolean(field),
+  );
 
   const saveAddress = () => {
     const next = address.trim();
@@ -281,53 +289,49 @@ export function RequestDetailsScreen({
         </div>
       </header>
 
-      <div className="mb-4 flex items-center gap-3 rounded-[20px] border border-black/8 bg-zinc-50 p-4">
-        <span className="flex h-12 w-12 items-center justify-center rounded-[16px] bg-zinc-100 text-[var(--accent)]">
-          <ClipboardList className="h-6 w-6" />
-        </span>
-        <div>
-          <div className="text-[18px] font-semibold text-zinc-900">
-            {request.title}
-          </div>
-          <div className="text-[13px] text-zinc-500">{request.subtitle}</div>
-        </div>
-      </div>
-
-      <div className="mb-4">
-        <StatusProgress status={request.status} />
-        {request.status === "cancelled" && (
-          <Button
-            className="mt-3 w-full"
-            variant="secondary"
-            onClick={() =>
-              onUpdate({
-                status: "in_progress",
-                statusLabel: installStatusLabels.in_progress,
-              })
-            }
-          >
-            Вернуть в работу
-          </Button>
-        )}
-      </div>
+      <p className="mb-4 text-center text-[13px] leading-relaxed text-zinc-500">
+        {request.subtitle}
+        {request.createdAt ? ` · ${request.createdAt}` : ""}
+      </p>
 
       <div className="flex-1 space-y-3 overflow-y-auto pb-4">
+        <GlassCard className="p-4">
+          <StatusProgress status={request.status} />
+          {request.status === "cancelled" && (
+            <Button
+              className="mt-4 w-full"
+              variant="secondary"
+              onClick={() =>
+                onUpdate({
+                  status: "in_progress",
+                  statusLabel: installStatusLabels.in_progress,
+                })
+              }
+            >
+              Вернуть в работу
+            </Button>
+          )}
+        </GlassCard>
+
         {request.status === "new" && (
           <GlassCard className="space-y-3 p-4">
-            <div>
-              <div className="mb-1 text-[15px] font-semibold text-zinc-900">
-                Точный адрес
+            <div className="flex items-start gap-2">
+              <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-zinc-400" />
+              <div>
+                <div className="text-[15px] font-semibold text-zinc-900">
+                  Точный адрес
+                </div>
+                <p className="mt-0.5 text-[13px] leading-relaxed text-zinc-500">
+                  Поможет быстрее подобрать мастера.
+                </p>
               </div>
-              <p className="text-[13px] leading-relaxed text-zinc-500">
-                Эта информация поможет ускорить работу по выбору мастера.
-              </p>
             </div>
             <textarea
               value={address}
               onChange={(e) => setAddress(e.target.value)}
-              rows={3}
+              rows={2}
               placeholder="Улица, дом, квартира / участок"
-              className="w-full resize-none rounded-[18px] border border-black/8 bg-zinc-50 px-4 py-3 text-[15px] text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-[var(--accent)]/50"
+              className="w-full resize-none rounded-[16px] border border-black/8 bg-zinc-50 px-4 py-3 text-[15px] text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-rose-200"
             />
             <Button
               className="w-full"
@@ -340,29 +344,48 @@ export function RequestDetailsScreen({
           </GlassCard>
         )}
 
-        {rows.map(([label, value]) => (
-          <GlassCard key={label} className="flex items-start gap-3 p-4">
-            <span className="mt-0.5 text-zinc-400">
-              {label === "Город" || label === "Адрес" ? (
-                <MapPin className="h-4 w-4" />
-              ) : label === "Контакт" && request.contactMethod === "telegram" ? (
-                <MessageCircle className="h-4 w-4" />
-              ) : label === "Контакт" || label.startsWith("Телефон") ? (
-                <Phone className="h-4 w-4" />
-              ) : label === "Имя" ? (
-                <User className="h-4 w-4" />
-              ) : (
-                <ClipboardList className="h-4 w-4" />
-              )}
-            </span>
-            <div>
-              <div className="text-[12px] text-zinc-500">{label}</div>
-              <div className="mt-0.5 text-[15px] font-medium text-zinc-900">
-                {value}
-              </div>
+        {objectFields.length > 0 && (
+          <GlassCard className="p-4">
+            <div className="mb-3 flex items-center gap-2 text-[13px] font-semibold text-zinc-900">
+              <Building2 className="h-4 w-4 text-zinc-400" />
+              Объект
+            </div>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+              {objectFields.map((field) => (
+                <DetailItem
+                  key={field.label}
+                  label={field.label}
+                  value={field.value}
+                  wide={field.wide}
+                />
+              ))}
             </div>
           </GlassCard>
-        ))}
+        )}
+
+        <GlassCard className="p-4">
+          <div className="mb-3 flex items-center gap-2 text-[13px] font-semibold text-zinc-900">
+            {request.contactMethod === "telegram" ? (
+              <MessageCircle className="h-4 w-4 text-zinc-400" />
+            ) : (
+              <Phone className="h-4 w-4 text-zinc-400" />
+            )}
+            Контакт
+          </div>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+            <DetailItem label="Имя" value={request.name} />
+            <DetailItem label="Телефон" value={request.phone ?? "—"} />
+            <DetailItem
+              label="Как связаться"
+              value={
+                request.contactMethod === "telegram"
+                  ? "Telegram, иначе звонок"
+                  : "Звонок"
+              }
+              wide
+            />
+          </div>
+        </GlassCard>
       </div>
 
       <div className="mt-auto pt-2">

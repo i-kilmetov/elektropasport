@@ -141,3 +141,41 @@ export function installStatusProgress(status: InstallRequestStatus): number {
   if (status === "done") return 100;
   return 0;
 }
+
+export function installStatusTone(status: InstallRequestStatus): {
+  badge: string;
+  bar: string;
+  dot: string;
+  ring: string;
+} {
+  if (status === "done") {
+    return {
+      badge: "bg-emerald-500/15 text-emerald-700",
+      bar: "bg-emerald-500",
+      dot: "bg-emerald-500",
+      ring: "ring-emerald-500/35",
+    };
+  }
+  if (status === "in_progress") {
+    return {
+      badge: "bg-amber-400/20 text-amber-800",
+      bar: "bg-amber-400",
+      dot: "bg-amber-400",
+      ring: "ring-amber-400/40",
+    };
+  }
+  if (status === "cancelled") {
+    return {
+      badge: "bg-zinc-100 text-zinc-500",
+      bar: "bg-zinc-400",
+      dot: "bg-zinc-400",
+      ring: "ring-zinc-300",
+    };
+  }
+  return {
+    badge: "bg-rose-500/15 text-rose-700",
+    bar: "bg-rose-500",
+    dot: "bg-rose-500",
+    ring: "ring-rose-500/35",
+  };
+}

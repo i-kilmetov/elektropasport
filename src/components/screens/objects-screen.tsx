@@ -23,6 +23,7 @@ import { NameDialog } from "@/components/ui/name-dialog";
 import { hapticContextMenu } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
 import type { HomeListItem, InstallRequest, PanelObject } from "@/types";
+import { installStatusTone } from "@/types";
 
 /** Hold duration before context menu — close to iOS Haptic Touch. */
 const LONG_PRESS_MS = 480;
@@ -144,19 +145,12 @@ function HomeListCard({
         onContextMenu={(e) => e.preventDefault()}
         className="w-full touch-manipulation text-left select-none"
       >
-        <GlassCard
-          className={cn(
-            "flex items-center gap-4 rounded-[24px] border p-4 transition-colors",
-            isRequest
-              ? "border-rose-200 bg-rose-50 hover:bg-rose-100/70"
-              : "hover:bg-zinc-50",
-          )}
-        >
+        <GlassCard className="flex items-center gap-4 rounded-[24px] border p-4 transition-colors hover:bg-zinc-50">
           <div
             className={cn(
               "h-14 w-14 shrink-0 overflow-hidden rounded-[18px]",
               isRequest
-                ? "flex items-center justify-center bg-rose-500/15 text-rose-500"
+                ? "flex items-center justify-center bg-zinc-100 text-zinc-500"
                 : "bg-zinc-100",
             )}
           >
@@ -177,16 +171,16 @@ function HomeListCard({
           </div>
           <div className="min-w-0 flex-1">
             <div className="mb-0.5 flex items-center justify-between gap-2">
-              <h2
-                className={cn(
-                  "truncate text-[17px] font-semibold",
-                  isRequest ? "text-rose-900" : "text-zinc-900",
-                )}
-              >
+              <h2 className="truncate text-[17px] font-semibold text-zinc-900">
                 {isRequest && item.publicCode ? item.publicCode : item.title}
               </h2>
               {isRequest ? (
-                <span className="shrink-0 rounded-full bg-rose-500/15 px-2 py-0.5 text-[11px] font-medium text-rose-700">
+                <span
+                  className={cn(
+                    "shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium",
+                    installStatusTone(item.status).badge,
+                  )}
+                >
                   {item.statusLabel}
                 </span>
               ) : (
@@ -199,22 +193,12 @@ function HomeListCard({
                 </span>
               )}
             </div>
-            <p
-              className={cn(
-                "truncate text-[13px]",
-                isRequest ? "text-rose-700/80" : "text-zinc-500",
-              )}
-            >
+            <p className="truncate text-[13px] text-zinc-500">
               {isRequest ? item.subtitle : item.address}
             </p>
-            <p
-              className={cn(
-                "mt-1 text-[12px]",
-                isRequest ? "text-rose-600/70" : "text-zinc-400",
-              )}
-            >
+            <p className="mt-1 text-[12px] text-zinc-400">
               {isRequest
-                ? `Статус: ${item.statusLabel} · ${item.createdAt}`
+                ? item.createdAt
                 : `${item.breakers} устройств · ${item.lastCheck}`}
             </p>
           </div>
