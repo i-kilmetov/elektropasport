@@ -41,6 +41,7 @@ import {
   clearPendingInstallLead,
   readPendingInstallLead,
 } from "@/lib/pending-lead";
+import { syncUserProfileFromServer } from "@/lib/user-profile";
 import {
   hapticDelete,
   hapticImpact,
@@ -144,6 +145,9 @@ export function AppShell() {
       setItemsLoading(true);
       setItemsError(null);
       try {
+        if (canUseServerAuth()) {
+          await syncUserProfileFromServer();
+        }
         const loaded = await fetchHomeItems();
         if (!cancelled) setItems(loaded);
       } catch (error) {

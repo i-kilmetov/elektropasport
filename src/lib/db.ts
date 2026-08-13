@@ -127,6 +127,22 @@ export async function ensureSchema(): Promise<void> {
         ADD COLUMN IF NOT EXISTS about_text TEXT
       `;
       await sql`
+        ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS birth_date TEXT
+      `;
+      await sql`
+        ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS gender TEXT
+      `;
+      await sql`
+        ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS phone_digits TEXT
+      `;
+      await sql`
+        ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS avatar_id TEXT
+      `;
+      await sql`
         ALTER TABLE panels
         ADD COLUMN IF NOT EXISTS source_share_token TEXT
       `;
@@ -167,6 +183,83 @@ export async function upsertUser(user: ValidatedTelegramUser): Promise<void> {
       username = EXCLUDED.username,
       updated_at = NOW()
   `;
+}
+
+export type StoredUserProfile = {
+  birthDate?: string;
+  gender?: "male" | "female" | "unspecified";
+  phoneDigits?: string;
+  avatarId?: string;
+};
+
+export async function getStoredUserProfile(
+  telegramUserId: number,
+): Promise<StoredUserProfile> {
+  const sql = getSql();
+  await ensureSchema();
+  const [row] = (await sql`
+    SELECT birth_date, gender, phone_digits, avatar_id
+    FROM users
+    WHERE telegram_id = ${telegramUserId}
+  `) as Array<{
+    birth_date: string | null;
+    gender: string | null;
+    phone_digits: string | null;
+    avatar_id: string | null;
+  }>;
+
+  if (!row) return {};
+
+  const gender =
+    row.gender === "male" ||
+    row.gender === "female" ||
+    row.gender === "unspecified"
+      ? row.gender
+      : undefined;
+
+  return {
+    birthDate: row.birth_date ?? undefined,
+    gender,
+    phoneDigits: row.phone_digits ?? undefined,
+    avatarId: row.avatar_id ?? undefined,
+  };
+}
+
+export async function updateStoredUserProfile(
+  telegramUserId: number,
+  profile: StoredUserProfile,
+): Promise<StoredUserProfile> {
+  const sql = getSql();
+  await ensureSchema();
+
+  const birthDate = profile.birthDate?.trim() || null;
+  const gender =
+    profile.gender === "male" ||
+    profile.gender === "female" ||
+    profile.gender === "unspecified"
+      ? profile.gender
+      : null;
+  const phoneDigits =
+    profile.phoneDigits?.replace(/\D/g, "").slice(0, 10) || null;
+  const avatarId = profile.avatarId?.trim() || null;
+
+  await sql`
+    UPDATE users
+    SET
+      birth_date = ${birthDate},
+      gender = ${gender},
+      phone_digits = ${phoneDigits},
+      avatar_id = ${avatarId},
+      updated_at = NOW()
+    WHERE telegram_id = ${telegramUserId}
+  `;
+
+  return {
+    birthDate: birthDate ?? undefined,
+    gender: gender ?? undefined,
+    phoneDigits: phoneDigits ?? undefined,
+    avatarId: avatarId ?? undefined,
+  };
 }
 
 type PanelRow = {

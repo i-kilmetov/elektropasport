@@ -31,7 +31,7 @@ import { getTelegramUserName } from "@/lib/telegram-user";
 import {
   formatPhoneDigits,
   getUserProfile,
-  saveUserProfile,
+  persistUserProfile,
 } from "@/lib/user-profile";
 import { cn } from "@/lib/utils";
 
@@ -130,7 +130,10 @@ export function LeadContactScreen({
     if (!canSubmit) return;
     const name = getTelegramUserName();
     setDisplayName(name);
-    saveUserProfile({ phoneDigits: digits });
+    void persistUserProfile({
+      ...getUserProfile(),
+      phoneDigits: digits,
+    }).catch((error) => console.error(error));
     hapticNotification("success");
 
     if (variant === "master") {

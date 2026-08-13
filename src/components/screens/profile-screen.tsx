@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, Check, Phone, X } from "lucide-react";
 import {
@@ -17,7 +17,8 @@ import { getTelegramProfileInfo, getTelegramUserName } from "@/lib/telegram-user
 import {
   formatPhoneDigits,
   getUserProfile,
-  saveUserProfile,
+  persistUserProfile,
+  syncUserProfileFromServer,
   type UserGender,
 } from "@/lib/user-profile";
 import { cn } from "@/lib/utils";
@@ -114,21 +115,56 @@ export function ProfileScreen({ onBack }: { onBack: () => void }) {
   );
   const [pickerOpen, setPickerOpen] = useState(false);
   const [saveFlash, setSaveFlash] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const phoneDisplay = useMemo(() => formatPhoneDigits(digits), [digits]);
 
-  const saveAndExit = () => {
-    saveUserProfile({
-      birthDate: birthDate || undefined,
-      gender: gender || undefined,
-      phoneDigits: digits || undefined,
-      avatarId,
-    });
-    hapticNotification("success");
-    setSaveFlash(true);
-    window.setTimeout(() => {
-      onBack();
-    }, 900);
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const profile = await syncUserProfileFromServer();
+        if (cancelled) return;
+        setBirthDate(profile.birthDate ?? "");
+        setGender(profile.gender ?? "");
+        setDigits(profile.phoneDigits ?? "");
+        setAvatarId(isAvatarId(profile.avatarId) ? profile.avatarId : "circle");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const saveAndExit = async () => {
+    if (saving || saveFlash) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await persistUserProfile({
+        birthDate: birthDate || undefined,
+        gender: gender || undefined,
+        phoneDigits: digits || undefined,
+        avatarId,
+      });
+      hapticNotification("success");
+      setSaveFlash(true);
+      window.setTimeout(() => {
+        onBack();
+      }, 900);
+    } catch (err) {
+      hapticNotification("error");
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Не удалось сохранить профиль",
+      );
+      setSaving(false);
+    }
   };
 
   return (
@@ -154,6 +190,9 @@ export function ProfileScreen({ onBack }: { onBack: () => void }) {
       </header>
 
       <div className="min-w-0 flex-1 space-y-5 overflow-x-hidden overflow-y-auto pb-4">
+        {loading && (
+          <p className="text-[14px] text-zinc-500">Загружаем профиль…</p>
+        )}
         <GlassCard className="flex items-center gap-4 p-4">
           <button
             type="button"
@@ -240,13 +279,18 @@ export function ProfileScreen({ onBack }: { onBack: () => void }) {
         </div>
       </div>
 
-      <div className="mt-auto pt-2">
+      <div className="mt-auto space-y-2 pt-2">
+        {error && (
+          <p className="text-center text-[13px] leading-relaxed text-rose-600">
+            {error}
+          </p>
+        )}
         <Button
           className="w-full"
-          disabled={saveFlash}
-          onClick={saveAndExit}
+          disabled={saveFlash || saving || loading}
+          onClick={() => void saveAndExit()}
         >
-          Сохранить и выйти
+          {saving ? "Сохраняем…" : "Сохранить и выйти"}
         </Button>
       </div>
 
