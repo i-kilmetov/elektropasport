@@ -22,7 +22,9 @@ import type { HomeListItem, InstallRequest, PanelObject } from "@/types";
 const LONG_PRESS_MS = 480;
 const LIFT_DELAY_MS = 90;
 const MOVE_CANCEL_PX = 10;
-const PAGE_SPRING = { type: "spring" as const, stiffness: 380, damping: 38 };
+const PAGE_SPRING = { type: "spring" as const, stiffness: 420, damping: 40 };
+const SWIPE_DISTANCE = 56;
+const SWIPE_VELOCITY = 450;
 
 function HomeListCard({
   item,
@@ -243,6 +245,7 @@ export function ObjectsScreen({
   onDeleteItem,
   onRenameItem,
   onNoPanel,
+  onSubmitRequest,
   onMenuSelect,
 }: {
   items: HomeListItem[];
@@ -254,6 +257,7 @@ export function ObjectsScreen({
   onDeleteItem: (id: string) => void;
   onRenameItem: (id: string, name: string) => void;
   onNoPanel: () => void;
+  onSubmitRequest: () => void;
   onMenuSelect: (id: MainMenuId) => void;
 }) {
   const [page, setPage] = useState(0);
@@ -291,11 +295,21 @@ export function ObjectsScreen({
     return () => observer.disconnect();
   }, []);
 
-  const onPagerDragEnd = (_: unknown, info: PanInfo) => {
-    if (!pagerWidth) return;
-    const projected = -page * pagerWidth + info.offset.x + info.velocity.x * 0.18;
-    const next = projected < -pagerWidth / 2 ? 1 : 0;
+  const settlePage = (next: 0 | 1) => {
     setPage(next);
+  };
+
+  const onPagerDragEnd = (_: unknown, info: PanInfo) => {
+    const { offset, velocity } = info;
+    if (velocity.x < -SWIPE_VELOCITY || offset.x < -SWIPE_DISTANCE) {
+      settlePage(1);
+      return;
+    }
+    if (velocity.x > SWIPE_VELOCITY || offset.x > SWIPE_DISTANCE) {
+      settlePage(0);
+      return;
+    }
+    settlePage(page === 0 ? 0 : 1);
   };
 
   const renderList = (
@@ -348,11 +362,11 @@ export function ObjectsScreen({
       className="relative flex min-h-dvh flex-col overflow-hidden pt-[max(1.25rem,env(safe-area-inset-top))]"
     >
       <header className="mb-4 px-5">
-        <div className="mb-3 flex items-center justify-between">
+        <div className="relative flex items-center justify-center">
           <button
             type="button"
             onClick={() => setMenuOpen(true)}
-            className="flex h-11 w-11 items-center justify-center rounded-full border border-black/8 bg-zinc-100 text-zinc-900"
+            className="absolute left-0 flex h-11 w-11 items-center justify-center rounded-full border border-black/8 bg-zinc-100 text-zinc-900"
             aria-label="Меню"
           >
             <Menu className="h-5 w-5" />
@@ -360,38 +374,31 @@ export function ObjectsScreen({
           <div className="flex rounded-full bg-zinc-100 p-1">
             <button
               type="button"
-              onClick={() => setPage(0)}
+              onClick={() => settlePage(0)}
               className={cn(
                 "rounded-full px-3 py-1.5 text-[13px] font-semibold transition-colors",
                 page === 0 ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-500",
               )}
             >
               Щитки
+              <span className="ml-1 text-[11px] font-medium text-zinc-400">
+                {panels.length}
+              </span>
             </button>
             <button
               type="button"
-              onClick={() => setPage(1)}
+              onClick={() => settlePage(1)}
               className={cn(
                 "rounded-full px-3 py-1.5 text-[13px] font-semibold transition-colors",
                 page === 1 ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-500",
               )}
             >
               Заявки
-              {requests.length > 0 && (
-                <span className="ml-1 text-[11px] font-medium text-zinc-400">
-                  {requests.length}
-                </span>
-              )}
+              <span className="ml-1 text-[11px] font-medium text-zinc-400">
+                {requests.length}
+              </span>
             </button>
           </div>
-          <button
-            type="button"
-            onClick={onAdd}
-            className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--primary)] text-white shadow-[0_6px_20px_rgba(17,17,19,0.18)]"
-            aria-label="Добавить щиток"
-          >
-            <Plus className="h-5 w-5" />
-          </button>
         </div>
       </header>
 
@@ -406,22 +413,25 @@ export function ObjectsScreen({
           className="flex h-full"
           drag="x"
           dragDirectionLock
-          dragElastic={0.16}
-          dragConstraints={{ left: -pagerWidth, right: 0 }}
+          dragElastic={0.18}
+          dragConstraints={{ left: 0, right: 0 }}
+          dragMomentum={false}
           animate={{ x: pagerWidth ? -page * pagerWidth : 0 }}
           transition={PAGE_SPRING}
           onDragEnd={onPagerDragEnd}
           style={{ width: pagerWidth ? pagerWidth * 2 : "200%" }}
         >
           <div
-            className="flex h-full flex-col overflow-y-auto px-5 pb-8"
+            className="flex h-full flex-col px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
             style={{ width: pagerWidth || "50%" }}
           >
-            {renderList(panels, {
-              icon: <BreakerIcon className="h-10 w-10" />,
-              text: "Сфотографируйте существующий щиток или расскажите, как у вас устроена электрика без него.",
-            })}
-            <div className="mt-6 space-y-4">
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              {renderList(panels, {
+                icon: <BreakerIcon className="h-10 w-10" />,
+                text: "Сфотографируйте существующий щиток или расскажите, как у вас устроена электрика без него.",
+              })}
+            </div>
+            <div className="mt-4 shrink-0 space-y-3">
               <Button className="w-full" onClick={onAdd}>
                 <Plus className="h-5 w-5" />
                 Добавить щиток
@@ -436,13 +446,20 @@ export function ObjectsScreen({
             </div>
           </div>
           <div
-            className="flex h-full flex-col overflow-y-auto px-5 pb-8"
+            className="flex h-full flex-col px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
             style={{ width: pagerWidth || "50%" }}
           >
-            {renderList(requests, {
-              icon: <ClipboardList className="h-10 w-10" />,
-              text: "Здесь появятся заявки на консультацию и установку щитка.",
-            })}
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              {renderList(requests, {
+                icon: <ClipboardList className="h-10 w-10" />,
+                text: "Здесь появятся ваши заявки на консультацию, проект, сборку щитка или монтаж.",
+              })}
+            </div>
+            <div className="mt-4 shrink-0">
+              <Button className="w-full" onClick={onSubmitRequest}>
+                Отправить заявку
+              </Button>
+            </div>
           </div>
         </motion.div>
       </div>

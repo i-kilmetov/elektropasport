@@ -20,6 +20,11 @@ import { PanelAdvantagesScreen } from "@/components/screens/panel-advantages-scr
 import { PhotoScreen } from "@/components/screens/photo-screen";
 import { ProfileScreen } from "@/components/screens/profile-screen";
 import { RequestDetailsScreen } from "@/components/screens/request-details-screen";
+import {
+  getRequestNeedTitle,
+  RequestTypeScreen,
+  type RequestNeedId,
+} from "@/components/screens/request-type-screen";
 import { SchemeScreen } from "@/components/screens/scheme-screen";
 import { TelegramAuthScreen } from "@/components/screens/telegram-auth-screen";
 import {
@@ -79,12 +84,15 @@ export function AppShell() {
   const [linesCount, setLinesCount] = useState<number | null>(null);
   const [railCount, setRailCount] = useState<number | null>(null);
   const [pendingAuthAction, setPendingAuthAction] = useState<
-    "add-panel" | "no-panel" | "call-master" | null
+    "add-panel" | "no-panel" | "call-master" | "send-request" | null
   >(null);
   const [leadBackScreen, setLeadBackScreen] = useState<AppScreen>(
     "panel-advantages",
   );
   const [noPanelSetupId, setNoPanelSetupId] = useState<NoPanelSetupId | null>(
+    null,
+  );
+  const [requestNeedId, setRequestNeedId] = useState<RequestNeedId | null>(
     null,
   );
   const [electricalDetails, setElectricalDetails] =
@@ -135,6 +143,7 @@ export function AppShell() {
       | "add-panel"
       | "no-panel"
       | "call-master"
+      | "send-request"
       | null;
     if (!pending || !canUseServerAuth()) return;
 
@@ -148,6 +157,10 @@ export function AppShell() {
       setLeadFlow("install");
       setLeadBackScreen("scheme");
       setScreen("lead-contact");
+    } else if (pending === "send-request") {
+      setLeadFlow("install");
+      setLeadBackScreen("objects");
+      setScreen("request-type");
     }
   }, []);
 
@@ -192,12 +205,28 @@ export function AppShell() {
     setLeadFlow("install");
     setElectricalDetails(null);
     setSelectedCity(null);
+    setRequestNeedId(null);
     setLeadBackScreen("scheme");
     if (canUseServerAuth()) {
       go("lead-contact");
       return;
     }
     setPendingAuthAction("call-master");
+    go("telegram-auth");
+  }, [go]);
+
+  const startSubmitRequest = useCallback(() => {
+    setLeadFlow("install");
+    setElectricalDetails(null);
+    setSelectedCity(null);
+    setNoPanelSetupId(null);
+    setRequestNeedId(null);
+    setLeadBackScreen("objects");
+    if (canUseServerAuth()) {
+      go("request-type");
+      return;
+    }
+    setPendingAuthAction("send-request");
     go("telegram-auth");
   }, [go]);
 
@@ -555,15 +584,19 @@ export function AppShell() {
 
       const id = `request-${Date.now()}`;
       const createdAt = new Date().toLocaleDateString("ru-RU");
-      const setupTitle = noPanelSetupId
-        ? getNoPanelSetup(noPanelSetupId).title
-        : undefined;
+      const setupTitle = requestNeedId
+        ? getRequestNeedTitle(requestNeedId)
+        : noPanelSetupId
+          ? getNoPanelSetup(noPanelSetupId).title
+          : undefined;
 
       const request: InstallRequest = {
         kind: "install_request",
         id,
         title: "Заявка",
-        subtitle: "Заявка на установку щитка",
+        subtitle: setupTitle
+          ? `Заявка: ${setupTitle}`
+          : "Заявка на установку щитка",
         status: "new",
         statusLabel: installStatusLabels.new,
         createdAt,
@@ -589,7 +622,7 @@ export function AppShell() {
         );
       });
     },
-    [electricalDetails, leadFlow, noPanelSetupId, selectedCity],
+    [electricalDetails, leadFlow, noPanelSetupId, requestNeedId, selectedCity],
   );
 
   if (!onboardingReady) {
@@ -621,6 +654,7 @@ export function AppShell() {
               onDeleteItem={deleteHomeItem}
               onRenameItem={renameHomeItem}
               onNoPanel={() => requireTelegramAuth("no-panel")}
+              onSubmitRequest={startSubmitRequest}
               onMenuSelect={(id) => {
                 if (id === "profile") go("profile");
                 if (id === "about") go("about-service");
@@ -747,9 +781,21 @@ export function AppShell() {
               }}
             />
           )}
+          {screen === "request-type" && (
+            <RequestTypeScreen
+              key="request-type"
+              onBack={() => go("objects")}
+              onSelect={(id) => {
+                setRequestNeedId(id);
+                setLeadFlow("install");
+                setLeadBackScreen("request-type");
+                go("lead-contact");
+              }}
+            />
+          )}
           {screen === "lead-contact" && (
             <LeadContactScreen
-              key={`lead-${leadFlow}`}
+              key={`lead-${leadFlow}-${requestNeedId ?? "default"}`}
               variant={leadFlow}
               onBack={() =>
                 go(leadFlow === "master" ? "city-select" : leadBackScreen)

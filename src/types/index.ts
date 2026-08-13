@@ -98,6 +98,7 @@ export type AppScreen =
   | "electrical-details"
   | "city-select"
   | "lead-contact"
+  | "request-type"
   | "request-details"
   | "about-service"
   | "profile"
