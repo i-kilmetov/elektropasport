@@ -1,7 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { AnimatePresence, motion, type PanInfo } from "framer-motion";
 import { ClipboardList, Menu, Plus } from "lucide-react";
 import { BreakerIcon } from "@/components/icons/breaker-icon";
 import { SchemeMiniPreview } from "@/components/icons/scheme-mini-preview";
@@ -14,17 +14,15 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { GlassCard } from "@/components/ui/glass-card";
 import { ItemActionsSheet } from "@/components/ui/item-actions-sheet";
 import { NameDialog } from "@/components/ui/name-dialog";
-import { SwipeableRow } from "@/components/ui/swipeable-row";
 import { hapticContextMenu } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
-import type { HomeListItem } from "@/types";
+import type { HomeListItem, InstallRequest, PanelObject } from "@/types";
 
 /** Hold duration before context menu — close to iOS Haptic Touch. */
 const LONG_PRESS_MS = 480;
-/** Delay before the lift/scale starts (avoids flicker on quick taps). */
 const LIFT_DELAY_MS = 90;
-/** Cancel long-press if the finger moves more than this (px). */
 const MOVE_CANCEL_PX = 10;
+const PAGE_SPRING = { type: "spring" as const, stiffness: 380, damping: 38 };
 
 function HomeListCard({
   item,
@@ -177,19 +175,19 @@ function HomeListCard({
               >
                 {item.title}
               </h2>
-                          {isRequest ? (
-                            <span className="shrink-0 rounded-full bg-rose-500/15 px-2 py-0.5 text-[11px] font-medium text-rose-700">
-                              {item.statusLabel}
-                            </span>
-                          ) : (
-                            <span className="shrink-0 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
-                              {item.phases &&
-                              item.powerKw?.trim() &&
-                              typeof item.safety === "number"
-                                ? `${item.safety}%`
-                                : "—"}
-                            </span>
-                          )}
+              {isRequest ? (
+                <span className="shrink-0 rounded-full bg-rose-500/15 px-2 py-0.5 text-[11px] font-medium text-rose-700">
+                  {item.statusLabel}
+                </span>
+              ) : (
+                <span className="shrink-0 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
+                  {item.phases &&
+                  item.powerKw?.trim() &&
+                  typeof item.safety === "number"
+                    ? `${item.safety}%`
+                    : "—"}
+                </span>
+              )}
             </div>
             <p
               className={cn(
@@ -216,6 +214,25 @@ function HomeListCard({
   );
 }
 
+function EmptyState({
+  icon,
+  text,
+}: {
+  icon: ReactNode;
+  text: string;
+}) {
+  return (
+    <div className="flex flex-1 flex-col items-center justify-center px-4 text-center">
+      <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-[24px] border border-black/8 bg-zinc-100 text-[var(--accent)]">
+        {icon}
+      </div>
+      <p className="max-w-[300px] text-[15px] leading-relaxed text-zinc-500">
+        {text}
+      </p>
+    </div>
+  );
+}
+
 export function ObjectsScreen({
   items,
   loading = false,
@@ -239,15 +256,88 @@ export function ObjectsScreen({
   onNoPanel: () => void;
   onMenuSelect: (id: MainMenuId) => void;
 }) {
+  const [page, setPage] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [actionsItemId, setActionsItemId] = useState<string | null>(null);
   const [renameItemId, setRenameItemId] = useState<string | null>(null);
   const [pressingId, setPressingId] = useState<string | null>(null);
+  const [pagerWidth, setPagerWidth] = useState(0);
+  const pagerRef = useRef<HTMLDivElement>(null);
+
+  const panels = useMemo(
+    () => items.filter((item): item is PanelObject => item.kind === "panel"),
+    [items],
+  );
+  const requests = useMemo(
+    () =>
+      items.filter(
+        (item): item is InstallRequest => item.kind === "install_request",
+      ),
+    [items],
+  );
 
   const pendingDelete = items.find((item) => item.id === pendingDeleteId);
   const actionsItem = items.find((item) => item.id === actionsItemId);
   const renameItem = items.find((item) => item.id === renameItemId);
+
+  useEffect(() => {
+    const node = pagerRef.current;
+    if (!node) return;
+    const update = () => setPagerWidth(node.clientWidth);
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
+  const onPagerDragEnd = (_: unknown, info: PanInfo) => {
+    if (!pagerWidth) return;
+    const projected = -page * pagerWidth + info.offset.x + info.velocity.x * 0.18;
+    const next = projected < -pagerWidth / 2 ? 1 : 0;
+    setPage(next);
+  };
+
+  const renderList = (
+    list: HomeListItem[],
+    empty: { icon: ReactNode; text: string },
+  ) => {
+    if (loading) {
+      return (
+        <div className="flex flex-1 flex-col items-center justify-center px-4 text-center">
+          <p className="text-[15px] text-zinc-500">Загрузка…</p>
+        </div>
+      );
+    }
+    if (list.length === 0) {
+      return <EmptyState icon={empty.icon} text={empty.text} />;
+    }
+    return (
+      <div className="flex flex-col gap-3">
+        {list.map((obj, i) => (
+          <motion.div
+            key={obj.id}
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.04 * i }}
+          >
+            <HomeListCard
+              item={obj}
+              pressing={pressingId === obj.id}
+              lifted={actionsItemId === obj.id}
+              onOpen={() =>
+                obj.kind === "install_request"
+                  ? onOpenRequest(obj.id)
+                  : onOpenPanel(obj.id)
+              }
+              onContextMenu={() => setActionsItemId(obj.id)}
+              onPressingChange={(next) => setPressingId(next ? obj.id : null)}
+            />
+          </motion.div>
+        ))}
+      </div>
+    );
+  };
 
   return (
     <motion.section
@@ -255,94 +345,106 @@ export function ObjectsScreen({
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -40 }}
       transition={{ duration: 0.35 }}
-      className="relative flex min-h-dvh flex-col px-5 pb-8 pt-[max(1.25rem,env(safe-area-inset-top))]"
+      className="relative flex min-h-dvh flex-col overflow-hidden pt-[max(1.25rem,env(safe-area-inset-top))]"
     >
-      <header className="mb-6 flex items-center justify-between">
-        <button
-          type="button"
-          onClick={() => setMenuOpen(true)}
-          className="flex h-11 w-11 items-center justify-center rounded-full border border-black/8 bg-zinc-100 text-zinc-900"
-          aria-label="Меню"
-        >
-          <Menu className="h-5 w-5" />
-        </button>
-        <h1 className="text-[20px] font-semibold text-zinc-900">Мои щитки</h1>
-        <button
-          type="button"
-          onClick={onAdd}
-          className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--primary)] text-white shadow-[0_6px_20px_rgba(17,17,19,0.18)]"
-          aria-label="Добавить щиток"
-        >
-          <Plus className="h-5 w-5" />
-        </button>
+      <header className="mb-4 px-5">
+        <div className="mb-3 flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => setMenuOpen(true)}
+            className="flex h-11 w-11 items-center justify-center rounded-full border border-black/8 bg-zinc-100 text-zinc-900"
+            aria-label="Меню"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+          <div className="flex rounded-full bg-zinc-100 p-1">
+            <button
+              type="button"
+              onClick={() => setPage(0)}
+              className={cn(
+                "rounded-full px-3 py-1.5 text-[13px] font-semibold transition-colors",
+                page === 0 ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-500",
+              )}
+            >
+              Щитки
+            </button>
+            <button
+              type="button"
+              onClick={() => setPage(1)}
+              className={cn(
+                "rounded-full px-3 py-1.5 text-[13px] font-semibold transition-colors",
+                page === 1 ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-500",
+              )}
+            >
+              Заявки
+              {requests.length > 0 && (
+                <span className="ml-1 text-[11px] font-medium text-zinc-400">
+                  {requests.length}
+                </span>
+              )}
+            </button>
+          </div>
+          <button
+            type="button"
+            onClick={onAdd}
+            className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--primary)] text-white shadow-[0_6px_20px_rgba(17,17,19,0.18)]"
+            aria-label="Добавить щиток"
+          >
+            <Plus className="h-5 w-5" />
+          </button>
+        </div>
       </header>
 
       {error && (
-        <p className="mb-3 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-[13px] text-rose-700">
+        <p className="mx-5 mb-3 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-[13px] text-rose-700">
           {error}
         </p>
       )}
 
-      <div className="flex flex-1 flex-col gap-3">
-        {loading ? (
-          <div className="flex flex-1 flex-col items-center justify-center px-4 text-center">
-            <p className="text-[15px] text-zinc-500">Загрузка…</p>
-          </div>
-        ) : items.length === 0 ? (
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex flex-1 flex-col items-center justify-center px-4 text-center"
-          >
-            <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-[24px] border border-black/8 bg-zinc-100 text-[var(--accent)]">
-              <BreakerIcon className="h-10 w-10" />
-            </div>
-            <p className="max-w-[300px] text-[15px] leading-relaxed text-zinc-500">
-              Сфотографируйте существующий щиток или расскажите, как у вас
-              устроена электрика без него.
-            </p>
-          </motion.div>
-        ) : (
-          items.map((obj, i) => (
-            <motion.div
-              key={obj.id}
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.06 * i }}
-            >
-              <SwipeableRow onDelete={() => setPendingDeleteId(obj.id)}>
-                <HomeListCard
-                  item={obj}
-                  pressing={pressingId === obj.id}
-                  lifted={actionsItemId === obj.id}
-                  onOpen={() =>
-                    obj.kind === "install_request"
-                      ? onOpenRequest(obj.id)
-                      : onOpenPanel(obj.id)
-                  }
-                  onContextMenu={() => setActionsItemId(obj.id)}
-                  onPressingChange={(next) =>
-                    setPressingId(next ? obj.id : null)
-                  }
-                />
-              </SwipeableRow>
-            </motion.div>
-          ))
-        )}
-      </div>
-
-      <div className="mt-6 space-y-4">
-        <Button className="w-full" onClick={onAdd}>
-          <Plus className="h-5 w-5" />
-          Добавить щиток
-        </Button>
-        <button
-          type="button"
-          onClick={onNoPanel}
-          className="w-full text-center text-[15px] font-medium text-zinc-500 underline decoration-zinc-300 underline-offset-4 transition-colors hover:text-zinc-800"
+      <div ref={pagerRef} className="min-h-0 flex-1 overflow-hidden">
+        <motion.div
+          className="flex h-full"
+          drag="x"
+          dragDirectionLock
+          dragElastic={0.16}
+          dragConstraints={{ left: -pagerWidth, right: 0 }}
+          animate={{ x: pagerWidth ? -page * pagerWidth : 0 }}
+          transition={PAGE_SPRING}
+          onDragEnd={onPagerDragEnd}
+          style={{ width: pagerWidth ? pagerWidth * 2 : "200%" }}
         >
-          У меня нет щитка
-        </button>
+          <div
+            className="flex h-full flex-col overflow-y-auto px-5 pb-8"
+            style={{ width: pagerWidth || "50%" }}
+          >
+            {renderList(panels, {
+              icon: <BreakerIcon className="h-10 w-10" />,
+              text: "Сфотографируйте существующий щиток или расскажите, как у вас устроена электрика без него.",
+            })}
+            <div className="mt-6 space-y-4">
+              <Button className="w-full" onClick={onAdd}>
+                <Plus className="h-5 w-5" />
+                Добавить щиток
+              </Button>
+              <button
+                type="button"
+                onClick={onNoPanel}
+                className="w-full text-center text-[15px] font-medium text-zinc-500 underline decoration-zinc-300 underline-offset-4 transition-colors hover:text-zinc-800"
+              >
+                У меня нет щитка
+              </button>
+            </div>
+          </div>
+          <div
+            className="flex h-full flex-col overflow-y-auto px-5 pb-8"
+            style={{ width: pagerWidth || "50%" }}
+          >
+            {renderList(requests, {
+              icon: <ClipboardList className="h-10 w-10" />,
+              text: "Здесь появятся заявки на консультацию и установку щитка.",
+            })}
+          </div>
+        </motion.div>
       </div>
 
       <AnimatePresence>

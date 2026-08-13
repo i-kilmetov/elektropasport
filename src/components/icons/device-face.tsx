@@ -1,6 +1,8 @@
 "use client";
 
 import { useRef, useState, type MouseEvent, type ReactNode } from "react";
+import { motion } from "framer-motion";
+import { hapticContextMenu } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
 import type { Device, DeviceType } from "@/types";
 
@@ -11,7 +13,9 @@ export const TERMINAL_HEIGHT_PX = 18;
 /** Gap between neighboring devices on the rail */
 export const DEVICE_GAP_PX = 6;
 
-const LONG_PRESS_MS = 420;
+const LONG_PRESS_MS = 480;
+const LIFT_DELAY_MS = 90;
+const MOVE_CANCEL_PX = 8;
 
 export function isDevicePowered(device: Device): boolean {
   return device.powered !== false;
@@ -498,6 +502,7 @@ export function DeviceFace({
   const timerRef = useRef<number | null>(null);
   const liftTimerRef = useRef<number | null>(null);
   const settleTimerRef = useRef<number | null>(null);
+  const startPointRef = useRef<{ x: number; y: number } | null>(null);
   const longPressedRef = useRef(false);
   const [lifted, setLifted] = useState(false);
 
@@ -512,15 +517,17 @@ export function DeviceFace({
     }
   };
 
-  const startPress = () => {
+  const startPress = (clientX: number, clientY: number) => {
     longPressedRef.current = false;
     clearTimers();
+    startPointRef.current = { x: clientX, y: clientY };
     liftTimerRef.current = window.setTimeout(() => {
       setLifted(true);
-    }, 80);
+    }, LIFT_DELAY_MS);
     timerRef.current = window.setTimeout(() => {
       longPressedRef.current = true;
       setLifted(true);
+      hapticContextMenu();
       onLongPress?.();
       if (settleTimerRef.current != null) {
         window.clearTimeout(settleTimerRef.current);
@@ -528,17 +535,18 @@ export function DeviceFace({
       settleTimerRef.current = window.setTimeout(() => {
         setLifted(false);
         settleTimerRef.current = null;
-      }, 220);
+      }, 280);
     }, LONG_PRESS_MS);
   };
 
   const endPress = () => {
     clearTimers();
+    startPointRef.current = null;
     if (!longPressedRef.current) setLifted(false);
   };
 
   return (
-    <button
+    <motion.button
       type="button"
       onClick={(event) => {
         if (longPressedRef.current) {
@@ -547,21 +555,47 @@ export function DeviceFace({
         }
         onSelect(event);
       }}
-      onPointerDown={startPress}
+      onPointerDown={(event) => {
+        if (event.button !== 0) return;
+        startPress(event.clientX, event.clientY);
+      }}
+      onPointerMove={(event) => {
+        const start = startPointRef.current;
+        if (!start) return;
+        if (
+          Math.abs(event.clientX - start.x) > MOVE_CANCEL_PX ||
+          Math.abs(event.clientY - start.y) > MOVE_CANCEL_PX
+        ) {
+          endPress();
+        }
+      }}
       onPointerUp={endPress}
       onPointerLeave={endPress}
       onPointerCancel={endPress}
       onContextMenu={(event) => event.preventDefault()}
+      animate={{
+        scale: lifted ? 1.08 : 1,
+        y: lifted ? -3 : 0,
+      }}
+      transition={{
+        type: "spring",
+        stiffness: 420,
+        damping: 28,
+        mass: 0.7,
+      }}
       style={{
         width,
         minWidth: width,
         maxWidth: width,
         boxSizing: "border-box",
         touchAction: "manipulation",
+        filter: lifted
+          ? "drop-shadow(0 12px 22px rgba(17,17,19,0.22))"
+          : "drop-shadow(0 0 0 rgba(0,0,0,0))",
       }}
       className={cn(
-        "block origin-center p-0 select-none transition-[transform,box-shadow] duration-200 ease-out",
-        lifted && "relative z-20 scale-[1.08]",
+        "block origin-center p-0 select-none",
+        lifted && "relative z-20",
         selected &&
           "rounded-[8px] ring-2 ring-[var(--accent)] ring-offset-2 ring-offset-white",
       )}
@@ -573,7 +607,7 @@ export function DeviceFace({
         showTerminals={showTerminals}
         brand={brand}
       />
-    </button>
+    </motion.button>
   );
 }
 
