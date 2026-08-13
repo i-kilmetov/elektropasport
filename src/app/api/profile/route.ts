@@ -12,27 +12,43 @@ import {
 } from "@/lib/db";
 
 function normalizeProfile(body: {
+  firstName?: unknown;
+  lastName?: unknown;
   displayName?: unknown;
   birthDate?: unknown;
-  gender?: unknown;
   phoneDigits?: unknown;
   avatarId?: unknown;
 }): StoredUserProfile {
-  const gender =
-    body.gender === "male" ||
-    body.gender === "female" ||
-    body.gender === "unspecified"
-      ? body.gender
+  let firstName =
+    typeof body.firstName === "string"
+      ? body.firstName.trim() || undefined
+      : undefined;
+  let lastName =
+    typeof body.lastName === "string"
+      ? body.lastName.trim() || undefined
       : undefined;
 
+  // Backward compatibility for older clients that sent a single displayName.
+  if (!firstName && !lastName && typeof body.displayName === "string") {
+    const full = body.displayName.trim();
+    if (full) {
+      const space = full.indexOf(" ");
+      if (space === -1) {
+        firstName = full;
+      } else {
+        firstName = full.slice(0, space).trim() || undefined;
+        lastName = full.slice(space + 1).trim() || undefined;
+      }
+    }
+  }
+
   return {
-    displayName:
-      typeof body.displayName === "string"
-        ? body.displayName.trim() || undefined
-        : undefined,
+    firstName,
+    lastName,
     birthDate:
-      typeof body.birthDate === "string" ? body.birthDate.trim() || undefined : undefined,
-    gender,
+      typeof body.birthDate === "string"
+        ? body.birthDate.trim() || undefined
+        : undefined,
     phoneDigits:
       typeof body.phoneDigits === "string"
         ? body.phoneDigits.replace(/\D/g, "").slice(0, 10) || undefined

@@ -1,5 +1,8 @@
 import { getBrowserAuthUser } from "@/lib/client-auth";
-import { getUserProfile } from "@/lib/user-profile";
+import {
+  formatProfileDisplayName,
+  getUserProfile,
+} from "@/lib/user-profile";
 
 export type TelegramProfileInfo = {
   id?: number;
@@ -55,7 +58,7 @@ export function getTelegramProfileInfo(): TelegramProfileInfo {
 }
 
 export function getTelegramUserName(): string {
-  const custom = getUserProfile().displayName?.trim();
+  const custom = formatProfileDisplayName(getUserProfile());
   if (custom) return custom;
 
   const info = getTelegramProfileInfo();

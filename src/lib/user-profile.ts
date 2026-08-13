@@ -2,12 +2,10 @@
 
 import { authHeaders, canUseServerAuth } from "@/lib/client-auth";
 
-export type UserGender = "male" | "female" | "unspecified";
-
 export type UserProfile = {
-  displayName?: string;
+  firstName?: string;
+  lastName?: string;
   birthDate?: string;
-  gender?: UserGender;
   /** 10 digits without country code */
   phoneDigits?: string;
   /** Schematic avatar id */
@@ -16,30 +14,44 @@ export type UserProfile = {
 
 const PROFILE_KEY = "elektropasport:user-profile";
 
+function splitLegacyDisplayName(value: unknown): {
+  firstName?: string;
+  lastName?: string;
+} {
+  if (typeof value !== "string") return {};
+  const full = value.trim();
+  if (!full) return {};
+  const space = full.indexOf(" ");
+  if (space === -1) return { firstName: full };
+  return {
+    firstName: full.slice(0, space).trim() || undefined,
+    lastName: full.slice(space + 1).trim() || undefined,
+  };
+}
+
 function profileHasData(profile: UserProfile): boolean {
   return Boolean(
-    profile.displayName ||
+    profile.firstName ||
+      profile.lastName ||
       profile.birthDate ||
-      profile.gender ||
       profile.phoneDigits ||
       profile.avatarId,
   );
 }
 
-function sanitizeProfile(parsed: Partial<UserProfile>): UserProfile {
+function sanitizeProfile(parsed: Partial<UserProfile> & { displayName?: string }): UserProfile {
+  const legacy = splitLegacyDisplayName(parsed.displayName);
   const next: UserProfile = {};
-  if (typeof parsed.displayName === "string" && parsed.displayName.trim()) {
-    next.displayName = parsed.displayName.trim().slice(0, 80);
-  }
+  const firstName =
+    (typeof parsed.firstName === "string" && parsed.firstName.trim()) ||
+    legacy.firstName;
+  const lastName =
+    (typeof parsed.lastName === "string" && parsed.lastName.trim()) ||
+    legacy.lastName;
+  if (firstName) next.firstName = firstName.slice(0, 64);
+  if (lastName) next.lastName = lastName.slice(0, 64);
   if (typeof parsed.birthDate === "string" && parsed.birthDate.trim()) {
     next.birthDate = parsed.birthDate.trim();
-  }
-  if (
-    parsed.gender === "male" ||
-    parsed.gender === "female" ||
-    parsed.gender === "unspecified"
-  ) {
-    next.gender = parsed.gender;
   }
   if (typeof parsed.phoneDigits === "string") {
     const digits = parsed.phoneDigits.replace(/\D/g, "").slice(0, 10);
@@ -66,7 +78,7 @@ export function getUserProfile(): UserProfile {
   try {
     const raw = localStorage.getItem(PROFILE_KEY);
     if (!raw) return {};
-    return sanitizeProfile(JSON.parse(raw) as UserProfile);
+    return sanitizeProfile(JSON.parse(raw) as UserProfile & { displayName?: string });
   } catch {
     return {};
   }
@@ -74,6 +86,10 @@ export function getUserProfile(): UserProfile {
 
 export function saveUserProfile(patch: Partial<UserProfile>): UserProfile {
   return writeLocalProfile({ ...getUserProfile(), ...patch });
+}
+
+export function formatProfileDisplayName(profile: UserProfile): string {
+  return [profile.firstName, profile.lastName].filter(Boolean).join(" ").trim();
 }
 
 async function parseError(res: Response): Promise<string> {

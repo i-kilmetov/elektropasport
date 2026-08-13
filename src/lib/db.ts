@@ -147,6 +147,14 @@ export async function ensureSchema(): Promise<void> {
         ADD COLUMN IF NOT EXISTS display_name TEXT
       `;
       await sql`
+        ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS profile_first_name TEXT
+      `;
+      await sql`
+        ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS profile_last_name TEXT
+      `;
+      await sql`
         ALTER TABLE panels
         ADD COLUMN IF NOT EXISTS source_share_token TEXT
       `;
@@ -190,12 +198,26 @@ export async function upsertUser(user: ValidatedTelegramUser): Promise<void> {
 }
 
 export type StoredUserProfile = {
-  displayName?: string;
+  firstName?: string;
+  lastName?: string;
   birthDate?: string;
-  gender?: "male" | "female" | "unspecified";
   phoneDigits?: string;
   avatarId?: string;
 };
+
+function splitLegacyDisplayName(value: string | null | undefined): {
+  firstName?: string;
+  lastName?: string;
+} {
+  const full = value?.trim();
+  if (!full) return {};
+  const space = full.indexOf(" ");
+  if (space === -1) return { firstName: full };
+  return {
+    firstName: full.slice(0, space).trim() || undefined,
+    lastName: full.slice(space + 1).trim() || undefined,
+  };
+}
 
 export async function getStoredUserProfile(
   telegramUserId: number,
@@ -203,30 +225,36 @@ export async function getStoredUserProfile(
   const sql = getSql();
   await ensureSchema();
   const [row] = (await sql`
-    SELECT display_name, birth_date, gender, phone_digits, avatar_id
+    SELECT
+      profile_first_name,
+      profile_last_name,
+      display_name,
+      birth_date,
+      phone_digits,
+      avatar_id
     FROM users
     WHERE telegram_id = ${telegramUserId}
   `) as Array<{
+    profile_first_name: string | null;
+    profile_last_name: string | null;
     display_name: string | null;
     birth_date: string | null;
-    gender: string | null;
     phone_digits: string | null;
     avatar_id: string | null;
   }>;
 
   if (!row) return {};
 
-  const gender =
-    row.gender === "male" ||
-    row.gender === "female" ||
-    row.gender === "unspecified"
-      ? row.gender
-      : undefined;
+  const legacy = splitLegacyDisplayName(row.display_name);
+  const firstName =
+    row.profile_first_name?.trim() || legacy.firstName || undefined;
+  const lastName =
+    row.profile_last_name?.trim() || legacy.lastName || undefined;
 
   return {
-    displayName: row.display_name ?? undefined,
+    firstName,
+    lastName,
     birthDate: row.birth_date ?? undefined,
-    gender,
     phoneDigits: row.phone_digits ?? undefined,
     avatarId: row.avatar_id ?? undefined,
   };
@@ -239,14 +267,11 @@ export async function updateStoredUserProfile(
   const sql = getSql();
   await ensureSchema();
 
-  const displayName = profile.displayName?.trim() || null;
+  const firstName = profile.firstName?.trim() || null;
+  const lastName = profile.lastName?.trim() || null;
+  const displayName =
+    [firstName, lastName].filter(Boolean).join(" ").trim() || null;
   const birthDate = profile.birthDate?.trim() || null;
-  const gender =
-    profile.gender === "male" ||
-    profile.gender === "female" ||
-    profile.gender === "unspecified"
-      ? profile.gender
-      : null;
   const phoneDigits =
     profile.phoneDigits?.replace(/\D/g, "").slice(0, 10) || null;
   const avatarId = profile.avatarId?.trim() || null;
@@ -254,9 +279,10 @@ export async function updateStoredUserProfile(
   await sql`
     UPDATE users
     SET
+      profile_first_name = ${firstName},
+      profile_last_name = ${lastName},
       display_name = ${displayName},
       birth_date = ${birthDate},
-      gender = ${gender},
       phone_digits = ${phoneDigits},
       avatar_id = ${avatarId},
       updated_at = NOW()
@@ -264,9 +290,9 @@ export async function updateStoredUserProfile(
   `;
 
   return {
-    displayName: displayName ?? undefined,
+    firstName: firstName ?? undefined,
+    lastName: lastName ?? undefined,
     birthDate: birthDate ?? undefined,
-    gender: gender ?? undefined,
     phoneDigits: phoneDigits ?? undefined,
     avatarId: avatarId ?? undefined,
   };

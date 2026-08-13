@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, Check, LogOut, Phone, X } from "lucide-react";
+import { ArrowLeft, Check, Phone, X } from "lucide-react";
 import {
   AvatarIcon,
   AVATAR_IDS,
@@ -18,26 +18,20 @@ import {
   isTelegramMiniApp,
 } from "@/lib/client-auth";
 import { hapticNotification } from "@/lib/haptics";
-import { getTelegramProfileInfo, getTelegramUserName } from "@/lib/telegram-user";
+import { getTelegramProfileInfo } from "@/lib/telegram-user";
 import {
   formatPhoneDigits,
+  formatProfileDisplayName,
   getUserProfile,
   persistUserProfile,
   syncUserProfileFromServer,
-  type UserGender,
 } from "@/lib/user-profile";
 import { cn } from "@/lib/utils";
 
-const genderOptions: Array<{ id: UserGender; label: string }> = [
-  { id: "male", label: "Мужской" },
-  { id: "female", label: "Женский" },
-  { id: "unspecified", label: "Не указывать" },
-];
-
 type ProfileDraft = {
-  displayName: string;
+  firstName: string;
+  lastName: string;
   birthDate: string;
-  gender: UserGender | "";
   digits: string;
   avatarId: AvatarId;
 };
@@ -117,9 +111,9 @@ function AvatarPickerSheet({
 
 function sameDraft(a: ProfileDraft, b: ProfileDraft): boolean {
   return (
-    a.displayName.trim() === b.displayName.trim() &&
+    a.firstName.trim() === b.firstName.trim() &&
+    a.lastName.trim() === b.lastName.trim() &&
     a.birthDate === b.birthDate &&
-    a.gender === b.gender &&
     a.digits === b.digits &&
     a.avatarId === b.avatarId
   );
@@ -134,26 +128,24 @@ export function ProfileScreen({
 }) {
   const showLogout = !isTelegramMiniApp();
   const telegram = useMemo(() => getTelegramProfileInfo(), []);
-  const telegramName = useMemo(() => {
-    const full = [telegram.firstName, telegram.lastName]
-      .filter(Boolean)
-      .join(" ")
-      .trim();
-    if (full) return full;
-    if (telegram.username) return telegram.username;
-    return "Пользователь";
-  }, [telegram]);
+  const telegramDefaults = useMemo(
+    () => ({
+      firstName: telegram.firstName?.trim() ?? "",
+      lastName: telegram.lastName?.trim() ?? "",
+    }),
+    [telegram],
+  );
 
   const initial = useMemo(() => getUserProfile(), []);
   const initialDraft = useMemo<ProfileDraft>(
     () => ({
-      displayName: initial.displayName ?? getTelegramUserName(),
+      firstName: initial.firstName ?? telegramDefaults.firstName,
+      lastName: initial.lastName ?? telegramDefaults.lastName,
       birthDate: initial.birthDate ?? "",
-      gender: initial.gender ?? "",
       digits: initial.phoneDigits ?? "",
       avatarId: isAvatarId(initial.avatarId) ? initial.avatarId : "circle",
     }),
-    [initial],
+    [initial, telegramDefaults],
   );
 
   const [draft, setDraft] = useState<ProfileDraft>(initialDraft);
@@ -178,9 +170,9 @@ export function ProfileScreen({
         const profile = await syncUserProfileFromServer();
         if (cancelled) return;
         const next: ProfileDraft = {
-          displayName: profile.displayName?.trim() || telegramName,
+          firstName: profile.firstName ?? telegramDefaults.firstName,
+          lastName: profile.lastName ?? telegramDefaults.lastName,
           birthDate: profile.birthDate ?? "",
-          gender: profile.gender ?? "",
           digits: profile.phoneDigits ?? "",
           avatarId: isAvatarId(profile.avatarId) ? profile.avatarId : "circle",
         };
@@ -193,7 +185,7 @@ export function ProfileScreen({
     return () => {
       cancelled = true;
     };
-  }, [telegramName]);
+  }, [telegramDefaults]);
 
   const save = async () => {
     if (saving || saveFlash || !dirty) return;
@@ -201,16 +193,16 @@ export function ProfileScreen({
     setError(null);
     try {
       const saved = await persistUserProfile({
-        displayName: draft.displayName.trim() || undefined,
+        firstName: draft.firstName.trim() || undefined,
+        lastName: draft.lastName.trim() || undefined,
         birthDate: draft.birthDate || undefined,
-        gender: draft.gender || undefined,
         phoneDigits: draft.digits || undefined,
         avatarId: draft.avatarId,
       });
       const next: ProfileDraft = {
-        displayName: saved.displayName?.trim() || telegramName,
+        firstName: saved.firstName ?? telegramDefaults.firstName,
+        lastName: saved.lastName ?? telegramDefaults.lastName,
         birthDate: saved.birthDate ?? "",
-        gender: saved.gender ?? "",
         digits: saved.phoneDigits ?? "",
         avatarId: isAvatarId(saved.avatarId) ? saved.avatarId : draft.avatarId,
       };
@@ -261,51 +253,65 @@ export function ProfileScreen({
         <h1 className="min-w-0 flex-1 text-[20px] font-semibold text-zinc-900">
           Личный кабинет
         </h1>
-        {showLogout && (
-          <button
-            type="button"
-            onClick={() => setLogoutOpen(true)}
-            disabled={saving}
-            className="flex h-11 w-11 items-center justify-center rounded-full border border-black/8 bg-zinc-100 text-zinc-700 disabled:opacity-40"
-            aria-label="Выйти из аккаунта"
-          >
-            <LogOut className="h-5 w-5" />
-          </button>
-        )}
       </header>
 
       <div className="min-w-0 flex-1 space-y-5 overflow-x-hidden overflow-y-auto pb-4">
         {loading && (
           <p className="text-[14px] text-zinc-500">Загружаем профиль…</p>
         )}
-        <GlassCard className="flex items-center gap-4 p-4">
+
+        <div className="flex flex-col items-center gap-3">
           <button
             type="button"
             onClick={() => setPickerOpen(true)}
-            className="relative h-16 w-16 shrink-0 overflow-hidden rounded-full border border-black/8 bg-zinc-100 transition-transform active:scale-95"
+            className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full border border-black/8 bg-zinc-100 transition-transform active:scale-95"
             aria-label="Сменить иконку профиля"
           >
             <AvatarIcon id={draft.avatarId} />
           </button>
-          <div className="min-w-0 flex-1">
-            <label className="mb-1 block text-[12px] text-zinc-500">Имя</label>
+          {telegram.username && (
+            <p className="truncate text-[14px] text-zinc-500">
+              @{telegram.username}
+            </p>
+          )}
+          {!formatProfileDisplayName({
+            firstName: draft.firstName,
+            lastName: draft.lastName,
+          }) && (
+            <p className="text-[13px] text-zinc-400">Укажите имя и фамилию</p>
+          )}
+        </div>
+
+        <GlassCard className="overflow-hidden p-0">
+          <label className="block px-4 py-3">
+            <span className="sr-only">Имя</span>
             <input
-              value={draft.displayName}
+              value={draft.firstName}
               onChange={(e) =>
                 setDraft((prev) => ({
                   ...prev,
-                  displayName: e.target.value.slice(0, 80),
+                  firstName: e.target.value.slice(0, 64),
                 }))
               }
-              placeholder={telegramName}
-              className="h-11 w-full min-w-0 rounded-[14px] border border-black/8 bg-zinc-50 px-3 text-[16px] font-semibold text-zinc-900 outline-none placeholder:font-normal placeholder:text-zinc-400 focus:border-zinc-300"
+              placeholder="Имя"
+              className="h-8 w-full bg-transparent text-[16px] text-zinc-900 outline-none placeholder:text-zinc-400"
             />
-            {telegram.username && (
-              <p className="mt-1.5 truncate text-[13px] text-zinc-500">
-                @{telegram.username}
-              </p>
-            )}
-          </div>
+          </label>
+          <div className="mx-4 border-t border-black/[0.08]" />
+          <label className="block px-4 py-3">
+            <span className="sr-only">Фамилия</span>
+            <input
+              value={draft.lastName}
+              onChange={(e) =>
+                setDraft((prev) => ({
+                  ...prev,
+                  lastName: e.target.value.slice(0, 64),
+                }))
+              }
+              placeholder="Фамилия"
+              className="h-8 w-full bg-transparent text-[16px] text-zinc-900 outline-none placeholder:text-zinc-400"
+            />
+          </label>
         </GlassCard>
 
         <div className="min-w-0">
@@ -325,29 +331,11 @@ export function ProfileScreen({
                 }
                 className="h-12 w-full min-w-0 max-w-full rounded-[16px] border border-black/8 bg-zinc-50 px-3 text-[15px] text-zinc-900 outline-none focus:border-zinc-300"
               />
+              <span className="mt-1.5 block text-[12px] leading-relaxed text-zinc-400">
+                Нам интересно знать возраст наших пользователей, но со своей
+                стороны мы будем стараться радовать вас в день рождения.
+              </span>
             </label>
-
-            <div>
-              <span className="mb-1.5 block text-[13px] text-zinc-500">Пол</span>
-              <div className="grid grid-cols-3 gap-2">
-                {genderOptions.map((option) => (
-                  <button
-                    key={option.id}
-                    type="button"
-                    onClick={() =>
-                      setDraft((prev) => ({ ...prev, gender: option.id }))
-                    }
-                    className={`rounded-[14px] border px-2 py-2.5 text-[13px] font-medium transition-colors ${
-                      draft.gender === option.id
-                        ? "border-zinc-900 bg-zinc-900 text-white"
-                        : "border-black/8 bg-zinc-50 text-zinc-700 hover:bg-zinc-100"
-                    }`}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-            </div>
 
             <label className="block min-w-0">
               <span className="mb-1.5 block text-[13px] text-zinc-500">
@@ -391,6 +379,16 @@ export function ProfileScreen({
             onClick={() => void save()}
           >
             {saving ? "Сохраняем…" : "Сохранить"}
+          </Button>
+        )}
+        {showLogout && (
+          <Button
+            className="w-full"
+            variant="secondary"
+            disabled={saving}
+            onClick={() => setLogoutOpen(true)}
+          >
+            Выйти из аккаунта
           </Button>
         )}
       </div>
