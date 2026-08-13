@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, QrCode } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
+import { TelegramAppIcon } from "@/components/icons/telegram-app-icon";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
 
@@ -47,21 +48,21 @@ export function TelegramAuthScreen({
 
       <div className="flex flex-1 flex-col items-center justify-center">
         <GlassCard className="w-full max-w-sm space-y-5 p-6 text-center">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-black/8 bg-sky-50 text-sky-600">
-            <QrCode className="h-8 w-8" strokeWidth={1.75} />
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-[#2AABEE] text-white shadow-[0_8px_24px_rgba(42,171,238,0.28)]">
+            <TelegramAppIcon className="h-8 w-8" />
           </div>
           <div>
             <h2 className="text-[22px] font-bold tracking-tight text-zinc-900">
               Войдите через Telegram
             </h2>
             <p className="mt-2 text-[14px] leading-relaxed text-zinc-500">
-              Откроется страница Telegram с QR-кодом. Отсканируйте его в
-              приложении Telegram на телефоне — без входа в бота.
+              Подтвердите вход в своём аккаунте Telegram — так мы сохраним ваши
+              щитки, заявки и данные профиля.
             </p>
           </div>
 
           <Button className="w-full" disabled={starting} onClick={handleLogin}>
-            {starting ? "Открываем Telegram…" : "Войти по QR-коду"}
+            {starting ? "Открываем Telegram…" : "Войти через Telegram"}
           </Button>
         </GlassCard>
       </div>

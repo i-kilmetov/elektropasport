@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, Check, Phone, X } from "lucide-react";
+import { ArrowLeft, Check, LogOut, Phone, X } from "lucide-react";
 import {
   AvatarIcon,
   AVATAR_IDS,
@@ -10,6 +10,7 @@ import {
   type AvatarId,
 } from "@/components/icons/avatar-icon";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Portal } from "@/components/ui/portal";
 import {
@@ -158,6 +159,7 @@ export function ProfileScreen({
   const [draft, setDraft] = useState<ProfileDraft>(initialDraft);
   const [baseline, setBaseline] = useState<ProfileDraft>(initialDraft);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [logoutOpen, setLogoutOpen] = useState(false);
   const [saveFlash, setSaveFlash] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -256,9 +258,20 @@ export function ProfileScreen({
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <h1 className="text-[20px] font-semibold text-zinc-900">
+        <h1 className="min-w-0 flex-1 text-[20px] font-semibold text-zinc-900">
           Личный кабинет
         </h1>
+        {showLogout && (
+          <button
+            type="button"
+            onClick={() => setLogoutOpen(true)}
+            disabled={saving}
+            className="flex h-11 w-11 items-center justify-center rounded-full border border-black/8 bg-zinc-100 text-zinc-700 disabled:opacity-40"
+            aria-label="Выйти из аккаунта"
+          >
+            <LogOut className="h-5 w-5" />
+          </button>
+        )}
       </header>
 
       <div className="min-w-0 flex-1 space-y-5 overflow-x-hidden overflow-y-auto pb-4">
@@ -380,16 +393,6 @@ export function ProfileScreen({
             {saving ? "Сохраняем…" : "Сохранить"}
           </Button>
         )}
-        {showLogout && (
-          <Button
-            className="w-full"
-            variant="secondary"
-            disabled={saving}
-            onClick={logout}
-          >
-            Выйти из аккаунта
-          </Button>
-        )}
       </div>
 
       <AnimatePresence>
@@ -398,6 +401,23 @@ export function ProfileScreen({
             selected={draft.avatarId}
             onSelect={(id) => setDraft((prev) => ({ ...prev, avatarId: id }))}
             onClose={() => setPickerOpen(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {logoutOpen && (
+          <ConfirmDialog
+            title="Выйти из аккаунта?"
+            description="Сессия на этом устройстве завершится. Чтобы снова пользоваться сервисом в браузере, нужно будет войти через Telegram."
+            confirmLabel="Выйти"
+            cancelLabel="Отмена"
+            danger
+            onCancel={() => setLogoutOpen(false)}
+            onConfirm={() => {
+              setLogoutOpen(false);
+              logout();
+            }}
           />
         )}
       </AnimatePresence>
