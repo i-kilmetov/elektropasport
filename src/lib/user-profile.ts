@@ -7,6 +7,8 @@ export type UserProfile = {
   gender?: UserGender;
   /** 10 digits without country code */
   phoneDigits?: string;
+  /** Schematic avatar id */
+  avatarId?: string;
 };
 
 const PROFILE_KEY = "elektropasport:user-profile";
@@ -29,6 +31,8 @@ export function getUserProfile(): UserProfile {
         typeof parsed.phoneDigits === "string"
           ? parsed.phoneDigits.replace(/\D/g, "").slice(0, 10)
           : undefined,
+      avatarId:
+        typeof parsed.avatarId === "string" ? parsed.avatarId : undefined,
     };
   } catch {
     return {};
@@ -41,6 +45,7 @@ export function saveUserProfile(patch: Partial<UserProfile>): UserProfile {
     next.phoneDigits = next.phoneDigits.replace(/\D/g, "").slice(0, 10) || undefined;
   }
   if (next.birthDate === "") delete next.birthDate;
+  if (next.avatarId === "") delete next.avatarId;
   try {
     localStorage.setItem(PROFILE_KEY, JSON.stringify(next));
   } catch {

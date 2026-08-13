@@ -1,10 +1,18 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { motion } from "framer-motion";
-import { ArrowLeft, Phone, UserRound } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import { ArrowLeft, Check, Phone, X } from "lucide-react";
+import {
+  AvatarIcon,
+  AVATAR_IDS,
+  isAvatarId,
+  type AvatarId,
+} from "@/components/icons/avatar-icon";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
+import { Portal } from "@/components/ui/portal";
+import { hapticNotification } from "@/lib/haptics";
 import { getTelegramProfileInfo, getTelegramUserName } from "@/lib/telegram-user";
 import {
   formatPhoneDigits,
@@ -12,12 +20,86 @@ import {
   saveUserProfile,
   type UserGender,
 } from "@/lib/user-profile";
+import { cn } from "@/lib/utils";
 
 const genderOptions: Array<{ id: UserGender; label: string }> = [
   { id: "male", label: "Мужской" },
   { id: "female", label: "Женский" },
   { id: "unspecified", label: "Не указывать" },
 ];
+
+function AvatarPickerSheet({
+  selected,
+  onSelect,
+  onClose,
+}: {
+  selected: AvatarId;
+  onSelect: (id: AvatarId) => void;
+  onClose: () => void;
+}) {
+  return (
+    <Portal>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[110] flex items-end bg-black/60 backdrop-blur-sm"
+        onClick={onClose}
+      >
+        <motion.div
+          initial={{ y: 40 }}
+          animate={{ y: 0 }}
+          exit={{ y: 40 }}
+          transition={{ type: "spring", stiffness: 320, damping: 30 }}
+          onClick={(e) => e.stopPropagation()}
+          className="w-full rounded-t-[28px] border border-black/8 bg-white p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-2xl"
+        >
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-[18px] font-semibold text-zinc-900">
+                Иконка профиля
+              </h2>
+              <p className="mt-0.5 text-[13px] text-zinc-500">
+                Выберите схематичный аватар
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-black/8 bg-zinc-100 text-zinc-600"
+              aria-label="Закрыть"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            {AVATAR_IDS.map((id) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => {
+                  onSelect(id);
+                  onClose();
+                }}
+                className={cn(
+                  "flex aspect-square items-center justify-center rounded-[20px] border p-2 transition-colors",
+                  selected === id
+                    ? "border-zinc-900 bg-zinc-900/5 ring-2 ring-zinc-900"
+                    : "border-black/8 bg-zinc-50 hover:bg-zinc-100",
+                )}
+                aria-label={`Аватар ${id}`}
+                aria-pressed={selected === id}
+              >
+                <AvatarIcon id={id} className="h-full w-full" />
+              </button>
+            ))}
+          </div>
+        </motion.div>
+      </motion.div>
+    </Portal>
+  );
+}
 
 export function ProfileScreen({ onBack }: { onBack: () => void }) {
   const telegram = useMemo(() => getTelegramProfileInfo(), []);
@@ -27,39 +109,41 @@ export function ProfileScreen({ onBack }: { onBack: () => void }) {
   const [birthDate, setBirthDate] = useState(initial.birthDate ?? "");
   const [gender, setGender] = useState<UserGender | "">(initial.gender ?? "");
   const [digits, setDigits] = useState(initial.phoneDigits ?? "");
-  const [saved, setSaved] = useState(false);
+  const [avatarId, setAvatarId] = useState<AvatarId>(
+    isAvatarId(initial.avatarId) ? initial.avatarId : "circle",
+  );
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [saveFlash, setSaveFlash] = useState(false);
 
   const phoneDisplay = useMemo(() => formatPhoneDigits(digits), [digits]);
 
-  const save = () => {
+  const saveAndExit = () => {
     saveUserProfile({
       birthDate: birthDate || undefined,
       gender: gender || undefined,
       phoneDigits: digits || undefined,
+      avatarId,
     });
-    setSaved(true);
-    window.setTimeout(() => setSaved(false), 1600);
+    hapticNotification("success");
+    setSaveFlash(true);
+    window.setTimeout(() => {
+      onBack();
+    }, 900);
   };
-
-  const initials = displayName
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("");
 
   return (
     <motion.section
       initial={{ opacity: 0, x: 40 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -40 }}
-      className="flex min-h-dvh flex-col px-5 pb-8 pt-[max(1.25rem,env(safe-area-inset-top))]"
+      className="relative flex min-h-dvh flex-col px-5 pb-8 pt-[max(1.25rem,env(safe-area-inset-top))]"
     >
       <header className="mb-6 flex items-center gap-3">
         <button
           type="button"
           onClick={onBack}
-          className="flex h-11 w-11 items-center justify-center rounded-full border border-black/8 bg-zinc-100 text-zinc-900"
+          disabled={saveFlash}
+          className="flex h-11 w-11 items-center justify-center rounded-full border border-black/8 bg-zinc-100 text-zinc-900 disabled:opacity-40"
           aria-label="Назад"
         >
           <ArrowLeft className="h-5 w-5" />
@@ -71,22 +155,17 @@ export function ProfileScreen({ onBack }: { onBack: () => void }) {
 
       <div className="flex-1 space-y-5 overflow-y-auto pb-4">
         <GlassCard className="flex items-center gap-4 p-4">
-          <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-zinc-100 text-[var(--accent)]">
-            {telegram.photoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={telegram.photoUrl}
-                alt=""
-                className="h-full w-full object-cover"
-              />
-            ) : initials ? (
-              <span className="text-[20px] font-bold text-zinc-700">
-                {initials}
-              </span>
-            ) : (
-              <UserRound className="h-7 w-7" />
-            )}
-          </div>
+          <button
+            type="button"
+            onClick={() => setPickerOpen(true)}
+            className="relative h-16 w-16 shrink-0 overflow-hidden rounded-full border border-black/8 bg-zinc-100 transition-transform active:scale-95"
+            aria-label="Сменить иконку профиля"
+          >
+            <AvatarIcon id={avatarId} />
+            <span className="absolute inset-x-0 bottom-0 bg-black/45 py-0.5 text-center text-[9px] font-semibold uppercase tracking-wide text-white">
+              Сменить
+            </span>
+          </button>
           <div className="min-w-0">
             <h2 className="truncate text-[18px] font-semibold text-zinc-900">
               {displayName}
@@ -96,31 +175,11 @@ export function ProfileScreen({ onBack }: { onBack: () => void }) {
                 @{telegram.username}
               </p>
             )}
-            {typeof telegram.id === "number" && (
-              <p className="mt-0.5 text-[12px] text-zinc-400">
-                ID {telegram.id}
-              </p>
-            )}
+            <p className="mt-1 text-[12px] text-zinc-400">
+              Нажмите на иконку, чтобы выбрать другой аватар
+            </p>
           </div>
         </GlassCard>
-
-        <div>
-          <h3 className="mb-2 text-[14px] font-medium text-zinc-600">
-            Данные из Telegram
-          </h3>
-          <GlassCard className="space-y-3 p-4">
-            <InfoRow label="Имя" value={telegram.firstName || "—"} />
-            <InfoRow label="Фамилия" value={telegram.lastName || "—"} />
-            <InfoRow
-              label="Username"
-              value={telegram.username ? `@${telegram.username}` : "—"}
-            />
-            <InfoRow
-              label="Язык"
-              value={telegram.languageCode?.toUpperCase() || "—"}
-            />
-          </GlassCard>
-        </div>
 
         <div>
           <h3 className="mb-2 text-[14px] font-medium text-zinc-600">
@@ -177,34 +236,63 @@ export function ProfileScreen({ onBack }: { onBack: () => void }) {
                 />
               </span>
               <span className="mt-1.5 block text-[12px] leading-relaxed text-zinc-400">
-                Если указать телефон здесь, он подставится при оформлении заявки.
+                Номер может понадобиться при запросе консультации или оформлении
+                заявок.
               </span>
             </label>
           </GlassCard>
         </div>
       </div>
 
-      <div className="mt-auto space-y-2 pt-2">
-        {saved && (
-          <p className="text-center text-[13px] font-medium text-emerald-600">
-            Сохранено
-          </p>
-        )}
-        <Button className="w-full" onClick={save}>
-          Сохранить
+      <div className="mt-auto pt-2">
+        <Button
+          className="w-full"
+          disabled={saveFlash}
+          onClick={saveAndExit}
+        >
+          Сохранить и выйти
         </Button>
       </div>
-    </motion.section>
-  );
-}
 
-function InfoRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-start justify-between gap-3">
-      <span className="text-[13px] text-zinc-500">{label}</span>
-      <span className="text-right text-[14px] font-medium text-zinc-900">
-        {value}
-      </span>
-    </div>
+      <AnimatePresence>
+        {pickerOpen && (
+          <AvatarPickerSheet
+            selected={avatarId}
+            onSelect={setAvatarId}
+            onClose={() => setPickerOpen(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {saveFlash && (
+          <Portal>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[120] flex items-center justify-center bg-black/35 px-6 backdrop-blur-sm"
+            >
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.96, opacity: 0 }}
+                className="flex w-full max-w-xs flex-col items-center rounded-[24px] border border-emerald-200 bg-white px-6 py-7 text-center shadow-2xl"
+              >
+                <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500 text-white">
+                  <Check className="h-7 w-7" strokeWidth={2.5} />
+                </div>
+                <p className="text-[18px] font-semibold text-zinc-900">
+                  Данные сохранены
+                </p>
+                <p className="mt-1 text-[13px] text-zinc-500">
+                  Возвращаем на главную…
+                </p>
+              </motion.div>
+            </motion.div>
+          </Portal>
+        )}
+      </AnimatePresence>
+    </motion.section>
   );
 }
