@@ -192,13 +192,13 @@ export function RequestDetailsScreen({
     ...(request.exactAddress
       ? ([["Адрес", request.exactAddress]] as Array<[string, string]>)
       : []),
-    ["Контакт", request.contactMethod === "telegram" ? "Telegram" : "Телефон"],
     [
-      request.contactMethod === "telegram" ? "Имя в Telegram" : "Телефон",
+      "Контакт",
       request.contactMethod === "telegram"
-        ? request.name
-        : (request.phone ?? "—"),
+        ? "Telegram, если закрыты сообщения — звонок"
+        : "Телефон",
     ],
+    ["Телефон", request.phone ?? "—"],
     ["Имя", request.name],
     ["Объект", dwellingLabel],
     ["Фаз", request.phases ? `${request.phases}` : "—"],
@@ -342,13 +342,11 @@ export function RequestDetailsScreen({
             <span className="mt-0.5 text-zinc-400">
               {label === "Город" || label === "Адрес" ? (
                 <MapPin className="h-4 w-4" />
+              ) : label === "Контакт" && request.contactMethod === "telegram" ? (
+                <MessageCircle className="h-4 w-4" />
               ) : label === "Контакт" || label.startsWith("Телефон") ? (
-                request.contactMethod === "telegram" ? (
-                  <MessageCircle className="h-4 w-4" />
-                ) : (
-                  <Phone className="h-4 w-4" />
-                )
-              ) : label === "Имя" || label.includes("Telegram") ? (
+                <Phone className="h-4 w-4" />
+              ) : label === "Имя" ? (
                 <User className="h-4 w-4" />
               ) : (
                 <ClipboardList className="h-4 w-4" />

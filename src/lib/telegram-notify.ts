@@ -74,7 +74,7 @@ function formatInstallRequestMessage(
 ): string {
   const contact =
     request.contactMethod === "telegram"
-      ? `Telegram · ${request.name}`
+      ? "Telegram, если закрыты сообщения — звонок"
       : `Телефон · ${request.phone ?? "—"}`;
 
   const username = extras?.username?.replace(/^@/, "");
@@ -86,6 +86,7 @@ function formatInstallRequestMessage(
     `Статус: ${request.statusLabel}`,
     `Имя: ${request.name}`,
     `Контакт: ${contact}`,
+    request.phone ? `Телефон: ${request.phone}` : null,
     request.city && request.city !== "—" ? `Город: ${request.city}` : null,
     request.exactAddress ? `Адрес: ${request.exactAddress}` : null,
     request.dwelling
@@ -102,7 +103,7 @@ function formatInstallRequestMessage(
     request.contactMethod === "telegram"
       ? botCanMessage
         ? "Бот может писать пользователю ✅"
-        : "Бот пока не может писать пользователю — нужен /start в боте ⚠️"
+        : "Бот не может писать — звоните на телефон ⚠️"
       : null,
     "",
     extras?.footer ?? "Нажмите кнопку ниже, чтобы сменить статус.",

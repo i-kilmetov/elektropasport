@@ -22,7 +22,7 @@ export function LeadContactScreen({
 }: {
   onBack: () => void;
   onFinish: (payload: {
-    contactMethod: "phone";
+    contactMethod: "phone" | "telegram";
     phone: string;
     name: string;
   }) => void | Promise<void>;
@@ -33,6 +33,7 @@ export function LeadContactScreen({
   const [digits, setDigits] = useState(
     () => getUserProfile().phoneDigits?.replace(/\D/g, "").slice(0, 10) ?? "",
   );
+  const [preferTelegram, setPreferTelegram] = useState(false);
   const [consent, setConsent] = useState(false);
   const [displayName, setDisplayName] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -48,7 +49,8 @@ export function LeadContactScreen({
     setSubmitting(true);
     try {
       await onFinish({
-        contactMethod: "phone",
+        contactMethod:
+          variant === "install" && preferTelegram ? "telegram" : "phone",
         phone: `+7${digits}`,
         name,
       });
@@ -79,6 +81,12 @@ export function LeadContactScreen({
             <>
               Спасибо{displayName ? `, ${displayName}` : ""}! Мы получили вашу
               заявку и свяжемся для обсуждения сотрудничества.
+            </>
+          ) : preferTelegram ? (
+            <>
+              Спасибо{displayName ? `, ${displayName}` : ""}! Напишем вам в
+              Telegram, если сообщения от всех открыты. Если закрыты — мастер
+              позвонит на указанный номер.
             </>
           ) : (
             <>
@@ -125,12 +133,14 @@ export function LeadContactScreen({
         <p className="text-[14px] leading-relaxed text-sky-900/75">
           {variant === "master"
             ? "Оставьте номер телефона — менеджер сервиса позвонит в течение рабочего дня, обычно в течение нескольких часов."
-            : "Оставьте номер телефона — мы перезвоним в течение рабочего дня, обычно в течение нескольких часов, чтобы уточнить детали и подобрать мастера."}
+            : preferTelegram
+              ? "Напишем в Telegram, если у вас открыт доступ к сообщениям от всех. Если закрыт — перезвоним на указанный номер в течение рабочего дня, обычно в течение нескольких часов."
+              : "Оставьте номер телефона — мы перезвоним в течение рабочего дня, обычно в течение нескольких часов, чтобы уточнить детали и подобрать мастера."}
         </p>
       </div>
 
       <div className="mb-3 text-[14px] font-medium text-zinc-600">Телефон</div>
-      <label className="mb-5 flex h-14 items-center gap-2 rounded-[20px] border border-black/8 bg-zinc-50 px-4 focus-within:border-[var(--accent)]/50">
+      <label className="mb-3 flex h-14 items-center gap-2 rounded-[20px] border border-black/8 bg-zinc-50 px-4 focus-within:border-[var(--accent)]/50">
         <Phone className="h-4 w-4 shrink-0 text-zinc-500" />
         <span className="text-[16px] font-medium text-zinc-700">+7</span>
         <input
@@ -143,6 +153,25 @@ export function LeadContactScreen({
           className="h-full flex-1 bg-transparent text-[16px] text-zinc-900 outline-none placeholder:text-zinc-400"
         />
       </label>
+
+      {variant === "install" && (
+        <label className="mb-3 flex cursor-pointer items-start gap-3 rounded-[18px] border border-black/8 bg-zinc-50 p-4">
+          <input
+            type="checkbox"
+            checked={preferTelegram}
+            onChange={(e) => setPreferTelegram(e.target.checked)}
+            className="mt-1 h-4 w-4 shrink-0 rounded border-black/20 accent-[var(--accent)]"
+          />
+          <span className="text-[13px] leading-relaxed text-zinc-600">
+            <span className="font-medium text-zinc-800">
+              Напишите мне в Telegram
+            </span>
+            <br />
+            Сервис напишет в Telegram, если у вас открыт доступ к сообщениям от
+            всех. Если доступ закрыт — побеспокоим звонком.
+          </span>
+        </label>
+      )}
 
       <label className="mb-4 flex cursor-pointer items-start gap-3 rounded-[18px] border border-black/8 bg-zinc-50 p-4">
         <input
