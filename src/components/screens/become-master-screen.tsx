@@ -62,8 +62,9 @@ export function BecomeMasterScreen({
       <GlassCard className="mb-6 space-y-2 p-4 text-[14px] leading-relaxed text-zinc-500">
         <p>Что будет дальше:</p>
         <p>1. Укажете город</p>
-        <p>2. Оставите телефон или Telegram</p>
-        <p>3. Мы свяжемся и расскажем о сотрудничестве</p>
+        <p>2. Расскажете о себе</p>
+        <p>3. Оставите телефон или Telegram</p>
+        <p>4. Мы свяжемся и расскажем о сотрудничестве</p>
       </GlassCard>
 
       <div className="mt-auto space-y-3">

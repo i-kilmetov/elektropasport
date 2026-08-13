@@ -123,6 +123,10 @@ export async function ensureSchema(): Promise<void> {
         )
       `;
       await sql`
+        ALTER TABLE master_applications
+        ADD COLUMN IF NOT EXISTS about_text TEXT
+      `;
+      await sql`
         ALTER TABLE panels
         ADD COLUMN IF NOT EXISTS source_share_token TEXT
       `;
@@ -590,6 +594,7 @@ export async function insertMasterApplication(
   payload: {
     id: string;
     city: string;
+    about?: string;
     contactMethod: "phone" | "telegram";
     phone?: string;
     name: string;
@@ -599,11 +604,12 @@ export async function insertMasterApplication(
   await ensureSchema();
   await sql`
     INSERT INTO master_applications (
-      id, telegram_user_id, city, contact_method, phone, name, created_at
+      id, telegram_user_id, city, about_text, contact_method, phone, name, created_at
     ) VALUES (
       ${payload.id},
       ${telegramUserId},
       ${payload.city},
+      ${payload.about?.trim() || null},
       ${payload.contactMethod},
       ${payload.phone ?? null},
       ${payload.name},

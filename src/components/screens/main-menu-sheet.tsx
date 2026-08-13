@@ -4,13 +4,14 @@ import { motion } from "framer-motion";
 import {
   ArrowRight,
   Info,
+  MessageCircle,
   UserRound,
   Wrench,
   X,
 } from "lucide-react";
 import { Portal } from "@/components/ui/portal";
 
-export type MainMenuId = "profile" | "about" | "master";
+export type MainMenuId = "profile" | "about" | "feedback" | "master";
 
 const items: Array<{
   id: MainMenuId;
@@ -29,6 +30,12 @@ const items: Array<{
     title: "О сервисе",
     description: "Как работает Электропаспорт",
     icon: Info,
+  },
+  {
+    id: "feedback",
+    title: "Обратная связь",
+    description: "Баги, советы и поддержка",
+    icon: MessageCircle,
   },
   {
     id: "master",

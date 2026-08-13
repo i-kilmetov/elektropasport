@@ -359,6 +359,7 @@ export async function persistDeleteInstallRequest(id: string): Promise<void> {
 export async function persistMasterApplication(payload: {
   id: string;
   city: string;
+  about?: string;
   contactMethod: "phone" | "telegram";
   phone?: string;
   name: string;
@@ -376,6 +377,25 @@ export async function persistMasterApplication(payload: {
 
   if (!res.ok) {
     if (res.status === 503) return;
+    throw new Error(await parseError(res));
+  }
+}
+
+export async function persistFeedback(message: string): Promise<void> {
+  if (!canUseServer()) {
+    throw new Error("Откройте приложение в Telegram, чтобы отправить сообщение");
+  }
+
+  const res = await fetch("/api/feedback", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders(),
+    },
+    body: JSON.stringify({ message }),
+  });
+
+  if (!res.ok) {
     throw new Error(await parseError(res));
   }
 }

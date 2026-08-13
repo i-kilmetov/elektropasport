@@ -6,6 +6,8 @@ import { AboutServiceScreen } from "@/components/screens/about-service-screen";
 import { AnalysisScreen } from "@/components/screens/analysis-screen";
 import { BecomeMasterScreen } from "@/components/screens/become-master-screen";
 import { CitySelectScreen } from "@/components/screens/city-select-screen";
+import { FeedbackScreen } from "@/components/screens/feedback-screen";
+import { MasterAboutScreen } from "@/components/screens/master-about-screen";
 import {
   ElectricalDetailsScreen,
   type ElectricalDetails,
@@ -117,6 +119,7 @@ export function AppShell() {
   const [electricalDetails, setElectricalDetails] =
     useState<ElectricalDetails | null>(null);
   const [selectedCity, setSelectedCity] = useState<string | null>(null);
+  const [masterAbout, setMasterAbout] = useState("");
   const [leadFlow, setLeadFlow] = useState<LeadFlow>("install");
   const [activeRuleId, setActiveRuleId] = useState<string | null>(null);
   const submittedLeadIds = useRef(new Set<string>());
@@ -717,6 +720,7 @@ export function AppShell() {
         await persistMasterApplication({
           id,
           city: payload.city?.trim() || selectedCity || "—",
+          about: masterAbout,
           contactMethod: payload.contactMethod,
           phone: payload.phone,
           name: payload.name,
@@ -781,7 +785,14 @@ export function AppShell() {
         );
       });
     },
-    [electricalDetails, leadFlow, noPanelSetupId, requestNeedId, selectedCity],
+    [
+      electricalDetails,
+      leadFlow,
+      masterAbout,
+      noPanelSetupId,
+      requestNeedId,
+      selectedCity,
+    ],
   );
 
   const submitLeadRef = useRef(submitLead);
@@ -834,6 +845,7 @@ export function AppShell() {
               onMenuSelect={(id) => {
                 if (id === "profile") go("profile");
                 if (id === "about") go("about-service");
+                if (id === "feedback") go("feedback");
                 if (id === "master") go("become-master");
               }}
             />
@@ -963,7 +975,7 @@ export function AppShell() {
               onConfirm={(city) => {
                 setSelectedCity(city);
                 setLeadBackScreen("city-select");
-                go("lead-contact");
+                go(leadFlow === "master" ? "master-about" : "lead-contact");
               }}
             />
           )}
@@ -996,7 +1008,7 @@ export function AppShell() {
                 callMaster: leadBackScreen === "scheme",
               })}
               onBack={() =>
-                go(leadFlow === "master" ? "city-select" : leadBackScreen)
+                go(leadFlow === "master" ? "master-about" : leadBackScreen)
               }
               onFinish={submitLead}
               onGoHome={() => {
@@ -1025,6 +1037,9 @@ export function AppShell() {
               onBack={() => go("objects")}
             />
           )}
+          {screen === "feedback" && (
+            <FeedbackScreen key="feedback" onBack={() => go("objects")} />
+          )}
           {screen === "electrical-rules" && (
             <ElectricalRulesScreen
               key="electrical-rules"
@@ -1049,7 +1064,19 @@ export function AppShell() {
               onConfirm={() => {
                 setLeadFlow("master");
                 setSelectedCity(null);
+                setMasterAbout("");
                 go("city-select");
+              }}
+            />
+          )}
+          {screen === "master-about" && (
+            <MasterAboutScreen
+              key="master-about"
+              initialValue={masterAbout}
+              onBack={() => go("city-select")}
+              onConfirm={(about) => {
+                setMasterAbout(about);
+                go("lead-contact");
               }}
             />
           )}

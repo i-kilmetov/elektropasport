@@ -108,6 +108,8 @@ export type AppScreen =
   | "electrical-rules"
   | "electrical-rule-detail"
   | "become-master"
+  | "master-about"
+  | "feedback"
   | "telegram-auth";
 
 export type LeadFlow = "install" | "master";

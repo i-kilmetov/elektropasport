@@ -229,6 +229,7 @@ export async function notifyAdminInstallRequestStatusChangedByUser(
 export async function notifyAdminMasterApplication(payload: {
   id: string;
   city: string;
+  about?: string;
   contactMethod: "phone" | "telegram";
   phone?: string;
   name: string;
@@ -242,6 +243,8 @@ export async function notifyAdminMasterApplication(payload: {
       ? `Telegram · ${payload.name}`
       : `Телефон · ${payload.phone ?? "—"}`;
 
+  const about = payload.about?.trim();
+
   const result = await telegramApi("sendMessage", {
     chat_id: Number(chatId),
     text: [
@@ -252,7 +255,39 @@ export async function notifyAdminMasterApplication(payload: {
       `Город: ${payload.city}`,
       `Telegram user id: ${payload.customerTelegramId}`,
       `ID: ${payload.id}`,
+      ...(about ? ["", "О себе:", about] : []),
     ].join("\n"),
+    disable_web_page_preview: true,
+  });
+  if (!result.ok) {
+    throw new Error(result.error);
+  }
+}
+
+export async function notifyAdminFeedback(payload: {
+  message: string;
+  name: string;
+  username?: string;
+  customerTelegramId: number;
+}): Promise<void> {
+  const chatId = adminChatId();
+  if (!chatId) {
+    throw new Error("TELEGRAM_ADMIN_CHAT_ID не настроен");
+  }
+
+  const result = await telegramApi("sendMessage", {
+    chat_id: Number(chatId),
+    text: [
+      "💬 Обратная связь",
+      "",
+      `Имя: ${payload.name}`,
+      payload.username ? `Username: @${payload.username}` : null,
+      `Telegram user id: ${payload.customerTelegramId}`,
+      "",
+      payload.message,
+    ]
+      .filter((line): line is string => line !== null)
+      .join("\n"),
     disable_web_page_preview: true,
   });
   if (!result.ok) {

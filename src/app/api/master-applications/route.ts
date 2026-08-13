@@ -19,6 +19,7 @@ export async function POST(request: Request) {
     const body = (await request.json()) as {
       id?: string;
       city?: string;
+      about?: string;
       contactMethod?: "phone" | "telegram";
       phone?: string;
       name?: string;
@@ -31,9 +32,12 @@ export async function POST(request: Request) {
       );
     }
 
+    const about = body.about?.trim() || undefined;
+
     await insertMasterApplication(user.telegramId, {
       id: body.id,
       city: body.city,
+      about,
       contactMethod: body.contactMethod,
       phone: body.phone,
       name: body.name,
@@ -44,6 +48,7 @@ export async function POST(request: Request) {
       await notifyAdminMasterApplication({
         id: body.id,
         city: body.city,
+        about,
         contactMethod: body.contactMethod,
         phone: body.phone,
         name: body.name,
