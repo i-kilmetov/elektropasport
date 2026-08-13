@@ -264,8 +264,54 @@ export async function notifyAdminMasterApplication(payload: {
   }
 }
 
+const FEEDBACK_TOPIC_LABELS: Record<string, string> = {
+  bugs: "Ошибки",
+  tips: "Рекомендации",
+  other: "Другое",
+};
+
+function dataUrlToBlob(dataUrl: string): Blob {
+  const match = /^data:([^;]+);base64,([\s\S]+)$/.exec(dataUrl);
+  if (!match) {
+    throw new Error("Некорректное изображение");
+  }
+  const mime = match[1] ?? "image/jpeg";
+  const bytes = Buffer.from(match[2]!, "base64");
+  return new Blob([bytes], { type: mime });
+}
+
+async function telegramApiForm(
+  method: string,
+  form: FormData,
+): Promise<TelegramApiResult<unknown>> {
+  const token = getBotToken();
+  if (!token) {
+    return { ok: false, error: "BOT_TOKEN missing" };
+  }
+
+  const res = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
+    method: "POST",
+    body: form,
+  });
+
+  const data = (await res.json()) as {
+    ok: boolean;
+    description?: string;
+    result?: unknown;
+  };
+
+  if (!data.ok) {
+    const error = data.description ?? `Telegram ${method} failed`;
+    console.error(`Telegram ${method} failed:`, error);
+    return { ok: false, error };
+  }
+  return { ok: true, data: data.result };
+}
+
 export async function notifyAdminFeedback(payload: {
   message: string;
+  topic: "bugs" | "tips" | "other";
+  photos?: string[];
   name: string;
   username?: string;
   customerTelegramId: number;
@@ -275,14 +321,20 @@ export async function notifyAdminFeedback(payload: {
     throw new Error("TELEGRAM_ADMIN_CHAT_ID не настроен");
   }
 
+  const topicLabel =
+    FEEDBACK_TOPIC_LABELS[payload.topic] ?? FEEDBACK_TOPIC_LABELS.other;
+  const photos = (payload.photos ?? []).slice(0, 2);
+
   const result = await telegramApi("sendMessage", {
     chat_id: Number(chatId),
     text: [
       "💬 Обратная связь",
       "",
+      `Тема: ${topicLabel}`,
       `Имя: ${payload.name}`,
       payload.username ? `Username: @${payload.username}` : null,
       `Telegram user id: ${payload.customerTelegramId}`,
+      photos.length > 0 ? `Фото: ${photos.length}` : null,
       "",
       payload.message,
     ]
@@ -292,6 +344,17 @@ export async function notifyAdminFeedback(payload: {
   });
   if (!result.ok) {
     throw new Error(result.error);
+  }
+
+  for (let i = 0; i < photos.length; i++) {
+    const form = new FormData();
+    form.append("chat_id", String(Number(chatId)));
+    form.append("photo", dataUrlToBlob(photos[i]!), `feedback-${i + 1}.jpg`);
+    form.append("caption", `Фото ${i + 1}/${photos.length}`);
+    const photoResult = await telegramApiForm("sendPhoto", form);
+    if (!photoResult.ok) {
+      throw new Error(photoResult.error);
+    }
   }
 }
 

@@ -381,7 +381,11 @@ export async function persistMasterApplication(payload: {
   }
 }
 
-export async function persistFeedback(message: string): Promise<void> {
+export async function persistFeedback(payload: {
+  message: string;
+  topic: "bugs" | "tips" | "other";
+  photos?: string[];
+}): Promise<void> {
   if (!canUseServer()) {
     throw new Error("Откройте приложение в Telegram, чтобы отправить сообщение");
   }
@@ -392,7 +396,11 @@ export async function persistFeedback(message: string): Promise<void> {
       "Content-Type": "application/json",
       ...authHeaders(),
     },
-    body: JSON.stringify({ message }),
+    body: JSON.stringify({
+      message: payload.message,
+      topic: payload.topic,
+      photos: payload.photos?.slice(0, 2) ?? [],
+    }),
   });
 
   if (!res.ok) {

@@ -20,14 +20,20 @@ export function PhotoScreen({
   onBack: () => void;
   onCapture: (photoDataUrl: string) => void;
 }) {
-  const inputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
   const openedOnce = useRef(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const openCamera = () => {
     setError(null);
-    inputRef.current?.click();
+    cameraInputRef.current?.click();
+  };
+
+  const openGallery = () => {
+    setError(null);
+    galleryInputRef.current?.click();
   };
 
   // After instruction screen mounts, open the camera once.
@@ -86,10 +92,17 @@ export function PhotoScreen({
       </div>
 
       <input
-        ref={inputRef}
+        ref={cameraInputRef}
         type="file"
         accept="image/*"
         capture="environment"
+        className="hidden"
+        onChange={onFileChange}
+      />
+      <input
+        ref={galleryInputRef}
+        type="file"
+        accept="image/*"
         className="hidden"
         onChange={onFileChange}
       />
@@ -145,7 +158,7 @@ export function PhotoScreen({
         <p className="mb-4 text-center text-[14px] text-rose-600">{error}</p>
       )}
 
-      <div className="mt-auto">
+      <div className="mt-auto space-y-3">
         <Button
           className="w-full"
           size="lg"
@@ -155,6 +168,14 @@ export function PhotoScreen({
           <Camera className="h-5 w-5" />
           Сфотографировать щиток
         </Button>
+        <button
+          type="button"
+          onClick={openGallery}
+          disabled={busy}
+          className="w-full text-center text-[15px] font-medium text-zinc-500 underline decoration-zinc-300 underline-offset-4 transition-colors hover:text-zinc-800 disabled:opacity-40"
+        >
+          Загрузить фотографию
+        </button>
       </div>
     </motion.section>
   );
