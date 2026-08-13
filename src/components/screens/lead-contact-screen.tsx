@@ -1,16 +1,18 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, Check, Clock3, Phone } from "lucide-react";
+import { TelegramAppIcon } from "@/components/icons/telegram-app-icon";
 import { Button } from "@/components/ui/button";
-import { hapticNotification } from "@/lib/haptics";
+import { hapticImpact, hapticNotification } from "@/lib/haptics";
 import { getTelegramUserName } from "@/lib/telegram-user";
 import {
   formatPhoneDigits,
   getUserProfile,
   saveUserProfile,
 } from "@/lib/user-profile";
+import { cn } from "@/lib/utils";
 
 type Step = "contact" | "done";
 
@@ -133,45 +135,69 @@ export function LeadContactScreen({
         <p className="text-[14px] leading-relaxed text-sky-900/75">
           {variant === "master"
             ? "Оставьте номер телефона — менеджер сервиса позвонит в течение рабочего дня, обычно в течение нескольких часов."
-            : preferTelegram
-              ? "Напишем в Telegram, если у вас открыт доступ к сообщениям от всех. Если закрыт — перезвоним на указанный номер в течение рабочего дня, обычно в течение нескольких часов."
-              : "Оставьте номер телефона — мы перезвоним в течение рабочего дня, обычно в течение нескольких часов, чтобы уточнить детали и подобрать мастера."}
+            : "Оставьте номер телефона — свяжемся в течение рабочего дня, обычно в течение нескольких часов, чтобы уточнить детали и подобрать мастера."}
         </p>
       </div>
 
       <div className="mb-3 text-[14px] font-medium text-zinc-600">Телефон</div>
-      <label className="mb-3 flex h-14 items-center gap-2 rounded-[20px] border border-black/8 bg-zinc-50 px-4 focus-within:border-[var(--accent)]/50">
-        <Phone className="h-4 w-4 shrink-0 text-zinc-500" />
-        <span className="text-[16px] font-medium text-zinc-700">+7</span>
-        <input
-          inputMode="numeric"
-          value={phoneDisplay}
-          onChange={(e) => {
-            setDigits(e.target.value.replace(/\D/g, "").slice(0, 10));
-          }}
-          placeholder="999 000-00-00"
-          className="h-full flex-1 bg-transparent text-[16px] text-zinc-900 outline-none placeholder:text-zinc-400"
-        />
-      </label>
-
-      {variant === "install" && (
-        <label className="mb-3 flex cursor-pointer items-start gap-3 rounded-[18px] border border-black/8 bg-zinc-50 p-4">
+      <div className="mb-3 flex items-center gap-2">
+        <label className="flex h-14 min-w-0 flex-1 items-center gap-2 rounded-[20px] border border-black/8 bg-zinc-50 px-4 focus-within:border-[var(--accent)]/50">
+          <Phone className="h-4 w-4 shrink-0 text-zinc-500" />
+          <span className="text-[16px] font-medium text-zinc-700">+7</span>
           <input
-            type="checkbox"
-            checked={preferTelegram}
-            onChange={(e) => setPreferTelegram(e.target.checked)}
-            className="mt-1 h-4 w-4 shrink-0 rounded border-black/20 accent-[var(--accent)]"
+            inputMode="numeric"
+            value={phoneDisplay}
+            onChange={(e) => {
+              const next = e.target.value.replace(/\D/g, "").slice(0, 10);
+              setDigits(next);
+              if (next.length !== 10) setPreferTelegram(false);
+            }}
+            placeholder="999 000-00-00"
+            className="h-full min-w-0 flex-1 bg-transparent text-[16px] text-zinc-900 outline-none placeholder:text-zinc-400"
           />
-          <span className="text-[13px] leading-relaxed text-zinc-600">
-            <span className="font-medium text-zinc-800">
-              Напишите мне в Telegram
-            </span>
-            <br />
-            Сервис напишет в Telegram, если у вас открыт доступ к сообщениям от
-            всех. Если доступ закрыт — побеспокоим звонком.
-          </span>
         </label>
-      )}
+        {variant === "install" && (
+          <button
+            type="button"
+            disabled={!phoneValid}
+            aria-pressed={preferTelegram}
+            aria-label={
+              preferTelegram
+                ? "Не писать в Telegram"
+                : "Связаться сообщением в Telegram"
+            }
+            onClick={() => {
+              if (!phoneValid) return;
+              setPreferTelegram((on) => !on);
+              hapticImpact("light");
+            }}
+            className={cn(
+              "flex h-14 w-14 shrink-0 items-center justify-center rounded-[20px] transition-colors",
+              !phoneValid
+                ? "bg-zinc-100 text-zinc-300"
+                : preferTelegram
+                  ? "bg-[#2AABEE] text-white"
+                  : "bg-zinc-200 text-zinc-400",
+            )}
+          >
+            <TelegramAppIcon className="h-7 w-7" />
+          </button>
+        )}
+      </div>
+      <AnimatePresence initial={false}>
+        {variant === "install" && preferTelegram && (
+          <motion.p
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="mb-3 overflow-hidden text-[13px] leading-relaxed text-zinc-500"
+          >
+            Напишем в Telegram, если у вас открыт доступ к сообщениям от всех.
+            Если доступ закрыт — побеспокоим звонком.
+          </motion.p>
+        )}
+      </AnimatePresence>
 
       <label className="mb-4 flex cursor-pointer items-start gap-3 rounded-[18px] border border-black/8 bg-zinc-50 p-4">
         <input
