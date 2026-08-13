@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { ArrowLeft, Camera, Check, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,53 @@ const tips = [
   "Все устройства в кадре",
 ];
 
+/** Prefer gallery — avoid bare `image/*` with a lingering capture input on the page. */
+const GALLERY_ACCEPT =
+  "image/jpeg,image/png,image/heic,image/heif,image/webp,.jpg,.jpeg,.png,.heic,.webp";
+
+function pickImageFile(options: {
+  accept: string;
+  capture?: boolean;
+}): Promise<File | null> {
+  return new Promise((resolve) => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = options.accept;
+    if (options.capture) {
+      input.setAttribute("capture", "environment");
+    }
+    input.style.position = "fixed";
+    input.style.left = "-9999px";
+    input.style.width = "1px";
+    input.style.height = "1px";
+    input.style.opacity = "0";
+
+    let settled = false;
+    const finish = (file: File | null) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(cleanupTimer);
+      input.remove();
+      resolve(file);
+    };
+
+    input.addEventListener("change", () => {
+      finish(input.files?.[0] ?? null);
+    });
+    input.addEventListener("cancel", () => finish(null));
+
+    document.body.appendChild(input);
+    input.click();
+
+    // Best-effort cleanup if the dialog was dismissed without events.
+    const cleanupTimer = window.setTimeout(() => {
+      if (!settled && document.body.contains(input) && !input.files?.length) {
+        finish(null);
+      }
+    }, 120_000);
+  });
+}
+
 export function PhotoScreen({
   onBack,
   onCapture,
@@ -20,46 +67,51 @@ export function PhotoScreen({
   onBack: () => void;
   onCapture: (photoDataUrl: string) => void;
 }) {
-  const cameraInputRef = useRef<HTMLInputElement>(null);
-  const galleryInputRef = useRef<HTMLInputElement>(null);
-  const openedOnce = useRef(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const openedOnce = useRef(false);
 
-  const openCamera = () => {
-    setError(null);
-    cameraInputRef.current?.click();
-  };
-
-  const openGallery = () => {
-    setError(null);
-    galleryInputRef.current?.click();
-  };
-
-  // After instruction screen mounts, open the camera once.
-  useEffect(() => {
-    if (openedOnce.current) return;
-    openedOnce.current = true;
-    const t = window.setTimeout(() => openCamera(), 450);
-    return () => window.clearTimeout(t);
-  }, []);
-
-  const onFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
-
+  const processFile = async (file: File) => {
     setBusy(true);
     setError(null);
     try {
       const dataUrl = await fileToCompressedDataUrl(file);
-      // Skip in-app confirmation — native camera already has Retake / Use Photo.
       onCapture(dataUrl);
     } catch {
       setError("Не удалось обработать фото. Попробуйте ещё раз.");
       setBusy(false);
     }
   };
+
+  const openCamera = async () => {
+    setError(null);
+    const file = await pickImageFile({
+      accept: "image/*",
+      capture: true,
+    });
+    if (!file) return;
+    await processFile(file);
+  };
+
+  const openGallery = async () => {
+    setError(null);
+    const file = await pickImageFile({
+      accept: GALLERY_ACCEPT,
+      capture: false,
+    });
+    if (!file) return;
+    await processFile(file);
+  };
+
+  useEffect(() => {
+    if (openedOnce.current) return;
+    openedOnce.current = true;
+    const t = window.setTimeout(() => {
+      void openCamera();
+    }, 450);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- open once on mount
+  }, []);
 
   return (
     <motion.section
@@ -90,22 +142,6 @@ export function PhotoScreen({
           схему.
         </p>
       </div>
-
-      <input
-        ref={cameraInputRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        className="hidden"
-        onChange={onFileChange}
-      />
-      <input
-        ref={galleryInputRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={onFileChange}
-      />
 
       <GlassCard className="relative mb-6 overflow-hidden p-0">
         <div className="relative aspect-[4/3] bg-gradient-to-br from-zinc-100 to-zinc-200/80">
@@ -162,7 +198,7 @@ export function PhotoScreen({
         <Button
           className="w-full"
           size="lg"
-          onClick={openCamera}
+          onClick={() => void openCamera()}
           disabled={busy}
         >
           <Camera className="h-5 w-5" />
@@ -170,7 +206,7 @@ export function PhotoScreen({
         </Button>
         <button
           type="button"
-          onClick={openGallery}
+          onClick={() => void openGallery()}
           disabled={busy}
           className="w-full text-center text-[15px] font-medium text-zinc-500 underline decoration-zinc-300 underline-offset-4 transition-colors hover:text-zinc-800 disabled:opacity-40"
         >

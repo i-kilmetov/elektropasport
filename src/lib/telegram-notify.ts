@@ -270,16 +270,6 @@ const FEEDBACK_TOPIC_LABELS: Record<string, string> = {
   other: "Другое",
 };
 
-function dataUrlToBlob(dataUrl: string): Blob {
-  const match = /^data:([^;]+);base64,([\s\S]+)$/.exec(dataUrl);
-  if (!match) {
-    throw new Error("Некорректное изображение");
-  }
-  const mime = match[1] ?? "image/jpeg";
-  const bytes = Buffer.from(match[2]!, "base64");
-  return new Blob([bytes], { type: mime });
-}
-
 async function telegramApiForm(
   method: string,
   form: FormData,
@@ -311,7 +301,6 @@ async function telegramApiForm(
 export async function notifyAdminFeedback(payload: {
   message: string;
   topic: "bugs" | "tips" | "other";
-  photos?: string[];
   name: string;
   username?: string;
   customerTelegramId: number;
@@ -323,7 +312,6 @@ export async function notifyAdminFeedback(payload: {
 
   const topicLabel =
     FEEDBACK_TOPIC_LABELS[payload.topic] ?? FEEDBACK_TOPIC_LABELS.other;
-  const photos = (payload.photos ?? []).slice(0, 2);
 
   const result = await telegramApi("sendMessage", {
     chat_id: Number(chatId),
@@ -334,7 +322,6 @@ export async function notifyAdminFeedback(payload: {
       `Имя: ${payload.name}`,
       payload.username ? `Username: @${payload.username}` : null,
       `Telegram user id: ${payload.customerTelegramId}`,
-      photos.length > 0 ? `Фото: ${photos.length}` : null,
       "",
       payload.message,
     ]
@@ -345,16 +332,34 @@ export async function notifyAdminFeedback(payload: {
   if (!result.ok) {
     throw new Error(result.error);
   }
+}
 
-  for (let i = 0; i < photos.length; i++) {
-    const form = new FormData();
-    form.append("chat_id", String(Number(chatId)));
-    form.append("photo", dataUrlToBlob(photos[i]!), `feedback-${i + 1}.jpg`);
-    form.append("caption", `Фото ${i + 1}/${photos.length}`);
+export async function notifyAdminFeedbackAttachment(payload: {
+  file: Blob;
+  filename: string;
+  mimeType: string;
+}): Promise<void> {
+  const chatId = adminChatId();
+  if (!chatId) {
+    throw new Error("TELEGRAM_ADMIN_CHAT_ID не настроен");
+  }
+
+  const form = new FormData();
+  form.append("chat_id", String(Number(chatId)));
+  const isImage = payload.mimeType.startsWith("image/");
+  if (isImage) {
+    form.append("photo", payload.file, payload.filename);
     const photoResult = await telegramApiForm("sendPhoto", form);
     if (!photoResult.ok) {
       throw new Error(photoResult.error);
     }
+    return;
+  }
+
+  form.append("document", payload.file, payload.filename);
+  const docResult = await telegramApiForm("sendDocument", form);
+  if (!docResult.ok) {
+    throw new Error(docResult.error);
   }
 }
 

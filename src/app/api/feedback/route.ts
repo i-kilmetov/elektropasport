@@ -6,8 +6,6 @@ import { dbErrorResponse, ensureSchema, upsertUser } from "@/lib/db";
 import { notifyAdminFeedback } from "@/lib/telegram-notify";
 
 const MAX_MESSAGE_LENGTH = 2000;
-const MAX_PHOTOS = 2;
-const MAX_PHOTO_CHARS = 1_800_000;
 const TOPICS = ["bugs", "tips", "other"] as const;
 
 type FeedbackTopic = (typeof TOPICS)[number];
@@ -27,15 +25,6 @@ function isTopic(value: unknown): value is FeedbackTopic {
   return typeof value === "string" && TOPICS.includes(value as FeedbackTopic);
 }
 
-function isJpegDataUrl(value: unknown): value is string {
-  return (
-    typeof value === "string" &&
-    value.startsWith("data:image/") &&
-    value.includes(";base64,") &&
-    value.length <= MAX_PHOTO_CHARS
-  );
-}
-
 export async function POST(request: Request) {
   try {
     const user = requireTelegramUser(request);
@@ -45,13 +34,9 @@ export async function POST(request: Request) {
     const body = (await request.json()) as {
       message?: string;
       topic?: string;
-      photos?: unknown;
     };
     const message = body.message?.trim() ?? "";
     const topic = body.topic;
-    const photos = Array.isArray(body.photos)
-      ? body.photos.filter(isJpegDataUrl).slice(0, MAX_PHOTOS)
-      : [];
 
     if (!isTopic(topic)) {
       return Response.json({ error: "Выберите тему" }, { status: 400 });
@@ -65,17 +50,10 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
-    if (Array.isArray(body.photos) && body.photos.length > photos.length) {
-      return Response.json(
-        { error: "Не удалось обработать фото. Попробуйте другое изображение." },
-        { status: 400 },
-      );
-    }
 
     await notifyAdminFeedback({
       message,
       topic,
-      photos,
       name: displayName(user),
       username: user.username,
       customerTelegramId: user.telegramId,

@@ -1,8 +1,15 @@
 "use client";
 
-import { useRef, useState, type ChangeEvent } from "react";
+import { useMemo, useRef, useState, type ChangeEvent } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, Check, ImagePlus, MessageCircle, X } from "lucide-react";
+import {
+  ArrowLeft,
+  Check,
+  FileIcon,
+  MessageCircle,
+  Paperclip,
+  X,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
 import { hapticNotification } from "@/lib/haptics";
@@ -11,7 +18,6 @@ import { persistFeedback } from "@/lib/user-data";
 import { cn } from "@/lib/utils";
 
 const MAX_MESSAGE_LENGTH = 2000;
-const MAX_PHOTOS = 2;
 
 const topics = [
   { id: "bugs" as const, label: "Ошибки" },
@@ -21,39 +27,60 @@ const topics = [
 
 type FeedbackTopic = (typeof topics)[number]["id"];
 
+type Attachment = {
+  id: string;
+  file: File;
+  previewUrl?: string;
+};
+
+async function prepareAttachment(file: File): Promise<Attachment> {
+  const id = `${file.name}-${file.size}-${file.lastModified}-${Math.random()}`;
+  if (file.type.startsWith("image/")) {
+    const dataUrl = await fileToCompressedDataUrl(file);
+    const blob = await (await fetch(dataUrl)).blob();
+    const compressed = new File(
+      [blob],
+      file.name.replace(/\.\w+$/, ".jpg") || "photo.jpg",
+      { type: "image/jpeg" },
+    );
+    return { id, file: compressed, previewUrl: dataUrl };
+  }
+  return { id, file };
+}
+
 export function FeedbackScreen({ onBack }: { onBack: () => void }) {
   const [topic, setTopic] = useState<FeedbackTopic | null>(null);
   const [message, setMessage] = useState("");
-  const [photos, setPhotos] = useState<string[]>([]);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [submitting, setSubmitting] = useState(false);
-  const [photoBusy, setPhotoBusy] = useState(false);
+  const [attachBusy, setAttachBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
-  const photoInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const trimmed = message.trim();
-  const canSubmit = Boolean(topic) && trimmed.length > 0 && !submitting && !photoBusy;
+  const canSubmit =
+    Boolean(topic) && trimmed.length > 0 && !submitting && !attachBusy;
 
-  const addPhotos = async (e: ChangeEvent<HTMLInputElement>) => {
+  const attachmentPreviews = useMemo(() => attachments, [attachments]);
+
+  const addFiles = async (e: ChangeEvent<HTMLInputElement>) => {
     const files = [...(e.target.files ?? [])];
     e.target.value = "";
     if (files.length === 0) return;
 
-    const remaining = MAX_PHOTOS - photos.length;
-    if (remaining <= 0) return;
-
-    setPhotoBusy(true);
+    setAttachBusy(true);
     setError(null);
     try {
-      const next: string[] = [];
-      for (const file of files.slice(0, remaining)) {
-        next.push(await fileToCompressedDataUrl(file));
+      const next: Attachment[] = [];
+      for (const file of files) {
+        next.push(await prepareAttachment(file));
       }
-      setPhotos((prev) => [...prev, ...next].slice(0, MAX_PHOTOS));
+      setAttachments((prev) => [...prev, ...next]);
     } catch {
-      setError("Не удалось добавить фото. Попробуйте другое изображение.");
+      setError("Не удалось прикрепить файл. Попробуйте ещё раз.");
     } finally {
-      setPhotoBusy(false);
+      setAttachBusy(false);
     }
   };
 
@@ -65,7 +92,7 @@ export function FeedbackScreen({ onBack }: { onBack: () => void }) {
       await persistFeedback({
         message: trimmed,
         topic,
-        photos,
+        files: attachments.map((item) => item.file),
       });
       hapticNotification("success");
       setSent(true);
@@ -147,23 +174,33 @@ export function FeedbackScreen({ onBack }: { onBack: () => void }) {
 
         <div>
           <div className="mb-2 text-[13px] font-medium text-zinc-600">Тема</div>
-          <div className="grid grid-cols-3 gap-2">
-            {topics.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => setTopic(item.id)}
-                className={cn(
-                  "rounded-[16px] border px-2 py-3 text-[13px] font-semibold transition-colors",
-                  topic === item.id
-                    ? "border-zinc-900 bg-zinc-900 text-white"
-                    : "border-black/8 bg-zinc-50 text-zinc-700 hover:bg-zinc-100",
-                )}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
+          <GlassCard className="overflow-hidden p-0">
+            <ul>
+              {topics.map((item, index) => {
+                const active = topic === item.id;
+                return (
+                  <li key={item.id}>
+                    <button
+                      type="button"
+                      onClick={() => setTopic(item.id)}
+                      className={cn(
+                        "flex w-full items-center justify-between px-4 py-3.5 text-left text-[16px] transition-colors",
+                        active
+                          ? "bg-zinc-100 text-zinc-900"
+                          : "text-zinc-700 hover:bg-zinc-50",
+                        index > 0 && "border-t border-black/[0.06]",
+                      )}
+                    >
+                      <span className="font-medium">{item.label}</span>
+                      {active && (
+                        <Check className="h-4 w-4 shrink-0 text-zinc-700" />
+                      )}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </GlassCard>
         </div>
 
         <GlassCard className="p-4">
@@ -179,71 +216,70 @@ export function FeedbackScreen({ onBack }: { onBack: () => void }) {
             placeholder="Расскажите о баге, идее или просто напишите нам"
             className="w-full resize-none rounded-[16px] border border-black/8 bg-zinc-50 px-4 py-3 text-[15px] text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-zinc-300"
           />
-          <div className="mt-2 text-right text-[12px] text-zinc-400">
-            {message.length}/{MAX_MESSAGE_LENGTH}
-          </div>
-        </GlassCard>
-
-        <GlassCard className="p-4">
-          <div className="mb-2 flex items-center justify-between gap-3">
-            <div className="text-[13px] font-medium text-zinc-600">
-              Фотографии
-            </div>
-            <div className="text-[12px] text-zinc-400">
-              {photos.length}/{MAX_PHOTOS}
-            </div>
-          </div>
-          <p className="mb-3 text-[13px] leading-relaxed text-zinc-500">
-            Можно приложить до двух скриншотов или фото.
-          </p>
-
-          <input
-            ref={photoInputRef}
-            type="file"
-            accept="image/*"
-            multiple
-            className="hidden"
-            onChange={(e) => void addPhotos(e)}
-          />
-
-          <div className="grid grid-cols-2 gap-3">
-            {photos.map((photo, index) => (
-              <div
-                key={`${photo.slice(0, 48)}-${index}`}
-                className="relative aspect-square overflow-hidden rounded-[16px] border border-black/8 bg-zinc-100"
-              >
-                <img
-                  src={photo}
-                  alt={`Фото ${index + 1}`}
-                  className="h-full w-full object-cover"
-                />
-                <button
-                  type="button"
-                  onClick={() =>
-                    setPhotos((prev) => prev.filter((_, i) => i !== index))
-                  }
-                  className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-black/55 text-white"
-                  aria-label="Удалить фото"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-            ))}
-
-            {photos.length < MAX_PHOTOS && (
+          <div className="mt-2 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                className="hidden"
+                onChange={(e) => void addFiles(e)}
+              />
               <button
                 type="button"
-                disabled={photoBusy}
-                onClick={() => photoInputRef.current?.click()}
-                className="flex aspect-square flex-col items-center justify-center gap-2 rounded-[16px] border border-dashed border-black/15 bg-zinc-50 text-zinc-500 transition-colors hover:bg-zinc-100 disabled:opacity-50"
+                disabled={attachBusy}
+                onClick={() => fileInputRef.current?.click()}
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-black/8 bg-zinc-50 text-zinc-600 transition-colors hover:bg-zinc-100 disabled:opacity-40"
+                aria-label="Прикрепить файл"
               >
-                <ImagePlus className="h-6 w-6" />
-                <span className="text-[13px] font-medium">
-                  {photoBusy ? "Загрузка…" : "Добавить"}
-                </span>
+                <Paperclip className="h-4 w-4" />
               </button>
-            )}
+              {attachBusy && (
+                <span className="text-[12px] text-zinc-400">Добавляем…</span>
+              )}
+            </div>
+            <div className="text-[12px] text-zinc-400">
+              {message.length}/{MAX_MESSAGE_LENGTH}
+            </div>
           </div>
+
+          {attachmentPreviews.length > 0 && (
+            <ul className="mt-3 space-y-2">
+              {attachmentPreviews.map((item) => (
+                <li
+                  key={item.id}
+                  className="flex items-center gap-3 rounded-[14px] border border-black/8 bg-zinc-50 px-3 py-2"
+                >
+                  {item.previewUrl ? (
+                    <img
+                      src={item.previewUrl}
+                      alt=""
+                      className="h-10 w-10 shrink-0 rounded-[10px] object-cover"
+                    />
+                  ) : (
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-zinc-200 text-zinc-600">
+                      <FileIcon className="h-4 w-4" />
+                    </span>
+                  )}
+                  <span className="min-w-0 flex-1 truncate text-[13px] text-zinc-700">
+                    {item.file.name}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setAttachments((prev) =>
+                        prev.filter((entry) => entry.id !== item.id),
+                      )
+                    }
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-zinc-400 hover:bg-zinc-200 hover:text-zinc-700"
+                    aria-label="Убрать файл"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </GlassCard>
 
         {error && (

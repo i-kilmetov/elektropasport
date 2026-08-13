@@ -384,7 +384,7 @@ export async function persistMasterApplication(payload: {
 export async function persistFeedback(payload: {
   message: string;
   topic: "bugs" | "tips" | "other";
-  photos?: string[];
+  files?: File[];
 }): Promise<void> {
   if (!canUseServer()) {
     throw new Error("Откройте приложение в Telegram, чтобы отправить сообщение");
@@ -399,11 +399,23 @@ export async function persistFeedback(payload: {
     body: JSON.stringify({
       message: payload.message,
       topic: payload.topic,
-      photos: payload.photos?.slice(0, 2) ?? [],
     }),
   });
 
   if (!res.ok) {
     throw new Error(await parseError(res));
+  }
+
+  for (const file of payload.files ?? []) {
+    const form = new FormData();
+    form.append("file", file, file.name);
+    const attachRes = await fetch("/api/feedback/attachment", {
+      method: "POST",
+      headers: authHeaders(),
+      body: form,
+    });
+    if (!attachRes.ok) {
+      throw new Error(await parseError(attachRes));
+    }
   }
 }
