@@ -188,7 +188,7 @@ export function ProfileScreen({ onBack }: { onBack: () => void }) {
                 type="date"
                 value={birthDate}
                 onChange={(e) => setBirthDate(e.target.value)}
-                className="h-12 w-full rounded-[16px] border border-black/8 bg-zinc-50 px-3 text-[15px] text-zinc-900 outline-none focus:border-[var(--accent)]/50"
+                className="h-12 w-full rounded-[16px] border border-black/8 bg-zinc-50 px-3 text-[15px] text-zinc-900 outline-none focus:border-zinc-300"
               />
             </label>
 
@@ -216,7 +216,7 @@ export function ProfileScreen({ onBack }: { onBack: () => void }) {
               <span className="mb-1.5 block text-[13px] text-zinc-500">
                 Номер телефона
               </span>
-              <span className="flex h-12 items-center gap-2 rounded-[16px] border border-black/8 bg-zinc-50 px-3 focus-within:border-[var(--accent)]/50">
+              <span className="flex h-12 items-center gap-2 rounded-[16px] border border-black/8 bg-zinc-50 px-3 focus-within:border-zinc-300">
                 <Phone className="h-4 w-4 shrink-0 text-zinc-500" />
                 <span className="text-[15px] font-medium text-zinc-700">+7</span>
                 <input

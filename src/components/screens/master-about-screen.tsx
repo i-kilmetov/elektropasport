@@ -54,7 +54,7 @@ export function MasterAboutScreen({
         onChange={(e) => setAbout(e.target.value.slice(0, MAX_ABOUT_LENGTH))}
         rows={8}
         placeholder="Например: электрик с опытом 8 лет, высшее профильное образование, работаю с квартирами и частными домами"
-        className="mb-2 w-full resize-none rounded-[20px] border border-black/8 bg-zinc-50 px-4 py-3 text-[15px] text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-[var(--accent)]/50"
+        className="mb-2 w-full resize-none rounded-[20px] border border-black/8 bg-zinc-50 px-4 py-3 text-[15px] text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-zinc-300"
       />
       <div className="mb-4 text-right text-[12px] text-zinc-400">
         {about.length}/{MAX_ABOUT_LENGTH}

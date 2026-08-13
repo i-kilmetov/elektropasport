@@ -1,11 +1,19 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import {
   AnimatePresence,
   animate,
   motion,
   useMotionValue,
+  useTransform,
   type PanInfo,
 } from "framer-motion";
 import { ClipboardList, Menu, Plus } from "lucide-react";
@@ -259,9 +267,35 @@ export function ObjectsScreen({
   const [renameItemId, setRenameItemId] = useState<string | null>(null);
   const [pressingId, setPressingId] = useState<string | null>(null);
   const [pagerWidth, setPagerWidth] = useState(0);
+  const [tabMetrics, setTabMetrics] = useState({
+    left0: 4,
+    width0: 0,
+    left1: 4,
+    width1: 0,
+  });
   const pagerRef = useRef<HTMLDivElement>(null);
+  const tab0Ref = useRef<HTMLButtonElement>(null);
+  const tab1Ref = useRef<HTMLButtonElement>(null);
   const pageRef = useRef(0);
   const x = useMotionValue(0);
+  const rawTabProgress = useTransform(
+    x,
+    [0, pagerWidth > 0 ? -pagerWidth : -1],
+    [0, 1],
+  );
+  const tabProgress = useTransform(rawTabProgress, (t) =>
+    Math.min(1, Math.max(0, t)),
+  );
+  const pillLeft = useTransform(tabProgress, [0, 1], [
+    tabMetrics.left0,
+    tabMetrics.left1,
+  ]);
+  const pillWidth = useTransform(tabProgress, [0, 1], [
+    tabMetrics.width0,
+    tabMetrics.width1,
+  ]);
+  const tab0Color = useTransform(tabProgress, [0, 1], ["#18181b", "#71717a"]);
+  const tab1Color = useTransform(tabProgress, [0, 1], ["#71717a", "#18181b"]);
 
   const panels = useMemo(
     () => items.filter((item): item is PanelObject => item.kind === "panel"),
@@ -292,6 +326,25 @@ export function ObjectsScreen({
     observer.observe(node);
     return () => observer.disconnect();
   }, []);
+
+  useLayoutEffect(() => {
+    const first = tab0Ref.current;
+    const second = tab1Ref.current;
+    if (!first || !second) return;
+    const measure = () => {
+      setTabMetrics({
+        left0: first.offsetLeft,
+        width0: first.offsetWidth,
+        left1: second.offsetLeft,
+        width1: second.offsetWidth,
+      });
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(first);
+    observer.observe(second);
+    return () => observer.disconnect();
+  }, [panels.length, requests.length]);
 
   useEffect(() => {
     if (!pagerWidth) return;
@@ -380,9 +433,9 @@ export function ObjectsScreen({
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -40 }}
       transition={{ duration: 0.35 }}
-      className="relative flex min-h-dvh flex-col overflow-hidden pt-[max(1.25rem,env(safe-area-inset-top))]"
+      className="relative flex min-h-0 flex-1 flex-col overflow-hidden pt-[max(1.25rem,env(safe-area-inset-top))]"
     >
-      <header className="mb-4 px-5">
+      <header className="mb-4 shrink-0 px-5">
         <div className="relative flex items-center justify-center">
           <button
             type="button"
@@ -392,39 +445,44 @@ export function ObjectsScreen({
           >
             <Menu className="h-5 w-5" />
           </button>
-          <div className="flex rounded-full bg-zinc-100 p-1">
-            <button
+          <div className="relative flex rounded-full bg-zinc-100 p-1">
+            {tabMetrics.width0 > 0 && (
+              <motion.div
+                aria-hidden
+                className="pointer-events-none absolute top-1 h-[calc(100%-8px)] rounded-full bg-white shadow-sm"
+                style={{ left: pillLeft, width: pillWidth }}
+              />
+            )}
+            <motion.button
+              ref={tab0Ref}
               type="button"
               onClick={() => settlePage(0)}
-              className={cn(
-                "rounded-full px-3 py-1.5 text-[13px] font-semibold transition-colors",
-                page === 0 ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-500",
-              )}
+              style={{ color: tab0Color }}
+              className="relative z-10 rounded-full px-3 py-1.5 text-[13px] font-semibold"
             >
               Щитки
               <span className="ml-1 text-[11px] font-medium text-zinc-400">
                 {panels.length}
               </span>
-            </button>
-            <button
+            </motion.button>
+            <motion.button
+              ref={tab1Ref}
               type="button"
               onClick={() => settlePage(1)}
-              className={cn(
-                "rounded-full px-3 py-1.5 text-[13px] font-semibold transition-colors",
-                page === 1 ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-500",
-              )}
+              style={{ color: tab1Color }}
+              className="relative z-10 rounded-full px-3 py-1.5 text-[13px] font-semibold"
             >
               Заявки
               <span className="ml-1 text-[11px] font-medium text-zinc-400">
                 {requests.length}
               </span>
-            </button>
+            </motion.button>
           </div>
         </div>
       </header>
 
       {error && (
-        <p className="mx-5 mb-3 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-[13px] text-rose-700">
+        <p className="mx-5 mb-3 shrink-0 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-[13px] text-rose-700">
           {error}
         </p>
       )}
@@ -447,7 +505,7 @@ export function ObjectsScreen({
           onDragEnd={onPagerDragEnd}
         >
           <div
-            className="flex h-full min-h-0 flex-col px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
+            className="flex h-full min-h-0 flex-col px-5"
             style={{ width: pagerWidth || "50%" }}
           >
             <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
@@ -456,22 +514,9 @@ export function ObjectsScreen({
                 text: "Сфотографируйте существующий щиток или расскажите, как у вас устроена электрика без него.",
               })}
             </div>
-            <div className="shrink-0 space-y-3 border-t border-black/[0.06] bg-[var(--bg)] pt-3">
-              <Button className="w-full" onClick={onAdd}>
-                <Plus className="h-5 w-5" />
-                Добавить щиток
-              </Button>
-              <button
-                type="button"
-                onClick={onNoPanel}
-                className="w-full text-center text-[15px] font-medium text-zinc-500 underline decoration-zinc-300 underline-offset-4 transition-colors hover:text-zinc-800"
-              >
-                У меня нет щитка
-              </button>
-            </div>
           </div>
           <div
-            className="flex h-full min-h-0 flex-col px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
+            className="flex h-full min-h-0 flex-col px-5"
             style={{ width: pagerWidth || "50%" }}
           >
             <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
@@ -480,13 +525,30 @@ export function ObjectsScreen({
                 text: "Здесь появятся ваши заявки на консультацию, проект, сборку щитка или монтаж.",
               })}
             </div>
-            <div className="shrink-0 border-t border-black/[0.06] bg-[var(--bg)] pt-3">
-              <Button className="w-full" onClick={onSubmitRequest}>
-                Отправить заявку
-              </Button>
-            </div>
           </div>
         </motion.div>
+      </div>
+
+      <div className="shrink-0 border-t border-black/[0.06] bg-[var(--bg)] px-5 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+        {page === 0 ? (
+          <div className="space-y-3">
+            <Button className="w-full" onClick={onAdd}>
+              <Plus className="h-5 w-5" />
+              Добавить щиток
+            </Button>
+            <button
+              type="button"
+              onClick={onNoPanel}
+              className="w-full text-center text-[15px] font-medium text-zinc-500 underline decoration-zinc-300 underline-offset-4 transition-colors hover:text-zinc-800"
+            >
+              У меня нет щитка
+            </button>
+          </div>
+        ) : (
+          <Button className="w-full" onClick={onSubmitRequest}>
+            Отправить заявку
+          </Button>
+        )}
       </div>
 
       <AnimatePresence>

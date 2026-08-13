@@ -245,7 +245,7 @@ export function LeadContactScreen({
                   }}
                   placeholder="Например, Казань"
                   autoComplete="off"
-                  className="h-12 w-full rounded-[20px] border border-black/8 bg-zinc-50 pl-11 pr-4 text-[15px] text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-[var(--accent)]/50"
+                  className="h-12 w-full rounded-[20px] border border-black/8 bg-zinc-50 pl-11 pr-4 text-[15px] text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-zinc-300"
                 />
               </label>
             </div>
@@ -340,7 +340,7 @@ export function LeadContactScreen({
                   });
                 }}
                 placeholder="Например, 7"
-                className="h-12 w-full rounded-[20px] border border-black/8 bg-zinc-50 px-4 text-[15px] text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-[var(--accent)]/50"
+                className="h-12 w-full rounded-[20px] border border-black/8 bg-zinc-50 px-4 text-[15px] text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-zinc-300"
               />
             </div>
           </div>
@@ -392,7 +392,7 @@ export function LeadContactScreen({
 
       <div className="mb-3 text-[14px] font-medium text-zinc-600">Телефон</div>
       <div className="mb-3 flex items-center gap-2">
-        <label className="flex h-14 min-w-0 flex-1 items-center gap-2 rounded-[20px] border border-black/8 bg-zinc-50 px-4 focus-within:border-[var(--accent)]/50">
+        <label className="flex h-14 min-w-0 flex-1 items-center gap-2 rounded-[20px] border border-black/8 bg-zinc-50 px-4 focus-within:border-zinc-300">
           <Phone className="h-4 w-4 shrink-0 text-zinc-500" />
           <span className="text-[16px] font-medium text-zinc-700">+7</span>
           <input

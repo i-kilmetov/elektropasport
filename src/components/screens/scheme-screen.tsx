@@ -239,7 +239,7 @@ function DeviceSheet({
             value={label}
             onChange={(e) => setLabel(e.target.value)}
             placeholder="Например: Кухня розетки"
-            className="h-12 w-full rounded-[16px] border border-black/8 bg-zinc-50 px-3 text-[15px] text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-[var(--accent)]/50"
+            className="h-12 w-full rounded-[16px] border border-black/8 bg-zinc-50 px-3 text-[15px] text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-zinc-300"
           />
           <Button
             className="w-full"
@@ -306,7 +306,7 @@ function NameDialog({
           value={value}
           onChange={(e) => setValue(e.target.value)}
           placeholder="Название щитка"
-          className="mb-4 h-14 w-full rounded-[20px] border border-black/8 bg-zinc-50 px-4 text-[16px] text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-[var(--accent)]/50"
+          className="mb-4 h-14 w-full rounded-[20px] border border-black/8 bg-zinc-50 px-4 text-[16px] text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-zinc-300"
           onKeyDown={(e) => {
             if (e.key === "Enter" && value.trim()) onConfirm(value.trim());
           }}

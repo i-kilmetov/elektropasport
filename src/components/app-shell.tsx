@@ -76,6 +76,7 @@ import type {
   PanelObject,
 } from "@/types";
 import { installStatusLabels } from "@/types";
+import { cn } from "@/lib/utils";
 
 function readSkipOnboarding(): boolean {
   if (typeof window === "undefined") return false;
@@ -814,14 +815,26 @@ export function AppShell() {
 
   if (!onboardingReady) {
     return (
-      <div className="relative mx-auto min-h-dvh w-full max-w-[430px] overflow-hidden bg-[var(--bg)] text-zinc-900 shadow-[0_0_40px_rgba(17,17,19,0.06)]" />
+      <div className="relative mx-auto h-[var(--app-height,100dvh)] w-full max-w-[430px] overflow-hidden bg-[var(--bg)] text-zinc-900 shadow-[0_0_40px_rgba(17,17,19,0.06)]" />
     );
   }
 
   return (
-    <div className="relative mx-auto min-h-dvh w-full max-w-[430px] overflow-hidden bg-[var(--bg)] text-zinc-900 shadow-[0_0_40px_rgba(17,17,19,0.06)]">
+    <div
+      className={cn(
+        "relative mx-auto w-full max-w-[430px] bg-[var(--bg)] text-zinc-900 shadow-[0_0_40px_rgba(17,17,19,0.06)]",
+        screen === "objects"
+          ? "flex h-[var(--app-height,100dvh)] flex-col overflow-hidden"
+          : "min-h-[var(--app-height,100dvh)] overflow-hidden",
+      )}
+    >
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(124,92,255,0.035),transparent_55%)]" />
-      <div className="relative z-10">
+      <div
+        className={cn(
+          "relative z-10",
+          screen === "objects" && "flex min-h-0 flex-1 flex-col",
+        )}
+      >
         <AnimatePresence mode="wait">
           {screen === "welcome" && (
             <WelcomeScreen key="welcome" onStart={() => go("objects")} />

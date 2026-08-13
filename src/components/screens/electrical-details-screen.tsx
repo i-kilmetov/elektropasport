@@ -162,7 +162,7 @@ export function ElectricalDetailsScreen({
             value={powerKw}
             onChange={(e) => onPowerChange(e.target.value)}
             placeholder="Например, 7"
-            className="h-14 w-full rounded-[20px] border border-black/8 bg-zinc-50 px-4 text-[16px] text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-[var(--accent)]/50"
+            className="h-14 w-full rounded-[20px] border border-black/8 bg-zinc-50 px-4 text-[16px] text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-zinc-300"
           />
           {powerError && (
             <p className="mt-2 text-[13px] leading-relaxed text-rose-600">

@@ -111,7 +111,7 @@ export function FeedbackScreen({ onBack }: { onBack: () => void }) {
           }
           rows={6}
           placeholder="Расскажите о баге, идее или просто напишите нам"
-          className="w-full resize-none rounded-[16px] border border-black/8 bg-zinc-50 px-4 py-3 text-[15px] text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-[var(--accent)]/50"
+          className="w-full resize-none rounded-[16px] border border-black/8 bg-zinc-50 px-4 py-3 text-[15px] text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-zinc-300"
         />
         <div className="mt-2 text-right text-[12px] text-zinc-400">
           {message.length}/{MAX_MESSAGE_LENGTH}

@@ -108,7 +108,7 @@ export function SafetyParamsSheet({
             value={powerKw}
             onChange={(e) => onPowerChange(e.target.value)}
             placeholder="Например, 7.5"
-            className="mb-2 h-12 w-full rounded-[16px] border border-black/8 bg-zinc-50 px-4 text-[16px] text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-[var(--accent)]/50"
+            className="mb-2 h-12 w-full rounded-[16px] border border-black/8 bg-zinc-50 px-4 text-[16px] text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-zinc-300"
           />
           {powerError ? (
             <p className="mb-4 text-[12px] leading-relaxed text-rose-600">

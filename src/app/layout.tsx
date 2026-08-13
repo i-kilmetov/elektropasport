@@ -34,7 +34,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <head>
         <script src="https://telegram.org/js/telegram-web-app.js" defer />
       </head>
-      <body className="min-h-dvh bg-[#f7f7f8] font-sans text-[var(--foreground)]">
+      <body className="min-h-[var(--app-height,100dvh)] bg-[#f7f7f8] font-sans text-[var(--foreground)]">
         <TelegramProvider>{children}</TelegramProvider>
       </body>
     </html>

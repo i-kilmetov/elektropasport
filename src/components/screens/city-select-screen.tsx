@@ -63,7 +63,7 @@ export function CitySelectScreen({
           }}
           placeholder="Например, Казань"
           autoComplete="off"
-          className="h-14 w-full rounded-[20px] border border-black/8 bg-zinc-50 pl-11 pr-4 text-[16px] text-zinc-900 outline-none backdrop-blur-xl placeholder:text-zinc-400 focus:border-[var(--accent)]/50"
+          className="h-14 w-full rounded-[20px] border border-black/8 bg-zinc-50 pl-11 pr-4 text-[16px] text-zinc-900 outline-none backdrop-blur-xl placeholder:text-zinc-400 focus:border-zinc-300"
         />
       </label>
 
