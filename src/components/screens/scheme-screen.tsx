@@ -7,6 +7,7 @@ import {
   ImageIcon,
   MoreHorizontal,
   Pencil,
+  Share2,
   Shield,
   Trash2,
   X,
@@ -331,8 +332,11 @@ export function SchemeScreen({
   title = "Щиток",
   photoDataUrl,
   askNameOnBack = false,
+  sharedPreview = false,
+  onSaveShared,
   onBack,
   onRename,
+  onShare,
   onDelete,
   onAssignCircuit,
   onToggleDevicePower,
@@ -348,8 +352,11 @@ export function SchemeScreen({
   title?: string;
   photoDataUrl?: string | null;
   askNameOnBack?: boolean;
+  sharedPreview?: boolean;
+  onSaveShared?: () => void;
   onBack: () => void;
   onRename: (name: string) => void;
+  onShare?: () => void;
   onDelete: () => void;
   onAssignCircuit?: (deviceId: number, label: string) => void;
   onToggleDevicePower?: (deviceId: number) => void;
@@ -380,6 +387,7 @@ export function SchemeScreen({
   const [renameOpen, setRenameOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [nameOnBackOpen, setNameOnBackOpen] = useState(false);
+  const [saveSharedOpen, setSaveSharedOpen] = useState(false);
   const [safetyOpen, setSafetyOpen] = useState(false);
   const [safetyAssessing, setSafetyAssessing] = useState(false);
   const [safetyProgress, setSafetyProgress] = useState(0);
@@ -419,6 +427,10 @@ export function SchemeScreen({
   );
 
   const handleBack = () => {
+    if (sharedPreview) {
+      setSaveSharedOpen(true);
+      return;
+    }
     if (askNameOnBack) {
       setNameOnBackOpen(true);
       return;
@@ -453,49 +465,64 @@ export function SchemeScreen({
         <h1 className="max-w-[55%] truncate text-center text-[20px] font-semibold text-zinc-900">
           {title}
         </h1>
-        <div className="relative">
-          <button
-            type="button"
-            onClick={() => setMenuOpen((v) => !v)}
-            className="flex h-11 w-11 items-center justify-center rounded-full border border-black/8 bg-zinc-100 text-zinc-900"
-            aria-label="Ещё"
-          >
-            <MoreHorizontal className="h-5 w-5" />
-          </button>
-          <AnimatePresence>
-            {menuOpen && (
-              <motion.div
-                initial={{ opacity: 0, y: -6, scale: 0.96 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -6, scale: 0.96 }}
-                className="absolute right-0 top-12 z-30 min-w-[180px] overflow-hidden rounded-[18px] border border-black/8 bg-white shadow-2xl backdrop-blur-xl"
-              >
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-2 px-4 py-3 text-left text-[15px] text-zinc-900 hover:bg-zinc-50"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    setRenameOpen(true);
-                  }}
+        {sharedPreview ? (
+          <div className="h-11 w-11" />
+        ) : (
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setMenuOpen((v) => !v)}
+              className="flex h-11 w-11 items-center justify-center rounded-full border border-black/8 bg-zinc-100 text-zinc-900"
+              aria-label="Ещё"
+            >
+              <MoreHorizontal className="h-5 w-5" />
+            </button>
+            <AnimatePresence>
+              {menuOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: -6, scale: 0.96 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -6, scale: 0.96 }}
+                  className="absolute right-0 top-12 z-30 min-w-[180px] overflow-hidden rounded-[18px] border border-black/8 bg-white shadow-2xl backdrop-blur-xl"
                 >
-                  <Pencil className="h-4 w-4 text-zinc-600" />
-                  Переименовать
-                </button>
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-2 px-4 py-3 text-left text-[15px] text-rose-600 hover:bg-zinc-50"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    setDeleteOpen(true);
-                  }}
-                >
-                  <Trash2 className="h-4 w-4" />
-                  Удалить
-                </button>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-2 px-4 py-3 text-left text-[15px] text-zinc-900 hover:bg-zinc-50"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      onShare?.();
+                    }}
+                  >
+                    <Share2 className="h-4 w-4 text-zinc-600" />
+                    Поделиться
+                  </button>
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-2 px-4 py-3 text-left text-[15px] text-zinc-900 hover:bg-zinc-50"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      setRenameOpen(true);
+                    }}
+                  >
+                    <Pencil className="h-4 w-4 text-zinc-600" />
+                    Переименовать
+                  </button>
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-2 px-4 py-3 text-left text-[15px] text-rose-600 hover:bg-zinc-50"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      setDeleteOpen(true);
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Удалить
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        )}
       </header>
 
       <div className="mb-3 flex items-center gap-2 px-5">
@@ -741,6 +768,26 @@ export function SchemeScreen({
               onRename(name);
               setNameOnBackOpen(false);
               onBack();
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {saveSharedOpen && (
+          <ConfirmDialog
+            title="Сохранить щиток?"
+            description="Щиток появится в вашем списке на главной. Можно открыть его позже."
+            confirmLabel="Сохранить"
+            cancelLabel="Не сохранять"
+            danger={false}
+            onCancel={() => {
+              setSaveSharedOpen(false);
+              onBack();
+            }}
+            onConfirm={() => {
+              setSaveSharedOpen(false);
+              onSaveShared?.();
             }}
           />
         )}

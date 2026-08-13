@@ -56,7 +56,14 @@ import {
   persistMasterApplication,
   persistPanel,
   persistPanelPatch,
+  createPanelShare,
+  fetchSharedPanel,
 } from "@/lib/user-data";
+import {
+  getTelegramStartParam,
+  isPanelShareToken,
+  sharePanelLink,
+} from "@/lib/panel-share";
 import type {
   AnalyzePanelResult,
   AppScreen,
@@ -87,6 +94,10 @@ export function AppShell() {
   const [activePanelId, setActivePanelId] = useState<string | null>(null);
   const [activeRequestId, setActiveRequestId] = useState<string | null>(null);
   const [askNameOnBack, setAskNameOnBack] = useState(false);
+  const [sharedPreview, setSharedPreview] = useState<{
+    panel: PanelObject;
+    token: string;
+  } | null>(null);
   const [devices, setDevices] = useState<Device[] | null>(null);
   const [safetyScore, setSafetyScore] = useState<number | null>(null);
   const [linesCount, setLinesCount] = useState<number | null>(null);
@@ -109,6 +120,7 @@ export function AppShell() {
   const [leadFlow, setLeadFlow] = useState<LeadFlow>("install");
   const [activeRuleId, setActiveRuleId] = useState<string | null>(null);
   const submittedLeadIds = useRef(new Set<string>());
+  const consumedShareRef = useRef(false);
 
   const go = useCallback((next: AppScreen) => {
     hapticNav();
@@ -116,7 +128,8 @@ export function AppShell() {
   }, []);
 
   useEffect(() => {
-    if (readSkipOnboarding()) {
+    const startParam = getTelegramStartParam();
+    if (readSkipOnboarding() || (startParam && isPanelShareToken(startParam))) {
       setScreen("objects");
     }
     setOnboardingReady(true);
@@ -175,11 +188,13 @@ export function AppShell() {
 
   const activePanel = useMemo(
     () =>
+      sharedPreview?.panel ??
       items.find(
         (item): item is PanelObject =>
           item.kind === "panel" && item.id === activePanelId,
-      ) ?? null,
-    [items, activePanelId],
+      ) ??
+      null,
+    [items, activePanelId, sharedPreview],
   );
 
   const activeRequest = useMemo(
@@ -290,6 +305,7 @@ export function AppShell() {
         (item): item is PanelObject =>
           item.kind === "panel" && item.id === id,
       );
+      setSharedPreview(null);
       setActivePanelId(id);
       setAskNameOnBack(false);
       setPhotoDataUrl(panel?.photoDataUrl ?? null);
@@ -305,6 +321,132 @@ export function AppShell() {
     },
     [go, items],
   );
+
+  const showPanel = useCallback(
+    (panel: PanelObject, options?: { askName?: boolean }) => {
+      setSharedPreview(null);
+      setActivePanelId(panel.id);
+      setAskNameOnBack(options?.askName ?? false);
+      setPhotoDataUrl(panel.photoDataUrl ?? null);
+      setDevices(panel.devices ?? null);
+      setSafetyScore(
+        panel.phases && panel.powerKw?.trim() && typeof panel.safety === "number"
+          ? panel.safety
+          : null,
+      );
+      setLinesCount(panel.linesCount ?? null);
+      setRailCount(panel.railCount ?? 1);
+      setScreen("scheme");
+    },
+    [],
+  );
+
+  const openSharedPanel = useCallback(
+    async (token: string) => {
+      if (!isPanelShareToken(token) || !canUseServerAuth()) return;
+      try {
+        const { panel, isOwner } = await fetchSharedPanel(token);
+        if (isOwner) {
+          const owned =
+            items.find(
+              (item): item is PanelObject =>
+                item.kind === "panel" && item.id === panel.id,
+            ) ?? panel;
+          if (!items.some((item) => item.id === owned.id)) {
+            setItems((prev) => [owned, ...prev]);
+          }
+          showPanel(owned);
+          return;
+        }
+
+        const alreadySaved = items.find(
+          (item): item is PanelObject =>
+            item.kind === "panel" && item.sourceShareToken === token,
+        );
+        if (alreadySaved) {
+          showPanel(alreadySaved);
+          return;
+        }
+
+        setSharedPreview({ panel, token });
+        setActivePanelId(null);
+        setAskNameOnBack(false);
+        setPhotoDataUrl(null);
+        setDevices(panel.devices ?? null);
+        setSafetyScore(
+          panel.phases &&
+            panel.powerKw?.trim() &&
+            typeof panel.safety === "number"
+            ? panel.safety
+            : null,
+        );
+        setLinesCount(panel.linesCount ?? null);
+        setRailCount(
+          panel.railCount ??
+            Math.max(1, ...(panel.devices ?? []).map((d) => (d.rail ?? 0) + 1)),
+        );
+        setScreen("scheme");
+      } catch (error) {
+        setItemsError(
+          error instanceof Error
+            ? error.message
+            : "Не удалось открыть щиток по ссылке",
+        );
+        setScreen("objects");
+      }
+    },
+    [items, showPanel],
+  );
+
+  const saveSharedPanel = useCallback(() => {
+    if (!sharedPreview) {
+      go("objects");
+      return;
+    }
+    const source = sharedPreview.panel;
+    const id = `panel-${Date.now()}`;
+    const copy: PanelObject = {
+      ...source,
+      id,
+      address: "Прислано другим пользователем",
+      lastCheck: new Date().toLocaleDateString("ru-RU"),
+      named: true,
+      sourceShareToken: sharedPreview.token,
+      photoDataUrl: undefined,
+    };
+    setItems((prev) => [copy, ...prev]);
+    setItemsError(null);
+    void persistPanel(copy).catch((error) => {
+      console.error(error);
+      setItemsError(
+        error instanceof Error
+          ? error.message
+          : "Не удалось сохранить щиток",
+      );
+    });
+    setSharedPreview(null);
+    hapticNotification("success");
+    go("objects");
+  }, [go, sharedPreview]);
+
+  const shareActivePanel = useCallback(async () => {
+    const panelId = activePanelId ?? sharedPreview?.panel.id;
+    if (!panelId) return;
+    try {
+      const { url } = await createPanelShare(panelId);
+      const method = await sharePanelLink(url);
+      if (method === "clipboard") {
+        hapticNotification("success");
+        setItemsError(null);
+      }
+    } catch (error) {
+      setItemsError(
+        error instanceof Error
+          ? error.message
+          : "Не удалось создать ссылку на щиток",
+      );
+    }
+  }, [activePanelId, sharedPreview]);
 
   const renamePanel = useCallback(
     (name: string) => {
@@ -651,6 +793,14 @@ export function AppShell() {
     void submitLeadRef.current(pending);
   }, []);
 
+  useEffect(() => {
+    if (!onboardingReady || itemsLoading || consumedShareRef.current) return;
+    const token = getTelegramStartParam();
+    if (!token || !isPanelShareToken(token)) return;
+    consumedShareRef.current = true;
+    void openSharedPanel(token);
+  }, [itemsLoading, onboardingReady, openSharedPanel]);
+
   if (!onboardingReady) {
     return (
       <div className="relative mx-auto min-h-dvh w-full max-w-[430px] overflow-hidden bg-[var(--bg)] text-zinc-900 shadow-[0_0_40px_rgba(17,17,19,0.06)]" />
@@ -719,11 +869,21 @@ export function AppShell() {
           )}
           {screen === "scheme" && (
             <SchemeScreen
-              key={activePanelId ?? "scheme"}
+              key={
+                sharedPreview
+                  ? `share-${sharedPreview.token}`
+                  : (activePanelId ?? "scheme")
+              }
               title={activePanel?.title ?? "Щиток"}
               photoDataUrl={activePanel?.photoDataUrl ?? photoDataUrl}
               askNameOnBack={askNameOnBack}
-              onBack={() => go("objects")}
+              sharedPreview={Boolean(sharedPreview)}
+              onBack={() => {
+                setSharedPreview(null);
+                go("objects");
+              }}
+              onSaveShared={saveSharedPanel}
+              onShare={() => void shareActivePanel()}
               onRename={renamePanel}
               onDelete={deletePanel}
               onAssignCircuit={assignCircuitLabel}

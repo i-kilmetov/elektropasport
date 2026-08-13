@@ -122,6 +122,22 @@ export async function ensureSchema(): Promise<void> {
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )
       `;
+      await sql`
+        ALTER TABLE panels
+        ADD COLUMN IF NOT EXISTS source_share_token TEXT
+      `;
+      await sql`
+        CREATE TABLE IF NOT EXISTS panel_shares (
+          token TEXT PRIMARY KEY,
+          panel_id TEXT NOT NULL,
+          owner_telegram_id BIGINT NOT NULL REFERENCES users(telegram_id) ON DELETE CASCADE,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+      `;
+      await sql`
+        CREATE INDEX IF NOT EXISTS panel_shares_owner_panel_idx
+        ON panel_shares (owner_telegram_id, panel_id)
+      `;
     })().catch((error) => {
       schemaReady = null;
       throw error;
@@ -163,6 +179,7 @@ type PanelRow = {
   named: boolean;
   phases: string | null;
   power_kw: string | null;
+  source_share_token: string | null;
   created_at: string;
 };
 
@@ -203,6 +220,7 @@ function rowToPanel(row: PanelRow): PanelObject {
     phases:
       row.phases === "1" || row.phases === "3" ? row.phases : undefined,
     powerKw: row.power_kw ?? undefined,
+    sourceShareToken: row.source_share_token ?? undefined,
   };
 }
 
@@ -247,7 +265,8 @@ export async function listHomeItems(
   const panels = (await sql`
     SELECT
       id, type, title, address, last_check, breakers, safety,
-      devices, lines_count, photo_data_url, named, phases, power_kw, created_at
+      devices, lines_count, photo_data_url, named, phases, power_kw,
+      source_share_token, created_at
     FROM panels
     WHERE telegram_user_id = ${telegramUserId}
   `) as PanelRow[];
@@ -287,7 +306,7 @@ export async function insertPanel(
     INSERT INTO panels (
       id, telegram_user_id, type, title, address, last_check, breakers, safety,
       devices, lines_count, photo_data_url, named, phases, power_kw,
-      created_at, updated_at
+      source_share_token, created_at, updated_at
     ) VALUES (
       ${panel.id},
       ${telegramUserId},
@@ -303,6 +322,7 @@ export async function insertPanel(
       ${panel.named ?? false},
       ${panel.phases ?? null},
       ${panel.powerKw ?? null},
+      ${panel.sourceShareToken ?? null},
       NOW(),
       NOW()
     )
@@ -317,6 +337,7 @@ export async function insertPanel(
       named = EXCLUDED.named,
       phases = EXCLUDED.phases,
       power_kw = EXCLUDED.power_kw,
+      source_share_token = EXCLUDED.source_share_token,
       updated_at = NOW()
     WHERE panels.telegram_user_id = ${telegramUserId}
   `;
@@ -346,9 +367,81 @@ export async function updatePanel(
     WHERE id = ${id} AND telegram_user_id = ${telegramUserId}
     RETURNING
       id, type, title, address, last_check, breakers, safety,
-      devices, lines_count, photo_data_url, named, phases, power_kw, created_at
+      devices, lines_count, photo_data_url, named, phases, power_kw,
+      source_share_token, created_at
   `) as PanelRow[];
   return rows[0] ? rowToPanel(rows[0]) : null;
+}
+
+function createShareToken(): string {
+  const chars =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  const bytes = new Uint8Array(10);
+  crypto.getRandomValues(bytes);
+  return `p${Array.from(bytes, (byte) => chars[byte % chars.length]).join("")}`;
+}
+
+export async function getPanelByOwner(
+  telegramUserId: number,
+  id: string,
+): Promise<PanelObject | null> {
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT
+      id, type, title, address, last_check, breakers, safety,
+      devices, lines_count, photo_data_url, named, phases, power_kw,
+      source_share_token, created_at
+    FROM panels
+    WHERE id = ${id} AND telegram_user_id = ${telegramUserId}
+    LIMIT 1
+  `) as PanelRow[];
+  return rows[0] ? rowToPanel(rows[0]) : null;
+}
+
+export async function createOrGetPanelShare(
+  telegramUserId: number,
+  panelId: string,
+): Promise<string> {
+  const sql = getSql();
+  const existing = (await sql`
+    SELECT token FROM panel_shares
+    WHERE panel_id = ${panelId} AND owner_telegram_id = ${telegramUserId}
+    LIMIT 1
+  `) as Array<{ token: string }>;
+  if (existing[0]?.token) return existing[0].token;
+
+  const token = createShareToken();
+  await sql`
+    INSERT INTO panel_shares (token, panel_id, owner_telegram_id, created_at)
+    VALUES (${token}, ${panelId}, ${telegramUserId}, NOW())
+  `;
+  return token;
+}
+
+export async function getSharedPanel(token: string): Promise<{
+  panel: PanelObject;
+  ownerTelegramId: number;
+} | null> {
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT
+      panels.id, panels.type, panels.title, panels.address, panels.last_check,
+      panels.breakers, panels.safety, panels.devices, panels.lines_count,
+      panels.photo_data_url, panels.named, panels.phases, panels.power_kw,
+      panels.source_share_token, panels.created_at,
+      panel_shares.owner_telegram_id
+    FROM panel_shares
+    JOIN panels ON panels.id = panel_shares.panel_id
+      AND panels.telegram_user_id = panel_shares.owner_telegram_id
+    WHERE panel_shares.token = ${token}
+    LIMIT 1
+  `) as Array<PanelRow & { owner_telegram_id: string | number }>;
+  const row = rows[0];
+  if (!row) return null;
+  return {
+    panel: rowToPanel(row),
+    ownerTelegramId: Number(row.owner_telegram_id),
+  };
 }
 
 export async function deletePanel(

@@ -130,6 +130,33 @@ export async function persistPanel(panel: PanelObject): Promise<void> {
   });
 }
 
+export async function createPanelShare(
+  panelId: string,
+): Promise<{ token: string; url: string }> {
+  const res = await fetch(`/api/panels/${encodeURIComponent(panelId)}/share`, {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  if (!res.ok) {
+    throw new Error(await parseError(res));
+  }
+  return (await res.json()) as { token: string; url: string };
+}
+
+export async function fetchSharedPanel(token: string): Promise<{
+  panel: PanelObject;
+  isOwner: boolean;
+}> {
+  const res = await fetch(`/api/shares/${encodeURIComponent(token)}`, {
+    headers: authHeaders(),
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    throw new Error(await parseError(res));
+  }
+  return (await res.json()) as { panel: PanelObject; isOwner: boolean };
+}
+
 export async function persistPanelPatch(
   id: string,
   patch: Partial<
