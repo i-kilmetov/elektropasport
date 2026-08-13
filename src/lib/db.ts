@@ -143,6 +143,10 @@ export async function ensureSchema(): Promise<void> {
         ADD COLUMN IF NOT EXISTS avatar_id TEXT
       `;
       await sql`
+        ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS display_name TEXT
+      `;
+      await sql`
         ALTER TABLE panels
         ADD COLUMN IF NOT EXISTS source_share_token TEXT
       `;
@@ -186,6 +190,7 @@ export async function upsertUser(user: ValidatedTelegramUser): Promise<void> {
 }
 
 export type StoredUserProfile = {
+  displayName?: string;
   birthDate?: string;
   gender?: "male" | "female" | "unspecified";
   phoneDigits?: string;
@@ -198,10 +203,11 @@ export async function getStoredUserProfile(
   const sql = getSql();
   await ensureSchema();
   const [row] = (await sql`
-    SELECT birth_date, gender, phone_digits, avatar_id
+    SELECT display_name, birth_date, gender, phone_digits, avatar_id
     FROM users
     WHERE telegram_id = ${telegramUserId}
   `) as Array<{
+    display_name: string | null;
     birth_date: string | null;
     gender: string | null;
     phone_digits: string | null;
@@ -218,6 +224,7 @@ export async function getStoredUserProfile(
       : undefined;
 
   return {
+    displayName: row.display_name ?? undefined,
     birthDate: row.birth_date ?? undefined,
     gender,
     phoneDigits: row.phone_digits ?? undefined,
@@ -232,6 +239,7 @@ export async function updateStoredUserProfile(
   const sql = getSql();
   await ensureSchema();
 
+  const displayName = profile.displayName?.trim() || null;
   const birthDate = profile.birthDate?.trim() || null;
   const gender =
     profile.gender === "male" ||
@@ -246,6 +254,7 @@ export async function updateStoredUserProfile(
   await sql`
     UPDATE users
     SET
+      display_name = ${displayName},
       birth_date = ${birthDate},
       gender = ${gender},
       phone_digits = ${phoneDigits},
@@ -255,6 +264,7 @@ export async function updateStoredUserProfile(
   `;
 
   return {
+    displayName: displayName ?? undefined,
     birthDate: birthDate ?? undefined,
     gender: gender ?? undefined,
     phoneDigits: phoneDigits ?? undefined,

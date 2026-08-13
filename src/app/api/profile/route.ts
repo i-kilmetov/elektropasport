@@ -12,6 +12,7 @@ import {
 } from "@/lib/db";
 
 function normalizeProfile(body: {
+  displayName?: unknown;
   birthDate?: unknown;
   gender?: unknown;
   phoneDigits?: unknown;
@@ -25,6 +26,10 @@ function normalizeProfile(body: {
       : undefined;
 
   return {
+    displayName:
+      typeof body.displayName === "string"
+        ? body.displayName.trim() || undefined
+        : undefined,
     birthDate:
       typeof body.birthDate === "string" ? body.birthDate.trim() || undefined : undefined,
     gender,

@@ -1048,7 +1048,17 @@ export function AppShell() {
             />
           )}
           {screen === "profile" && (
-            <ProfileScreen key="profile" onBack={() => go("objects")} />
+            <ProfileScreen
+              key="profile"
+              onBack={() => go("objects")}
+              onLoggedOut={() => {
+                setItems([]);
+                setActivePanelId(null);
+                setActiveRequestId(null);
+                setPendingAuthAction(null);
+                go("telegram-auth");
+              }}
+            />
           )}
           {screen === "about-service" && (
             <AboutServiceScreen

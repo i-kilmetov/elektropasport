@@ -12,6 +12,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Portal } from "@/components/ui/portal";
+import {
+  clearBrowserSession,
+  isTelegramMiniApp,
+} from "@/lib/client-auth";
 import { hapticNotification } from "@/lib/haptics";
 import { getTelegramProfileInfo, getTelegramUserName } from "@/lib/telegram-user";
 import {
@@ -28,6 +32,14 @@ const genderOptions: Array<{ id: UserGender; label: string }> = [
   { id: "female", label: "Женский" },
   { id: "unspecified", label: "Не указывать" },
 ];
+
+type ProfileDraft = {
+  displayName: string;
+  birthDate: string;
+  gender: UserGender | "";
+  digits: string;
+  avatarId: AvatarId;
+};
 
 function AvatarPickerSheet({
   selected,
@@ -102,24 +114,60 @@ function AvatarPickerSheet({
   );
 }
 
-export function ProfileScreen({ onBack }: { onBack: () => void }) {
-  const telegram = useMemo(() => getTelegramProfileInfo(), []);
-  const displayName = useMemo(() => getTelegramUserName(), []);
-  const initial = useMemo(() => getUserProfile(), []);
-
-  const [birthDate, setBirthDate] = useState(initial.birthDate ?? "");
-  const [gender, setGender] = useState<UserGender | "">(initial.gender ?? "");
-  const [digits, setDigits] = useState(initial.phoneDigits ?? "");
-  const [avatarId, setAvatarId] = useState<AvatarId>(
-    isAvatarId(initial.avatarId) ? initial.avatarId : "circle",
+function sameDraft(a: ProfileDraft, b: ProfileDraft): boolean {
+  return (
+    a.displayName.trim() === b.displayName.trim() &&
+    a.birthDate === b.birthDate &&
+    a.gender === b.gender &&
+    a.digits === b.digits &&
+    a.avatarId === b.avatarId
   );
+}
+
+export function ProfileScreen({
+  onBack,
+  onLoggedOut,
+}: {
+  onBack: () => void;
+  onLoggedOut?: () => void;
+}) {
+  const showLogout = !isTelegramMiniApp();
+  const telegram = useMemo(() => getTelegramProfileInfo(), []);
+  const telegramName = useMemo(() => {
+    const full = [telegram.firstName, telegram.lastName]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+    if (full) return full;
+    if (telegram.username) return telegram.username;
+    return "Пользователь";
+  }, [telegram]);
+
+  const initial = useMemo(() => getUserProfile(), []);
+  const initialDraft = useMemo<ProfileDraft>(
+    () => ({
+      displayName: initial.displayName ?? getTelegramUserName(),
+      birthDate: initial.birthDate ?? "",
+      gender: initial.gender ?? "",
+      digits: initial.phoneDigits ?? "",
+      avatarId: isAvatarId(initial.avatarId) ? initial.avatarId : "circle",
+    }),
+    [initial],
+  );
+
+  const [draft, setDraft] = useState<ProfileDraft>(initialDraft);
+  const [baseline, setBaseline] = useState<ProfileDraft>(initialDraft);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [saveFlash, setSaveFlash] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const phoneDisplay = useMemo(() => formatPhoneDigits(digits), [digits]);
+  const phoneDisplay = useMemo(
+    () => formatPhoneDigits(draft.digits),
+    [draft.digits],
+  );
+  const dirty = !sameDraft(draft, baseline);
 
   useEffect(() => {
     let cancelled = false;
@@ -127,10 +175,15 @@ export function ProfileScreen({ onBack }: { onBack: () => void }) {
       try {
         const profile = await syncUserProfileFromServer();
         if (cancelled) return;
-        setBirthDate(profile.birthDate ?? "");
-        setGender(profile.gender ?? "");
-        setDigits(profile.phoneDigits ?? "");
-        setAvatarId(isAvatarId(profile.avatarId) ? profile.avatarId : "circle");
+        const next: ProfileDraft = {
+          displayName: profile.displayName?.trim() || telegramName,
+          birthDate: profile.birthDate ?? "",
+          gender: profile.gender ?? "",
+          digits: profile.phoneDigits ?? "",
+          avatarId: isAvatarId(profile.avatarId) ? profile.avatarId : "circle",
+        };
+        setDraft(next);
+        setBaseline(next);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -138,24 +191,32 @@ export function ProfileScreen({ onBack }: { onBack: () => void }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [telegramName]);
 
-  const saveAndExit = async () => {
-    if (saving || saveFlash) return;
+  const save = async () => {
+    if (saving || saveFlash || !dirty) return;
     setSaving(true);
     setError(null);
     try {
-      await persistUserProfile({
-        birthDate: birthDate || undefined,
-        gender: gender || undefined,
-        phoneDigits: digits || undefined,
-        avatarId,
+      const saved = await persistUserProfile({
+        displayName: draft.displayName.trim() || undefined,
+        birthDate: draft.birthDate || undefined,
+        gender: draft.gender || undefined,
+        phoneDigits: draft.digits || undefined,
+        avatarId: draft.avatarId,
       });
+      const next: ProfileDraft = {
+        displayName: saved.displayName?.trim() || telegramName,
+        birthDate: saved.birthDate ?? "",
+        gender: saved.gender ?? "",
+        digits: saved.phoneDigits ?? "",
+        avatarId: isAvatarId(saved.avatarId) ? saved.avatarId : draft.avatarId,
+      };
+      setDraft(next);
+      setBaseline(next);
       hapticNotification("success");
       setSaveFlash(true);
-      window.setTimeout(() => {
-        onBack();
-      }, 900);
+      window.setTimeout(() => setSaveFlash(false), 1400);
     } catch (err) {
       hapticNotification("error");
       setError(
@@ -163,8 +224,19 @@ export function ProfileScreen({ onBack }: { onBack: () => void }) {
           ? err.message
           : "Не удалось сохранить профиль",
       );
+    } finally {
       setSaving(false);
     }
+  };
+
+  const logout = () => {
+    clearBrowserSession();
+    hapticNotification("success");
+    if (onLoggedOut) {
+      onLoggedOut();
+      return;
+    }
+    window.location.assign("/");
   };
 
   return (
@@ -178,7 +250,7 @@ export function ProfileScreen({ onBack }: { onBack: () => void }) {
         <button
           type="button"
           onClick={onBack}
-          disabled={saveFlash}
+          disabled={saving}
           className="flex h-11 w-11 items-center justify-center rounded-full border border-black/8 bg-zinc-100 text-zinc-900 disabled:opacity-40"
           aria-label="Назад"
         >
@@ -200,14 +272,23 @@ export function ProfileScreen({ onBack }: { onBack: () => void }) {
             className="relative h-16 w-16 shrink-0 overflow-hidden rounded-full border border-black/8 bg-zinc-100 transition-transform active:scale-95"
             aria-label="Сменить иконку профиля"
           >
-            <AvatarIcon id={avatarId} />
+            <AvatarIcon id={draft.avatarId} />
           </button>
-          <div className="min-w-0">
-            <h2 className="truncate text-[18px] font-semibold text-zinc-900">
-              {displayName}
-            </h2>
+          <div className="min-w-0 flex-1">
+            <label className="mb-1 block text-[12px] text-zinc-500">Имя</label>
+            <input
+              value={draft.displayName}
+              onChange={(e) =>
+                setDraft((prev) => ({
+                  ...prev,
+                  displayName: e.target.value.slice(0, 80),
+                }))
+              }
+              placeholder={telegramName}
+              className="h-11 w-full min-w-0 rounded-[14px] border border-black/8 bg-zinc-50 px-3 text-[16px] font-semibold text-zinc-900 outline-none placeholder:font-normal placeholder:text-zinc-400 focus:border-zinc-300"
+            />
             {telegram.username && (
-              <p className="truncate text-[14px] text-zinc-500">
+              <p className="mt-1.5 truncate text-[13px] text-zinc-500">
                 @{telegram.username}
               </p>
             )}
@@ -225,8 +306,10 @@ export function ProfileScreen({ onBack }: { onBack: () => void }) {
               </span>
               <input
                 type="date"
-                value={birthDate}
-                onChange={(e) => setBirthDate(e.target.value)}
+                value={draft.birthDate}
+                onChange={(e) =>
+                  setDraft((prev) => ({ ...prev, birthDate: e.target.value }))
+                }
                 className="h-12 w-full min-w-0 max-w-full rounded-[16px] border border-black/8 bg-zinc-50 px-3 text-[15px] text-zinc-900 outline-none focus:border-zinc-300"
               />
             </label>
@@ -238,9 +321,11 @@ export function ProfileScreen({ onBack }: { onBack: () => void }) {
                   <button
                     key={option.id}
                     type="button"
-                    onClick={() => setGender(option.id)}
+                    onClick={() =>
+                      setDraft((prev) => ({ ...prev, gender: option.id }))
+                    }
                     className={`rounded-[14px] border px-2 py-2.5 text-[13px] font-medium transition-colors ${
-                      gender === option.id
+                      draft.gender === option.id
                         ? "border-zinc-900 bg-zinc-900 text-white"
                         : "border-black/8 bg-zinc-50 text-zinc-700 hover:bg-zinc-100"
                     }`}
@@ -264,7 +349,8 @@ export function ProfileScreen({ onBack }: { onBack: () => void }) {
                   inputMode="numeric"
                   value={phoneDisplay}
                   onChange={(e) => {
-                    setDigits(e.target.value.replace(/\D/g, "").slice(0, 10));
+                    const digits = e.target.value.replace(/\D/g, "").slice(0, 10);
+                    setDraft((prev) => ({ ...prev, digits }));
                   }}
                   placeholder="999 000-00-00"
                   className="h-full min-w-0 flex-1 bg-transparent text-[15px] text-zinc-900 outline-none placeholder:text-zinc-400"
@@ -285,20 +371,32 @@ export function ProfileScreen({ onBack }: { onBack: () => void }) {
             {error}
           </p>
         )}
-        <Button
-          className="w-full"
-          disabled={saveFlash || saving || loading}
-          onClick={() => void saveAndExit()}
-        >
-          {saving ? "Сохраняем…" : "Сохранить и выйти"}
-        </Button>
+        {dirty && (
+          <Button
+            className="w-full"
+            disabled={saving || loading}
+            onClick={() => void save()}
+          >
+            {saving ? "Сохраняем…" : "Сохранить"}
+          </Button>
+        )}
+        {showLogout && (
+          <Button
+            className="w-full"
+            variant="secondary"
+            disabled={saving}
+            onClick={logout}
+          >
+            Выйти из аккаунта
+          </Button>
+        )}
       </div>
 
       <AnimatePresence>
         {pickerOpen && (
           <AvatarPickerSheet
-            selected={avatarId}
-            onSelect={setAvatarId}
+            selected={draft.avatarId}
+            onSelect={(id) => setDraft((prev) => ({ ...prev, avatarId: id }))}
             onClose={() => setPickerOpen(false)}
           />
         )}
@@ -324,9 +422,6 @@ export function ProfileScreen({ onBack }: { onBack: () => void }) {
                 </div>
                 <p className="text-[18px] font-semibold text-zinc-900">
                   Данные сохранены
-                </p>
-                <p className="mt-1 text-[13px] text-zinc-500">
-                  Возвращаем на главную…
                 </p>
               </motion.div>
             </motion.div>

@@ -22,7 +22,7 @@ const items: Array<{
   {
     id: "profile",
     title: "Личный кабинет",
-    description: "Данные из Telegram и контакты",
+    description: "Данные и контакты",
     icon: UserRound,
   },
   {

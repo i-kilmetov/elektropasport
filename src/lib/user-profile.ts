@@ -5,6 +5,7 @@ import { authHeaders, canUseServerAuth } from "@/lib/client-auth";
 export type UserGender = "male" | "female" | "unspecified";
 
 export type UserProfile = {
+  displayName?: string;
   birthDate?: string;
   gender?: UserGender;
   /** 10 digits without country code */
@@ -17,7 +18,8 @@ const PROFILE_KEY = "elektropasport:user-profile";
 
 function profileHasData(profile: UserProfile): boolean {
   return Boolean(
-    profile.birthDate ||
+    profile.displayName ||
+      profile.birthDate ||
       profile.gender ||
       profile.phoneDigits ||
       profile.avatarId,
@@ -26,6 +28,9 @@ function profileHasData(profile: UserProfile): boolean {
 
 function sanitizeProfile(parsed: Partial<UserProfile>): UserProfile {
   const next: UserProfile = {};
+  if (typeof parsed.displayName === "string" && parsed.displayName.trim()) {
+    next.displayName = parsed.displayName.trim().slice(0, 80);
+  }
   if (typeof parsed.birthDate === "string" && parsed.birthDate.trim()) {
     next.birthDate = parsed.birthDate.trim();
   }

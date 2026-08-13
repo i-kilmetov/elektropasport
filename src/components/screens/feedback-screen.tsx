@@ -15,7 +15,6 @@ import { GlassCard } from "@/components/ui/glass-card";
 import { hapticNotification } from "@/lib/haptics";
 import { fileToCompressedDataUrl } from "@/lib/image";
 import { persistFeedback } from "@/lib/user-data";
-import { cn } from "@/lib/utils";
 
 const MAX_MESSAGE_LENGTH = 2000;
 
@@ -174,33 +173,30 @@ export function FeedbackScreen({ onBack }: { onBack: () => void }) {
 
         <div>
           <div className="mb-2 text-[13px] font-medium text-zinc-600">Тема</div>
-          <GlassCard className="overflow-hidden p-0">
-            <ul>
-              {topics.map((item, index) => {
-                const active = topic === item.id;
-                return (
-                  <li key={item.id}>
-                    <button
-                      type="button"
-                      onClick={() => setTopic(item.id)}
-                      className={cn(
-                        "flex w-full items-center justify-between px-4 py-3.5 text-left text-[16px] transition-colors",
-                        active
-                          ? "bg-zinc-100 text-zinc-900"
-                          : "text-zinc-700 hover:bg-zinc-50",
-                        index > 0 && "border-t border-black/[0.06]",
-                      )}
-                    >
-                      <span className="font-medium">{item.label}</span>
-                      {active && (
-                        <Check className="h-4 w-4 shrink-0 text-zinc-700" />
-                      )}
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          </GlassCard>
+          <div className="relative">
+            <select
+              value={topic ?? ""}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (value === "bugs" || value === "tips" || value === "other") {
+                  setTopic(value);
+                }
+              }}
+              className="h-14 w-full appearance-none rounded-[20px] border border-black/8 bg-zinc-50 px-4 pr-11 text-[16px] text-zinc-900 outline-none focus:border-zinc-300"
+            >
+              <option value="" disabled>
+                Выберите тему
+              </option>
+              {topics.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
+            <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400">
+              ▾
+            </span>
+          </div>
         </div>
 
         <GlassCard className="p-4">
