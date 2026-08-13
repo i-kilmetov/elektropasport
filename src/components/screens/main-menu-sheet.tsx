@@ -3,7 +3,6 @@
 import { motion } from "framer-motion";
 import {
   ArrowRight,
-  BookOpen,
   Info,
   UserRound,
   Wrench,
@@ -11,7 +10,7 @@ import {
 } from "lucide-react";
 import { Portal } from "@/components/ui/portal";
 
-export type MainMenuId = "profile" | "about" | "electrical" | "master";
+export type MainMenuId = "profile" | "about" | "master";
 
 const items: Array<{
   id: MainMenuId;
@@ -30,12 +29,6 @@ const items: Array<{
     title: "О сервисе",
     description: "Как работает Электропаспорт",
     icon: Info,
-  },
-  {
-    id: "electrical",
-    title: "Важное об электрике",
-    description: "ПУЭ и базовые правила безопасности",
-    icon: BookOpen,
   },
   {
     id: "master",
@@ -67,7 +60,7 @@ export function MainMenuSheet({
           exit={{ y: 40 }}
           transition={{ type: "spring", stiffness: 320, damping: 30 }}
           onClick={(e) => e.stopPropagation()}
-          className="w-full max-w-[430px] mx-auto rounded-t-[28px] border border-black/8 bg-white p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-2xl"
+          className="mx-auto w-full max-w-[430px] rounded-t-[28px] border border-black/8 bg-white p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-2xl"
         >
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-[20px] font-semibold text-zinc-900">Меню</h2>

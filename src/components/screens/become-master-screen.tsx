@@ -68,7 +68,7 @@ export function BecomeMasterScreen({
 
       <div className="mt-auto space-y-3">
         <Button className="w-full" size="lg" onClick={onConfirm}>
-          Подтверждаю, хочу стать мастером
+          Отправить заявку
         </Button>
         <Button className="w-full" variant="secondary" onClick={onBack}>
           Не сейчас

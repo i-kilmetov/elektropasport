@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowLeft,
@@ -60,13 +60,11 @@ function deviceModules(device: Device): number {
 function DeviceBlock({
   device,
   selected,
-  showTerminals,
   onSelect,
   onTogglePower,
 }: {
   device: Device;
   selected: boolean;
-  showTerminals: boolean;
   onSelect: (clientY: number) => void;
   onTogglePower?: (deviceId: number) => void;
 }) {
@@ -82,7 +80,7 @@ function DeviceBlock({
         device={device}
         modules={modules}
         selected={selected}
-        showTerminals={showTerminals}
+        showTerminals={false}
         onSelect={(event) => onSelect(event.clientY)}
         onLongPress={() => onTogglePower?.(device.id)}
         brand={
@@ -177,16 +175,8 @@ function DeviceSheet({
               {device.manufacturer ?? "Производитель не определён"}
               {device.model ? ` · ${device.model}` : ` · ${device.rating}`}
             </p>
-            <p
-              className={`mt-1 text-[13px] font-medium ${
-                device.powered === false ? "text-zinc-400" : "text-emerald-600"
-              }`}
-            >
-              {device.powered === false ? "Выключен" : "Включён"}
-              <span className="font-normal text-zinc-400">
-                {" "}
-                · удержание для переключения
-              </span>
+            <p className="mt-1 text-[12px] text-zinc-400">
+              Удержание — переключить состояние
             </p>
             {device.circuitLabel?.trim() && (
               <p className="mt-1 text-[13px] text-zinc-600">
@@ -379,7 +369,6 @@ export function SchemeScreen({
   const linesCount = linesProp ?? mockLinesCount;
 
   const [tab, setTab] = useState<"scheme" | "photo">("scheme");
-  const [showTerminals, setShowTerminals] = useState(false);
   const [sheetAnchorY, setSheetAnchorY] = useState<number | null>(null);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -387,6 +376,9 @@ export function SchemeScreen({
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [nameOnBackOpen, setNameOnBackOpen] = useState(false);
   const [safetyOpen, setSafetyOpen] = useState(false);
+  const [safetyAssessing, setSafetyAssessing] = useState(false);
+  const [safetyProgress, setSafetyProgress] = useState(0);
+  const safetyFrameRef = useRef<number | null>(null);
   const selected = devices.find((d) => d.id === selectedId) ?? null;
 
   const allRailDevices = devices.filter(
@@ -427,6 +419,14 @@ export function SchemeScreen({
     }
     onBack();
   };
+
+  useEffect(() => {
+    return () => {
+      if (safetyFrameRef.current != null) {
+        cancelAnimationFrame(safetyFrameRef.current);
+      }
+    };
+  }, []);
 
   return (
     <motion.section
@@ -517,31 +517,6 @@ export function SchemeScreen({
         >
           Фото
         </button>
-        {tab === "scheme" && (
-          <button
-            type="button"
-            role="switch"
-            aria-checked={showTerminals}
-            aria-label="Показать клеммы для проводов"
-            onClick={() => setShowTerminals((v) => !v)}
-            className="ml-auto flex items-center gap-2 rounded-full border border-black/8 bg-zinc-100 px-2.5 py-1.5"
-          >
-            <span className="text-[12px] font-medium text-zinc-600">Клеммы</span>
-            <span
-              className={cn(
-                "relative h-5 w-9 rounded-full transition-colors",
-                showTerminals ? "bg-emerald-500/90" : "bg-zinc-300",
-              )}
-            >
-              <span
-                className={cn(
-                  "absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform",
-                  showTerminals ? "left-4" : "left-0.5",
-                )}
-              />
-            </span>
-          </button>
-        )}
       </div>
 
       {tab === "scheme" ? (
@@ -584,7 +559,6 @@ export function SchemeScreen({
                         key={device.id}
                         device={device}
                         selected={selectedId === device.id}
-                        showTerminals={showTerminals}
                         onSelect={(clientY) => {
                           setSheetAnchorY(clientY);
                           setSelectedId(device.id);
@@ -784,14 +758,66 @@ export function SchemeScreen({
                 nextPhases,
                 powerNum,
               );
-              onAssessSafety?.({
-                phases: nextPhases,
-                powerKw: nextPower,
-                safety,
-              });
               setSafetyOpen(false);
+              setSafetyAssessing(true);
+              setSafetyProgress(0);
+
+              const totalMs = 2400;
+              const start = performance.now();
+              if (safetyFrameRef.current != null) {
+                cancelAnimationFrame(safetyFrameRef.current);
+              }
+              const tick = (now: number) => {
+                const t = Math.min(1, (now - start) / totalMs);
+                const eased = 1 - Math.pow(1 - t, 2.2);
+                setSafetyProgress(Math.round(eased * 100));
+                if (t < 1) {
+                  safetyFrameRef.current = requestAnimationFrame(tick);
+                  return;
+                }
+                safetyFrameRef.current = null;
+                onAssessSafety?.({
+                  phases: nextPhases,
+                  powerKw: nextPower,
+                  safety,
+                });
+                setSafetyAssessing(false);
+                setSafetyProgress(0);
+              };
+              safetyFrameRef.current = requestAnimationFrame(tick);
             }}
           />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {safetyAssessing && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 z-40 flex items-center justify-center bg-white/80 px-8 backdrop-blur-sm"
+          >
+            <div className="w-full max-w-sm rounded-[24px] border border-black/8 bg-white p-5 shadow-xl">
+              <div className="mb-1 text-[16px] font-semibold text-zinc-900">
+                Считаем уровень безопасности
+              </div>
+              <p className="mb-4 text-[13px] leading-relaxed text-zinc-500">
+                Сверяем состав приборов с фазами и выделенной мощностью…
+              </p>
+              <div className="mb-2 h-2 overflow-hidden rounded-full bg-zinc-100">
+                <motion.div
+                  className="h-full rounded-full bg-emerald-500"
+                  initial={{ width: "0%" }}
+                  animate={{ width: `${safetyProgress}%` }}
+                  transition={{ ease: "linear", duration: 0.08 }}
+                />
+              </div>
+              <div className="text-right text-[12px] tabular-nums text-zinc-400">
+                {safetyProgress}%
+              </div>
+            </div>
+          </motion.div>
         )}
       </AnimatePresence>
     </motion.section>

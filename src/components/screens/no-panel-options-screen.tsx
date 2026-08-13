@@ -31,13 +31,9 @@ export function NoPanelOptionsScreen({
         <h1 className="text-[20px] font-semibold text-zinc-900">Нет щитка</h1>
       </header>
 
-      <h2 className="mb-2 text-[26px] font-bold tracking-tight text-zinc-900">
+      <h2 className="mb-6 text-[26px] font-bold tracking-tight text-zinc-900">
         Подскажите, как у вас устроена электрика?
       </h2>
-      <p className="mb-6 text-[15px] leading-relaxed text-zinc-500">
-        Выберите вариант, который больше похож на вашу ситуацию. Мы покажем
-        основные риски и что лучше сделать.
-      </p>
 
       <div className="flex flex-col gap-3">
         {noPanelSetups.map((setup, i) => {
@@ -72,6 +68,11 @@ export function NoPanelOptionsScreen({
           );
         })}
       </div>
+
+      <p className="mt-6 text-[15px] leading-relaxed text-zinc-500">
+        Выберите вариант, который больше похож на вашу ситуацию. Мы покажем
+        основные риски и что лучше сделать.
+      </p>
     </motion.section>
   );
 }

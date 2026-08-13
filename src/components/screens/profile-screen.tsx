@@ -162,9 +162,6 @@ export function ProfileScreen({ onBack }: { onBack: () => void }) {
             aria-label="Сменить иконку профиля"
           >
             <AvatarIcon id={avatarId} />
-            <span className="absolute inset-x-0 bottom-0 bg-black/45 py-0.5 text-center text-[9px] font-semibold uppercase tracking-wide text-white">
-              Сменить
-            </span>
           </button>
           <div className="min-w-0">
             <h2 className="truncate text-[18px] font-semibold text-zinc-900">
@@ -175,9 +172,6 @@ export function ProfileScreen({ onBack }: { onBack: () => void }) {
                 @{telegram.username}
               </p>
             )}
-            <p className="mt-1 text-[12px] text-zinc-400">
-              Нажмите на иконку, чтобы выбрать другой аватар
-            </p>
           </div>
         </GlassCard>
 

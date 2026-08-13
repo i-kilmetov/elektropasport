@@ -394,7 +394,7 @@ export function DeviceFaceStatic({
         "relative flex w-full min-w-0 flex-col overflow-hidden rounded-[8px] border text-left transition-colors duration-200",
         powered
           ? "border-zinc-300 bg-white text-zinc-900"
-          : "border-zinc-200 bg-zinc-50 text-zinc-400",
+          : "border-zinc-200 bg-zinc-50 text-zinc-400 grayscale",
         className,
       )}
     >
@@ -428,22 +428,6 @@ export function DeviceFaceStatic({
           modules={modules}
           powered={powered}
         />
-        <div className="mt-1.5 flex items-center gap-1">
-          <span
-            className={cn(
-              "h-1.5 w-1.5 rounded-full",
-              powered ? "bg-emerald-500" : "bg-zinc-300",
-            )}
-          />
-          <span
-            className={cn(
-              "text-[8px] font-bold uppercase tracking-wide",
-              powered ? "text-emerald-600" : "text-zinc-400",
-            )}
-          >
-            {powered ? "Вкл" : "Выкл"}
-          </span>
-        </div>
         <RatingBlock
           rating={device.rating}
           poles={device.poles}

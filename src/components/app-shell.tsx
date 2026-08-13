@@ -603,7 +603,6 @@ export function AppShell() {
               onMenuSelect={(id) => {
                 if (id === "profile") go("profile");
                 if (id === "about") go("about-service");
-                if (id === "electrical") go("electrical-rules");
                 if (id === "master") go("become-master");
               }}
             />
