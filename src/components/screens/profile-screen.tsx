@@ -323,14 +323,16 @@ export function ProfileScreen({
               <span className="mb-1.5 block text-[13px] text-zinc-500">
                 Дата рождения
               </span>
-              <input
-                type="date"
-                value={draft.birthDate}
-                onChange={(e) =>
-                  setDraft((prev) => ({ ...prev, birthDate: e.target.value }))
-                }
-                className="h-12 w-full min-w-0 max-w-full rounded-[16px] border border-black/8 bg-zinc-50 px-3 text-[15px] text-zinc-900 outline-none focus:border-zinc-300"
-              />
+              <span className="flex h-12 min-w-0 items-center overflow-hidden rounded-[16px] border border-black/8 bg-zinc-50 px-3 focus-within:border-zinc-300">
+                <input
+                  type="date"
+                  value={draft.birthDate}
+                  onChange={(e) =>
+                    setDraft((prev) => ({ ...prev, birthDate: e.target.value }))
+                  }
+                  className="h-full w-full min-w-0 border-0 bg-transparent p-0 text-[15px] leading-none text-zinc-900 outline-none"
+                />
+              </span>
               <span className="mt-1.5 block text-[12px] leading-relaxed text-zinc-400">
                 Нам интересно знать возраст наших пользователей, но со своей
                 стороны мы будем стараться радовать вас в день рождения.

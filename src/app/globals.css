@@ -68,10 +68,26 @@ input[type="month"],
 input[type="week"] {
   display: block;
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  appearance: none;
+  -webkit-appearance: none;
 }
 
+/* iOS Safari: date controls have a large intrinsic width and top-align text. */
 input[type="date"]::-webkit-datetime-edit,
 input[type="date"]::-webkit-date-and-time-value {
   min-width: 0;
   max-width: 100%;
+  display: flex;
+  align-items: center;
+  height: 100%;
+  line-height: normal;
+  padding: 0;
+  text-align: left;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  margin: 0;
+  padding: 0;
 }
