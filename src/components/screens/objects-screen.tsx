@@ -1,7 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { AnimatePresence, motion, type PanInfo } from "framer-motion";
+import {
+  AnimatePresence,
+  animate,
+  motion,
+  useMotionValue,
+  type PanInfo,
+} from "framer-motion";
 import { ClipboardList, Menu, Plus } from "lucide-react";
 import { BreakerIcon } from "@/components/icons/breaker-icon";
 import { SchemeMiniPreview } from "@/components/icons/scheme-mini-preview";
@@ -23,8 +29,9 @@ const LONG_PRESS_MS = 480;
 const LIFT_DELAY_MS = 90;
 const MOVE_CANCEL_PX = 10;
 const PAGE_SPRING = { type: "spring" as const, stiffness: 420, damping: 40 };
-const SWIPE_DISTANCE = 56;
-const SWIPE_VELOCITY = 450;
+/** Ignore tiny tap/drag noise; only intentional swipes change tabs. */
+const SWIPE_DISTANCE = 72;
+const SWIPE_VELOCITY = 550;
 
 function HomeListCard({
   item,
@@ -268,6 +275,8 @@ export function ObjectsScreen({
   const [pressingId, setPressingId] = useState<string | null>(null);
   const [pagerWidth, setPagerWidth] = useState(0);
   const pagerRef = useRef<HTMLDivElement>(null);
+  const pageRef = useRef(0);
+  const x = useMotionValue(0);
 
   const panels = useMemo(
     () => items.filter((item): item is PanelObject => item.kind === "panel"),
@@ -286,6 +295,10 @@ export function ObjectsScreen({
   const renameItem = items.find((item) => item.id === renameItemId);
 
   useEffect(() => {
+    pageRef.current = page;
+  }, [page]);
+
+  useEffect(() => {
     const node = pagerRef.current;
     if (!node) return;
     const update = () => setPagerWidth(node.clientWidth);
@@ -295,21 +308,33 @@ export function ObjectsScreen({
     return () => observer.disconnect();
   }, []);
 
+  useEffect(() => {
+    if (!pagerWidth) return;
+    void animate(x, -page * pagerWidth, PAGE_SPRING);
+  }, [page, pagerWidth, x]);
+
   const settlePage = (next: 0 | 1) => {
+    pageRef.current = next;
     setPage(next);
+    if (pagerWidth) {
+      void animate(x, -next * pagerWidth, PAGE_SPRING);
+    }
   };
 
   const onPagerDragEnd = (_: unknown, info: PanInfo) => {
+    const current = pageRef.current;
     const { offset, velocity } = info;
-    if (velocity.x < -SWIPE_VELOCITY || offset.x < -SWIPE_DISTANCE) {
-      settlePage(1);
-      return;
-    }
-    if (velocity.x > SWIPE_VELOCITY || offset.x > SWIPE_DISTANCE) {
-      settlePage(0);
-      return;
-    }
-    settlePage(page === 0 ? 0 : 1);
+    const wentLeft =
+      velocity.x < -SWIPE_VELOCITY || offset.x < -SWIPE_DISTANCE;
+    const wentRight =
+      velocity.x > SWIPE_VELOCITY || offset.x > SWIPE_DISTANCE;
+
+    let next: 0 | 1 = current as 0 | 1;
+    if (wentLeft) next = Math.min(1, current + 1) as 0 | 1;
+    else if (wentRight) next = Math.max(0, current - 1) as 0 | 1;
+
+    // Always snap to a concrete page — even when next === current.
+    settlePage(next);
   };
 
   const renderList = (
@@ -410,28 +435,29 @@ export function ObjectsScreen({
 
       <div ref={pagerRef} className="min-h-0 flex-1 overflow-hidden">
         <motion.div
-          className="flex h-full"
+          className="flex h-full touch-pan-y"
           drag="x"
           dragDirectionLock
-          dragElastic={0.18}
+          dragElastic={0.12}
           dragConstraints={{ left: 0, right: 0 }}
           dragMomentum={false}
-          animate={{ x: pagerWidth ? -page * pagerWidth : 0 }}
-          transition={PAGE_SPRING}
+          style={{
+            x,
+            width: pagerWidth ? pagerWidth * 2 : "200%",
+          }}
           onDragEnd={onPagerDragEnd}
-          style={{ width: pagerWidth ? pagerWidth * 2 : "200%" }}
         >
           <div
-            className="flex h-full flex-col px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
+            className="flex h-full min-h-0 flex-col px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
             style={{ width: pagerWidth || "50%" }}
           >
-            <div className="min-h-0 flex-1 overflow-y-auto">
+            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
               {renderList(panels, {
                 icon: <BreakerIcon className="h-10 w-10" />,
                 text: "Сфотографируйте существующий щиток или расскажите, как у вас устроена электрика без него.",
               })}
             </div>
-            <div className="mt-4 shrink-0 space-y-3">
+            <div className="shrink-0 space-y-3 border-t border-black/[0.06] bg-[var(--bg)] pt-3">
               <Button className="w-full" onClick={onAdd}>
                 <Plus className="h-5 w-5" />
                 Добавить щиток
@@ -446,16 +472,16 @@ export function ObjectsScreen({
             </div>
           </div>
           <div
-            className="flex h-full flex-col px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
+            className="flex h-full min-h-0 flex-col px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
             style={{ width: pagerWidth || "50%" }}
           >
-            <div className="min-h-0 flex-1 overflow-y-auto">
+            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
               {renderList(requests, {
                 icon: <ClipboardList className="h-10 w-10" />,
                 text: "Здесь появятся ваши заявки на консультацию, проект, сборку щитка или монтаж.",
               })}
             </div>
-            <div className="mt-4 shrink-0">
+            <div className="shrink-0 border-t border-black/[0.06] bg-[var(--bg)] pt-3">
               <Button className="w-full" onClick={onSubmitRequest}>
                 Отправить заявку
               </Button>

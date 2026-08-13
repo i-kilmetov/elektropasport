@@ -578,7 +578,6 @@ export function AppShell() {
               : "Не удалось отправить заявку мастера",
           );
         });
-        setLeadFlow("install");
         return;
       }
 
@@ -801,7 +800,11 @@ export function AppShell() {
                 go(leadFlow === "master" ? "city-select" : leadBackScreen)
               }
               onFinish={submitLead}
-              onGoHome={() => go("objects")}
+              onGoHome={() => {
+                setLeadFlow("install");
+                setRequestNeedId(null);
+                go("objects");
+              }}
             />
           )}
           {screen === "request-details" && activeRequest && (
