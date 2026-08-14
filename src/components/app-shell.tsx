@@ -361,13 +361,6 @@ export function AppShell() {
     [items, openPanelLimit, photoDataUrl, quota, refreshQuota, retakePanelId],
   );
 
-  const retakePanelPhoto = useCallback(() => {
-    if (!activePanelId || sharedPreview) return;
-    setRetakePanelId(activePanelId);
-    setPhotoDataUrl(null);
-    go("photo");
-  }, [activePanelId, go, sharedPreview]);
-
   const openPanel = useCallback(
     (id: string) => {
       const panel = items.find(
@@ -1065,6 +1058,9 @@ export function AppShell() {
               }
               photoDataUrl={photoDataUrl}
               onDone={handleAnalysisDone}
+              onRetryPhoto={() => {
+                go("photo");
+              }}
             />
           )}
           {screen === "scheme" && (
@@ -1090,7 +1086,6 @@ export function AppShell() {
               onUpdateDeviceSticker={updateDeviceSticker}
               onUpdateDeviceCharacteristic={updateDeviceCharacteristic}
               onToggleDevicePower={toggleDevicePower}
-              onRetakePhoto={sharedPreview ? undefined : retakePanelPhoto}
               onAssessSafety={assessPanelSafety}
               onCallMaster={startCallMaster}
               devices={devices ?? undefined}

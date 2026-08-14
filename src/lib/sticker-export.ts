@@ -152,5 +152,5 @@ export async function exportStickerPdf(
   const blob = pdf.output("blob");
   const safeName = title.replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-|-$/g, "");
   const filename = `${safeName || "nakleyka"}-A4.pdf`;
-  await sharePdf(blob, filename, `Наклейка: ${title}`);
+  await sharePdf(blob, filename, `Стикеры: ${title}`);
 }

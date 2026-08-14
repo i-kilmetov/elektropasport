@@ -38,6 +38,15 @@ export function truncateDevicesForRail(
   };
 }
 
+export function panelHasRailOverflow(
+  devices: Device[] | undefined,
+  railCount?: number,
+): boolean {
+  return groupDevicesByRail(devices, railCount).some(
+    (rail) => truncateDevicesForRail(rail).hasOverflow,
+  );
+}
+
 export function groupDevicesByRail(
   devices: Device[] | undefined,
   railCount?: number,

@@ -18,7 +18,6 @@ import {
 } from "framer-motion";
 import { ClipboardList, Menu, Plus } from "lucide-react";
 import { BreakerIcon } from "@/components/icons/breaker-icon";
-import { SchemeMiniPreview } from "@/components/icons/scheme-mini-preview";
 import {
   MainMenuSheet,
   MAIN_MENU_ITEMS,
@@ -158,25 +157,14 @@ function HomeListCard({
         <GlassCard className="flex items-center gap-4 rounded-[24px] border p-4 transition-colors hover:bg-zinc-50 lg:p-5">
           <div
             className={cn(
-              "h-14 w-14 shrink-0 overflow-hidden rounded-[18px]",
-              isRequest
-                ? "flex items-center justify-center bg-zinc-100 text-zinc-500"
-                : "bg-zinc-100",
+              "flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[18px] bg-zinc-100",
+              isRequest ? "text-zinc-500" : "text-zinc-600",
             )}
           >
             {isRequest ? (
               <ClipboardList className="h-6 w-6" />
-            ) : item.kind === "panel" &&
-              item.devices &&
-              item.devices.length > 0 ? (
-              <SchemeMiniPreview
-                devices={item.devices}
-                railCount={item.railCount}
-              />
             ) : (
-              <div className="flex h-full w-full items-center justify-center bg-zinc-100 text-zinc-500">
-                <BreakerIcon className="h-7 w-7" />
-              </div>
+              <BreakerIcon className="h-7 w-7" />
             )}
           </div>
           <div className="min-w-0 flex-1">
@@ -466,12 +454,6 @@ export function ObjectsScreen({
           <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-400">
             Электропаспорт
           </div>
-          <h1 className="mt-2 text-[22px] font-semibold tracking-tight text-zinc-900">
-            Мои щитки
-          </h1>
-          <p className="mt-1.5 text-[13px] leading-relaxed text-zinc-500">
-            Схемы, заявки и безопасность дома в одном месте.
-          </p>
         </div>
         <nav className="space-y-1.5">
           {MAIN_MENU_ITEMS.map((item) => (
@@ -495,11 +477,6 @@ export function ObjectsScreen({
             </button>
           ))}
         </nav>
-        {quota && (
-          <p className="mt-auto pt-8 text-[12px] leading-relaxed text-zinc-400">
-            Щитков: {quota.panelCount} из {quota.panelLimit}
-          </p>
-        )}
       </aside>
 
       <div className="flex min-h-0 flex-1 flex-col pt-[max(1.25rem,env(safe-area-inset-top))] lg:pt-8">
@@ -574,7 +551,19 @@ export function ObjectsScreen({
         </p>
       )}
 
-      <div ref={pagerRef} className="min-h-0 flex-1 overflow-hidden">
+      <div className="hidden min-h-0 flex-1 overflow-y-auto px-10 pb-10 lg:flex lg:flex-col">
+        {page === 0
+          ? renderList(panels, {
+              icon: <BreakerIcon className="h-10 w-10" />,
+              text: "Сфотографируйте существующий щиток или расскажите, как у вас устроена электрика без него.",
+            })
+          : renderList(requests, {
+              icon: <ClipboardList className="h-10 w-10" />,
+              text: "Здесь появятся заявки, оформленные по сценарию «У меня нет щитка».",
+            })}
+      </div>
+
+      <div ref={pagerRef} className="min-h-0 flex-1 overflow-hidden lg:hidden">
         <motion.div
           className="flex h-full touch-pan-y"
           drag={showRequests ? "x" : false}

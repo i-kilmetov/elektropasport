@@ -9,16 +9,14 @@ import {
   MoreHorizontal,
   Pencil,
   Shield,
-  Sticker,
   Trash2,
-  Camera,
-  AlertTriangle,
   Zap,
   X,
 } from "lucide-react";
 import { BrandMark } from "@/components/icons/brand-mark";
 import { IosShareIcon } from "@/components/icons/ios-share-icon";
 import { BreakerIcon } from "@/components/icons/breaker-icon";
+import { StickerBadgeIcon } from "@/components/icons/sticker-badge";
 import {
   GroundSymbol,
   SupplyCableIcon,
@@ -385,7 +383,6 @@ export function SchemeScreen({
   onUpdateDeviceCharacteristic,
   onUpdateDeviceSticker,
   onToggleDevicePower,
-  onRetakePhoto,
   onAssessSafety,
   onCallMaster,
   devices: devicesProp,
@@ -415,7 +412,6 @@ export function SchemeScreen({
     patch: { circuitLabel?: string; stickerIcon?: string },
   ) => void;
   onToggleDevicePower?: (deviceId: number) => void;
-  onRetakePhoto?: () => void;
   onAssessSafety?: (payload: {
     phases: "1" | "3";
     powerKw: string;
@@ -450,7 +446,6 @@ export function SchemeScreen({
   const [safetyExplainOpen, setSafetyExplainOpen] = useState(false);
   const [safetyAssessing, setSafetyAssessing] = useState(false);
   const [safetyProgress, setSafetyProgress] = useState(0);
-  const [unknownDismissed, setUnknownDismissed] = useState(false);
   const [stickerOpen, setStickerOpen] = useState(false);
   const safetyFrameRef = useRef<number | null>(null);
   const selected = devices.find((d) => d.id === selectedId) ?? null;
@@ -482,15 +477,9 @@ export function SchemeScreen({
       })),
     [rails],
   );
-  const hasRailOverflow = railDisplay.some((rail) => rail.hasOverflow);
-
   const verified = devices.filter((d) => d.status === "verified").length;
   const pending = devices.filter((d) => d.status === "pending").length;
   const unknown = devices.filter((d) => d.status === "unknown").length;
-  const showUnknownPrompt =
-    !sharedPreview && unknown > 0 && !unknownDismissed && Boolean(onRetakePhoto);
-
-  // widest visible rail determines the panel width (capped at 18 modules)
   const widestRailModules = Math.max(
     ...railDisplay.map((rail) =>
       rail.visible.reduce((sum, device) => sum + deviceModules(device), 0),
@@ -590,10 +579,6 @@ export function SchemeScreen({
                 <span className="min-w-0 flex-1 text-[14px] font-semibold leading-tight text-zinc-900">
                   {phases === "3" ? "3 фазы" : "1 фаза"}
                 </span>
-                <SupplyCableIcon
-                  phases={phases === "3" ? "3" : "1"}
-                  hasGround={hasGround === true}
-                />
               </div>
               <div className="flex items-center gap-2">
                 <Gauge className="h-4 w-4 shrink-0 text-zinc-400" />
@@ -610,6 +595,13 @@ export function SchemeScreen({
                       ? "Нет земли"
                       : "Земля не указана"}
                 </span>
+              </div>
+              <div className="flex justify-center pt-3">
+                <SupplyCableIcon
+                  phases={phases === "3" ? "3" : "1"}
+                  hasGround={hasGround === true}
+                  className="scale-125"
+                />
               </div>
             </div>
           ) : (
@@ -670,7 +662,7 @@ export function SchemeScreen({
       initial={{ opacity: 0, x: 40 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -40 }}
-      className="relative flex min-h-dvh flex-col overflow-hidden pt-[max(1.25rem,env(safe-area-inset-top))] lg:h-[var(--app-height,100dvh)] lg:min-h-0 lg:pt-6"
+      className="relative flex min-h-0 flex-1 flex-col overflow-hidden pt-[max(1.25rem,env(safe-area-inset-top))] lg:pt-6"
     >
       <header className="mb-4 flex items-center justify-between px-5 lg:px-10">
         <button
@@ -712,8 +704,8 @@ export function SchemeScreen({
                       setStickerOpen(true);
                     }}
                   >
-                    <Sticker className="h-4 w-4 text-zinc-600" />
-                    Наклейка для печати
+                    <StickerBadgeIcon className="h-4 w-4 text-zinc-600" />
+                    Стикеры в щиток
                   </button>
                   <button
                     type="button"
@@ -788,53 +780,15 @@ export function SchemeScreen({
           onClick={() => setStickerOpen(true)}
           className="ml-auto inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-medium text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-zinc-900"
         >
-          <Sticker className="h-3.5 w-3.5" />
-          Наклейка
+          <StickerBadgeIcon className="h-3.5 w-3.5" />
+          Стикеры в щиток
         </button>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col lg:flex-row lg:gap-6 lg:px-10 lg:pb-8">
+      <div className="min-h-0 flex-1 overflow-y-auto lg:pb-8">
+      <div className="flex flex-col lg:flex-row lg:items-start lg:gap-6 lg:px-10">
       {tab === "scheme" ? (
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-4 lg:px-0">
-          {showUnknownPrompt && (
-            <GlassCard className="mb-4 flex gap-3 border border-amber-200/80 bg-amber-50/90 p-4">
-              <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
-              <div className="min-w-0 flex-1">
-                <p className="text-[14px] font-semibold text-amber-950">
-                  Не все приборы определены
-                </p>
-                <p className="mt-1 text-[13px] leading-relaxed text-amber-900/80">
-                  ИИ не смог распознать {unknown}{" "}
-                  {unknown === 1
-                    ? "прибор"
-                    : unknown < 5
-                      ? "прибора"
-                      : "приборов"}
-                  . Сделайте новое фото при хорошем освещении — так схема
-                  получится точнее.
-                </p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    className="h-10 rounded-full px-4 text-[13px]"
-                    onClick={() => onRetakePhoto?.()}
-                  >
-                    <Camera className="h-4 w-4" />
-                    Переснять щиток
-                  </Button>
-                  <button
-                    type="button"
-                    onClick={() => setUnknownDismissed(true)}
-                    className="rounded-full px-3 py-2 text-[13px] font-medium text-amber-800/80 transition-colors hover:bg-amber-100/80"
-                  >
-                    Позже
-                  </button>
-                </div>
-              </div>
-            </GlassCard>
-          )}
-
+        <div className="px-5 pb-4 lg:min-w-0 lg:flex-1 lg:px-0">
           <div className="overflow-x-auto">
             <GlassCard className="p-4" style={{ minWidth: railMinWidth }}>
             <div className="mb-3 flex items-center justify-between">
@@ -845,16 +799,6 @@ export function SchemeScreen({
                 {allRailDevices.length} приборов
               </span>
             </div>
-
-            {hasRailOverflow && (
-              <div className="mb-3 flex items-start gap-2 rounded-[14px] border border-amber-200/70 bg-amber-50/80 px-3 py-2.5">
-                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
-                <p className="text-[12px] leading-relaxed text-amber-900/85">
-                  На одной рейке больше {MAX_MODULES_PER_RAIL} модулей — лишние
-                  приборы на схеме не показаны.
-                </p>
-              </div>
-            )}
 
             {railDisplay.map((rail, railIdx) => {
               const railModules = rail.totalModules;
@@ -867,7 +811,6 @@ export function SchemeScreen({
                       </span>
                       <span className="text-[11px] text-zinc-400">
                         {railModules} мод.
-                        {rail.hasOverflow ? ` · показано до ${MAX_MODULES_PER_RAIL}` : ""}
                       </span>
                     </div>
                   )}
@@ -889,12 +832,6 @@ export function SchemeScreen({
                       />
                     ))}
                   </div>
-                  {rail.hasOverflow && numRails === 1 && (
-                    <p className="text-[11px] leading-relaxed text-amber-800/75">
-                      Показано {rail.visible.length} из {rail.all.length} приборов
-                      ({rail.hiddenModules} мод. скрыто).
-                    </p>
-                  )}
                 </div>
               );
             })}
@@ -922,7 +859,7 @@ export function SchemeScreen({
           />
         </div>
       ) : (
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-4 lg:px-0">
+        <div className="px-5 pb-4 lg:min-w-0 lg:flex-1 lg:px-0">
           <GlassCard className="overflow-hidden p-0">
             {photoDataUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -941,9 +878,10 @@ export function SchemeScreen({
         </div>
       )}
 
-      <aside className="hidden w-[340px] shrink-0 flex-col gap-3 lg:flex">
+      <aside className="hidden w-[340px] shrink-0 flex-col gap-3 px-5 pb-4 lg:flex lg:px-0 lg:pb-0">
         {networkSafetyCards}
       </aside>
+      </div>
       </div>
 
       <div className="border-t border-black/[0.06] bg-white/95 px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-4 backdrop-blur-xl lg:hidden">

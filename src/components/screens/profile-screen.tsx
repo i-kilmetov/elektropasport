@@ -176,10 +176,6 @@ export function ProfileScreen({
       </header>
 
       <div className="min-w-0 flex-1 space-y-5 overflow-x-hidden overflow-y-auto pb-4">
-        {loading && (
-          <p className="text-[14px] text-zinc-500">Загружаем профиль…</p>
-        )}
-
         <div className="flex flex-col items-center gap-3">
           <div
             className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-[#6B8AFD] text-[26px] font-semibold tracking-wide text-white"

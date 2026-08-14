@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, Loader2, Printer, Sticker, X } from "lucide-react";
+import { ArrowLeft, Loader2, Printer, X } from "lucide-react";
 import { IosShareIcon } from "@/components/icons/ios-share-icon";
+import { StickerBadgeIcon } from "@/components/icons/sticker-badge";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Portal } from "@/components/ui/portal";
@@ -172,7 +173,7 @@ function A4Page({
         className="text-zinc-500"
         style={{ fontSize: "3.2mm", marginBottom: "4mm" }}
       >
-        {panelTitle} · наклейка 1:1 · A4 альбомно
+        {panelTitle} · стикеры 1:1 · A4 альбомно
         {pageCount > 1 ? ` · лист ${pageIndex + 1} из ${pageCount}` : ""}
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: "8mm" }}>
@@ -375,8 +376,8 @@ export function StickerDesigner({
           </button>
           <div className="min-w-0 text-center">
             <div className="flex items-center justify-center gap-1.5 text-[12px] text-zinc-500">
-              <Sticker className="h-3.5 w-3.5" />
-              Наклейка на щиток
+              <StickerBadgeIcon className="h-3.5 w-3.5" />
+              Стикеры в щиток
             </div>
             <h2 className="truncate text-[16px] font-semibold text-zinc-900">
               {panelTitle}
@@ -402,7 +403,7 @@ export function StickerDesigner({
           <div className="mx-auto w-full max-w-5xl px-4 py-5 lg:px-8">
             <GlassCard className="mb-5 p-4">
               <p className="text-[14px] leading-relaxed text-zinc-700">
-                Это подготовленный макет индивидуальной наклейки для вашего
+                Это подготовленный макет индивидуальных стикеров для вашего
                 щитка. Достаточно подобрать иконки, написать текст на ячейках и
                 отправить на печать.
               </p>
@@ -439,7 +440,7 @@ export function StickerDesigner({
               <>
                 {strips.length === 0 ? (
                   <p className="text-[14px] text-zinc-500">
-                    На схеме нет приборов для наклейки.
+                      На схеме нет приборов для стикеров.
                   </p>
                 ) : (
                   <div className="-mx-4 overflow-x-auto px-4 pb-2 lg:mx-0 lg:px-0">

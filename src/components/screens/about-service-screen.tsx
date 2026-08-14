@@ -1,17 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowLeft,
   BarChart3,
+  ChevronDown,
   Flame,
   Shield,
   Users,
   Wrench,
   Zap,
 } from "lucide-react";
-import { BrandMark } from "@/components/icons/brand-mark";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
 import { cn } from "@/lib/utils";
@@ -52,6 +52,7 @@ const missionPoints = [
 export function AboutServiceScreen({ onBack }: { onBack: () => void }) {
   const [stats, setStats] = useState<PublicStats | null>(null);
   const [statsError, setStatsError] = useState(false);
+  const [fireStatsOpen, setFireStatsOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -124,7 +125,7 @@ export function AboutServiceScreen({ onBack }: { onBack: () => void }) {
         <GlassCard className="overflow-hidden p-0">
           <div className="bg-gradient-to-br from-zinc-900 to-zinc-800 px-5 py-6 text-white">
             <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-[16px] bg-white/10">
-              <BrandMark className="h-7 w-7 text-white" />
+              <Zap className="h-7 w-7" />
             </div>
             <h2 className="text-[24px] font-bold tracking-tight">
               Главная миссия — чтобы вы разбирались в своём щитке
@@ -167,6 +168,135 @@ export function AboutServiceScreen({ onBack }: { onBack: () => void }) {
           ))}
         </div>
 
+        <GlassCard className="overflow-hidden p-0">
+          <button
+            type="button"
+            onClick={() => setFireStatsOpen((open) => !open)}
+            className="flex w-full items-center gap-3 p-4 text-left"
+          >
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] bg-orange-500/10 text-orange-600">
+              <Flame className="h-5 w-5" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <h3 className="text-[16px] font-semibold text-zinc-900">
+                Почему это важно: цифры по пожарам
+              </h3>
+              <p className="mt-0.5 text-[13px] text-zinc-500">
+                Официальная статистика МЧС за 2025 год
+              </p>
+            </div>
+            <ChevronDown
+              className={cn(
+                "h-5 w-5 shrink-0 text-zinc-400 transition-transform",
+                fireStatsOpen && "rotate-180",
+              )}
+            />
+          </button>
+          <AnimatePresence initial={false}>
+            {fireStatsOpen && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.22, ease: "easeOut" }}
+                className="overflow-hidden"
+              >
+                <div className="space-y-3 border-t border-black/[0.06] px-4 pb-4 pt-3 text-[13px] leading-relaxed text-zinc-600">
+                  <p>
+                    В 2025 году в России произошло{" "}
+                    <span className="font-semibold text-zinc-900">
+                      317 311 пожаров
+                    </span>
+                    . На них погибли{" "}
+                    <span className="font-semibold text-zinc-900">
+                      6 521 человек
+                    </span>
+                    , получили травмы{" "}
+                    <span className="font-semibold text-zinc-900">
+                      7 966 человек
+                    </span>
+                    .
+                  </p>
+                  <p>
+                    Около{" "}
+                    <span className="font-semibold text-zinc-900">19%</span>{" "}
+                    всех пожаров — каждый пятый — связаны с электрооборудованием
+                    и электропроводкой:{" "}
+                    <span className="font-semibold text-zinc-900">
+                      61 590 возгораний
+                    </span>
+                    . Из них{" "}
+                    <span className="font-semibold text-zinc-900">
+                      55 153
+                    </span>{" "}
+                    произошли из‑за кабеля и провода.
+                  </p>
+                  <p>
+                    На пожарах по этой причине погибли{" "}
+                    <span className="font-semibold text-zinc-900">
+                      2 104 человека
+                    </span>{" "}
+                    — примерно каждая третья смерть на пожаре. В городах
+                    аварийный режим электросетей и оборудования стал причиной{" "}
+                    <span className="font-semibold text-zinc-900">
+                      32 268
+                    </span>{" "}
+                    пожаров, в сельской местности —{" "}
+                    <span className="font-semibold text-zinc-900">
+                      29 126
+                    </span>
+                    .
+                  </p>
+                  <ul className="space-y-1.5 text-[12px] text-zinc-500">
+                    <li>
+                      <a
+                        href="https://vdpo64.ru/uploadedFiles/files/Analiz_obstanovki_s_pozharami_RF_za_2025.pdf"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline decoration-zinc-300 underline-offset-2 hover:text-zinc-800"
+                      >
+                        МЧС России. Анализ обстановки с пожарами за 12 месяцев
+                        2025 г.
+                      </a>
+                    </li>
+                    <li>
+                      <a
+                        href="https://mchs.gov.ru/deyatelnost/itogi-deyatelnosti-mchs-rossii/2025-god"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline decoration-zinc-300 underline-offset-2 hover:text-zinc-800"
+                      >
+                        МЧС России. Итоги деятельности за 2025 год
+                      </a>
+                    </li>
+                    <li>
+                      <a
+                        href="https://propb.ru/news/opublikovan-informatsionno-analiticheskiy-sbornik-pozhary-i-pozharnaya-bezopasnost-v-2025-g-/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline decoration-zinc-300 underline-offset-2 hover:text-zinc-800"
+                      >
+                        ВНИИПО МЧС. Сборник «Пожары и пожарная безопасность в
+                        2025 г.»
+                      </a>
+                    </li>
+                    <li>
+                      <a
+                        href="https://mkc-energo.ru/bolee-61-tysyachi-pozharov-za-god-vniipo-mchs-opublikoval-statistiku-po-elektrooborudovaniyu/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline decoration-zinc-300 underline-offset-2 hover:text-zinc-800"
+                      >
+                        Сводка ВНИИПО по пожарам из‑за электрооборудования, 2025
+                      </a>
+                    </li>
+                  </ul>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </GlassCard>
+
         <GlassCard className="space-y-4 border-emerald-500/20 bg-gradient-to-b from-emerald-500/[0.06] to-transparent p-4">
           <div className="flex items-start gap-3">
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] bg-emerald-500/15 text-emerald-700">
@@ -174,12 +304,12 @@ export function AboutServiceScreen({ onBack }: { onBack: () => void }) {
             </span>
             <div>
               <h3 className="text-[16px] font-semibold text-zinc-900">
-                Открытая статистика сервиса
+                Счетчик сервиса
               </h3>
               <p className="mt-1 text-[13px] leading-relaxed text-zinc-500">
-                Мы публикуем живые цифры без прикрас: сколько людей пользуется
-                сервисом, сколько щитков добавлено и сколько мастеров подало
-                заявку на подключение. Так видно, что происходит прямо сейчас.
+                Открытые данные по работе нашего сервиса: сколько людей уже
+                пользуется Электропаспортом, сколько щитков добавлено и сколько
+                мастеров подали заявку.
               </p>
             </div>
           </div>
@@ -213,33 +343,6 @@ export function AboutServiceScreen({ onBack }: { onBack: () => void }) {
               позже.
             </p>
           )}
-        </GlassCard>
-
-        <GlassCard className="space-y-3 p-4">
-          <h3 className="text-[16px] font-semibold text-zinc-900">
-            Как это работает
-          </h3>
-          <ul className="space-y-2.5 text-[14px] leading-relaxed text-zinc-500">
-            <li className="flex gap-2">
-              <span className="font-semibold text-zinc-700">1.</span>
-              <span>
-                Сфотографируйте щиток — сервис соберёт схему и карточку объекта.
-              </span>
-            </li>
-            <li className="flex gap-2">
-              <span className="font-semibold text-zinc-700">2.</span>
-              <span>
-                Укажите параметры сети и получите оценку безопасности.
-              </span>
-            </li>
-            <li className="flex gap-2">
-              <span className="font-semibold text-zinc-700">3.</span>
-              <span>
-                Если щитка нет или нужна помощь — оставьте заявку и свяжитесь с
-                мастером.
-              </span>
-            </li>
-          </ul>
         </GlassCard>
 
         <GlassCard className="space-y-2 p-4">
