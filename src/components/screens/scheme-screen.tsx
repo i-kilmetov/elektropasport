@@ -9,6 +9,7 @@ import {
   MoreHorizontal,
   Pencil,
   Shield,
+  Sticker,
   Trash2,
   Camera,
   AlertTriangle,
@@ -51,6 +52,7 @@ import {
   safetyTextColor,
 } from "@/lib/safety-score";
 import { PanelDeviceGuideSection } from "@/components/screens/panel-device-guide-section";
+import { StickerDesigner } from "@/components/screens/sticker-designer";
 import {
   deviceModules,
   groupDevicesByRail,
@@ -381,6 +383,7 @@ export function SchemeScreen({
   onDelete,
   onAssignCircuit,
   onUpdateDeviceCharacteristic,
+  onUpdateDeviceSticker,
   onToggleDevicePower,
   onRetakePhoto,
   onAssessSafety,
@@ -406,6 +409,10 @@ export function SchemeScreen({
     deviceId: number,
     key: string,
     value: string,
+  ) => void;
+  onUpdateDeviceSticker?: (
+    deviceId: number,
+    patch: { circuitLabel?: string; stickerIcon?: string },
   ) => void;
   onToggleDevicePower?: (deviceId: number) => void;
   onRetakePhoto?: () => void;
@@ -444,6 +451,7 @@ export function SchemeScreen({
   const [safetyAssessing, setSafetyAssessing] = useState(false);
   const [safetyProgress, setSafetyProgress] = useState(0);
   const [unknownDismissed, setUnknownDismissed] = useState(false);
+  const [stickerOpen, setStickerOpen] = useState(false);
   const safetyFrameRef = useRef<number | null>(null);
   const selected = devices.find((d) => d.id === selectedId) ?? null;
 
@@ -701,6 +709,17 @@ export function SchemeScreen({
                     className="flex w-full items-center gap-2 px-4 py-3 text-left text-[15px] text-zinc-900 hover:bg-zinc-50"
                     onClick={() => {
                       setMenuOpen(false);
+                      setStickerOpen(true);
+                    }}
+                  >
+                    <Sticker className="h-4 w-4 text-zinc-600" />
+                    Наклейка для печати
+                  </button>
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-2 px-4 py-3 text-left text-[15px] text-zinc-900 hover:bg-zinc-50"
+                    onClick={() => {
+                      setMenuOpen(false);
                       void (async () => {
                         const url = await onShare?.();
                         if (url) setShareUrl(url);
@@ -763,6 +782,14 @@ export function SchemeScreen({
           )}
         >
           Фото
+        </button>
+        <button
+          type="button"
+          onClick={() => setStickerOpen(true)}
+          className="ml-auto inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-medium text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-zinc-900"
+        >
+          <Sticker className="h-3.5 w-3.5" />
+          Наклейка
         </button>
       </div>
 
@@ -922,6 +949,18 @@ export function SchemeScreen({
       <div className="border-t border-black/[0.06] bg-white/95 px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-4 backdrop-blur-xl lg:hidden">
         <div className="grid grid-cols-2 gap-3">{networkSafetyCards}</div>
       </div>
+
+      <AnimatePresence>
+        {stickerOpen && (
+          <StickerDesigner
+            rails={railDisplay.map((rail) => rail.visible)}
+            panelTitle={title}
+            editable={!sharedPreview}
+            onClose={() => setStickerOpen(false)}
+            onUpdate={sharedPreview ? undefined : onUpdateDeviceSticker}
+          />
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {selected && tab === "scheme" && (

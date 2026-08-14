@@ -33,6 +33,8 @@ export interface Device {
   rail?: number;
   /** Switch state on the scheme. Default ON when undefined. */
   powered?: boolean;
+  /** Icon id for the printable DIN-rail sticker */
+  stickerIcon?: string;
 }
 
 export type ObjectType = "apartment" | "house" | "garage" | "dacha";

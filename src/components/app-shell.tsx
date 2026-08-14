@@ -640,6 +640,28 @@ export function AppShell() {
     [activePanelId],
   );
 
+  const updateDeviceSticker = useCallback(
+    (
+      deviceId: number,
+      patch: { circuitLabel?: string; stickerIcon?: string },
+    ) => {
+      if (!activePanelId) return;
+      const patchDevice = (device: Device): Device =>
+        device.id === deviceId ? { ...device, ...patch } : device;
+      setDevices((prev) => (prev ? prev.map(patchDevice) : prev));
+      setItems((prev) =>
+        prev.map((item) => {
+          if (item.kind !== "panel" || item.id !== activePanelId) return item;
+          const nextDevices = (item.devices ?? []).map(patchDevice);
+          const next = { ...item, devices: nextDevices };
+          void persistPanel(next).catch((error) => console.error(error));
+          return next;
+        }),
+      );
+    },
+    [activePanelId],
+  );
+
   const toggleDevicePower = useCallback(
     (deviceId: number) => {
       if (!activePanelId) return;
@@ -1065,6 +1087,7 @@ export function AppShell() {
               onRename={renamePanel}
               onDelete={deletePanel}
               onAssignCircuit={assignCircuitLabel}
+              onUpdateDeviceSticker={updateDeviceSticker}
               onUpdateDeviceCharacteristic={updateDeviceCharacteristic}
               onToggleDevicePower={toggleDevicePower}
               onRetakePhoto={sharedPreview ? undefined : retakePanelPhoto}

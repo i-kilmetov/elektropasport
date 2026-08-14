@@ -60,6 +60,7 @@ function normalizeDevice(raw: unknown, index: number): Device | null {
     model: asString(raw.model) || undefined,
     circuitLabel: asString(raw.circuitLabel) || undefined,
     brandKey: asString(raw.brandKey) || undefined,
+    stickerIcon: asString(raw.stickerIcon) || undefined,
   };
 }
 
