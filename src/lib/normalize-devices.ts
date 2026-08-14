@@ -1,4 +1,8 @@
 import type { Device, DeviceStatus, DeviceType } from "@/types";
+import {
+  DEVICE_DETAILS_CONFIDENCE,
+  resolveBrandKey,
+} from "@/lib/manufacturer-brands";
 
 const DEVICE_TYPES: DeviceType[] = [
   "main_breaker",
@@ -40,9 +44,16 @@ function normalizeDevice(raw: unknown, index: number): Device | null {
     Math.max(0, Math.round(asNumber(raw.confidence, 70))),
   );
 
-  if (confidence < 75 && status === "verified") {
-    status = "pending";
+  if (confidence < DEVICE_DETAILS_CONFIDENCE) {
+    status = status === "unknown" ? "unknown" : "pending";
+  } else if (status === "pending" && confidence >= DEVICE_DETAILS_CONFIDENCE) {
+    status = "verified";
   }
+
+  const brandKey =
+    asString(raw.brandKey) ||
+    resolveBrandKey(undefined, asString(raw.manufacturer)) ||
+    undefined;
 
   return {
     id: asNumber(raw.id, index + 1),
@@ -50,17 +61,30 @@ function normalizeDevice(raw: unknown, index: number): Device | null {
     name: asString(raw.name, `Устройство ${index + 1}`),
     rating: asString(raw.rating, "—"),
     status,
-    manufacturer: asString(raw.manufacturer) || undefined,
+    manufacturer:
+      confidence >= DEVICE_DETAILS_CONFIDENCE
+        ? asString(raw.manufacturer) || undefined
+        : undefined,
     confidence,
     position: asNumber(raw.position, index),
     modules: Math.min(4, Math.max(1, Math.round(asNumber(raw.modules, 1)))),
     rail: Math.min(3, Math.max(0, Math.round(asNumber(raw.rail, 0)))),
     catalogId: asString(raw.catalogId) || undefined,
-    poles: asString(raw.poles) || undefined,
-    series: asString(raw.series) || undefined,
-    model: asString(raw.model) || undefined,
+    poles:
+      confidence >= DEVICE_DETAILS_CONFIDENCE
+        ? asString(raw.poles) || undefined
+        : undefined,
+    series:
+      confidence >= DEVICE_DETAILS_CONFIDENCE
+        ? asString(raw.series) || undefined
+        : undefined,
+    model:
+      confidence >= DEVICE_DETAILS_CONFIDENCE
+        ? asString(raw.model) || undefined
+        : undefined,
     circuitLabel: asString(raw.circuitLabel) || undefined,
-    brandKey: asString(raw.brandKey) || undefined,
+    brandKey:
+      confidence >= DEVICE_DETAILS_CONFIDENCE ? brandKey : undefined,
     stickerIcon: asString(raw.stickerIcon) || undefined,
   };
 }

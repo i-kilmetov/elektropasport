@@ -729,6 +729,45 @@ export function AppShell() {
     [activePanelId],
   );
 
+  const updateDeviceIdentity = useCallback(
+    (
+      deviceId: number,
+      patch: {
+        type?: Device["type"];
+        manufacturer?: string;
+        brandKey?: string;
+      },
+    ) => {
+      if (!activePanelId) return;
+
+      const patchDevice = (device: Device): Device => {
+        if (device.id !== deviceId) return device;
+        return {
+          ...device,
+          ...patch,
+          // User confirmed identity — show logo/type/specs on the scheme.
+          status: "verified",
+          confidence: 100,
+        };
+      };
+
+      setDevices((prev) => {
+        if (!prev) return prev;
+        return prev.map(patchDevice);
+      });
+      setItems((prev) =>
+        prev.map((item) => {
+          if (item.kind !== "panel" || item.id !== activePanelId) return item;
+          const nextDevices = (item.devices ?? []).map(patchDevice);
+          const next = { ...item, devices: nextDevices };
+          void persistPanel(next).catch((error) => console.error(error));
+          return next;
+        }),
+      );
+    },
+    [activePanelId],
+  );
+
   const assessPanelSafety = useCallback(
     (payload: {
       phases: "1" | "3";
@@ -1085,6 +1124,7 @@ export function AppShell() {
               onAssignCircuit={assignCircuitLabel}
               onUpdateDeviceSticker={updateDeviceSticker}
               onUpdateDeviceCharacteristic={updateDeviceCharacteristic}
+              onUpdateDeviceIdentity={updateDeviceIdentity}
               onToggleDevicePower={toggleDevicePower}
               onAssessSafety={assessPanelSafety}
               onCallMaster={startCallMaster}

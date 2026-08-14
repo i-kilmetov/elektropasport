@@ -11,6 +11,7 @@ import {
   panelGuideDisclaimer,
   summarizePanelDevices,
 } from "@/lib/panel-device-guide";
+import { isDeviceDetailsConfident } from "@/lib/manufacturer-brands";
 import { cn } from "@/lib/utils";
 import type { Device, DeviceType } from "@/types";
 
@@ -21,13 +22,15 @@ function PreviewWithCount({
   device: Device;
   count: number;
 }) {
+  const confident = isDeviceDetailsConfident(device);
   return (
     <div className="flex w-14 shrink-0 flex-col items-center">
       <DeviceMiniPreview
         device={device}
         scale={0.36}
+        showDetails={confident}
         brand={
-          device.manufacturer ? (
+          confident && device.manufacturer ? (
             <BrandMark
               brandKey={device.brandKey}
               brand={device.manufacturer}

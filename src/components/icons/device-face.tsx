@@ -3,6 +3,7 @@
 import { useRef, useState, type MouseEvent, type ReactNode } from "react";
 import { motion } from "framer-motion";
 import { hapticContextMenu } from "@/lib/haptics";
+import { getManufacturerPalette } from "@/lib/manufacturer-brands";
 import { cn } from "@/lib/utils";
 import type { Device, DeviceType } from "@/types";
 
@@ -51,22 +52,8 @@ export function splitRatingLines(rating: string): string[] {
   return [trimmed];
 }
 
-function typeAccent(type: DeviceType): string {
-  switch (type) {
-    case "main_breaker":
-      return "#e11d48";
-    case "rcd":
-    case "diff_breaker":
-      return "#f59e0b";
-    case "voltage_relay":
-      return "#10b981";
-    case "spd":
-      return "#0ea5e9";
-    case "afdd":
-      return "#8b5cf6";
-    default:
-      return "#e11d48";
-  }
+function devicePalette(device: Device) {
+  return getManufacturerPalette(device.brandKey, device.manufacturer);
 }
 
 function TerminalRow({
@@ -284,24 +271,31 @@ function DeviceFunction({
   device,
   modules,
   powered,
+  accent,
+  showDetails,
 }: {
   type: DeviceType;
   device: Device;
   modules: number;
   powered: boolean;
+  accent: string;
+  showDetails: boolean;
 }) {
-  const accent = typeAccent(type);
   const levers = leverCount(device, modules);
+  const resolvedType = showDetails ? type : "breaker";
 
-  if (type === "voltage_relay") {
+  if (resolvedType === "voltage_relay") {
     return (
-      <VoltageScreen powered={powered} value={parseVoltageHint(device.rating)} />
+      <VoltageScreen
+        powered={powered}
+        value={showDetails ? parseVoltageHint(device.rating) : "—"}
+      />
     );
   }
-  if (type === "spd") {
+  if (resolvedType === "spd") {
     return <SpdWindows modules={modules} powered={powered} />;
   }
-  if (type === "rcd" || type === "diff_breaker") {
+  if (resolvedType === "rcd" || resolvedType === "diff_breaker") {
     return (
       <div className="flex w-full flex-col gap-1.5">
         <FlatLever powered={powered} accent={accent} wide />
@@ -311,7 +305,7 @@ function DeviceFunction({
   }
   return (
     <BreakerLevers
-      count={levers}
+      count={showDetails ? levers : Math.min(1, modules)}
       modules={modules}
       powered={powered}
       accent={accent}
@@ -374,17 +368,31 @@ export function DeviceFaceStatic({
   modules,
   showTerminals = false,
   brand,
+  showDetails = true,
   className,
 }: {
   device: Device;
   modules: number;
   showTerminals?: boolean;
   brand?: ReactNode;
+  /** When false, hide logo/type-specific chrome/ratings (low confidence). */
+  showDetails?: boolean;
   className?: string;
 }) {
   const width = modules * MODULE_PX;
   const powered = isDevicePowered(device);
-  const accent = typeAccent(device.type);
+  const palette = devicePalette(device);
+  const accent = showDetails ? palette.accent : "#A1A1AA";
+  const body = powered
+    ? showDetails
+      ? palette.body
+      : "#FAFAFA"
+    : "#F4F4F5";
+  const border = powered
+    ? showDetails
+      ? palette.border
+      : "#E4E4E7"
+    : "#E4E4E7";
 
   return (
     <div
@@ -393,12 +401,13 @@ export function DeviceFaceStatic({
         minWidth: width,
         maxWidth: width,
         boxSizing: "border-box",
+        backgroundColor: body,
+        borderColor: border,
+        color: powered ? palette.text : undefined,
       }}
       className={cn(
         "relative flex w-full min-w-0 flex-col overflow-hidden rounded-[8px] border text-left transition-colors duration-200",
-        powered
-          ? "border-zinc-300 bg-white text-zinc-900"
-          : "border-zinc-200 bg-zinc-50 text-zinc-400 grayscale",
+        !powered && "text-zinc-400 grayscale",
         className,
       )}
     >
@@ -415,12 +424,9 @@ export function DeviceFaceStatic({
         className="relative z-[1] flex w-full flex-col px-[3px] pt-2 pb-1.5"
         style={{ height: BODY_HEIGHT_PX }}
       >
-        {brand && (
+        {showDetails && brand && (
           <div
-            className={cn(
-              "mb-1 overflow-hidden",
-              !powered && "opacity-40",
-            )}
+            className={cn("mb-1 overflow-hidden", !powered && "opacity-40")}
             style={{ maxWidth: MODULE_PX - 4 }}
           >
             {brand}
@@ -431,12 +437,22 @@ export function DeviceFaceStatic({
           device={device}
           modules={modules}
           powered={powered}
+          accent={accent}
+          showDetails={showDetails}
         />
-        <RatingBlock
-          rating={device.rating}
-          poles={device.poles}
-          powered={powered}
-        />
+        {showDetails ? (
+          <RatingBlock
+            rating={device.rating}
+            poles={device.poles}
+            powered={powered}
+          />
+        ) : (
+          <div className="mt-auto px-[1px]">
+            <span className="block text-left text-[8px] font-semibold leading-tight text-amber-700">
+              Уточнить
+            </span>
+          </div>
+        )}
       </div>
       {showTerminals && (
         <TerminalRow modules={modules} side="bottom" powered={powered} />
@@ -450,11 +466,13 @@ export function DeviceMiniPreview({
   scale = 0.38,
   showTerminals = false,
   brand,
+  showDetails = true,
 }: {
   device: Device;
   scale?: number;
   showTerminals?: boolean;
   brand?: ReactNode;
+  showDetails?: boolean;
 }) {
   const modules = device.modules && device.modules > 0 ? device.modules : 1;
   const width = modules * MODULE_PX;
@@ -475,6 +493,7 @@ export function DeviceMiniPreview({
           modules={modules}
           showTerminals={showTerminals}
           brand={brand}
+          showDetails={showDetails}
         />
       </div>
     </div>
@@ -489,6 +508,7 @@ export function DeviceFace({
   onSelect,
   onLongPress,
   brand,
+  showDetails = true,
 }: {
   device: Device;
   modules: number;
@@ -497,6 +517,7 @@ export function DeviceFace({
   onSelect: (event: MouseEvent<HTMLButtonElement>) => void;
   onLongPress?: () => void;
   brand?: ReactNode;
+  showDetails?: boolean;
 }) {
   const width = modules * MODULE_PX;
   const timerRef = useRef<number | null>(null);
@@ -606,6 +627,7 @@ export function DeviceFace({
         modules={modules}
         showTerminals={showTerminals}
         brand={brand}
+        showDetails={showDetails}
       />
     </motion.button>
   );

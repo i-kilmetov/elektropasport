@@ -57,6 +57,12 @@ import {
   MAX_MODULES_PER_RAIL,
   truncateDevicesForRail,
 } from "@/lib/panel-rails";
+import {
+  DEVICE_TYPE_OPTIONS,
+  isDeviceDetailsConfident,
+  MANUFACTURER_BRANDS,
+  resolveBrandKey,
+} from "@/lib/manufacturer-brands";
 import { cn } from "@/lib/utils";
 import type { Device, DeviceType } from "@/types";
 
@@ -85,21 +91,30 @@ function DeviceBlock({
 }) {
   const modules = deviceModules(device);
   const width = modules * MODULE_PX;
+  const confident = isDeviceDetailsConfident(device);
 
   return (
     <div className="flex flex-col items-stretch" style={{ width, flex: "none" }}>
-      <span className="mb-1 line-clamp-1 text-left text-[10px] font-medium leading-tight text-zinc-500">
-        {typeShort[device.type]}
+      <span
+        className={cn(
+          "mb-1 line-clamp-1 text-left text-[10px] font-medium leading-tight",
+          confident ? "text-zinc-500" : "text-amber-700",
+        )}
+      >
+        {confident ? typeShort[device.type] : "Уточнить"}
       </span>
       <DeviceFace
         device={device}
         modules={modules}
         selected={selected}
         showTerminals={false}
+        showDetails={confident}
         onSelect={(event) => onSelect(event.clientY)}
         onLongPress={() => onTogglePower?.(device.id)}
         brand={
-          <BrandMark brandKey={device.brandKey} brand={device.manufacturer} />
+          confident ? (
+            <BrandMark brandKey={device.brandKey} brand={device.manufacturer} />
+          ) : undefined
         }
       />
       <DeviceStatusBar status={device.status} />
@@ -138,6 +153,7 @@ function DeviceSheet({
   onClose,
   onAssignCircuit,
   onUpdateCharacteristic,
+  onUpdateIdentity,
   specEditable = true,
 }: {
   device: Device;
@@ -149,11 +165,21 @@ function DeviceSheet({
     key: string,
     value: string,
   ) => void;
+  onUpdateIdentity?: (
+    deviceId: number,
+    patch: {
+      type?: DeviceType;
+      manufacturer?: string;
+      brandKey?: string;
+    },
+  ) => void;
   specEditable?: boolean;
 }) {
   const [label, setLabel] = useState(device.circuitLabel ?? "");
   const [sheetTop, setSheetTop] = useState(() => computeSheetTop(anchorY));
+  const confident = isDeviceDetailsConfident(device);
   const specs = useMemo(() => {
+    if (!confident) return [] as Array<[string, string]>;
     const hidden = new Set(["Производитель", "Модель"]);
     const fromCatalog = Object.entries(device.characteristics ?? {}).filter(
       ([key]) => !hidden.has(key),
@@ -164,7 +190,7 @@ function DeviceSheet({
       ["Номинал", device.rating],
       ["Модули", String(deviceModules(device))],
     ] as Array<[string, string]>;
-  }, [device]);
+  }, [confident, device]);
 
   useEffect(() => {
     setLabel(device.circuitLabel ?? "");
@@ -198,11 +224,18 @@ function DeviceSheet({
           <div>
             <div className="mb-2 flex flex-wrap items-center gap-2">
               <h3 className="text-[20px] font-semibold text-zinc-900">
-                {deviceTitle(device)}
+                {confident ? deviceTitle(device) : "Прибор требует уточнения"}
               </h3>
               <Badge status={device.status} />
             </div>
-            <p className="text-[14px] text-zinc-500">{device.rating}</p>
+            {confident ? (
+              <p className="text-[14px] text-zinc-500">{device.rating}</p>
+            ) : (
+              <p className="text-[14px] leading-relaxed text-amber-800/90">
+                ИИ не уверен в типе, производителе и характеристиках. Укажите их
+                ниже — на схеме появятся логотип и подписи.
+              </p>
+            )}
             <p className="mt-1 text-[12px] text-zinc-400">
               На схеме удержите прибор, чтобы переключить состояние
             </p>
@@ -222,28 +255,104 @@ function DeviceSheet({
           </button>
         </div>
 
-        {specEditable && onUpdateCharacteristic && (
+        {specEditable && onUpdateIdentity && (
+          <GlassCard className="mb-5 space-y-4 p-4">
+            <div>
+              <div className="mb-2 text-[13px] font-semibold text-zinc-900">
+                Производитель
+              </div>
+              <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                {MANUFACTURER_BRANDS.map((brand) => {
+                  const active =
+                    resolveBrandKey(device.brandKey, device.manufacturer) ===
+                    brand.key;
+                  return (
+                    <button
+                      key={brand.key}
+                      type="button"
+                      onClick={() =>
+                        onUpdateIdentity(device.id, {
+                          brandKey: brand.key,
+                          manufacturer: brand.label,
+                        })
+                      }
+                      className={cn(
+                        "flex flex-col items-center gap-1.5 rounded-[14px] border px-2 py-2.5 transition-colors",
+                        active
+                          ? "border-zinc-900 bg-zinc-900 text-white"
+                          : "border-black/8 bg-zinc-50 text-zinc-700 hover:bg-zinc-100",
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "flex h-7 w-full items-center justify-center rounded-md",
+                          active ? "bg-white/10" : "bg-white",
+                        )}
+                      >
+                        <BrandMark brandKey={brand.key} brand={brand.label} />
+                      </span>
+                      <span className="line-clamp-1 text-[10px] font-medium">
+                        {brand.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <div>
+              <div className="mb-2 text-[13px] font-semibold text-zinc-900">
+                Тип прибора
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {DEVICE_TYPE_OPTIONS.map((item) => {
+                  const active = device.type === item.type;
+                  return (
+                    <button
+                      key={item.type}
+                      type="button"
+                      onClick={() =>
+                        onUpdateIdentity(device.id, { type: item.type })
+                      }
+                      className={cn(
+                        "rounded-full px-3 py-1.5 text-[12px] font-semibold transition-colors",
+                        active
+                          ? "bg-zinc-900 text-white"
+                          : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200",
+                      )}
+                    >
+                      {item.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </GlassCard>
+        )}
+
+        {specEditable && onUpdateCharacteristic && confident && (
           <p className="mb-3 text-[12px] leading-relaxed text-amber-800/90">
             {manualSpecEditDisclaimer}
           </p>
         )}
 
-        <div className="mb-5 grid grid-cols-2 gap-3">
-          {specs.slice(0, 6).map(([key, value]) => (
-            <EditableSpecCard
-              key={key}
-              deviceType={device.type}
-              label={key}
-              value={value}
-              editable={specEditable}
-              onChange={
-                onUpdateCharacteristic
-                  ? (next) => onUpdateCharacteristic(device.id, key, next)
-                  : undefined
-              }
-            />
-          ))}
-        </div>
+        {confident && (
+          <div className="mb-5 grid grid-cols-2 gap-3">
+            {specs.slice(0, 6).map(([key, value]) => (
+              <EditableSpecCard
+                key={key}
+                deviceType={device.type}
+                label={key}
+                value={value}
+                editable={specEditable}
+                onChange={
+                  onUpdateCharacteristic
+                    ? (next) => onUpdateCharacteristic(device.id, key, next)
+                    : undefined
+                }
+              />
+            ))}
+          </div>
+        )}
 
         {typeof device.confidence === "number" && (
           <div className="mb-5">
@@ -381,6 +490,7 @@ export function SchemeScreen({
   onDelete,
   onAssignCircuit,
   onUpdateDeviceCharacteristic,
+  onUpdateDeviceIdentity,
   onUpdateDeviceSticker,
   onToggleDevicePower,
   onAssessSafety,
@@ -406,6 +516,14 @@ export function SchemeScreen({
     deviceId: number,
     key: string,
     value: string,
+  ) => void;
+  onUpdateDeviceIdentity?: (
+    deviceId: number,
+    patch: {
+      type?: DeviceType;
+      manufacturer?: string;
+      brandKey?: string;
+    },
   ) => void;
   onUpdateDeviceSticker?: (
     deviceId: number,
@@ -915,6 +1033,9 @@ export function SchemeScreen({
             }}
             onUpdateCharacteristic={
               sharedPreview ? undefined : onUpdateDeviceCharacteristic
+            }
+            onUpdateIdentity={
+              sharedPreview ? undefined : onUpdateDeviceIdentity
             }
           />
         )}

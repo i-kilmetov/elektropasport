@@ -370,7 +370,7 @@ export function productToDevice(
     rating: product.rating,
     status: opts.status ?? "verified",
     manufacturer: product.brand,
-    confidence: opts.confidence ?? 92,
+    confidence: opts.confidence ?? 100,
     position: opts.position,
     modules: product.modules,
     catalogId: product.id,
