@@ -34,8 +34,8 @@ import { GlassCard } from "@/components/ui/glass-card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ShareSheet } from "@/components/ui/share-sheet";
 import { Progress } from "@/components/ui/progress";
-import { HintInfoButton } from "@/components/ui/spec-info-button";
 import { SafetyParamsSheet } from "@/components/ui/safety-params-sheet";
+import { SafetyExplainSheet } from "@/components/ui/safety-explain-sheet";
 import { EditableSpecCard } from "@/components/ui/editable-spec-card";
 import { circuitIdentifySteps } from "@/lib/device-catalog";
 import { devices as mockDevices } from "@/lib/mock-data";
@@ -44,10 +44,10 @@ import {
   manualSpecEditDisclaimer,
 } from "@/lib/device-spec-guide";
 import {
+  analyzePanelSafety,
   computePanelSafetyScore,
   safetyIndicatorColor,
   safetyLabel,
-  safetyScoreDisclaimer,
   safetyTextColor,
 } from "@/lib/safety-score";
 import { PanelDeviceGuideSection } from "@/components/screens/panel-device-guide-section";
@@ -440,9 +440,9 @@ export function SchemeScreen({
   const [saveSharedOpen, setSaveSharedOpen] = useState(false);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [safetyOpen, setSafetyOpen] = useState(false);
+  const [safetyExplainOpen, setSafetyExplainOpen] = useState(false);
   const [safetyAssessing, setSafetyAssessing] = useState(false);
   const [safetyProgress, setSafetyProgress] = useState(0);
-  const [safetyHintOpen, setSafetyHintOpen] = useState(false);
   const [unknownDismissed, setUnknownDismissed] = useState(false);
   const safetyFrameRef = useRef<number | null>(null);
   const selected = devices.find((d) => d.id === selectedId) ?? null;
@@ -450,6 +450,15 @@ export function SchemeScreen({
   const allRailDevices = devices.filter(
     (d) => d.type !== "pe_bus" && d.type !== "n_bus",
   );
+  const safetyAdvice = useMemo(() => {
+    const powerNum = Number((powerKw ?? "").replace(",", "."));
+    return analyzePanelSafety(
+      allRailDevices,
+      phases,
+      Number.isFinite(powerNum) && powerNum > 0 ? powerNum : undefined,
+      hasGround,
+    ).advice;
+  }, [allRailDevices, phases, powerKw, hasGround]);
 
   // Group devices by rail
   const numRails = railCount ?? Math.max(1, ...allRailDevices.map((d) => (d.rail ?? 0) + 1));
@@ -812,10 +821,17 @@ export function SchemeScreen({
 
       <div className="border-t border-black/[0.06] bg-white/95 px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-4 backdrop-blur-xl">
         <div className="grid grid-cols-2 gap-3">
-          <GlassCard className="flex flex-col p-4">
-            <div className="mb-2 text-[12px] text-zinc-500">Параметры сети</div>
-            {networkParamsFilled ? (
-              <>
+          <button
+            type="button"
+            onClick={() => {
+              if (sharedPreview) return;
+              setSafetyOpen(true);
+            }}
+            className="min-w-0 text-left transition-transform active:scale-[0.99]"
+          >
+            <GlassCard className="flex h-full flex-col p-4">
+              <div className="mb-2 text-[12px] text-zinc-500">Параметры сети</div>
+              {networkParamsFilled ? (
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
                     <Zap className="h-4 w-4 shrink-0 text-zinc-400" />
@@ -844,78 +860,56 @@ export function SchemeScreen({
                     </span>
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setSafetyOpen(true)}
-                  className="mt-auto pt-2 text-left text-[12px] font-medium text-zinc-500 underline decoration-zinc-300 underline-offset-2 hover:text-zinc-800"
-                >
-                  Изменить
-                </button>
-              </>
-            ) : (
-              <>
+              ) : (
                 <p className="text-[13px] leading-snug text-zinc-400">
-                  Укажите число фаз, мощность и наличие земли
+                  Нажмите, чтобы указать число фаз, мощность и наличие земли
                 </p>
-                <button
-                  type="button"
-                  onClick={() => setSafetyOpen(true)}
-                  className="mt-auto pt-2 text-left text-[12px] font-semibold text-zinc-700"
-                >
-                  Указать параметры
-                </button>
-              </>
-            )}
-          </GlassCard>
-          <GlassCard className="p-4">
-            <div className="mb-1 flex items-center justify-between gap-2 text-[12px] text-zinc-500">
-              <span className="flex items-center gap-1.5">
+              )}
+            </GlassCard>
+          </button>
+          <button
+            type="button"
+            onClick={() => setSafetyExplainOpen(true)}
+            className="min-w-0 text-left transition-transform active:scale-[0.99]"
+          >
+            <GlassCard className="flex h-full flex-col p-4">
+              <div className="mb-1 flex items-center gap-1.5 text-[12px] text-zinc-500">
                 <Shield className="h-3.5 w-3.5 text-zinc-400" />
                 Уровень безопасности
-              </span>
-              <HintInfoButton
-                label="Как считается уровень безопасности"
-                open={safetyHintOpen}
-                onToggle={() => setSafetyHintOpen((v) => !v)}
-              />
-            </div>
-            {safetyKnown && typeof safetyScore === "number" ? (
-              <>
-                <div className="flex items-end gap-2">
-                  <span
-                    className={cn(
-                      "text-[28px] font-bold tabular-nums",
-                      safetyTextColor(safetyScore),
-                    )}
-                  >
-                    {safetyScore}%
-                  </span>
-                  <span className="mb-1.5 text-[12px] text-zinc-500">
-                    {safetyLabel(safetyScore)}
-                  </span>
-                </div>
-                <Progress
-                  value={safetyScore}
-                  className="mt-2 h-1.5"
-                  indicatorClassName={safetyIndicatorColor(safetyScore)}
-                />
-              </>
-            ) : (
-              <>
-                <div className="text-[22px] font-bold text-zinc-400">Неизвестен</div>
-                <p className="mt-1 text-[11px] leading-snug text-zinc-400">
-                  {networkParamsFilled
-                    ? "Сохраните параметры сети для расчёта"
-                    : "Сначала укажите параметры сети слева"}
-                </p>
-              </>
-            )}
-            {safetyHintOpen && (
-              <p className="mt-2.5 border-t border-black/[0.06] pt-2.5 text-[11px] leading-relaxed text-zinc-500">
-                {safetyScoreDisclaimer}
-              </p>
-            )}
-          </GlassCard>
+              </div>
+              {safetyKnown && typeof safetyScore === "number" ? (
+                <>
+                  <div className="flex items-end gap-2">
+                    <span
+                      className={cn(
+                        "text-[28px] font-bold tabular-nums",
+                        safetyTextColor(safetyScore),
+                      )}
+                    >
+                      {safetyScore}%
+                    </span>
+                    <span className="mb-1.5 text-[12px] text-zinc-500">
+                      {safetyLabel(safetyScore)}
+                    </span>
+                  </div>
+                  <Progress
+                    value={safetyScore}
+                    className="mt-2 h-1.5"
+                    indicatorClassName={safetyIndicatorColor(safetyScore)}
+                  />
+                </>
+              ) : (
+                <>
+                  <div className="text-[22px] font-bold text-zinc-400">Неизвестен</div>
+                  <p className="mt-1 text-[11px] leading-snug text-zinc-400">
+                    {networkParamsFilled
+                      ? "Нажмите, чтобы узнать, как считается оценка"
+                      : "Сначала укажите параметры сети слева"}
+                  </p>
+                </>
+              )}
+            </GlassCard>
+          </button>
         </div>
       </div>
 
@@ -1024,6 +1018,32 @@ export function SchemeScreen({
               setDeleteOpen(false);
               onDelete();
             }}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {safetyExplainOpen && (
+          <SafetyExplainSheet
+            score={safetyScore}
+            advice={safetyAdvice}
+            onClose={() => setSafetyExplainOpen(false)}
+            onEditParams={
+              sharedPreview
+                ? undefined
+                : () => {
+                    setSafetyExplainOpen(false);
+                    setSafetyOpen(true);
+                  }
+            }
+            onCallMaster={
+              onCallMaster
+                ? () => {
+                    setSafetyExplainOpen(false);
+                    onCallMaster();
+                  }
+                : undefined
+            }
           />
         )}
       </AnimatePresence>
