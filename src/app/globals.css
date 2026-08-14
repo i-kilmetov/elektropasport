@@ -92,10 +92,19 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   padding: 0;
 }
 
+/* Off-screen but painted — html-to-image cannot capture display:none. */
+.sticker-print-root {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
 @media print {
   @page {
     size: A4 landscape;
-    margin: 10mm;
+    margin: 0;
   }
 
   html,
@@ -121,6 +130,8 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     display: block !important;
     position: absolute;
     inset: 0;
+    z-index: 1;
+    pointer-events: auto;
     background: #fff;
     color: #111;
   }
