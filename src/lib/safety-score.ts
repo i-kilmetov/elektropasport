@@ -103,6 +103,22 @@ export function safetyLabel(score: number): string {
   return "низкий";
 }
 
+export function safetyIndicatorColor(score: number): string {
+  if (score >= 80) return "bg-emerald-500";
+  if (score >= 65) return "bg-lime-500";
+  if (score >= 50) return "bg-amber-400";
+  if (score >= 35) return "bg-orange-500";
+  return "bg-rose-500";
+}
+
+export function safetyTextColor(score: number): string {
+  if (score >= 80) return "text-emerald-600";
+  if (score >= 65) return "text-lime-600";
+  if (score >= 50) return "text-amber-600";
+  if (score >= 35) return "text-orange-600";
+  return "text-rose-600";
+}
+
 export const safetyScoreDisclaimer =
   "Оценка считается по составу приборов на схеме и указанным параметрам сети — числу фаз и выделенной мощности. Сервис не учитывает, насколько корректно приборы расключены внутри щитка.";
 

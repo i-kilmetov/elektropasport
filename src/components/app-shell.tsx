@@ -960,7 +960,6 @@ export function AppShell() {
               safetyScore={safetyScore}
               phases={activePanel?.phases}
               powerKw={activePanel?.powerKw}
-              linesCount={linesCount ?? undefined}
               railCount={railCount ?? undefined}
             />
           )}

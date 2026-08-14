@@ -32,15 +32,14 @@ import {
 } from "@/components/ui/spec-info-button";
 import { SafetyParamsSheet } from "@/components/ui/safety-params-sheet";
 import { circuitIdentifySteps } from "@/lib/device-catalog";
+import { devices as mockDevices } from "@/lib/mock-data";
 import { PanelDeviceGuideSection } from "@/components/screens/panel-device-guide-section";
 import {
-  devices as mockDevices,
-  linesCount as mockLinesCount,
-} from "@/lib/mock-data";
-import {
   computePanelSafetyScore,
+  safetyIndicatorColor,
   safetyLabel,
   safetyScoreDisclaimer,
+  safetyTextColor,
 } from "@/lib/safety-score";
 import { cn } from "@/lib/utils";
 import type { Device, DeviceType } from "@/types";
@@ -347,7 +346,6 @@ export function SchemeScreen({
   safetyScore: safetyProp,
   phases,
   powerKw,
-  linesCount: linesProp,
   railCount,
 }: {
   title?: string;
@@ -371,7 +369,6 @@ export function SchemeScreen({
   safetyScore?: number | null;
   phases?: "1" | "3";
   powerKw?: string;
-  linesCount?: number;
   railCount?: number;
 }) {
   const devices =
@@ -379,7 +376,7 @@ export function SchemeScreen({
   const safetyKnown =
     Boolean(phases && powerKw?.trim()) && typeof safetyProp === "number";
   const safetyScore = safetyKnown ? safetyProp : null;
-  const linesCount = linesProp ?? mockLinesCount;
+  const networkParamsFilled = Boolean(phases && powerKw?.trim());
 
   const [tab, setTab] = useState<"scheme" | "photo">("scheme");
   const [sheetAnchorY, setSheetAnchorY] = useState<number | null>(null);
@@ -438,6 +435,48 @@ export function SchemeScreen({
       return;
     }
     onBack();
+  };
+
+  const runSafetyAssessment = ({
+    nextPhases,
+    nextPower,
+  }: {
+    nextPhases: "1" | "3";
+    nextPower: string;
+  }) => {
+    const powerNum = Number(nextPower.replace(",", "."));
+    const safety = computePanelSafetyScore(
+      allRailDevices,
+      nextPhases,
+      powerNum,
+    );
+    setSafetyOpen(false);
+    setSafetyAssessing(true);
+    setSafetyProgress(0);
+
+    const totalMs = 2400;
+    const start = performance.now();
+    if (safetyFrameRef.current != null) {
+      cancelAnimationFrame(safetyFrameRef.current);
+    }
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / totalMs);
+      const eased = 1 - Math.pow(1 - t, 2.2);
+      setSafetyProgress(Math.round(eased * 100));
+      if (t < 1) {
+        safetyFrameRef.current = requestAnimationFrame(tick);
+        return;
+      }
+      safetyFrameRef.current = null;
+      onAssessSafety?.({
+        phases: nextPhases,
+        powerKw: nextPower,
+        safety,
+      });
+      setSafetyAssessing(false);
+      setSafetyProgress(0);
+    };
+    safetyFrameRef.current = requestAnimationFrame(tick);
   };
 
   useEffect(() => {
@@ -653,16 +692,42 @@ export function SchemeScreen({
 
       <div className="border-t border-black/[0.06] bg-white/95 px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-4 backdrop-blur-xl">
         <div className="grid grid-cols-2 gap-3">
-          <GlassCard className="p-4">
-            <div className="mb-1 text-[12px] text-zinc-500">Количество линий</div>
-            <div className="text-[28px] font-bold tabular-nums text-zinc-900">
-              {linesCount}
-            </div>
+          <GlassCard className="flex flex-col p-4">
+            <div className="mb-2 text-[12px] text-zinc-500">Параметры сети</div>
+            {networkParamsFilled ? (
+              <>
+                <div className="text-[15px] font-semibold leading-snug text-zinc-900">
+                  {phases === "3" ? "3 фазы" : "1 фаза"}
+                  <span className="text-zinc-400"> · </span>
+                  {powerKw?.replace(".", ",")} кВт
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSafetyOpen(true)}
+                  className="mt-auto pt-2 text-left text-[12px] font-medium text-zinc-500 underline decoration-zinc-300 underline-offset-2 hover:text-zinc-800"
+                >
+                  Изменить
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="text-[13px] leading-snug text-zinc-400">
+                  Укажите число фаз и выделенную мощность
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setSafetyOpen(true)}
+                  className="mt-auto pt-2 text-left text-[12px] font-semibold text-zinc-700"
+                >
+                  Указать параметры
+                </button>
+              </>
+            )}
           </GlassCard>
           <GlassCard className="p-4">
             <div className="mb-1 flex items-center justify-between gap-2 text-[12px] text-zinc-500">
               <span className="flex items-center gap-1.5">
-                <Shield className="h-3.5 w-3.5 text-emerald-500" />
+                <Shield className="h-3.5 w-3.5 text-zinc-400" />
                 Уровень безопасности
               </span>
               <HintInfoButton
@@ -674,35 +739,32 @@ export function SchemeScreen({
             {safetyKnown && typeof safetyScore === "number" ? (
               <>
                 <div className="flex items-end gap-2">
-                  <span className="text-[28px] font-bold tabular-nums text-emerald-600">
+                  <span
+                    className={cn(
+                      "text-[28px] font-bold tabular-nums",
+                      safetyTextColor(safetyScore),
+                    )}
+                  >
                     {safetyScore}%
                   </span>
                   <span className="mb-1.5 text-[12px] text-zinc-500">
                     {safetyLabel(safetyScore)}
                   </span>
                 </div>
-                <Progress value={safetyScore} className="mt-2 h-1.5" />
-                <button
-                  type="button"
-                  onClick={() => setSafetyOpen(true)}
-                  className="mt-2 text-[12px] font-medium text-zinc-500 underline decoration-zinc-300 underline-offset-2 hover:text-zinc-800"
-                >
-                  Изменить параметры
-                </button>
+                <Progress
+                  value={safetyScore}
+                  className="mt-2 h-1.5"
+                  indicatorClassName={safetyIndicatorColor(safetyScore)}
+                />
               </>
             ) : (
               <>
                 <div className="text-[22px] font-bold text-zinc-400">Неизвестен</div>
                 <p className="mt-1 text-[11px] leading-snug text-zinc-400">
-                  Нужны фазы и выделенная мощность
+                  {networkParamsFilled
+                    ? "Сохраните параметры сети для расчёта"
+                    : "Сначала укажите параметры сети слева"}
                 </p>
-                <button
-                  type="button"
-                  onClick={() => setSafetyOpen(true)}
-                  className="mt-2 text-[12px] font-semibold text-zinc-700"
-                >
-                  Указать параметры
-                </button>
               </>
             )}
             {safetyHintOpen && (
@@ -826,39 +888,10 @@ export function SchemeScreen({
             initialPowerKw={powerKw}
             onCancel={() => setSafetyOpen(false)}
             onConfirm={({ phases: nextPhases, powerKw: nextPower }) => {
-              const powerNum = Number(nextPower.replace(",", "."));
-              const safety = computePanelSafetyScore(
-                allRailDevices,
+              runSafetyAssessment({
                 nextPhases,
-                powerNum,
-              );
-              setSafetyOpen(false);
-              setSafetyAssessing(true);
-              setSafetyProgress(0);
-
-              const totalMs = 2400;
-              const start = performance.now();
-              if (safetyFrameRef.current != null) {
-                cancelAnimationFrame(safetyFrameRef.current);
-              }
-              const tick = (now: number) => {
-                const t = Math.min(1, (now - start) / totalMs);
-                const eased = 1 - Math.pow(1 - t, 2.2);
-                setSafetyProgress(Math.round(eased * 100));
-                if (t < 1) {
-                  safetyFrameRef.current = requestAnimationFrame(tick);
-                  return;
-                }
-                safetyFrameRef.current = null;
-                onAssessSafety?.({
-                  phases: nextPhases,
-                  powerKw: nextPower,
-                  safety,
-                });
-                setSafetyAssessing(false);
-                setSafetyProgress(0);
-              };
-              safetyFrameRef.current = requestAnimationFrame(tick);
+                nextPower,
+              });
             }}
           />
         )}
