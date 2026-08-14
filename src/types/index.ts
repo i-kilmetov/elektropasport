@@ -57,6 +57,8 @@ export interface PanelObject {
   phases?: "1" | "3";
   /** Declared allocated power in kW */
   powerKw?: string;
+  /** Whether the supply has a PE / earth conductor */
+  hasGround?: boolean;
   /** Share token this copy was saved from, if any */
   sourceShareToken?: string;
 }

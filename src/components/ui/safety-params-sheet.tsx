@@ -4,27 +4,44 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Portal } from "@/components/ui/portal";
+import { HintInfoButton } from "@/components/ui/spec-info-button";
 import { cn } from "@/lib/utils";
+
+export const groundPresenceHint =
+  "Посмотрите на вводной кабель в щитке. Жёлто-зелёная жила — это земля (PE): она садится на шину PE или на металлический корпус. Ноль — синий и идёт на шину N, его нельзя считать землёй. Если во вводе только фаза (коричневый, чёрный или серый) и синий ноль — заземления нет.";
 
 export function SafetyParamsSheet({
   initialPhases,
   initialPowerKw,
+  initialHasGround,
   onCancel,
   onConfirm,
 }: {
   initialPhases?: "1" | "3";
   initialPowerKw?: string;
+  initialHasGround?: boolean;
   onCancel: () => void;
-  onConfirm: (payload: { phases: "1" | "3"; powerKw: string }) => void;
+  onConfirm: (payload: {
+    phases: "1" | "3";
+    powerKw: string;
+    hasGround: boolean;
+  }) => void;
 }) {
   const [phases, setPhases] = useState<"1" | "3" | null>(
     initialPhases ?? null,
   );
   const [powerKw, setPowerKw] = useState(initialPowerKw ?? "");
+  const [hasGround, setHasGround] = useState<boolean | null>(
+    typeof initialHasGround === "boolean" ? initialHasGround : null,
+  );
   const [powerError, setPowerError] = useState<string | null>(null);
+  const [groundHintOpen, setGroundHintOpen] = useState(false);
 
   const canSave =
-    phases !== null && powerKw.trim().length > 0 && !powerError;
+    phases !== null &&
+    hasGround !== null &&
+    powerKw.trim().length > 0 &&
+    !powerError;
 
   const onPowerChange = (raw: string) => {
     const cleaned = raw.replace(/[^\d.,]/g, "");
@@ -68,8 +85,8 @@ export function SafetyParamsSheet({
             Параметры сети
           </h3>
           <p className="mb-5 text-[14px] leading-relaxed text-zinc-500">
-            Укажите, сколько фаз заходит в дом или квартиру и какая выделенная
-            мощность. По ним и составу приборов оценим уровень безопасности.
+            Укажите число фаз, выделенную мощность и есть ли заземление. По ним
+            и составу приборов оценим уровень безопасности.
           </p>
 
           <div className="mb-4">
@@ -120,6 +137,46 @@ export function SafetyParamsSheet({
             </p>
           )}
 
+          <div className="mb-5">
+            <div className="mb-2 flex items-center gap-1.5">
+              <span className="text-[13px] font-medium text-zinc-600">
+                Наличие земли
+              </span>
+              <HintInfoButton
+                label="Как определить, есть ли земля"
+                open={groundHintOpen}
+                onToggle={() => setGroundHintOpen((v) => !v)}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {(
+                [
+                  { id: true, label: "Есть" },
+                  { id: false, label: "Нет" },
+                ] as const
+              ).map((option) => (
+                <button
+                  key={String(option.id)}
+                  type="button"
+                  onClick={() => setHasGround(option.id)}
+                  className={cn(
+                    "rounded-[16px] border px-3 py-3 text-[15px] font-semibold transition-colors",
+                    hasGround === option.id
+                      ? "border-zinc-900 bg-zinc-900 text-white"
+                      : "border-black/8 bg-zinc-50 text-zinc-800 hover:bg-zinc-100",
+                  )}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+            {groundHintOpen && (
+              <p className="mt-2.5 text-[12px] leading-relaxed text-zinc-500">
+                {groundPresenceHint}
+              </p>
+            )}
+          </div>
+
           <div className="flex gap-3">
             <Button className="flex-1" variant="secondary" onClick={onCancel}>
               Отмена
@@ -128,8 +185,12 @@ export function SafetyParamsSheet({
               className="flex-1"
               disabled={!canSave}
               onClick={() => {
-                if (!phases || !canSave) return;
-                onConfirm({ phases, powerKw: powerKw.trim() });
+                if (!phases || hasGround === null || !canSave) return;
+                onConfirm({
+                  phases,
+                  powerKw: powerKw.trim(),
+                  hasGround,
+                });
               }}
             >
               Оценить

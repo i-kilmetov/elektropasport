@@ -23,7 +23,7 @@ export async function PATCH(request: Request, context: RouteContext) {
     const body = (await request.json()) as Partial<
       Pick<
         PanelObject,
-        "title" | "named" | "address" | "safety" | "phases" | "powerKw"
+        "title" | "named" | "address" | "safety" | "phases" | "powerKw" | "hasGround"
       >
     >;
 

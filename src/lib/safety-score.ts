@@ -38,6 +38,7 @@ export function computePanelSafetyScore(
   devices: Device[],
   phases: "1" | "3",
   powerKw: number,
+  hasGround?: boolean,
 ): number {
   const rail = devices.filter(
     (device) => device.type !== "pe_bus" && device.type !== "n_bus",
@@ -88,6 +89,8 @@ export function computePanelSafetyScore(
   }
   if (powerKw >= 10 && !has("voltage_relay")) score -= 4;
   if (powerKw >= 15 && phases === "1") score -= 6;
+  if (hasGround === true) score += 8;
+  if (hasGround === false) score -= 12;
 
   const verified = rail.filter((device) => device.status === "verified").length;
   if (rail.length > 0) {
@@ -120,7 +123,7 @@ export function safetyTextColor(score: number): string {
 }
 
 export const safetyScoreDisclaimer =
-  "Оценка считается по составу приборов на схеме и указанным параметрам сети — числу фаз и выделенной мощности. Сервис не учитывает, насколько корректно приборы расключены внутри щитка.";
+  "Оценка считается по составу приборов на схеме и указанным параметрам сети — числу фаз, выделенной мощности и наличию заземления. Сервис не учитывает, насколько корректно приборы расключены внутри щитка.";
 
 export function isPanelSafetyKnown(panel: {
   phases?: "1" | "3";

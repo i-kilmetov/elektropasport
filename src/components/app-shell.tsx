@@ -715,7 +715,12 @@ export function AppShell() {
   );
 
   const assessPanelSafety = useCallback(
-    (payload: { phases: "1" | "3"; powerKw: string; safety: number }) => {
+    (payload: {
+      phases: "1" | "3";
+      powerKw: string;
+      hasGround: boolean;
+      safety: number;
+    }) => {
       if (!activePanelId) return;
       setSafetyScore(payload.safety);
       setItems((prev) =>
@@ -725,11 +730,13 @@ export function AppShell() {
             ...item,
             phases: payload.phases,
             powerKw: payload.powerKw,
+            hasGround: payload.hasGround,
             safety: payload.safety,
           };
           void persistPanelPatch(activePanelId, {
             phases: payload.phases,
             powerKw: payload.powerKw,
+            hasGround: payload.hasGround,
             safety: payload.safety,
           }).catch((error) => {
             console.error(error);
@@ -1053,6 +1060,7 @@ export function AppShell() {
               safetyScore={safetyScore}
               phases={activePanel?.phases}
               powerKw={activePanel?.powerKw}
+              hasGround={activePanel?.hasGround}
               railCount={railCount ?? undefined}
             />
           )}

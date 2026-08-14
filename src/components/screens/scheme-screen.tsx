@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowLeft,
+  Gauge,
   ImageIcon,
   MoreHorizontal,
   Pencil,
@@ -11,11 +12,16 @@ import {
   Trash2,
   Camera,
   AlertTriangle,
+  Zap,
   X,
 } from "lucide-react";
 import { BrandMark } from "@/components/icons/brand-mark";
 import { IosShareIcon } from "@/components/icons/ios-share-icon";
 import { BreakerIcon } from "@/components/icons/breaker-icon";
+import {
+  GroundSymbol,
+  SupplyCableIcon,
+} from "@/components/icons/supply-cable";
 import {
   DeviceFace,
   DeviceStatusBar,
@@ -383,6 +389,7 @@ export function SchemeScreen({
   safetyScore: safetyProp,
   phases,
   powerKw,
+  hasGround,
   railCount,
 }: {
   title?: string;
@@ -405,6 +412,7 @@ export function SchemeScreen({
   onAssessSafety?: (payload: {
     phases: "1" | "3";
     powerKw: string;
+    hasGround: boolean;
     safety: number;
   }) => void;
   onCallMaster?: () => void;
@@ -412,6 +420,7 @@ export function SchemeScreen({
   safetyScore?: number | null;
   phases?: "1" | "3";
   powerKw?: string;
+  hasGround?: boolean;
   railCount?: number;
 }) {
   const devices =
@@ -494,15 +503,18 @@ export function SchemeScreen({
   const runSafetyAssessment = ({
     nextPhases,
     nextPower,
+    nextHasGround,
   }: {
     nextPhases: "1" | "3";
     nextPower: string;
+    nextHasGround: boolean;
   }) => {
     const powerNum = Number(nextPower.replace(",", "."));
     const safety = computePanelSafetyScore(
       allRailDevices,
       nextPhases,
       powerNum,
+      nextHasGround,
     );
     setSafetyOpen(false);
     setSafetyAssessing(true);
@@ -525,6 +537,7 @@ export function SchemeScreen({
       onAssessSafety?.({
         phases: nextPhases,
         powerKw: nextPower,
+        hasGround: nextHasGround,
         safety,
       });
       setSafetyAssessing(false);
@@ -803,10 +816,33 @@ export function SchemeScreen({
             <div className="mb-2 text-[12px] text-zinc-500">Параметры сети</div>
             {networkParamsFilled ? (
               <>
-                <div className="text-[15px] font-semibold leading-snug text-zinc-900">
-                  {phases === "3" ? "3 фазы" : "1 фаза"}
-                  <span className="text-zinc-400"> · </span>
-                  {powerKw?.replace(".", ",")} кВт
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Zap className="h-4 w-4 shrink-0 text-zinc-400" />
+                    <span className="min-w-0 flex-1 text-[14px] font-semibold leading-tight text-zinc-900">
+                      {phases === "3" ? "3 фазы" : "1 фаза"}
+                    </span>
+                    <SupplyCableIcon
+                      phases={phases === "3" ? "3" : "1"}
+                      hasGround={hasGround === true}
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Gauge className="h-4 w-4 shrink-0 text-zinc-400" />
+                    <span className="text-[14px] font-semibold leading-tight text-zinc-900">
+                      {powerKw?.replace(".", ",")} кВт
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <GroundSymbol className="h-4 w-4 text-zinc-400" />
+                    <span className="text-[14px] font-semibold leading-tight text-zinc-900">
+                      {hasGround === true
+                        ? "Есть земля"
+                        : hasGround === false
+                          ? "Нет земли"
+                          : "Земля не указана"}
+                    </span>
+                  </div>
                 </div>
                 <button
                   type="button"
@@ -819,7 +855,7 @@ export function SchemeScreen({
             ) : (
               <>
                 <p className="text-[13px] leading-snug text-zinc-400">
-                  Укажите число фаз и выделенную мощность
+                  Укажите число фаз, мощность и наличие земли
                 </p>
                 <button
                   type="button"
@@ -997,11 +1033,17 @@ export function SchemeScreen({
           <SafetyParamsSheet
             initialPhases={phases}
             initialPowerKw={powerKw}
+            initialHasGround={hasGround}
             onCancel={() => setSafetyOpen(false)}
-            onConfirm={({ phases: nextPhases, powerKw: nextPower }) => {
+            onConfirm={({
+              phases: nextPhases,
+              powerKw: nextPower,
+              hasGround: nextHasGround,
+            }) => {
               runSafetyAssessment({
                 nextPhases,
                 nextPower,
+                nextHasGround,
               });
             }}
           />
@@ -1021,7 +1063,7 @@ export function SchemeScreen({
                 Считаем уровень безопасности
               </div>
               <p className="mb-4 text-[13px] leading-relaxed text-zinc-500">
-                Сверяем состав приборов с фазами и выделенной мощностью…
+                Сверяем состав приборов с фазами, мощностью и заземлением…
               </p>
               <div className="mb-2 h-2 overflow-hidden rounded-full bg-zinc-100">
                 <motion.div

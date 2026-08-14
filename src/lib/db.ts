@@ -168,6 +168,10 @@ export async function ensureSchema(): Promise<void> {
         ADD COLUMN IF NOT EXISTS source_share_token TEXT
       `;
       await sql`
+        ALTER TABLE panels
+        ADD COLUMN IF NOT EXISTS has_ground BOOLEAN
+      `;
+      await sql`
         CREATE TABLE IF NOT EXISTS panel_shares (
           token TEXT PRIMARY KEY,
           panel_id TEXT NOT NULL,
@@ -386,6 +390,7 @@ type PanelRow = {
   named: boolean;
   phases: string | null;
   power_kw: string | null;
+  has_ground: boolean | null;
   source_share_token: string | null;
   created_at: string;
 };
@@ -427,6 +432,12 @@ function rowToPanel(row: PanelRow): PanelObject {
     phases:
       row.phases === "1" || row.phases === "3" ? row.phases : undefined,
     powerKw: row.power_kw ?? undefined,
+    hasGround:
+      row.has_ground === true
+        ? true
+        : row.has_ground === false
+          ? false
+          : undefined,
     sourceShareToken: row.source_share_token ?? undefined,
   };
 }
@@ -473,7 +484,7 @@ export async function listHomeItems(
     SELECT
       id, type, title, address, last_check, breakers, safety,
       devices, lines_count, photo_data_url, named, phases, power_kw,
-      source_share_token, created_at
+      has_ground, source_share_token, created_at
     FROM panels
     WHERE telegram_user_id = ${telegramUserId}
   `) as PanelRow[];
@@ -517,7 +528,7 @@ export async function insertPanel(
     INSERT INTO panels (
       id, telegram_user_id, type, title, address, last_check, breakers, safety,
       devices, lines_count, photo_data_url, named, phases, power_kw,
-      source_share_token, created_at, updated_at
+      has_ground, source_share_token, created_at, updated_at
     ) VALUES (
       ${panel.id},
       ${telegramUserId},
@@ -533,6 +544,7 @@ export async function insertPanel(
       ${panel.named ?? false},
       ${panel.phases ?? null},
       ${panel.powerKw ?? null},
+      ${panel.hasGround ?? null},
       ${panel.sourceShareToken ?? null},
       NOW(),
       NOW()
@@ -548,6 +560,7 @@ export async function insertPanel(
       named = EXCLUDED.named,
       phases = EXCLUDED.phases,
       power_kw = EXCLUDED.power_kw,
+      has_ground = EXCLUDED.has_ground,
       source_share_token = EXCLUDED.source_share_token,
       updated_at = NOW()
     WHERE panels.telegram_user_id = ${telegramUserId}
@@ -561,7 +574,7 @@ export async function updatePanel(
   patch: Partial<
     Pick<
       PanelObject,
-      "title" | "named" | "address" | "safety" | "phases" | "powerKw"
+      "title" | "named" | "address" | "safety" | "phases" | "powerKw" | "hasGround"
     >
   >,
 ): Promise<PanelObject | null> {
@@ -574,12 +587,13 @@ export async function updatePanel(
       safety = COALESCE(${patch.safety ?? null}, safety),
       phases = COALESCE(${patch.phases ?? null}, phases),
       power_kw = COALESCE(${patch.powerKw ?? null}, power_kw),
+      has_ground = COALESCE(${patch.hasGround ?? null}, has_ground),
       updated_at = NOW()
     WHERE id = ${id} AND telegram_user_id = ${telegramUserId}
     RETURNING
       id, type, title, address, last_check, breakers, safety,
       devices, lines_count, photo_data_url, named, phases, power_kw,
-      source_share_token, created_at
+      has_ground, source_share_token, created_at
   `) as PanelRow[];
   return rows[0] ? rowToPanel(rows[0]) : null;
 }
@@ -593,7 +607,7 @@ export async function getPanelByOwner(
     SELECT
       id, type, title, address, last_check, breakers, safety,
       devices, lines_count, photo_data_url, named, phases, power_kw,
-      source_share_token, created_at
+      has_ground, source_share_token, created_at
     FROM panels
     WHERE id = ${id} AND telegram_user_id = ${telegramUserId}
     LIMIT 1
@@ -631,7 +645,7 @@ export async function getSharedPanel(token: string): Promise<{
       panels.id, panels.type, panels.title, panels.address, panels.last_check,
       panels.breakers, panels.safety, panels.devices, panels.lines_count,
       panels.photo_data_url, panels.named, panels.phases, panels.power_kw,
-      panels.source_share_token, panels.created_at,
+      panels.has_ground, panels.source_share_token, panels.created_at,
       panel_shares.owner_telegram_id
     FROM panel_shares
     JOIN panels ON panels.id = panel_shares.panel_id
