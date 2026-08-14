@@ -7,16 +7,37 @@ import {
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-/** Prefer stable free-tier vision models; override with GEMINI_MODEL. */
+const DEFAULT_BASE_URL =
+  "https://dashscope-intl.aliyuncs.com/compatible-mode/v1";
+
+/** Prefer Qwen VL; override with QWEN_VL_MODEL. */
 const DEFAULT_MODELS = [
-  "gemini-2.5-flash",
-  "gemini-2.5-flash-lite",
-  "gemini-3.5-flash-lite",
+  "qwen3-vl-plus",
+  "qwen3-vl-flash",
+  "qwen-vl-max",
 ];
 
-function stripDataUrlPrefix(dataUrl: string): string {
-  const idx = dataUrl.indexOf(",");
-  return idx >= 0 ? dataUrl.slice(idx + 1) : dataUrl;
+function dashscopeBaseUrl(): string {
+  const raw =
+    process.env.DASHSCOPE_BASE_URL?.trim() ||
+    process.env.QWEN_BASE_URL?.trim() ||
+    DEFAULT_BASE_URL;
+  return raw.replace(/\/$/, "");
+}
+
+function modelCandidates(): string[] {
+  const preferred =
+    process.env.QWEN_VL_MODEL?.trim() ||
+    process.env.DASHSCOPE_MODEL?.trim();
+  const list = preferred
+    ? [preferred, ...DEFAULT_MODELS.filter((m) => m !== preferred)]
+    : DEFAULT_MODELS;
+  return list;
+}
+
+function toDataUrl(raw: string, mimeType: string): string {
+  if (raw.startsWith("data:")) return raw;
+  return `data:${mimeType};base64,${raw}`;
 }
 
 function mimeFromDataUrl(dataUrl: string): string {
@@ -24,35 +45,36 @@ function mimeFromDataUrl(dataUrl: string): string {
   return match?.[1] || "image/jpeg";
 }
 
-function modelCandidates(): string[] {
-  const preferred = process.env.GEMINI_MODEL?.trim();
-  const list = preferred
-    ? [preferred, ...DEFAULT_MODELS.filter((m) => m !== preferred)]
-    : DEFAULT_MODELS;
-  return list;
-}
-
 const SYSTEM_PROMPT = `Ты эксперт по электрическим щиткам (квартиры, дома, гаражи, дачи).
-По фотографии щитка распознай все видимые устройства слева направо / сверху вниз.
+По фотографии щитка распознай все видимые устройства.
 
-Типы устройств (поле type):
+Порядок обхода: сверху вниз по DIN-рейкам, на каждой рейке слева направо.
+
+Типы устройств (поле type) — только из этого списка:
 - main_breaker — вводной автомат
-- rcd — УЗО
-- diff_breaker — дифференциальный автомат
+- rcd — УЗО (отдельный блок с кнопкой «Т», без рычага автомата в том же корпусе)
+- diff_breaker — дифференциальный автомат (автомат и УЗО в одном корпусе, есть рычаг)
 - voltage_relay — реле напряжения
 - breaker — автоматический выключатель линии
+- spd — УЗИП / ограничитель перенапряжений
+- afdd — УЗДП / защита от дуги
 - pe_bus — PE-шина (заземление)
 - n_bus — N-шина (нейтраль)
 
 Правила:
+- rail: номер рейки сверху вниз, начиная с 0.
+- modules: ширина в модулях DIN (1P≈1, 2P/типичное УЗО≈2, 3P≈3, 4P≈4). Не ставь больше 4.
 - Читай маркировку номиналов (C16, 63A, 30mA и т.п.), если видно.
-- name: краткое русское имя (например «Вводной автомат», «Кухня», «УЗО»). Если назначение линии неизвестно — «Автомат QF3» и т.п.
+- name: краткое русское имя («Вводной автомат», «УЗО», «Автомат QF3»). Не выдумывай комнаты, если на щитке нет подписей.
 - status: "verified" если уверенность ≥ 80, иначе "pending", если почти не видно — "unknown".
 - confidence: 0–100.
-- position: порядок слева направо, начиная с 0.
+- position: сквозной порядок обхода, начиная с 0.
 - manufacturer: бренд если читается, иначе опусти поле.
-- linesCount: число линий/автоматов нагрузки (без шин).
-- safetyScore: 0–100, оценка безопасности щитка (наличие УЗО/дифов, реле, общее состояние). Если УЗО нет — снижай оценку.
+- poles: например "1P", "2P", "3P", "4P", если видно.
+- linesCount: число линий нагрузки (breaker + diff_breaker), без шин и без вводного, если он отдельный.
+- railCount: сколько рядов (реек) видно на фото (1–4).
+- safetyScore: 0–100 (наличие УЗО/дифов, реле; если защиты нет — снижай).
+- Не добавляй приборы, которых нет в кадре.
 
 Верни ТОЛЬКО валидный JSON без markdown:
 {
@@ -65,64 +87,70 @@ const SYSTEM_PROMPT = `Ты эксперт по электрическим щи�
       "status": "verified",
       "manufacturer": "ABB",
       "confidence": 95,
-      "position": 0
+      "position": 0,
+      "rail": 0,
+      "modules": 2,
+      "poles": "2P"
     }
   ],
+  "railCount": 1,
   "safetyScore": 78,
   "linesCount": 8
 }`;
 
-function geminiErrorMessage(status: number, body: string): string {
-  if (status === 400 && /API key/i.test(body)) {
-    return "Неверный GEMINI_API_KEY";
+function qwenErrorMessage(status: number, body: string): string {
+  if (status === 401 || /InvalidApiKey|invalid.*api.?key/i.test(body)) {
+    return "Неверный DASHSCOPE_API_KEY";
   }
-  if (status === 403) {
-    return "Gemini отклонил запрос (регион/доступ). Ключ мог быть создан в недоступном регионе, либо сервис временно ограничен.";
+  if (status === 403 || /AccessDenied|Arrearage/i.test(body)) {
+    return "DashScope отклонил запрос. Проверьте регион ключа (Singapore), оплату и активацию модели qwen3-vl-plus.";
   }
-  if (status === 429) {
-    return "Лимит Gemini исчерпан. Подождите минуту и попробуйте снова.";
+  if (status === 429 || /Throttling|RateQuota/i.test(body)) {
+    return "Лимит Qwen исчерпан. Подождите минуту и попробуйте снова.";
   }
-  if (status === 404) {
-    return "Модель Gemini не найдена";
+  if (status === 404 || /ModelNotExist|UnknownModel/i.test(body)) {
+    return "Модель Qwen не найдена. Проверьте QWEN_VL_MODEL и регион Singapore.";
   }
-  return "Ошибка Gemini при анализе фото";
+  if (status === 400) {
+    return "DashScope не принял запрос (формат фото или параметры).";
+  }
+  return "Ошибка Qwen при анализе фото";
 }
 
-async function callGemini(params: {
+async function callQwen(params: {
   apiKey: string;
+  baseUrl: string;
   model: string;
-  base64: string;
-  mimeType: string;
+  imageDataUrl: string;
 }): Promise<{ ok: true; text: string } | { ok: false; status: number; body: string }> {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${params.model}:generateContent?key=${encodeURIComponent(params.apiKey)}`;
+  const url = `${params.baseUrl}/chat/completions`;
 
   const res = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      Authorization: `Bearer ${params.apiKey}`,
+      "Content-Type": "application/json",
+    },
     body: JSON.stringify({
-      systemInstruction: {
-        parts: [{ text: SYSTEM_PROMPT }],
-      },
-      contents: [
+      model: params.model,
+      temperature: 0.1,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
         {
           role: "user",
-          parts: [
+          content: [
             {
-              text: "Проанализируй этот электрический щиток и верни JSON со списком устройств.",
+              type: "image_url",
+              image_url: { url: params.imageDataUrl },
             },
             {
-              inline_data: {
-                mime_type: params.mimeType,
-                data: params.base64,
-              },
+              type: "text",
+              text: "Проанализируй этот электрический щиток и верни JSON со списком устройств.",
             },
           ],
         },
       ],
-      generationConfig: {
-        temperature: 0.2,
-        responseMimeType: "application/json",
-      },
     }),
   });
 
@@ -132,93 +160,69 @@ async function callGemini(params: {
   }
 
   let parsed: {
-    candidates?: Array<{
-      content?: { parts?: Array<{ text?: string }> };
+    choices?: Array<{
+      message?: { content?: string | Array<{ text?: string; type?: string }> };
     }>;
   };
   try {
     parsed = JSON.parse(body);
   } catch {
-    return { ok: false, status: 502, body: "Invalid JSON from Gemini" };
+    return { ok: false, status: 502, body: "Invalid JSON from Qwen" };
   }
 
-  const text = parsed.candidates?.[0]?.content?.parts
-    ?.map((p) => p.text ?? "")
-    .join("")
-    .trim();
+  const content = parsed.choices?.[0]?.message?.content;
+  let text = "";
+  if (typeof content === "string") {
+    text = content.trim();
+  } else if (Array.isArray(content)) {
+    text = content
+      .map((part) => (typeof part.text === "string" ? part.text : ""))
+      .join("")
+      .trim();
+  }
 
   if (!text) {
-    return { ok: false, status: 502, body: "Empty Gemini response" };
+    return { ok: false, status: 502, body: "Empty Qwen response" };
   }
 
   return { ok: true, text };
 }
 
-/** Health check: key present + models list reachable from this server. */
+/** Health check: key present. */
 export async function GET() {
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey =
+    process.env.DASHSCOPE_API_KEY?.trim() ||
+    process.env.QWEN_API_KEY?.trim();
+  const baseUrl = dashscopeBaseUrl();
+  const models = modelCandidates();
+
   if (!apiKey) {
     return NextResponse.json({
       ok: false,
-      provider: "gemini",
-      error: "GEMINI_API_KEY не задан",
+      provider: "qwen",
+      error: "DASHSCOPE_API_KEY не задан",
+      hint: "Добавьте ключ Singapore из Model Studio в Environment Variables (Vercel) или .env.local",
     });
   }
 
-  try {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`,
-    );
-    const text = await res.text();
-    if (!res.ok) {
-      return NextResponse.json(
-        {
-          ok: false,
-          provider: "gemini",
-          status: res.status,
-          error: geminiErrorMessage(res.status, text),
-          hint:
-            res.status === 403
-              ? "С Vercel обычно работает. Если 403 — ключ/аккаунт ограничен по региону."
-              : undefined,
-        },
-        { status: 200 },
-      );
-    }
-
-    const data = JSON.parse(text) as {
-      models?: Array<{ name?: string }>;
-    };
-    const names = (data.models ?? [])
-      .map((m) => m.name?.replace(/^models\//, ""))
-      .filter(Boolean);
-
-    const candidates = modelCandidates();
-    const available = candidates.filter((m) => names.includes(m));
-
-    return NextResponse.json({
-      ok: true,
-      provider: "gemini",
-      modelsPreferred: candidates,
-      modelsAvailable: available.length > 0 ? available : candidates.slice(0, 1),
-      totalModelsVisible: names.length,
-    });
-  } catch (err) {
-    return NextResponse.json({
-      ok: false,
-      provider: "gemini",
-      error: err instanceof Error ? err.message : "Network error",
-    });
-  }
+  return NextResponse.json({
+    ok: true,
+    provider: "qwen",
+    baseUrl,
+    modelsPreferred: models,
+    model: models[0],
+  });
 }
 
 export async function POST(request: Request) {
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey =
+    process.env.DASHSCOPE_API_KEY?.trim() ||
+    process.env.QWEN_API_KEY?.trim();
   if (!apiKey) {
     return NextResponse.json(
       {
         error:
-          "GEMINI_API_KEY не настроен. Добавьте ключ в Environment Variables на Vercel.",
+          "DASHSCOPE_API_KEY не настроен. Добавьте ключ в Environment Variables на Vercel (регион Singapore).",
       },
       { status: 500 },
     );
@@ -239,31 +243,44 @@ export async function POST(request: Request) {
     );
   }
 
-  const base64 = stripDataUrlPrefix(raw);
-  if (base64.length < 100) {
+  const mimeType = raw.startsWith("data:")
+    ? mimeFromDataUrl(raw)
+    : "image/jpeg";
+  const imageDataUrl = toDataUrl(raw, mimeType);
+
+  // Rough size guard (~3.5MB payload) before hitting provider / Vercel limits.
+  if (imageDataUrl.length > 3_500_000) {
     return NextResponse.json(
-      { error: "Изображение слишком маленькое или повреждено" },
+      { error: "Фото слишком большое. Сделайте снимок заново." },
       { status: 400 },
     );
   }
 
-  const mimeType = raw.startsWith("data:")
-    ? mimeFromDataUrl(raw)
-    : "image/jpeg";
-
+  const baseUrl = dashscopeBaseUrl();
   const models = modelCandidates();
-  let lastError = "Ошибка Gemini при анализе фото";
+  let lastError = "Ошибка Qwen при анализе фото";
 
   try {
     for (const model of models) {
-      const result = await callGemini({ apiKey, model, base64, mimeType });
+      const result = await callQwen({
+        apiKey,
+        baseUrl,
+        model,
+        imageDataUrl,
+      });
       if (!result.ok) {
-        console.error(`Gemini ${model} error:`, result.status, result.body.slice(0, 500));
-        lastError = geminiErrorMessage(result.status, result.body);
-        // Try next model on 404 (model missing/deprecated)
+        console.error(
+          `Qwen ${model} error:`,
+          result.status,
+          result.body.slice(0, 500),
+        );
+        lastError = qwenErrorMessage(result.status, result.body);
         if (result.status === 404) continue;
-        // Fatal auth/region/quota — stop
-        if (result.status === 401 || result.status === 403 || result.status === 429) {
+        if (
+          result.status === 401 ||
+          result.status === 403 ||
+          result.status === 429
+        ) {
           return NextResponse.json({ error: lastError }, { status: 502 });
         }
         continue;
@@ -282,7 +299,7 @@ export async function POST(request: Request) {
         );
       }
 
-      return NextResponse.json({ ...normalized, model });
+      return NextResponse.json({ ...normalized, model, provider: "qwen" });
     }
 
     return NextResponse.json({ error: lastError }, { status: 502 });

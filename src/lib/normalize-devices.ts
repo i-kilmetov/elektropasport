@@ -53,7 +53,8 @@ function normalizeDevice(raw: unknown, index: number): Device | null {
     manufacturer: asString(raw.manufacturer) || undefined,
     confidence,
     position: asNumber(raw.position, index),
-    modules: Math.max(1, Math.round(asNumber(raw.modules, 1))),
+    modules: Math.min(4, Math.max(1, Math.round(asNumber(raw.modules, 1)))),
+    rail: Math.min(3, Math.max(0, Math.round(asNumber(raw.rail, 0)))),
     catalogId: asString(raw.catalogId) || undefined,
     poles: asString(raw.poles) || undefined,
     series: asString(raw.series) || undefined,
@@ -68,6 +69,7 @@ export function normalizeAnalyzeResult(raw: unknown): {
   devices: Device[];
   safetyScore: number;
   linesCount: number;
+  railCount: number;
 } {
   const payload = isRecord(raw) ? raw : {};
   const list = Array.isArray(payload.devices) ? payload.devices : [];
@@ -75,7 +77,11 @@ export function normalizeAnalyzeResult(raw: unknown): {
   const devices = list
     .map((item, i) => normalizeDevice(item, i))
     .filter((d): d is Device => d !== null)
-    .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+    .sort((a, b) => {
+      const railDiff = (a.rail ?? 0) - (b.rail ?? 0);
+      if (railDiff !== 0) return railDiff;
+      return (a.position ?? 0) - (b.position ?? 0);
+    })
     .map((d, i) => ({ ...d, id: i + 1, position: d.position ?? i }));
 
   const breakerLike = devices.filter(
@@ -95,7 +101,14 @@ export function normalizeAnalyzeResult(raw: unknown): {
     Math.round(asNumber(payload.linesCount, breakerLike)),
   );
 
-  return { devices, safetyScore, linesCount };
+  const maxRail =
+    devices.reduce((max, device) => Math.max(max, device.rail ?? 0), 0) + 1;
+  const railCount = Math.min(
+    4,
+    Math.max(1, Math.round(asNumber(payload.railCount, maxRail))),
+  );
+
+  return { devices, safetyScore, linesCount, railCount };
 }
 
 export function extractJsonObject(text: string): unknown {

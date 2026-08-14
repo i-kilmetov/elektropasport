@@ -6,7 +6,7 @@ import { AlertTriangle, Camera, Check, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
 import { analysisSteps } from "@/lib/mock-data";
-import { buildRandomPanel } from "@/lib/device-catalog";
+import { analyzePanel } from "@/lib/analyze-panel";
 import {
   MAX_MODULES_PER_RAIL,
   panelHasRailOverflow,
@@ -32,77 +32,109 @@ export function AnalysisScreen({
   const [stepIndex, setStepIndex] = useState(0);
   const [foundCount, setFoundCount] = useState(0);
   const [review, setReview] = useState<AnalyzePanelResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (review) return;
-    const totalMs = 4200;
-    const start = performance.now();
-    let frame = 0;
-    let doneTimer = 0;
+    if (review || !photoDataUrl) return;
 
-    const tick = (now: number) => {
-      const t = Math.min(1, (now - start) / totalMs);
-      const eased = 1 - Math.pow(1 - t, 2.4);
+    let cancelled = false;
+    let frame = 0;
+    const started = performance.now();
+
+    const tickProgress = (now: number) => {
+      if (cancelled) return;
+      // Soft progress while waiting for Qwen (usually 8–25s).
+      const elapsed = now - started;
+      const eased = Math.min(0.92, 1 - Math.exp(-elapsed / 9000));
       setProgress(Math.round(eased * 100));
       setStepIndex(
-        Math.min(analysisSteps.length - 1, Math.floor(eased * analysisSteps.length)),
+        Math.min(
+          analysisSteps.length - 1,
+          Math.floor(eased * analysisSteps.length),
+        ),
       );
-      const estimatedDevices = 8;
-      setFoundCount(
-        Math.min(estimatedDevices, Math.floor(eased * estimatedDevices)),
-      );
+      frame = requestAnimationFrame(tickProgress);
+    };
+    frame = requestAnimationFrame(tickProgress);
 
-      if (t < 1) {
-        frame = requestAnimationFrame(tick);
-      } else {
-        doneTimer = window.setTimeout(() => {
-          const panel = buildRandomPanel();
-          const result: AnalyzePanelResult = {
-            devices: panel.devices,
-            safetyScore: panel.safetyScore,
-            linesCount: panel.linesCount,
-            railCount: panel.railCount,
-          };
-          const unknownCount = result.devices.filter(
-            (device) => device.status === "unknown",
-          ).length;
-          const hasOverflow = panelHasRailOverflow(
-            result.devices,
-            result.railCount,
-          );
-          if (unknownCount > 0 || hasOverflow) {
-            setReview(result);
-            return;
-          }
-          onDone(result);
-        }, 450);
+    void (async () => {
+      try {
+        const result = await analyzePanel(photoDataUrl);
+        if (cancelled) return;
+        cancelAnimationFrame(frame);
+        setProgress(100);
+        setStepIndex(analysisSteps.length - 1);
+        setFoundCount(result.devices.length);
+
+        const unknownCount = result.devices.filter(
+          (device) => device.status === "unknown",
+        ).length;
+        const hasOverflow = panelHasRailOverflow(
+          result.devices,
+          result.railCount,
+        );
+        if (unknownCount > 0 || hasOverflow) {
+          setReview(result);
+          return;
+        }
+        onDone(result);
+      } catch (err) {
+        if (cancelled) return;
+        cancelAnimationFrame(frame);
+        setProgress(100);
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Не удалось проанализировать фото",
+        );
       }
-    };
+    })();
 
-    frame = requestAnimationFrame(tick);
     return () => {
+      cancelled = true;
       cancelAnimationFrame(frame);
-      window.clearTimeout(doneTimer);
     };
-  }, [onDone, review]);
+  }, [onDone, photoDataUrl, review]);
 
-  const foundDevices = useMemo(
-    () =>
-      Array.from({ length: Math.max(0, foundCount) }, (_, i) => ({
-        id: i,
-        type: "breaker" as const,
-        name: `Прибор ${i + 1}`,
-        rating: "—",
-        status: "pending" as const,
-      })),
-    [foundCount],
-  );
+  const foundDevices = useMemo(() => {
+    if (review) {
+      return review.devices.slice(0, 12).map((device) => ({
+        id: device.id,
+        name: device.name,
+        rating: device.rating,
+      }));
+    }
+    return Array.from({ length: Math.max(0, foundCount) }, (_, i) => ({
+      id: i,
+      name: `Прибор ${i + 1}`,
+      rating: "—",
+    }));
+  }, [foundCount, review]);
 
   const unknownCount =
     review?.devices.filter((device) => device.status === "unknown").length ?? 0;
   const hasOverflow = review
     ? panelHasRailOverflow(review.devices, review.railCount)
     : false;
+
+  if (!photoDataUrl) {
+    return (
+      <motion.section
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="mx-auto flex min-h-dvh w-full max-w-xl flex-col items-center justify-center gap-4 px-5"
+      >
+        <p className="text-center text-[15px] text-zinc-500">
+          Нет фото для анализа.
+        </p>
+        {onRetryPhoto && (
+          <Button type="button" onClick={() => onRetryPhoto()}>
+            Сфотографировать снова
+          </Button>
+        )}
+      </motion.section>
+    );
+  }
 
   return (
     <motion.section
@@ -112,21 +144,35 @@ export function AnalysisScreen({
       className="mx-auto flex min-h-dvh w-full max-w-xl flex-col items-center px-5 pb-10 pt-[max(2rem,env(safe-area-inset-top))] lg:max-w-2xl lg:justify-center"
     >
       <h1 className="mb-6 text-center text-[22px] font-semibold text-zinc-900">
-        {review ? "Проверьте результат" : "Анализируем изображение"}
+        {error
+          ? "Не удалось разобрать фото"
+          : review
+            ? "Проверьте результат"
+            : "Анализируем изображение"}
       </h1>
 
-      {photoDataUrl && (
-        <div className="mb-8 h-16 w-16 overflow-hidden rounded-[14px] border border-black/10 shadow-lg">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={photoDataUrl}
-            alt="Ваше фото щитка"
-            className="h-full w-full object-cover"
-          />
-        </div>
-      )}
+      <div className="mb-8 h-16 w-16 overflow-hidden rounded-[14px] border border-black/10 shadow-lg">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={photoDataUrl}
+          alt="Ваше фото щитка"
+          className="h-full w-full object-cover"
+        />
+      </div>
 
-      {review ? (
+      {error ? (
+        <div className="w-full max-w-sm space-y-4">
+          <GlassCard className="border border-rose-200 bg-rose-50 p-4">
+            <p className="text-[14px] leading-relaxed text-rose-800">{error}</p>
+          </GlassCard>
+          {onRetryPhoto && (
+            <Button type="button" className="w-full" onClick={() => onRetryPhoto()}>
+              <Camera className="h-4 w-4" />
+              Переснять щиток
+            </Button>
+          )}
+        </div>
+      ) : review ? (
         <div className="w-full max-w-sm space-y-4">
           {unknownCount > 0 && (
             <GlassCard className="flex gap-3 border border-amber-200/80 bg-amber-50/90 p-4">
@@ -255,7 +301,7 @@ export function AnalysisScreen({
                 Найденные устройства
               </h2>
               <span className="text-[13px] tabular-nums text-zinc-600">
-                {foundCount}
+                {foundCount || "…"}
               </span>
             </div>
             <ul className="max-h-40 space-y-2 overflow-hidden">

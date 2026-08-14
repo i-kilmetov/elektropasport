@@ -19,5 +19,6 @@ export async function analyzePanel(
     devices: data.devices,
     safetyScore: data.safetyScore,
     linesCount: data.linesCount,
+    railCount: data.railCount,
   };
 }
