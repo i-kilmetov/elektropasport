@@ -4,6 +4,11 @@ import {
   canUseServerAuth,
 } from "@/lib/client-auth";
 import {
+  BASE_PANEL_LIMIT,
+  isInviteToken,
+  type PanelQuota,
+} from "@/lib/invites";
+import {
   formatRequestPublicCode,
   type RequestTypeCode,
 } from "@/lib/request-codes";
@@ -61,6 +66,57 @@ async function parseError(res: Response): Promise<string> {
   }
 }
 
+export function localPanelQuota(items: HomeListItem[]): PanelQuota {
+  const panelCount = items.filter((item) => item.kind === "panel").length;
+  return {
+    panelCount,
+    panelLimit: BASE_PANEL_LIMIT,
+    remaining: Math.max(0, BASE_PANEL_LIMIT - panelCount),
+    creditedInvites: 0,
+    inviteUrl: "",
+    events: [],
+  };
+}
+
+export async function fetchPanelQuota(): Promise<PanelQuota> {
+  if (!canUseServer()) {
+    return localPanelQuota(readLocalItems());
+  }
+
+  const res = await fetch("/api/invites", {
+    headers: authHeaders(),
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    if (res.status === 503) return localPanelQuota(readLocalItems());
+    throw new Error(await parseError(res));
+  }
+  const data = (await res.json()) as { quota?: PanelQuota };
+  if (!data.quota) return localPanelQuota(readLocalItems());
+  return data.quota;
+}
+
+export async function claimInviteToken(
+  token: string,
+): Promise<PanelQuota | null> {
+  if (!canUseServer() || !isInviteToken(token)) return null;
+
+  const res = await fetch("/api/invites/claim", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders(),
+    },
+    body: JSON.stringify({ token }),
+  });
+  if (!res.ok) {
+    if (res.status === 503) return null;
+    throw new Error(await parseError(res));
+  }
+  const data = (await res.json()) as { quota?: PanelQuota };
+  return data.quota ?? null;
+}
+
 function enqueuePanelOp<T>(id: string, op: () => Promise<T>): Promise<T> {
   const previous = panelOps.get(id) ?? Promise.resolve();
   const next = previous.catch(() => undefined).then(op);
@@ -110,6 +166,20 @@ export async function fetchHomeItems(): Promise<HomeListItem[]> {
 
 export async function persistPanel(panel: PanelObject): Promise<void> {
   return enqueuePanelOp(panel.id, async () => {
+    const already = readLocalItems().some((item) => item.id === panel.id);
+    if (!already) {
+      const quota = canUseServer()
+        ? null
+        : localPanelQuota(readLocalItems());
+      if (quota && quota.remaining <= 0) {
+        const error = new Error(
+          `Сейчас можно хранить ${quota.panelLimit} щитка. Удалите один или пригласите нового пользователя.`,
+        );
+        error.name = "PanelLimitError";
+        throw error;
+      }
+    }
+
     upsertLocalItem(panel);
 
     if (!canUseServer()) return;
@@ -125,6 +195,12 @@ export async function persistPanel(panel: PanelObject): Promise<void> {
 
     if (!res.ok) {
       if (res.status === 503) return;
+      if (res.status === 403) {
+        writeLocalItems(readLocalItems().filter((item) => item.id !== panel.id));
+        const error = new Error(await parseError(res));
+        error.name = "PanelLimitError";
+        throw error;
+      }
       throw new Error(await parseError(res));
     }
   });

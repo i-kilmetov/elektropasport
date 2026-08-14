@@ -14,9 +14,13 @@ import {
 
 export function ShareSheet({
   url,
+  title = "Поделиться",
+  shareText,
   onClose,
 }: {
   url: string;
+  title?: string;
+  shareText?: string;
   onClose: () => void;
 }) {
   const [copied, setCopied] = useState(false);
@@ -55,7 +59,7 @@ export function ShareSheet({
             <div className="flex items-center gap-2">
               <IosShareIcon className="h-5 w-5 text-zinc-700" />
               <h2 className="text-[18px] font-semibold text-zinc-900">
-                Поделиться
+                {title}
               </h2>
             </div>
             <button
@@ -74,7 +78,7 @@ export function ShareSheet({
                 type="button"
                 onClick={() =>
                   void run(async () => {
-                    await shareViaNative(url);
+                    await shareViaNative(url, shareText);
                     onClose();
                   })
                 }
@@ -98,7 +102,7 @@ export function ShareSheet({
               type="button"
               onClick={() =>
                 void run(async () => {
-                  await shareViaTelegram(url);
+                  await shareViaTelegram(url, shareText);
                   onClose();
                 })
               }

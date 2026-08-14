@@ -21,6 +21,7 @@ import {
 import { NoPanelDetailScreen } from "@/components/screens/no-panel-detail-screen";
 import { NoPanelOptionsScreen } from "@/components/screens/no-panel-options-screen";
 import { ObjectsScreen } from "@/components/screens/objects-screen";
+import { PanelLimitSheet } from "@/components/screens/panel-limit-sheet";
 import { PanelAdvantagesScreen } from "@/components/screens/panel-advantages-screen";
 import { PhotoScreen } from "@/components/screens/photo-screen";
 import { ProfileScreen } from "@/components/screens/profile-screen";
@@ -51,7 +52,9 @@ import {
 import { getNoPanelSetup, type NoPanelSetupId } from "@/lib/no-panel-setups";
 import { resolveRequestTypeCode } from "@/lib/request-codes";
 import {
+  claimInviteToken,
   fetchHomeItems,
+  fetchPanelQuota,
   persistDeleteInstallRequest,
   persistDeletePanel,
   persistInstallRequest,
@@ -62,6 +65,7 @@ import {
   createPanelShare,
   fetchSharedPanel,
 } from "@/lib/user-data";
+import { isInviteToken, type PanelQuota } from "@/lib/invites";
 import {
   getTelegramStartParam,
   isPanelShareToken,
@@ -93,6 +97,8 @@ export function AppShell() {
   const [items, setItems] = useState<HomeListItem[]>([]);
   const [itemsLoading, setItemsLoading] = useState(true);
   const [itemsError, setItemsError] = useState<string | null>(null);
+  const [quota, setQuota] = useState<PanelQuota | null>(null);
+  const [limitOpen, setLimitOpen] = useState(false);
   const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
   const [activePanelId, setActivePanelId] = useState<string | null>(null);
   const [activeRequestId, setActiveRequestId] = useState<string | null>(null);
@@ -131,6 +137,21 @@ export function AppShell() {
     setScreen(next);
   }, []);
 
+  const refreshQuota = useCallback(async () => {
+    try {
+      const next = await fetchPanelQuota();
+      setQuota(next);
+      return next;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const openPanelLimit = useCallback(() => {
+    setLimitOpen(true);
+    void refreshQuota();
+  }, [refreshQuota]);
+
   useEffect(() => {
     const startParam = getTelegramStartParam();
     if (readSkipOnboarding() || (startParam && isPanelShareToken(startParam))) {
@@ -146,10 +167,21 @@ export function AppShell() {
       setItemsError(null);
       try {
         if (canUseServerAuth()) {
+          const invite = getTelegramStartParam();
+          if (isInviteToken(invite)) {
+            try {
+              const claimed = await claimInviteToken(invite);
+              if (!cancelled && claimed) setQuota(claimed);
+            } catch (error) {
+              console.error(error);
+            }
+          }
           await syncUserProfileFromServer();
         }
         const loaded = await fetchHomeItems();
         if (!cancelled) setItems(loaded);
+        const nextQuota = await fetchPanelQuota();
+        if (!cancelled) setQuota(nextQuota);
       } catch (error) {
         if (!cancelled) {
           setItemsError(
@@ -244,6 +276,11 @@ export function AppShell() {
 
   const handleAnalysisDone = useCallback(
     (result: AnalyzePanelResult) => {
+      if (quota && quota.remaining <= 0) {
+        setScreen("objects");
+        openPanelLimit();
+        return;
+      }
       const today = new Date();
       const lastCheck = today.toLocaleDateString("ru-RU");
       const panelCount = items.filter((i) => i.kind === "panel").length;
@@ -268,11 +305,16 @@ export function AppShell() {
       setItemsError(null);
       void persistPanel(panel).catch((error) => {
         console.error(error);
+        setItems((prev) => prev.filter((item) => item.id !== id));
         setItemsError(
           error instanceof Error
             ? error.message
             : "Не удалось сохранить щиток",
         );
+        if (error instanceof Error && error.name === "PanelLimitError") {
+          setScreen("objects");
+          openPanelLimit();
+        }
       });
       setActivePanelId(id);
       setAskNameOnBack(true);
@@ -282,8 +324,9 @@ export function AppShell() {
       setRailCount(result.railCount ?? 1);
       hapticNotification("success");
       setScreen("scheme");
+      void refreshQuota();
     },
-    [items, photoDataUrl],
+    [items, openPanelLimit, photoDataUrl, quota, refreshQuota],
   );
 
   const openPanel = useCallback(
@@ -390,6 +433,11 @@ export function AppShell() {
       go("objects");
       return;
     }
+    if (quota && quota.remaining <= 0) {
+      go("objects");
+      openPanelLimit();
+      return;
+    }
     const source = sharedPreview.panel;
     const id = `panel-${Date.now()}`;
     const copy: PanelObject = {
@@ -405,16 +453,21 @@ export function AppShell() {
     setItemsError(null);
     void persistPanel(copy).catch((error) => {
       console.error(error);
+      setItems((prev) => prev.filter((item) => item.id !== id));
       setItemsError(
         error instanceof Error
           ? error.message
           : "Не удалось сохранить щиток",
       );
+      if (error instanceof Error && error.name === "PanelLimitError") {
+        openPanelLimit();
+      }
     });
     setSharedPreview(null);
     hapticNotification("success");
     go("objects");
-  }, [go, sharedPreview]);
+    void refreshQuota();
+  }, [go, openPanelLimit, quota, refreshQuota, sharedPreview]);
 
   const shareActivePanel = useCallback(async () => {
     const panelId = activePanelId ?? sharedPreview?.panel.id;
@@ -504,13 +557,14 @@ export function AppShell() {
         error instanceof Error ? error.message : "Не удалось удалить щиток",
       );
     });
+    void refreshQuota();
     setActivePanelId((current) => (current === id ? null : current));
     setPhotoDataUrl(null);
     setDevices(null);
     setSafetyScore(null);
     setLinesCount(null);
     setAskNameOnBack(false);
-  }, []);
+  }, [refreshQuota]);
 
   const deletePanel = useCallback(() => {
     if (!activePanelId) {
@@ -831,6 +885,7 @@ export function AppShell() {
               items={items}
               loading={itemsLoading}
               error={itemsError}
+              quota={quota}
               onAdd={() => requireTelegramAuth("add-panel")}
               onOpenPanel={openPanel}
               onOpenRequest={(id) => {
@@ -840,6 +895,7 @@ export function AppShell() {
               onDeleteItem={deleteHomeItem}
               onRenameItem={renameHomeItem}
               onNoPanel={() => requireTelegramAuth("no-panel")}
+              onPanelLimit={openPanelLimit}
               onMenuSelect={(id) => {
                 if (id === "profile") go("profile");
                 if (id === "about") go("about-service");
@@ -1086,6 +1142,14 @@ export function AppShell() {
                 setMasterAbout(about);
                 go("lead-contact");
               }}
+            />
+          )}
+        </AnimatePresence>
+        <AnimatePresence>
+          {limitOpen && quota && (
+            <PanelLimitSheet
+              quota={quota}
+              onClose={() => setLimitOpen(false)}
             />
           )}
         </AnimatePresence>

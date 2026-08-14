@@ -32,6 +32,7 @@ import { hapticContextMenu } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
 import type { HomeListItem, InstallRequest, PanelObject } from "@/types";
 import { installStatusTone } from "@/types";
+import type { PanelQuota } from "@/lib/invites";
 
 /** Hold duration before context menu — close to iOS Haptic Touch. */
 const LONG_PRESS_MS = 480;
@@ -239,6 +240,7 @@ export function ObjectsScreen({
   items,
   loading = false,
   error = null,
+  quota = null,
   onAdd,
   onOpenPanel,
   onOpenRequest,
@@ -246,10 +248,12 @@ export function ObjectsScreen({
   onRenameItem,
   onNoPanel,
   onMenuSelect,
+  onPanelLimit,
 }: {
   items: HomeListItem[];
   loading?: boolean;
   error?: string | null;
+  quota?: PanelQuota | null;
   onAdd: () => void;
   onOpenPanel: (id: string) => void;
   onOpenRequest: (id: string) => void;
@@ -257,6 +261,7 @@ export function ObjectsScreen({
   onRenameItem: (id: string, name: string) => void;
   onNoPanel: () => void;
   onMenuSelect: (id: MainMenuId) => void;
+  onPanelLimit?: () => void;
 }) {
   const [page, setPage] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -307,6 +312,7 @@ export function ObjectsScreen({
     [items],
   );
   const showRequests = requests.length > 0;
+  const atPanelLimit = (quota?.remaining ?? 1) <= 0;
 
   const pendingDelete = items.find((item) => item.id === pendingDeleteId);
   const actionsItem = items.find((item) => item.id === actionsItemId);
@@ -553,7 +559,16 @@ export function ObjectsScreen({
       {page === 0 && (
         <div className="shrink-0 border-t border-black/[0.06] bg-[var(--bg)] px-5 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
           <div className="space-y-3">
-            <Button className="w-full" onClick={onAdd}>
+            <Button
+              className="w-full"
+              onClick={() => {
+                if (atPanelLimit) {
+                  onPanelLimit?.();
+                  return;
+                }
+                onAdd();
+              }}
+            >
               <Plus className="h-5 w-5" />
               Добавить щиток
             </Button>

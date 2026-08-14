@@ -48,16 +48,23 @@ export function buildPanelShareUrl(token: string): string {
 }
 
 const SHARE_TEXT = "Щиток в Электропаспорте";
+export const INVITE_SHARE_TEXT = "Приглашаю в Электропаспорт";
 
-export async function shareViaNative(url: string): Promise<void> {
+export async function shareViaNative(
+  url: string,
+  text = SHARE_TEXT,
+): Promise<void> {
   if (typeof navigator === "undefined" || !("share" in navigator)) {
     throw new Error("Системное меню недоступно");
   }
-  await navigator.share({ title: SHARE_TEXT, url, text: SHARE_TEXT });
+  await navigator.share({ title: text, url, text });
 }
 
-export async function shareViaTelegram(url: string): Promise<void> {
-  const telegramShare = `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(SHARE_TEXT)}`;
+export async function shareViaTelegram(
+  url: string,
+  text = SHARE_TEXT,
+): Promise<void> {
+  const telegramShare = `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`;
   const webApp = window.Telegram?.WebApp as
     | {
         openTelegramLink?: (link: string) => void;

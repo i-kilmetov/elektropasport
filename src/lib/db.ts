@@ -13,6 +13,15 @@ import {
   formatRequestPublicCode,
   type RequestTypeCode,
 } from "@/lib/request-codes";
+import {
+  inviteeDisplayName,
+  panelLimitForInvites,
+  panelWord,
+  type InviteEvent,
+  type InviteOutcome,
+  type PanelQuota,
+} from "@/lib/invites";
+import { buildPanelShareUrl } from "@/lib/panel-share";
 
 let schemaReady: Promise<void> | null = null;
 
@@ -170,6 +179,35 @@ export async function ensureSchema(): Promise<void> {
         CREATE INDEX IF NOT EXISTS panel_shares_owner_panel_idx
         ON panel_shares (owner_telegram_id, panel_id)
       `;
+      await sql`
+        ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      `;
+      await sql`
+        ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS invite_token TEXT
+      `;
+      await sql`
+        CREATE UNIQUE INDEX IF NOT EXISTS users_invite_token_uidx
+        ON users (invite_token)
+        WHERE invite_token IS NOT NULL
+      `;
+      await sql`
+        CREATE TABLE IF NOT EXISTS invite_events (
+          inviter_telegram_id BIGINT NOT NULL REFERENCES users(telegram_id) ON DELETE CASCADE,
+          invitee_telegram_id BIGINT NOT NULL REFERENCES users(telegram_id) ON DELETE CASCADE,
+          outcome TEXT NOT NULL,
+          invitee_first_name TEXT,
+          invitee_last_name TEXT,
+          invitee_username TEXT,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          PRIMARY KEY (inviter_telegram_id, invitee_telegram_id)
+        )
+      `;
+      await sql`
+        CREATE INDEX IF NOT EXISTS invite_events_inviter_created_idx
+        ON invite_events (inviter_telegram_id, created_at DESC)
+      `;
     })().catch((error) => {
       schemaReady = null;
       throw error;
@@ -178,23 +216,59 @@ export async function ensureSchema(): Promise<void> {
   await schemaReady;
 }
 
-export async function upsertUser(user: ValidatedTelegramUser): Promise<void> {
+function randomPrefixedToken(prefix: "p" | "i"): string {
+  const chars =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  const bytes = new Uint8Array(10);
+  crypto.getRandomValues(bytes);
+  return `${prefix}${Array.from(bytes, (byte) => chars[byte % chars.length]).join("")}`;
+}
+
+function createShareToken(): string {
+  return randomPrefixedToken("p");
+}
+
+function createInviteToken(): string {
+  return randomPrefixedToken("i");
+}
+
+export async function upsertUser(
+  user: ValidatedTelegramUser,
+): Promise<{ isNew: boolean }> {
   const sql = getSql();
-  await sql`
-    INSERT INTO users (telegram_id, first_name, last_name, username, updated_at)
+  const token = createInviteToken();
+  const inserted = (await sql`
+    INSERT INTO users (
+      telegram_id, first_name, last_name, username, invite_token, created_at, updated_at
+    )
     VALUES (
       ${user.telegramId},
       ${user.firstName ?? null},
       ${user.lastName ?? null},
       ${user.username ?? null},
+      ${token},
+      NOW(),
       NOW()
     )
-    ON CONFLICT (telegram_id) DO UPDATE SET
-      first_name = EXCLUDED.first_name,
-      last_name = EXCLUDED.last_name,
-      username = EXCLUDED.username,
+    ON CONFLICT (telegram_id) DO NOTHING
+    RETURNING telegram_id
+  `) as Array<{ telegram_id: string | number }>;
+
+  if (inserted[0]) {
+    return { isNew: true };
+  }
+
+  await sql`
+    UPDATE users
+    SET
+      first_name = ${user.firstName ?? null},
+      last_name = ${user.lastName ?? null},
+      username = ${user.username ?? null},
+      invite_token = COALESCE(invite_token, ${token}),
       updated_at = NOW()
+    WHERE telegram_id = ${user.telegramId}
   `;
+  return { isNew: false };
 }
 
 export type StoredUserProfile = {
@@ -433,6 +507,10 @@ export async function insertPanel(
   panel: PanelObject,
 ): Promise<PanelObject> {
   const sql = getSql();
+  const existing = await getPanelByOwner(telegramUserId, panel.id);
+  if (!existing) {
+    await assertCanAddPanel(telegramUserId);
+  }
   // Do not persist huge photo data URLs — they break serverless body/DB limits.
   const devicesJson = JSON.stringify(panel.devices ?? []);
   await sql`
@@ -504,14 +582,6 @@ export async function updatePanel(
       source_share_token, created_at
   `) as PanelRow[];
   return rows[0] ? rowToPanel(rows[0]) : null;
-}
-
-function createShareToken(): string {
-  const chars =
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  const bytes = new Uint8Array(10);
-  crypto.getRandomValues(bytes);
-  return `p${Array.from(bytes, (byte) => chars[byte % chars.length]).join("")}`;
 }
 
 export async function getPanelByOwner(
@@ -766,19 +836,179 @@ export async function getPublicStats(): Promise<{
   };
 }
 
+async function countUserPanels(telegramUserId: number): Promise<number> {
+  const sql = getSql();
+  const [row] = (await sql`
+    SELECT COUNT(*)::int AS count
+    FROM panels
+    WHERE telegram_user_id = ${telegramUserId}
+  `) as Array<{ count: number }>;
+  return row?.count ?? 0;
+}
+
+async function countCreditedInvites(telegramUserId: number): Promise<number> {
+  const sql = getSql();
+  const [row] = (await sql`
+    SELECT COUNT(*)::int AS count
+    FROM invite_events
+    WHERE inviter_telegram_id = ${telegramUserId}
+      AND outcome = 'credited'
+  `) as Array<{ count: number }>;
+  return row?.count ?? 0;
+}
+
+async function getOrCreateInviteToken(telegramUserId: number): Promise<string> {
+  const sql = getSql();
+  const [existing] = (await sql`
+    SELECT invite_token
+    FROM users
+    WHERE telegram_id = ${telegramUserId}
+    LIMIT 1
+  `) as Array<{ invite_token: string | null }>;
+  if (existing?.invite_token) return existing.invite_token;
+
+  const token = createInviteToken();
+  const [updated] = (await sql`
+    UPDATE users
+    SET invite_token = COALESCE(invite_token, ${token})
+    WHERE telegram_id = ${telegramUserId}
+    RETURNING invite_token
+  `) as Array<{ invite_token: string | null }>;
+  return updated?.invite_token || token;
+}
+
+async function listInviteEvents(
+  telegramUserId: number,
+): Promise<InviteEvent[]> {
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT
+      outcome,
+      invitee_first_name,
+      invitee_last_name,
+      invitee_username,
+      created_at
+    FROM invite_events
+    WHERE inviter_telegram_id = ${telegramUserId}
+    ORDER BY created_at DESC
+    LIMIT 50
+  `) as Array<{
+    outcome: InviteOutcome;
+    invitee_first_name: string | null;
+    invitee_last_name: string | null;
+    invitee_username: string | null;
+    created_at: string;
+  }>;
+
+  return rows.map((row) => ({
+    outcome: row.outcome === "credited" ? "credited" : "already_member",
+    name: inviteeDisplayName({
+      firstName: row.invitee_first_name,
+      lastName: row.invitee_last_name,
+      username: row.invitee_username,
+    }),
+    username: row.invitee_username?.replace(/^@/, "") || undefined,
+    createdAt: row.created_at,
+  }));
+}
+
+export async function getPanelQuota(
+  telegramUserId: number,
+): Promise<PanelQuota> {
+  await ensureSchema();
+  const [panelCount, creditedInvites, inviteToken, events] = await Promise.all([
+    countUserPanels(telegramUserId),
+    countCreditedInvites(telegramUserId),
+    getOrCreateInviteToken(telegramUserId),
+    listInviteEvents(telegramUserId),
+  ]);
+
+  const panelLimit = panelLimitForInvites(creditedInvites);
+  return {
+    panelCount,
+    panelLimit,
+    remaining: Math.max(0, panelLimit - panelCount),
+    creditedInvites,
+    inviteUrl: buildPanelShareUrl(inviteToken),
+    events,
+  };
+}
+
+async function assertCanAddPanel(telegramUserId: number): Promise<void> {
+  const quota = await getPanelQuota(telegramUserId);
+  if (quota.panelCount >= quota.panelLimit) {
+    throw new DbError(
+      `Сейчас можно хранить ${quota.panelLimit} ${panelWord(quota.panelLimit)}. Удалите один или пригласите нового пользователя.`,
+      403,
+      "PANEL_LIMIT",
+    );
+  }
+}
+
+export async function claimInvite(
+  invitee: ValidatedTelegramUser,
+  token: string,
+  isNew: boolean,
+): Promise<PanelQuota> {
+  const sql = getSql();
+  await ensureSchema();
+
+  const [inviter] = (await sql`
+    SELECT telegram_id
+    FROM users
+    WHERE invite_token = ${token}
+    LIMIT 1
+  `) as Array<{ telegram_id: string | number }>;
+
+  if (inviter) {
+    const inviterId = Number(inviter.telegram_id);
+    if (inviterId !== invitee.telegramId) {
+      const outcome: InviteOutcome = isNew ? "credited" : "already_member";
+      await sql`
+        INSERT INTO invite_events (
+          inviter_telegram_id,
+          invitee_telegram_id,
+          outcome,
+          invitee_first_name,
+          invitee_last_name,
+          invitee_username,
+          created_at
+        )
+        VALUES (
+          ${inviterId},
+          ${invitee.telegramId},
+          ${outcome},
+          ${invitee.firstName ?? null},
+          ${invitee.lastName ?? null},
+          ${invitee.username ?? null},
+          NOW()
+        )
+        ON CONFLICT (inviter_telegram_id, invitee_telegram_id) DO NOTHING
+      `;
+    }
+  }
+
+  return getPanelQuota(invitee.telegramId);
+}
+
 export class DbError extends Error {
   status: number;
+  code?: string;
 
-  constructor(message: string, status = 500) {
+  constructor(message: string, status = 500, code?: string) {
     super(message);
     this.name = "DbError";
     this.status = status;
+    this.code = code;
   }
 }
 
 export function dbErrorResponse(error: unknown): Response | null {
   if (error instanceof DbError) {
-    return Response.json({ error: error.message }, { status: error.status });
+    return Response.json(
+      { error: error.message, code: error.code },
+      { status: error.status },
+    );
   }
   return null;
 }
