@@ -65,6 +65,7 @@ import {
   createPanelShare,
   fetchSharedPanel,
 } from "@/lib/user-data";
+import { syncRatingFromCharacteristics } from "@/lib/device-spec-guide";
 import { isInviteToken, type PanelQuota } from "@/lib/invites";
 import {
   getTelegramStartParam,
@@ -630,6 +631,51 @@ export function AppShell() {
     [activePanelId],
   );
 
+  const updateDeviceCharacteristic = useCallback(
+    (deviceId: number, key: string, value: string) => {
+      if (!activePanelId) return;
+
+      const patchDevice = (device: Device): Device => {
+        if (device.id !== deviceId) return device;
+
+        if (key === "Модули") {
+          const modules = Number.parseInt(value, 10);
+          if (!Number.isFinite(modules)) return device;
+          return { ...device, modules };
+        }
+
+        const nextCharacteristics = {
+          ...(device.characteristics ?? {}),
+          [key]: value,
+        };
+        if (key === "Номинал" && !nextCharacteristics["Номинальный ток"]) {
+          nextCharacteristics["Номинальный ток"] = value;
+        }
+
+        return {
+          ...device,
+          characteristics: nextCharacteristics,
+          rating: syncRatingFromCharacteristics(device, nextCharacteristics),
+        };
+      };
+
+      setDevices((prev) => {
+        if (!prev) return prev;
+        return prev.map(patchDevice);
+      });
+      setItems((prev) =>
+        prev.map((item) => {
+          if (item.kind !== "panel" || item.id !== activePanelId) return item;
+          const nextDevices = (item.devices ?? []).map(patchDevice);
+          const next = { ...item, devices: nextDevices };
+          void persistPanel(next).catch((error) => console.error(error));
+          return next;
+        }),
+      );
+    },
+    [activePanelId],
+  );
+
   const assessPanelSafety = useCallback(
     (payload: { phases: "1" | "3"; powerKw: string; safety: number }) => {
       if (!activePanelId) return;
@@ -953,6 +999,7 @@ export function AppShell() {
               onRename={renamePanel}
               onDelete={deletePanel}
               onAssignCircuit={assignCircuitLabel}
+              onUpdateDeviceCharacteristic={updateDeviceCharacteristic}
               onToggleDevicePower={toggleDevicePower}
               onAssessSafety={assessPanelSafety}
               onCallMaster={startCallMaster}

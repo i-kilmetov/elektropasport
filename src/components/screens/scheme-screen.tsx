@@ -26,14 +26,15 @@ import { GlassCard } from "@/components/ui/glass-card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ShareSheet } from "@/components/ui/share-sheet";
 import { Progress } from "@/components/ui/progress";
-import {
-  HintInfoButton,
-  SpecCharacteristicCard,
-} from "@/components/ui/spec-info-button";
+import { HintInfoButton } from "@/components/ui/spec-info-button";
 import { SafetyParamsSheet } from "@/components/ui/safety-params-sheet";
+import { EditableSpecCard } from "@/components/ui/editable-spec-card";
 import { circuitIdentifySteps } from "@/lib/device-catalog";
 import { devices as mockDevices } from "@/lib/mock-data";
-import { PanelDeviceGuideSection } from "@/components/screens/panel-device-guide-section";
+import { deviceTypeGuide } from "@/lib/panel-device-guide";
+import {
+  manualSpecEditDisclaimer,
+} from "@/lib/device-spec-guide";
 import {
   computePanelSafetyScore,
   safetyIndicatorColor,
@@ -41,6 +42,7 @@ import {
   safetyScoreDisclaimer,
   safetyTextColor,
 } from "@/lib/safety-score";
+import { PanelDeviceGuideSection } from "@/components/screens/panel-device-guide-section";
 import { cn } from "@/lib/utils";
 import type { Device, DeviceType } from "@/types";
 
@@ -114,26 +116,43 @@ function computeSheetTop(anchorY: number | null): number {
   return top;
 }
 
+function deviceTitle(device: Device): string {
+  if (device.type === "pe_bus" || device.type === "n_bus") {
+    return device.name;
+  }
+  return deviceTypeGuide[device.type]?.title ?? device.name;
+}
+
 function DeviceSheet({
   device,
   anchorY,
   onClose,
   onAssignCircuit,
+  onUpdateCharacteristic,
+  specEditable = true,
 }: {
   device: Device;
   anchorY: number | null;
   onClose: () => void;
   onAssignCircuit: (deviceId: number, label: string) => void;
+  onUpdateCharacteristic?: (
+    deviceId: number,
+    key: string,
+    value: string,
+  ) => void;
+  specEditable?: boolean;
 }) {
   const [label, setLabel] = useState(device.circuitLabel ?? "");
   const [sheetTop, setSheetTop] = useState(() => computeSheetTop(anchorY));
   const specs = useMemo(() => {
-    const fromCatalog = Object.entries(device.characteristics ?? {});
+    const hidden = new Set(["Производитель", "Модель"]);
+    const fromCatalog = Object.entries(device.characteristics ?? {}).filter(
+      ([key]) => !hidden.has(key),
+    );
     if (fromCatalog.length > 0) return fromCatalog;
     return [
       ["Тип", typeShort[device.type]],
       ["Номинал", device.rating],
-      ["Производитель", device.manufacturer ?? "—"],
       ["Модули", String(deviceModules(device))],
     ] as Array<[string, string]>;
   }, [device]);
@@ -169,18 +188,14 @@ function DeviceSheet({
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
             <div className="mb-2 flex flex-wrap items-center gap-2">
-              <BrandMark brandKey={device.brandKey} brand={device.manufacturer} />
               <h3 className="text-[20px] font-semibold text-zinc-900">
-                {device.name}
+                {deviceTitle(device)}
               </h3>
               <Badge status={device.status} />
             </div>
-            <p className="text-[14px] text-zinc-500">
-              {device.manufacturer ?? "Производитель не определён"}
-              {device.model ? ` · ${device.model}` : ` · ${device.rating}`}
-            </p>
+            <p className="text-[14px] text-zinc-500">{device.rating}</p>
             <p className="mt-1 text-[12px] text-zinc-400">
-              Удержание — переключить состояние
+              На схеме удержите прибор, чтобы переключить состояние
             </p>
             {device.circuitLabel?.trim() && (
               <p className="mt-1 text-[13px] text-zinc-600">
@@ -198,9 +213,26 @@ function DeviceSheet({
           </button>
         </div>
 
+        {specEditable && onUpdateCharacteristic && (
+          <p className="mb-3 text-[12px] leading-relaxed text-amber-800/90">
+            {manualSpecEditDisclaimer}
+          </p>
+        )}
+
         <div className="mb-5 grid grid-cols-2 gap-3">
           {specs.slice(0, 6).map(([key, value]) => (
-            <SpecCharacteristicCard key={key} label={key} value={value} />
+            <EditableSpecCard
+              key={key}
+              deviceType={device.type}
+              label={key}
+              value={value}
+              editable={specEditable}
+              onChange={
+                onUpdateCharacteristic
+                  ? (next) => onUpdateCharacteristic(device.id, key, next)
+                  : undefined
+              }
+            />
           ))}
         </div>
 
@@ -339,6 +371,7 @@ export function SchemeScreen({
   onShare,
   onDelete,
   onAssignCircuit,
+  onUpdateDeviceCharacteristic,
   onToggleDevicePower,
   onAssessSafety,
   onCallMaster,
@@ -358,6 +391,11 @@ export function SchemeScreen({
   onShare?: () => Promise<string>;
   onDelete: () => void;
   onAssignCircuit?: (deviceId: number, label: string) => void;
+  onUpdateDeviceCharacteristic?: (
+    deviceId: number,
+    key: string,
+    value: string,
+  ) => void;
   onToggleDevicePower?: (deviceId: number) => void;
   onAssessSafety?: (payload: {
     phases: "1" | "3";
@@ -781,6 +819,7 @@ export function SchemeScreen({
           <DeviceSheet
             device={selected}
             anchorY={sheetAnchorY}
+            specEditable={!sharedPreview}
             onClose={() => {
               setSelectedId(null);
               setSheetAnchorY(null);
@@ -788,6 +827,9 @@ export function SchemeScreen({
             onAssignCircuit={(deviceId, circuitLabel) => {
               onAssignCircuit?.(deviceId, circuitLabel);
             }}
+            onUpdateCharacteristic={
+              sharedPreview ? undefined : onUpdateDeviceCharacteristic
+            }
           />
         )}
       </AnimatePresence>

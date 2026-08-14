@@ -6,7 +6,7 @@ import { Check, ChevronDown } from "lucide-react";
 import { BrandMark } from "@/components/icons/brand-mark";
 import { DeviceMiniPreview } from "@/components/icons/device-face";
 import { GlassCard } from "@/components/ui/glass-card";
-import { CatalogPickerSheet } from "@/components/screens/catalog-picker-sheet";
+import { DeviceSpecGuideSheet } from "@/components/screens/device-spec-guide-sheet";
 import {
   panelGuideDisclaimer,
   summarizePanelDevices,
@@ -165,8 +165,8 @@ export function PanelDeviceGuideSection({
                         Что ещё бывает и чем полезно
                       </h4>
                       <p className="mt-1 text-[13px] leading-relaxed text-zinc-500">
-                        Этих приборов на схеме нет — посмотрите варианты в
-                        каталоге.
+                        Этих приборов на схеме нет — узнайте, какие параметры
+                        бывают и как их подобрать.
                       </p>
                     </div>
                     <ul className="space-y-3">
@@ -184,7 +184,7 @@ export function PanelDeviceGuideSection({
                               onClick={() => setPickerType(type)}
                               className="rounded-full border border-black/10 bg-zinc-100 px-2.5 py-1 text-[11px] font-semibold text-zinc-700 transition-colors hover:bg-zinc-200"
                             >
-                              Выбрать
+                              Как подобрать
                             </button>
                           }
                         />
@@ -211,7 +211,7 @@ export function PanelDeviceGuideSection({
         </AnimatePresence>
       </GlassCard>
 
-      <CatalogPickerSheet
+      <DeviceSpecGuideSheet
         type={pickerType}
         open={pickerType !== null}
         onClose={() => setPickerType(null)}
