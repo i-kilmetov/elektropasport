@@ -39,7 +39,7 @@ export function PanelLimitSheet({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[100] flex items-end bg-black/60 backdrop-blur-sm"
+        className="fixed inset-0 z-[100] flex items-end bg-black/60 backdrop-blur-sm lg:items-center lg:justify-center lg:p-6"
         onClick={onClose}
       >
         <motion.div
@@ -48,7 +48,7 @@ export function PanelLimitSheet({
           exit={{ y: 40 }}
           transition={{ type: "spring", stiffness: 320, damping: 30 }}
           onClick={(e) => e.stopPropagation()}
-          className="mx-auto max-h-[min(88dvh,720px)] w-full max-w-[430px] overflow-y-auto rounded-t-[28px] border border-black/8 bg-white p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-2xl"
+          className="mx-auto max-h-[min(88dvh,720px)] w-full max-w-[430px] overflow-y-auto rounded-t-[28px] border border-black/8 bg-white p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-2xl lg:max-w-md lg:rounded-[28px]"
         >
           <div className="mb-4 flex items-start justify-between gap-3">
             <div>

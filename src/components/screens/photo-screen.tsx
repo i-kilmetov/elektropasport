@@ -119,7 +119,7 @@ export function PhotoScreen({
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -40 }}
       transition={{ duration: 0.35 }}
-      className="flex min-h-dvh flex-col px-5 pb-8 pt-[max(1.25rem,env(safe-area-inset-top))]"
+      className="mx-auto flex min-h-dvh w-full max-w-xl flex-col px-5 pb-8 pt-[max(1.25rem,env(safe-area-inset-top))] lg:max-w-2xl lg:px-0 lg:py-10"
     >
       <header className="mb-6 flex items-center gap-3">
         <button

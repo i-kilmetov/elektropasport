@@ -70,7 +70,7 @@ export function CatalogPickerSheet({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[60] flex items-end bg-black/60 backdrop-blur-sm"
+          className="fixed inset-0 z-[60] flex items-end bg-black/60 backdrop-blur-sm lg:items-center lg:justify-center lg:p-6"
           onClick={onClose}
         >
           <motion.div
@@ -79,7 +79,7 @@ export function CatalogPickerSheet({
             exit={{ y: "100%" }}
             transition={{ type: "spring", stiffness: 320, damping: 32 }}
             onClick={(e) => e.stopPropagation()}
-            className="flex max-h-[88dvh] w-full flex-col rounded-t-[28px] border border-black/8 bg-white shadow-2xl"
+            className="flex max-h-[88dvh] w-full flex-col rounded-t-[28px] border border-black/8 bg-white shadow-2xl lg:max-w-lg lg:rounded-[28px]"
           >
             <div className="flex items-start justify-between gap-3 border-b border-black/[0.06] px-5 pb-4 pt-5">
               <div>

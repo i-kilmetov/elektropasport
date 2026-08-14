@@ -44,7 +44,7 @@ export function ShareSheet({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[110] flex items-end bg-black/60 backdrop-blur-sm"
+        className="fixed inset-0 z-[110] flex items-end bg-black/60 backdrop-blur-sm lg:items-center lg:justify-center lg:p-6"
         onClick={onClose}
       >
         <motion.div
@@ -53,7 +53,7 @@ export function ShareSheet({
           exit={{ y: 40 }}
           transition={{ type: "spring", stiffness: 320, damping: 30 }}
           onClick={(e) => e.stopPropagation()}
-          className="mx-auto w-full max-w-[430px] rounded-t-[28px] border border-black/8 bg-white p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-2xl"
+          className="mx-auto w-full max-w-[430px] rounded-t-[28px] border border-black/8 bg-white p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-2xl lg:max-w-md lg:rounded-[28px]"
         >
           <div className="mb-4 flex items-center justify-between">
             <div className="flex items-center gap-2">

@@ -79,7 +79,7 @@ export function AnalysisScreen({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="flex min-h-dvh flex-col items-center px-5 pb-10 pt-[max(2rem,env(safe-area-inset-top))]"
+      className="mx-auto flex min-h-dvh w-full max-w-xl flex-col items-center px-5 pb-10 pt-[max(2rem,env(safe-area-inset-top))] lg:max-w-2xl lg:justify-center"
     >
       <h1 className="mb-6 text-center text-[22px] font-semibold text-zinc-900">
         Анализируем изображение

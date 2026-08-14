@@ -21,6 +21,7 @@ import { BreakerIcon } from "@/components/icons/breaker-icon";
 import { SchemeMiniPreview } from "@/components/icons/scheme-mini-preview";
 import {
   MainMenuSheet,
+  MAIN_MENU_ITEMS,
   type MainMenuId,
 } from "@/components/screens/main-menu-sheet";
 import { Button } from "@/components/ui/button";
@@ -152,9 +153,9 @@ function HomeListCard({
         onPointerLeave={endPress}
         onPointerCancel={endPress}
         onContextMenu={(e) => e.preventDefault()}
-        className="w-full touch-manipulation text-left select-none"
+        className="w-full text-left select-none lg:cursor-pointer"
       >
-        <GlassCard className="flex items-center gap-4 rounded-[24px] border p-4 transition-colors hover:bg-zinc-50">
+        <GlassCard className="flex items-center gap-4 rounded-[24px] border p-4 transition-colors hover:bg-zinc-50 lg:p-5">
           <div
             className={cn(
               "h-14 w-14 shrink-0 overflow-hidden rounded-[18px]",
@@ -418,7 +419,7 @@ export function ObjectsScreen({
       return <EmptyState icon={empty.icon} text={empty.text} />;
     }
     return (
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:gap-4 xl:grid-cols-3">
         {list.map((obj, i) => (
           <motion.div
             key={obj.id}
@@ -444,20 +445,70 @@ export function ObjectsScreen({
     );
   };
 
+  const addPanel = () => {
+    if (atPanelLimit) {
+      onPanelLimit?.();
+      return;
+    }
+    onAdd();
+  };
+
   return (
     <motion.section
       initial={{ opacity: 0, x: 40 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -40 }}
       transition={{ duration: 0.35 }}
-      className="relative flex min-h-0 flex-1 flex-col overflow-hidden pt-[max(1.25rem,env(safe-area-inset-top))]"
+      className="relative flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row"
     >
-      <header className="mb-4 shrink-0 px-5">
-        <div className="relative flex items-center justify-center">
+      <aside className="hidden w-72 shrink-0 flex-col border-r border-black/[0.06] bg-zinc-50/70 px-6 py-8 lg:flex">
+        <div className="mb-8">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-400">
+            Электропаспорт
+          </div>
+          <h1 className="mt-2 text-[22px] font-semibold tracking-tight text-zinc-900">
+            Мои щитки
+          </h1>
+          <p className="mt-1.5 text-[13px] leading-relaxed text-zinc-500">
+            Схемы, заявки и безопасность дома в одном месте.
+          </p>
+        </div>
+        <nav className="space-y-1.5">
+          {MAIN_MENU_ITEMS.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => onMenuSelect(item.id)}
+              className="flex w-full items-center gap-3 rounded-[16px] px-3 py-2.5 text-left transition-colors hover:bg-white"
+            >
+              <span className="flex h-9 w-9 items-center justify-center rounded-[12px] bg-white text-zinc-600 shadow-sm">
+                <item.icon className="h-4 w-4" />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-[14px] font-semibold text-zinc-900">
+                  {item.title}
+                </span>
+                <span className="block text-[12px] text-zinc-500">
+                  {item.description}
+                </span>
+              </span>
+            </button>
+          ))}
+        </nav>
+        {quota && (
+          <p className="mt-auto pt-8 text-[12px] leading-relaxed text-zinc-400">
+            Щитков: {quota.panelCount} из {quota.panelLimit}
+          </p>
+        )}
+      </aside>
+
+      <div className="flex min-h-0 flex-1 flex-col pt-[max(1.25rem,env(safe-area-inset-top))] lg:pt-8">
+      <header className="mb-4 shrink-0 px-5 lg:px-10">
+        <div className="relative flex items-center justify-center lg:justify-between">
           <button
             type="button"
             onClick={() => setMenuOpen(true)}
-            className="absolute left-0 flex h-11 w-11 items-center justify-center rounded-full border border-black/8 bg-zinc-100 text-zinc-900"
+            className="absolute left-0 flex h-11 w-11 items-center justify-center rounded-full border border-black/8 bg-zinc-100 text-zinc-900 lg:hidden"
             aria-label="Меню"
           >
             <Menu className="h-5 w-5" />
@@ -497,13 +548,28 @@ export function ObjectsScreen({
               </motion.button>
             </div>
           ) : (
-            <h1 className="text-[20px] font-semibold text-zinc-900">Щитки</h1>
+            <h1 className="text-[20px] font-semibold text-zinc-900 lg:text-[28px] lg:tracking-tight">
+              Щитки
+            </h1>
           )}
+          <div className="hidden items-center gap-3 lg:flex">
+            <button
+              type="button"
+              onClick={onNoPanel}
+              className="text-[14px] font-medium text-zinc-500 underline decoration-zinc-300 underline-offset-4 transition-colors hover:text-zinc-800"
+            >
+              У меня нет щитка
+            </button>
+            <Button className="h-11 px-5" onClick={addPanel}>
+              <Plus className="h-5 w-5" />
+              Добавить щиток
+            </Button>
+          </div>
         </div>
       </header>
 
       {error && (
-        <p className="mx-5 mb-3 shrink-0 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-[13px] text-rose-700">
+        <p className="mx-5 mb-3 shrink-0 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-[13px] text-rose-700 lg:mx-10">
           {error}
         </p>
       )}
@@ -530,7 +596,7 @@ export function ObjectsScreen({
           onDragEnd={onPagerDragEnd}
         >
           <div
-            className="flex h-full min-h-0 flex-col px-5"
+            className="flex h-full min-h-0 flex-col px-5 lg:px-10"
             style={{ width: pagerWidth || (showRequests ? "50%" : "100%") }}
           >
             <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
@@ -542,7 +608,7 @@ export function ObjectsScreen({
           </div>
           {showRequests && (
             <div
-              className="flex h-full min-h-0 flex-col px-5"
+              className="flex h-full min-h-0 flex-col px-5 lg:px-10"
               style={{ width: pagerWidth || "50%" }}
             >
               <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
@@ -557,18 +623,9 @@ export function ObjectsScreen({
       </div>
 
       {page === 0 && (
-        <div className="shrink-0 border-t border-black/[0.06] bg-[var(--bg)] px-5 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+        <div className="shrink-0 border-t border-black/[0.06] bg-[var(--bg)] px-5 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))] lg:hidden">
           <div className="space-y-3">
-            <Button
-              className="w-full"
-              onClick={() => {
-                if (atPanelLimit) {
-                  onPanelLimit?.();
-                  return;
-                }
-                onAdd();
-              }}
-            >
+            <Button className="w-full" onClick={addPanel}>
               <Plus className="h-5 w-5" />
               Добавить щиток
             </Button>
@@ -582,6 +639,7 @@ export function ObjectsScreen({
           </div>
         </div>
       )}
+      </div>
 
       <AnimatePresence>
         {menuOpen && (

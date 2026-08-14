@@ -941,20 +941,32 @@ export function AppShell() {
 
   if (!onboardingReady) {
     return (
-      <div className="relative mx-auto h-[var(--app-height,100dvh)] w-full max-w-[430px] overflow-hidden bg-[var(--bg)] text-zinc-900 shadow-[0_0_40px_rgba(17,17,19,0.06)]" />
+      <div className="relative h-[var(--app-height,100dvh)] w-full overflow-hidden bg-[var(--bg)] text-zinc-900" />
     );
   }
+
+  const fillViewport =
+    screen === "objects" ||
+    screen === "scheme" ||
+    screen === "welcome" ||
+    screen === "photo" ||
+    screen === "analysis";
+  const wideLayout =
+    screen === "objects" ||
+    screen === "scheme" ||
+    screen === "welcome" ||
+    screen === "photo";
 
   return (
     <div
       className={cn(
-        "relative mx-auto w-full max-w-[430px] shadow-[0_0_40px_rgba(17,17,19,0.06)]",
+        "relative w-full",
         screen === "welcome"
           ? "bg-black text-white"
           : "bg-[var(--bg)] text-zinc-900",
-        screen === "objects"
+        fillViewport
           ? "flex h-[var(--app-height,100dvh)] flex-col overflow-hidden"
-          : "min-h-[var(--app-height,100dvh)] overflow-hidden",
+          : "min-h-[var(--app-height,100dvh)]",
       )}
     >
       {screen !== "welcome" && (
@@ -963,7 +975,9 @@ export function AppShell() {
       <div
         className={cn(
           "relative z-10",
-          screen === "objects" && "flex min-h-0 flex-1 flex-col",
+          fillViewport && "flex min-h-0 flex-1 flex-col",
+          !wideLayout &&
+            "mx-auto w-full max-w-xl lg:max-w-3xl lg:px-8 lg:py-8",
         )}
       >
         <AnimatePresence mode="wait">

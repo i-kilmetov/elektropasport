@@ -563,14 +563,108 @@ export function SchemeScreen({
     };
   }, []);
 
+  const networkSafetyCards = (
+    <>
+      <button
+        type="button"
+        onClick={() => {
+          if (sharedPreview) return;
+          setSafetyOpen(true);
+        }}
+        className="min-w-0 text-left transition-transform active:scale-[0.99] lg:cursor-pointer"
+      >
+        <GlassCard className="flex h-full flex-col p-4 lg:p-5">
+          <div className="mb-2 text-[12px] text-zinc-500">Параметры сети</div>
+          {networkParamsFilled ? (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Zap className="h-4 w-4 shrink-0 text-zinc-400" />
+                <span className="min-w-0 flex-1 text-[14px] font-semibold leading-tight text-zinc-900">
+                  {phases === "3" ? "3 фазы" : "1 фаза"}
+                </span>
+                <SupplyCableIcon
+                  phases={phases === "3" ? "3" : "1"}
+                  hasGround={hasGround === true}
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <Gauge className="h-4 w-4 shrink-0 text-zinc-400" />
+                <span className="text-[14px] font-semibold leading-tight text-zinc-900">
+                  {powerKw?.replace(".", ",")} кВт
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <GroundSymbol className="h-4 w-4 text-zinc-400" />
+                <span className="text-[14px] font-semibold leading-tight text-zinc-900">
+                  {hasGround === true
+                    ? "Есть земля"
+                    : hasGround === false
+                      ? "Нет земли"
+                      : "Земля не указана"}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <p className="text-[13px] leading-snug text-zinc-400">
+              Нажмите, чтобы указать число фаз, мощность и наличие земли
+            </p>
+          )}
+        </GlassCard>
+      </button>
+      <button
+        type="button"
+        onClick={() => setSafetyExplainOpen(true)}
+        className="min-w-0 text-left transition-transform active:scale-[0.99] lg:cursor-pointer"
+      >
+        <GlassCard className="flex h-full flex-col p-4 lg:p-5">
+          <div className="mb-1 flex items-center gap-1.5 text-[12px] text-zinc-500">
+            <Shield className="h-3.5 w-3.5 text-zinc-400" />
+            Уровень безопасности
+          </div>
+          {safetyKnown && typeof safetyScore === "number" ? (
+            <>
+              <div className="flex items-end gap-2">
+                <span
+                  className={cn(
+                    "text-[28px] font-bold tabular-nums",
+                    safetyTextColor(safetyScore),
+                  )}
+                >
+                  {safetyScore}%
+                </span>
+                <span className="mb-1.5 text-[12px] text-zinc-500">
+                  {safetyLabel(safetyScore)}
+                </span>
+              </div>
+              <Progress
+                value={safetyScore}
+                className="mt-2 h-1.5"
+                indicatorClassName={safetyIndicatorColor(safetyScore)}
+              />
+            </>
+          ) : (
+            <>
+              <div className="text-[22px] font-bold text-zinc-400">Неизвестен</div>
+              <p className="mt-1 text-[11px] leading-snug text-zinc-400">
+                {networkParamsFilled
+                  ? "Нажмите, чтобы узнать, как считается оценка"
+                  : "Сначала укажите параметры сети"}
+              </p>
+            </>
+          )}
+        </GlassCard>
+      </button>
+    </>
+  );
+
   return (
     <motion.section
       initial={{ opacity: 0, x: 40 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -40 }}
-      className="relative flex min-h-dvh flex-col overflow-hidden pt-[max(1.25rem,env(safe-area-inset-top))]"
+      className="relative flex min-h-dvh flex-col overflow-hidden pt-[max(1.25rem,env(safe-area-inset-top))] lg:h-[var(--app-height,100dvh)] lg:min-h-0 lg:pt-6"
     >
-      <header className="mb-4 flex items-center justify-between px-5">
+      <header className="mb-4 flex items-center justify-between px-5 lg:px-10">
         <button
           type="button"
           onClick={handleBack}
@@ -645,7 +739,7 @@ export function SchemeScreen({
         )}
       </header>
 
-      <div className="mb-3 flex items-center gap-2 px-5">
+      <div className="mb-3 flex items-center gap-2 px-5 lg:px-10">
         <button
           type="button"
           onClick={() => setTab("scheme")}
@@ -672,8 +766,9 @@ export function SchemeScreen({
         </button>
       </div>
 
+      <div className="flex min-h-0 flex-1 flex-col lg:flex-row lg:gap-6 lg:px-10 lg:pb-8">
       {tab === "scheme" ? (
-        <div className="flex-1 overflow-y-auto px-5 pb-4">
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-4 lg:px-0">
           {showUnknownPrompt && (
             <GlassCard className="mb-4 flex gap-3 border border-amber-200/80 bg-amber-50/90 p-4">
               <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
@@ -800,7 +895,7 @@ export function SchemeScreen({
           />
         </div>
       ) : (
-        <div className="flex-1 overflow-y-auto px-5 pb-4">
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-4 lg:px-0">
           <GlassCard className="overflow-hidden p-0">
             {photoDataUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -819,98 +914,13 @@ export function SchemeScreen({
         </div>
       )}
 
-      <div className="border-t border-black/[0.06] bg-white/95 px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-4 backdrop-blur-xl">
-        <div className="grid grid-cols-2 gap-3">
-          <button
-            type="button"
-            onClick={() => {
-              if (sharedPreview) return;
-              setSafetyOpen(true);
-            }}
-            className="min-w-0 text-left transition-transform active:scale-[0.99]"
-          >
-            <GlassCard className="flex h-full flex-col p-4">
-              <div className="mb-2 text-[12px] text-zinc-500">Параметры сети</div>
-              {networkParamsFilled ? (
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Zap className="h-4 w-4 shrink-0 text-zinc-400" />
-                    <span className="min-w-0 flex-1 text-[14px] font-semibold leading-tight text-zinc-900">
-                      {phases === "3" ? "3 фазы" : "1 фаза"}
-                    </span>
-                    <SupplyCableIcon
-                      phases={phases === "3" ? "3" : "1"}
-                      hasGround={hasGround === true}
-                    />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Gauge className="h-4 w-4 shrink-0 text-zinc-400" />
-                    <span className="text-[14px] font-semibold leading-tight text-zinc-900">
-                      {powerKw?.replace(".", ",")} кВт
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <GroundSymbol className="h-4 w-4 text-zinc-400" />
-                    <span className="text-[14px] font-semibold leading-tight text-zinc-900">
-                      {hasGround === true
-                        ? "Есть земля"
-                        : hasGround === false
-                          ? "Нет земли"
-                          : "Земля не указана"}
-                    </span>
-                  </div>
-                </div>
-              ) : (
-                <p className="text-[13px] leading-snug text-zinc-400">
-                  Нажмите, чтобы указать число фаз, мощность и наличие земли
-                </p>
-              )}
-            </GlassCard>
-          </button>
-          <button
-            type="button"
-            onClick={() => setSafetyExplainOpen(true)}
-            className="min-w-0 text-left transition-transform active:scale-[0.99]"
-          >
-            <GlassCard className="flex h-full flex-col p-4">
-              <div className="mb-1 flex items-center gap-1.5 text-[12px] text-zinc-500">
-                <Shield className="h-3.5 w-3.5 text-zinc-400" />
-                Уровень безопасности
-              </div>
-              {safetyKnown && typeof safetyScore === "number" ? (
-                <>
-                  <div className="flex items-end gap-2">
-                    <span
-                      className={cn(
-                        "text-[28px] font-bold tabular-nums",
-                        safetyTextColor(safetyScore),
-                      )}
-                    >
-                      {safetyScore}%
-                    </span>
-                    <span className="mb-1.5 text-[12px] text-zinc-500">
-                      {safetyLabel(safetyScore)}
-                    </span>
-                  </div>
-                  <Progress
-                    value={safetyScore}
-                    className="mt-2 h-1.5"
-                    indicatorClassName={safetyIndicatorColor(safetyScore)}
-                  />
-                </>
-              ) : (
-                <>
-                  <div className="text-[22px] font-bold text-zinc-400">Неизвестен</div>
-                  <p className="mt-1 text-[11px] leading-snug text-zinc-400">
-                    {networkParamsFilled
-                      ? "Нажмите, чтобы узнать, как считается оценка"
-                      : "Сначала укажите параметры сети слева"}
-                  </p>
-                </>
-              )}
-            </GlassCard>
-          </button>
-        </div>
+      <aside className="hidden w-[340px] shrink-0 flex-col gap-3 lg:flex">
+        {networkSafetyCards}
+      </aside>
+      </div>
+
+      <div className="border-t border-black/[0.06] bg-white/95 px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-4 backdrop-blur-xl lg:hidden">
+        <div className="grid grid-cols-2 gap-3">{networkSafetyCards}</div>
       </div>
 
       <AnimatePresence>

@@ -2,7 +2,7 @@ import { AppShell } from "@/components/app-shell";
 
 export default function Home() {
   return (
-    <main className="flex min-h-[var(--app-height,100dvh)] justify-center">
+    <main className="min-h-[var(--app-height,100dvh)] w-full">
       <AppShell />
     </main>
   );
