@@ -2,33 +2,15 @@
 
 import { useId } from "react";
 import { cn } from "@/lib/utils";
+import {
+  deviceModules,
+  groupDevicesByRail,
+  MAX_MODULES_PER_RAIL,
+} from "@/lib/panel-rails";
 import type { Device, DeviceType } from "@/types";
 
 const SIZE = 56;
 const PAD = 5;
-
-function deviceModules(device: Device): number {
-  if (device.modules && device.modules > 0) return device.modules;
-  return 1;
-}
-
-function groupRails(
-  devices: Device[] | undefined,
-  railCount?: number,
-): Device[][] {
-  const list = (devices ?? []).filter(
-    (d) => d.type !== "pe_bus" && d.type !== "n_bus",
-  );
-  const maxRail =
-    list.reduce((max, d) => Math.max(max, d.rail ?? 0), 0) + 1;
-  const numRails = Math.max(1, Math.min(4, railCount ?? maxRail));
-  const rails: Device[][] = Array.from({ length: numRails }, () => []);
-  for (const device of list) {
-    const rail = Math.min(Math.max(device.rail ?? 0, 0), numRails - 1);
-    rails[rail].push(device);
-  }
-  return rails;
-}
 
 function faceFill(type: DeviceType): string {
   switch (type) {
@@ -68,6 +50,75 @@ function statusFill(status: Device["status"]): string {
   return "rgba(255,255,255,0.35)";
 }
 
+function MiniDevice({
+  device,
+  x,
+  y,
+  w,
+  h,
+}: {
+  device: Device;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}) {
+  const accent = accentFill(device.type);
+  return (
+    <g>
+      <rect
+        x={x}
+        y={y}
+        width={w}
+        height={h}
+        rx={1.2}
+        fill={faceFill(device.type)}
+        stroke="rgba(0,0,0,0.22)"
+        strokeWidth={0.35}
+      />
+      {accent && device.type !== "spd" && (
+        <rect
+          x={x + w * 0.18}
+          y={y + h * 0.18}
+          width={w * 0.64}
+          height={h * 0.42}
+          rx={0.8}
+          fill={accent}
+          opacity={device.type === "voltage_relay" ? 0.9 : 0.85}
+        />
+      )}
+      {device.type === "spd" && (
+        <>
+          <rect
+            x={x + 0.8}
+            y={y + h * 0.2}
+            width={(w - 2) / 2 - 0.4}
+            height={h * 0.45}
+            rx={0.6}
+            fill={accent ?? "#10b981"}
+          />
+          <rect
+            x={x + w / 2 + 0.2}
+            y={y + h * 0.2}
+            width={(w - 2) / 2 - 0.4}
+            height={h * 0.45}
+            rx={0.6}
+            fill={accent ?? "#10b981"}
+          />
+        </>
+      )}
+      <rect
+        x={x + 0.4}
+        y={y + h - 1.5}
+        width={w - 0.8}
+        height={1.1}
+        rx={0.4}
+        fill={statusFill(device.status)}
+      />
+    </g>
+  );
+}
+
 export function SchemeMiniPreview({
   devices,
   railCount,
@@ -78,20 +129,35 @@ export function SchemeMiniPreview({
   className?: string;
 }) {
   const gradId = `din-${useId().replace(/:/g, "")}`;
-  const rails = groupRails(devices, railCount);
-  const moduleTotals = rails.map((rail) =>
-    Math.max(
-      1,
-      rail.reduce((sum, d) => sum + deviceModules(d), 0),
-    ),
-  );
-  const maxModules = Math.max(6, ...moduleTotals);
+  const rails = groupDevicesByRail(devices, railCount);
+  const firstRail = rails[0] ?? [];
+  const numRails = Math.max(1, Math.min(4, railCount ?? rails.length));
+  const extraRailCount = Math.max(0, numRails - 1);
+
   const inner = SIZE - PAD * 2;
-  const railGap = rails.length > 1 ? 2.5 : 0;
-  const railBand =
-    (inner - railGap * Math.max(0, rails.length - 1)) / rails.length;
-  const deviceH = Math.max(6, railBand * 0.72);
-  const moduleW = inner / maxModules;
+  const firstRailModules = Math.min(
+    MAX_MODULES_PER_RAIL,
+    Math.max(1, firstRail.reduce((sum, device) => sum + deviceModules(device), 0)),
+  );
+  const moduleW = inner / firstRailModules;
+
+  const stripeH = 2.2;
+  const stripeGap = 2;
+  const stripesTopPad = extraRailCount > 0 ? 3 : 0;
+  const stripesBlockH =
+    extraRailCount > 0
+      ? stripesTopPad +
+        extraRailCount * stripeH +
+        Math.max(0, extraRailCount - 1) * stripeGap
+      : 0;
+  const firstRailBlockH = inner - stripesBlockH;
+
+  const dinBarH = Math.max(2, firstRailBlockH * 0.14);
+  const deviceH = Math.max(8, firstRailBlockH * 0.58);
+  const railY = PAD + 1.5;
+  const deviceY = PAD + (firstRailBlockH - deviceH) / 2 + 1;
+
+  let x = PAD;
 
   return (
     <svg
@@ -119,83 +185,49 @@ export function SchemeMiniPreview({
         strokeWidth={1}
       />
 
-      {rails.map((rail, railIndex) => {
-        const y0 = PAD + railIndex * (railBand + railGap);
-        const railY = y0 + railBand * 0.12;
-        const deviceY = y0 + (railBand - deviceH) / 2;
-        let x = PAD;
+      <rect
+        x={PAD}
+        y={railY}
+        width={inner}
+        height={dinBarH}
+        rx={1}
+        fill={`url(#${gradId})`}
+      />
 
+      {firstRail.map((device) => {
+        const modules = deviceModules(device);
+        const w = Math.max(2.4, modules * moduleW - 0.55);
+        const dx = x;
+        x += modules * moduleW;
         return (
-          <g key={railIndex}>
-            <rect
-              x={PAD}
-              y={railY}
-              width={inner}
-              height={Math.max(2, railBand * 0.22)}
-              rx={1}
-              fill={`url(#${gradId})`}
-            />
-            {rail.map((device) => {
-              const modules = deviceModules(device);
-              const w = Math.max(2.2, modules * moduleW - 0.6);
-              const dx = x;
-              x += modules * moduleW;
-              const accent = accentFill(device.type);
-              return (
-                <g key={device.id}>
-                  <rect
-                    x={dx}
-                    y={deviceY}
-                    width={w}
-                    height={deviceH}
-                    rx={1.2}
-                    fill={faceFill(device.type)}
-                    stroke="rgba(0,0,0,0.25)"
-                    strokeWidth={0.4}
-                  />
-                  {accent && device.type !== "spd" && (
-                    <rect
-                      x={dx + w * 0.18}
-                      y={deviceY + deviceH * 0.18}
-                      width={w * 0.64}
-                      height={deviceH * 0.42}
-                      rx={0.8}
-                      fill={accent}
-                      opacity={device.type === "voltage_relay" ? 0.9 : 0.85}
-                    />
-                  )}
-                  {device.type === "spd" && (
-                    <>
-                      <rect
-                        x={dx + 0.8}
-                        y={deviceY + deviceH * 0.2}
-                        width={(w - 2) / 2 - 0.4}
-                        height={deviceH * 0.45}
-                        rx={0.6}
-                        fill={accent ?? "#10b981"}
-                      />
-                      <rect
-                        x={dx + w / 2 + 0.2}
-                        y={deviceY + deviceH * 0.2}
-                        width={(w - 2) / 2 - 0.4}
-                        height={deviceH * 0.45}
-                        rx={0.6}
-                        fill={accent ?? "#10b981"}
-                      />
-                    </>
-                  )}
-                  <rect
-                    x={dx + 0.4}
-                    y={deviceY + deviceH - 1.6}
-                    width={w - 0.8}
-                    height={1.2}
-                    rx={0.4}
-                    fill={statusFill(device.status)}
-                  />
-                </g>
-              );
-            })}
-          </g>
+          <MiniDevice
+            key={device.id}
+            device={device}
+            x={dx}
+            y={deviceY}
+            w={w}
+            h={deviceH}
+          />
+        );
+      })}
+
+      {Array.from({ length: extraRailCount }, (_, index) => {
+        const y =
+          PAD +
+          firstRailBlockH +
+          stripesTopPad +
+          index * (stripeH + stripeGap);
+        return (
+          <rect
+            key={`extra-rail-${index}`}
+            x={PAD + 1}
+            y={y}
+            width={inner - 2}
+            height={stripeH}
+            rx={1}
+            fill={`url(#${gradId})`}
+            opacity={0.92 - index * 0.08}
+          />
         );
       })}
     </svg>

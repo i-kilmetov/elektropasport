@@ -112,6 +112,7 @@ export function AppShell() {
   const [safetyScore, setSafetyScore] = useState<number | null>(null);
   const [linesCount, setLinesCount] = useState<number | null>(null);
   const [railCount, setRailCount] = useState<number | null>(null);
+  const [retakePanelId, setRetakePanelId] = useState<string | null>(null);
   const [pendingAuthAction, setPendingAuthAction] = useState<
     "add-panel" | "no-panel" | "call-master" | null
   >(null);
@@ -277,6 +278,36 @@ export function AppShell() {
 
   const handleAnalysisDone = useCallback(
     (result: AnalyzePanelResult) => {
+      if (retakePanelId) {
+        const panelId = retakePanelId;
+        setRetakePanelId(null);
+        setItems((prev) =>
+          prev.map((item) => {
+            if (item.kind !== "panel" || item.id !== panelId) return item;
+            const next: PanelObject = {
+              ...item,
+              breakers: result.devices.length,
+              devices: result.devices,
+              linesCount: result.linesCount,
+              photoDataUrl: photoDataUrl ?? item.photoDataUrl,
+              railCount: result.railCount ?? item.railCount ?? 1,
+              safety: null,
+            };
+            void persistPanel(next).catch((error) => console.error(error));
+            return next;
+          }),
+        );
+        setActivePanelId(panelId);
+        setAskNameOnBack(false);
+        setDevices(result.devices);
+        setSafetyScore(null);
+        setLinesCount(result.linesCount);
+        setRailCount(result.railCount ?? 1);
+        hapticNotification("success");
+        setScreen("scheme");
+        return;
+      }
+
       if (quota && quota.remaining <= 0) {
         setScreen("objects");
         openPanelLimit();
@@ -327,8 +358,15 @@ export function AppShell() {
       setScreen("scheme");
       void refreshQuota();
     },
-    [items, openPanelLimit, photoDataUrl, quota, refreshQuota],
+    [items, openPanelLimit, photoDataUrl, quota, refreshQuota, retakePanelId],
   );
+
+  const retakePanelPhoto = useCallback(() => {
+    if (!activePanelId || sharedPreview) return;
+    setRetakePanelId(activePanelId);
+    setPhotoDataUrl(null);
+    go("photo");
+  }, [activePanelId, go, sharedPreview]);
 
   const openPanel = useCallback(
     (id: string) => {
@@ -964,7 +1002,14 @@ export function AppShell() {
           {screen === "photo" && (
             <PhotoScreen
               key="photo"
-              onBack={() => go("objects")}
+              onBack={() => {
+                if (retakePanelId) {
+                  setRetakePanelId(null);
+                  go("scheme");
+                  return;
+                }
+                go("objects");
+              }}
               onCapture={handlePhoto}
             />
           )}
@@ -1001,6 +1046,7 @@ export function AppShell() {
               onAssignCircuit={assignCircuitLabel}
               onUpdateDeviceCharacteristic={updateDeviceCharacteristic}
               onToggleDevicePower={toggleDevicePower}
+              onRetakePhoto={sharedPreview ? undefined : retakePanelPhoto}
               onAssessSafety={assessPanelSafety}
               onCallMaster={startCallMaster}
               devices={devices ?? undefined}

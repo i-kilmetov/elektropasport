@@ -1,4 +1,5 @@
 import type { Device, DeviceStatus, DeviceType } from "@/types";
+import { MAX_MODULES_PER_RAIL } from "@/lib/panel-rails";
 
 export type CatalogCategory =
   | "breaker"
@@ -381,10 +382,6 @@ export function productToDevice(
     brandKey: product.brandKey,
   };
 }
-
-/* ---------- Random panel generator ---------- */
-
-const MAX_MODULES_PER_RAIL = 18;
 
 function rng(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min;

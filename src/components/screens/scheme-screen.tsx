@@ -9,6 +9,8 @@ import {
   Pencil,
   Shield,
   Trash2,
+  Camera,
+  AlertTriangle,
   X,
 } from "lucide-react";
 import { BrandMark } from "@/components/icons/brand-mark";
@@ -43,6 +45,12 @@ import {
   safetyTextColor,
 } from "@/lib/safety-score";
 import { PanelDeviceGuideSection } from "@/components/screens/panel-device-guide-section";
+import {
+  deviceModules,
+  groupDevicesByRail,
+  MAX_MODULES_PER_RAIL,
+  truncateDevicesForRail,
+} from "@/lib/panel-rails";
 import { cn } from "@/lib/utils";
 import type { Device, DeviceType } from "@/types";
 
@@ -57,11 +65,6 @@ const typeShort: Record<DeviceType, string> = {
   pe_bus: "PE",
   n_bus: "N",
 };
-
-function deviceModules(device: Device): number {
-  if (device.modules && device.modules > 0) return device.modules;
-  return 1;
-}
 
 function DeviceBlock({
   device,
@@ -373,6 +376,7 @@ export function SchemeScreen({
   onAssignCircuit,
   onUpdateDeviceCharacteristic,
   onToggleDevicePower,
+  onRetakePhoto,
   onAssessSafety,
   onCallMaster,
   devices: devicesProp,
@@ -397,6 +401,7 @@ export function SchemeScreen({
     value: string,
   ) => void;
   onToggleDevicePower?: (deviceId: number) => void;
+  onRetakePhoto?: () => void;
   onAssessSafety?: (payload: {
     phases: "1" | "3";
     powerKw: string;
@@ -429,6 +434,7 @@ export function SchemeScreen({
   const [safetyAssessing, setSafetyAssessing] = useState(false);
   const [safetyProgress, setSafetyProgress] = useState(0);
   const [safetyHintOpen, setSafetyHintOpen] = useState(false);
+  const [unknownDismissed, setUnknownDismissed] = useState(false);
   const safetyFrameRef = useRef<number | null>(null);
   const selected = devices.find((d) => d.id === selectedId) ?? null;
 
@@ -438,27 +444,37 @@ export function SchemeScreen({
 
   // Group devices by rail
   const numRails = railCount ?? Math.max(1, ...allRailDevices.map((d) => (d.rail ?? 0) + 1));
-  const rails = useMemo(() => {
-    const grouped: Device[][] = Array.from({ length: numRails }, () => []);
-    for (const d of allRailDevices) {
-      const r = Math.min(d.rail ?? 0, numRails - 1);
-      grouped[r].push(d);
-    }
-    return grouped;
-  }, [allRailDevices, numRails]);
+  const rails = useMemo(
+    () => groupDevicesByRail(allRailDevices, numRails),
+    [allRailDevices, numRails],
+  );
+  const railDisplay = useMemo(
+    () =>
+      rails.map((railDevices) => ({
+        ...truncateDevicesForRail(railDevices),
+        all: railDevices,
+      })),
+    [rails],
+  );
+  const hasRailOverflow = railDisplay.some((rail) => rail.hasOverflow);
 
   const verified = devices.filter((d) => d.status === "verified").length;
   const pending = devices.filter((d) => d.status === "pending").length;
   const unknown = devices.filter((d) => d.status === "unknown").length;
+  const showUnknownPrompt =
+    !sharedPreview && unknown > 0 && !unknownDismissed && Boolean(onRetakePhoto);
 
-  // widest rail determines the panel width
+  // widest visible rail determines the panel width (capped at 18 modules)
   const widestRailModules = Math.max(
-    ...rails.map((rd) => rd.reduce((s, d) => s + deviceModules(d), 0)),
+    ...railDisplay.map((rail) =>
+      rail.visible.reduce((sum, device) => sum + deviceModules(device), 0),
+    ),
+    1,
   );
-  const widestRailDevices = Math.max(...rails.map((rd) => rd.length));
+  const widestRailDevices = Math.max(...railDisplay.map((rail) => rail.visible.length));
   const railMinWidth = Math.max(
     320,
-    widestRailModules * MODULE_PX +
+    Math.min(widestRailModules, MAX_MODULES_PER_RAIL) * MODULE_PX +
       Math.max(0, widestRailDevices - 1) * DEVICE_GAP_PX +
       32,
   );
@@ -636,6 +652,45 @@ export function SchemeScreen({
 
       {tab === "scheme" ? (
         <div className="flex-1 overflow-y-auto px-5 pb-4">
+          {showUnknownPrompt && (
+            <GlassCard className="mb-4 flex gap-3 border border-amber-200/80 bg-amber-50/90 p-4">
+              <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+              <div className="min-w-0 flex-1">
+                <p className="text-[14px] font-semibold text-amber-950">
+                  Не все приборы определены
+                </p>
+                <p className="mt-1 text-[13px] leading-relaxed text-amber-900/80">
+                  ИИ не смог распознать {unknown}{" "}
+                  {unknown === 1
+                    ? "прибор"
+                    : unknown < 5
+                      ? "прибора"
+                      : "приборов"}
+                  . Сделайте новое фото при хорошем освещении — так схема
+                  получится точнее.
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="h-10 rounded-full px-4 text-[13px]"
+                    onClick={() => onRetakePhoto?.()}
+                  >
+                    <Camera className="h-4 w-4" />
+                    Переснять щиток
+                  </Button>
+                  <button
+                    type="button"
+                    onClick={() => setUnknownDismissed(true)}
+                    className="rounded-full px-3 py-2 text-[13px] font-medium text-amber-800/80 transition-colors hover:bg-amber-100/80"
+                  >
+                    Позже
+                  </button>
+                </div>
+              </div>
+            </GlassCard>
+          )}
+
           <div className="overflow-x-auto">
             <GlassCard className="p-4" style={{ minWidth: railMinWidth }}>
             <div className="mb-3 flex items-center justify-between">
@@ -647,11 +702,18 @@ export function SchemeScreen({
               </span>
             </div>
 
-            {rails.map((railDevices, railIdx) => {
-              const railModules = railDevices.reduce(
-                (s, d) => s + deviceModules(d),
-                0,
-              );
+            {hasRailOverflow && (
+              <div className="mb-3 flex items-start gap-2 rounded-[14px] border border-amber-200/70 bg-amber-50/80 px-3 py-2.5">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                <p className="text-[12px] leading-relaxed text-amber-900/85">
+                  На одной рейке больше {MAX_MODULES_PER_RAIL} модулей — лишние
+                  приборы на схеме не показаны.
+                </p>
+              </div>
+            )}
+
+            {railDisplay.map((rail, railIdx) => {
+              const railModules = rail.totalModules;
               return (
                 <div key={railIdx} className={railIdx > 0 ? "mt-5" : ""}>
                   {numRails > 1 && (
@@ -661,6 +723,7 @@ export function SchemeScreen({
                       </span>
                       <span className="text-[11px] text-zinc-400">
                         {railModules} мод.
+                        {rail.hasOverflow ? ` · показано до ${MAX_MODULES_PER_RAIL}` : ""}
                       </span>
                     </div>
                   )}
@@ -669,7 +732,7 @@ export function SchemeScreen({
                     className="mb-2 flex items-start"
                     style={{ gap: DEVICE_GAP_PX }}
                   >
-                    {railDevices.map((device) => (
+                    {rail.visible.map((device) => (
                       <DeviceBlock
                         key={device.id}
                         device={device}
@@ -682,6 +745,12 @@ export function SchemeScreen({
                       />
                     ))}
                   </div>
+                  {rail.hasOverflow && numRails === 1 && (
+                    <p className="text-[11px] leading-relaxed text-amber-800/75">
+                      Показано {rail.visible.length} из {rail.all.length} приборов
+                      ({rail.hiddenModules} мод. скрыто).
+                    </p>
+                  )}
                 </div>
               );
             })}
