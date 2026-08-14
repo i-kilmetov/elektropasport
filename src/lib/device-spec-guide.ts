@@ -1,5 +1,9 @@
 import type { Device, DeviceType } from "@/types";
 import { getCharacteristicHint } from "@/lib/characteristic-hints";
+import {
+  DEVICE_TYPE_OPTIONS,
+  MANUFACTURER_BRANDS,
+} from "@/lib/manufacturer-brands";
 
 export type SpecFieldGuide = {
   key: string;
@@ -247,6 +251,7 @@ export function getSpecFieldOptions(
   if (field) return field.options;
 
   const common: Record<string, string[]> = {
+    Производитель: MANUFACTURER_BRANDS.map((brand) => brand.label),
     Полюса: ["1P", "1P+N", "2P", "3P", "3P+N", "4P"],
     "Кривая отключения": ["B", "C", "D"],
     "Номинальный ток": ["6 A", "10 A", "16 A", "20 A", "25 A", "32 A", "40 A", "63 A"],
@@ -256,8 +261,8 @@ export function getSpecFieldOptions(
     Диапазон: ["140–280 V", "160–280 V", "170–270 V"],
     Un: ["230 V", "400 V"],
     Модули: ["1", "2", "3", "4"],
-    Номинал: ["6 A", "10 A", "16 A", "25 A", "32 A", "40 A", "63 A"],
-    Тип: [],
+    Номинал: ["6 A", "10 A", "16 A", "25 A", "32 A", "40 A", "63 A", "10 A / 30 mA", "16 A / 30 mA", "25 A / 30 mA", "40 A / 30 mA", "63 A / 30 mA"],
+    Тип: DEVICE_TYPE_OPTIONS.map((item) => item.label),
   };
 
   return common[fieldKey] ?? [];

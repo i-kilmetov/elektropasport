@@ -22,8 +22,12 @@ export type ManufacturerBrandKey =
   | "navigator"
   | "kontaktor";
 
+/** Shared DIN housing fill — same for every brand. */
+export const DEVICE_BODY_COLOR = "#F4F4F5";
+export const DEVICE_BORDER_COLOR = "#D4D4D8";
+
 export type ManufacturerPalette = {
-  /** DIN housing fill */
+  /** DIN housing fill (always neutral; kept for API compatibility) */
   body: string;
   /** Top stripe + powered lever */
   accent: string;
@@ -48,9 +52,9 @@ export const MANUFACTURER_BRANDS: ManufacturerBrand[] = [
     label: "ABB",
     aliases: ["abb"],
     palette: {
-      body: "#F4F4F5",
+      body: DEVICE_BODY_COLOR,
       accent: "#FF000F",
-      border: "#D4D4D8",
+      border: DEVICE_BORDER_COLOR,
       text: "#18181B",
     },
   },
@@ -59,10 +63,10 @@ export const MANUFACTURER_BRANDS: ManufacturerBrand[] = [
     label: "Schneider Electric",
     aliases: ["schneider", "schneider electric", "se"],
     palette: {
-      body: "#F7FBF7",
+      body: DEVICE_BODY_COLOR,
       accent: "#3DCD58",
-      border: "#CDE8D4",
-      text: "#14532D",
+      border: DEVICE_BORDER_COLOR,
+      text: "#18181B",
     },
   },
   {
@@ -70,10 +74,10 @@ export const MANUFACTURER_BRANDS: ManufacturerBrand[] = [
     label: "Systeme Electric",
     aliases: ["systeme", "systeme electric", "systeme electric"],
     palette: {
-      body: "#F7FBF7",
+      body: DEVICE_BODY_COLOR,
       accent: "#3DCD58",
-      border: "#CDE8D4",
-      text: "#14532D",
+      border: DEVICE_BORDER_COLOR,
+      text: "#18181B",
     },
   },
   {
@@ -81,9 +85,9 @@ export const MANUFACTURER_BRANDS: ManufacturerBrand[] = [
     label: "Legrand",
     aliases: ["legrand"],
     palette: {
-      body: "#FAFAFA",
+      body: DEVICE_BODY_COLOR,
       accent: "#C8102E",
-      border: "#E4E4E7",
+      border: DEVICE_BORDER_COLOR,
       text: "#18181B",
     },
   },
@@ -92,9 +96,9 @@ export const MANUFACTURER_BRANDS: ManufacturerBrand[] = [
     label: "Hager",
     aliases: ["hager"],
     palette: {
-      body: "#FAFAF9",
+      body: DEVICE_BODY_COLOR,
       accent: "#E30613",
-      border: "#E4E4E7",
+      border: DEVICE_BORDER_COLOR,
       text: "#18181B",
     },
   },
@@ -103,10 +107,10 @@ export const MANUFACTURER_BRANDS: ManufacturerBrand[] = [
     label: "Chint",
     aliases: ["chint", "чинт"],
     palette: {
-      body: "#F5FBFE",
+      body: DEVICE_BODY_COLOR,
       accent: "#00A0E3",
-      border: "#BFE6F7",
-      text: "#0C4A6E",
+      border: DEVICE_BORDER_COLOR,
+      text: "#18181B",
     },
   },
   {
@@ -114,10 +118,10 @@ export const MANUFACTURER_BRANDS: ManufacturerBrand[] = [
     label: "IEK",
     aliases: ["iek", "иэк"],
     palette: {
-      body: "#FFF8F8",
+      body: DEVICE_BODY_COLOR,
       accent: "#E30613",
-      border: "#FECACA",
-      text: "#7F1D1D",
+      border: DEVICE_BORDER_COLOR,
+      text: "#18181B",
     },
   },
   {
@@ -125,10 +129,10 @@ export const MANUFACTURER_BRANDS: ManufacturerBrand[] = [
     label: "EKF",
     aliases: ["ekf", "экф"],
     palette: {
-      body: "#FFFAF5",
+      body: DEVICE_BODY_COLOR,
       accent: "#F36F21",
-      border: "#FED7AA",
-      text: "#9A3412",
+      border: DEVICE_BORDER_COLOR,
+      text: "#18181B",
     },
   },
   {
@@ -136,10 +140,10 @@ export const MANUFACTURER_BRANDS: ManufacturerBrand[] = [
     label: "DEKraft",
     aliases: ["dekraft", "декрафт"],
     palette: {
-      body: "#F5F8FC",
+      body: DEVICE_BODY_COLOR,
       accent: "#1B4F9C",
-      border: "#BFDBFE",
-      text: "#1E3A8A",
+      border: DEVICE_BORDER_COLOR,
+      text: "#18181B",
     },
   },
   {
@@ -147,10 +151,10 @@ export const MANUFACTURER_BRANDS: ManufacturerBrand[] = [
     label: "KEAZ",
     aliases: ["keaz", "кэаз"],
     palette: {
-      body: "#F5F8FF",
+      body: DEVICE_BODY_COLOR,
       accent: "#0033A0",
-      border: "#BFDBFE",
-      text: "#1E3A8A",
+      border: DEVICE_BORDER_COLOR,
+      text: "#18181B",
     },
   },
   {
@@ -158,10 +162,10 @@ export const MANUFACTURER_BRANDS: ManufacturerBrand[] = [
     label: "TDM Electric",
     aliases: ["tdm", "tdm electric", "тдм"],
     palette: {
-      body: "#FFF7ED",
+      body: DEVICE_BODY_COLOR,
       accent: "#EA580C",
-      border: "#FED7AA",
-      text: "#9A3412",
+      border: DEVICE_BORDER_COLOR,
+      text: "#18181B",
     },
   },
   {
@@ -169,10 +173,10 @@ export const MANUFACTURER_BRANDS: ManufacturerBrand[] = [
     label: "ZUBR",
     aliases: ["zubr", "зубр"],
     palette: {
-      body: "#FFFBEB",
+      body: DEVICE_BODY_COLOR,
       accent: "#D97706",
-      border: "#FDE68A",
-      text: "#92400E",
+      border: DEVICE_BORDER_COLOR,
+      text: "#18181B",
     },
   },
   {
@@ -180,10 +184,10 @@ export const MANUFACTURER_BRANDS: ManufacturerBrand[] = [
     label: "Меандр",
     aliases: ["meander", "меандр"],
     palette: {
-      body: "#F0FDFA",
+      body: DEVICE_BODY_COLOR,
       accent: "#0F766E",
-      border: "#99F6E4",
-      text: "#134E4A",
+      border: DEVICE_BORDER_COLOR,
+      text: "#18181B",
     },
   },
   {
@@ -191,10 +195,10 @@ export const MANUFACTURER_BRANDS: ManufacturerBrand[] = [
     label: "Новатек-Электро",
     aliases: ["novatek", "новатек", "новатек-электро", "новатэк-электро"],
     palette: {
-      body: "#EFF6FF",
+      body: DEVICE_BODY_COLOR,
       accent: "#1D4ED8",
-      border: "#BFDBFE",
-      text: "#1E3A8A",
+      border: DEVICE_BORDER_COLOR,
+      text: "#18181B",
     },
   },
   {
@@ -202,10 +206,10 @@ export const MANUFACTURER_BRANDS: ManufacturerBrand[] = [
     label: "Digitop",
     aliases: ["digitop", "дигитоп"],
     palette: {
-      body: "#F5F3FF",
+      body: DEVICE_BODY_COLOR,
       accent: "#7C3AED",
-      border: "#DDD6FE",
-      text: "#5B21B6",
+      border: DEVICE_BORDER_COLOR,
+      text: "#18181B",
     },
   },
   {
@@ -213,10 +217,10 @@ export const MANUFACTURER_BRANDS: ManufacturerBrand[] = [
     label: "Navigator",
     aliases: ["navigator", "навигатор"],
     palette: {
-      body: "#F8FAFC",
+      body: DEVICE_BODY_COLOR,
       accent: "#0F172A",
-      border: "#CBD5E1",
-      text: "#0F172A",
+      border: DEVICE_BORDER_COLOR,
+      text: "#18181B",
     },
   },
   {
@@ -224,10 +228,10 @@ export const MANUFACTURER_BRANDS: ManufacturerBrand[] = [
     label: "Контактор",
     aliases: ["kontaktor", "контактор"],
     palette: {
-      body: "#FFF1F2",
+      body: DEVICE_BODY_COLOR,
       accent: "#BE123C",
-      border: "#FECDD3",
-      text: "#9F1239",
+      border: DEVICE_BORDER_COLOR,
+      text: "#18181B",
     },
   },
 ];
@@ -237,9 +241,9 @@ const BRAND_BY_KEY = new Map(
 );
 
 const DEFAULT_PALETTE: ManufacturerPalette = {
-  body: "#FFFFFF",
+  body: DEVICE_BODY_COLOR,
   accent: "#71717A",
-  border: "#D4D4D8",
+  border: DEVICE_BORDER_COLOR,
   text: "#18181B",
 };
 

@@ -66,7 +66,11 @@ import {
   fetchSharedPanel,
 } from "@/lib/user-data";
 import { syncRatingFromCharacteristics } from "@/lib/device-spec-guide";
+import { deriveRailCount } from "@/lib/panel-rails";
 import { isInviteToken, type PanelQuota } from "@/lib/invites";
+import {
+  DEVICE_TYPE_OPTIONS,
+} from "@/lib/manufacturer-brands";
 import {
   getTelegramStartParam,
   isPanelShareToken,
@@ -82,6 +86,14 @@ import type {
 } from "@/types";
 import { installStatusLabels } from "@/types";
 import { cn } from "@/lib/utils";
+
+function panelRailCount(
+  panel: Pick<PanelObject, "railCount" | "devices"> | null | undefined,
+  fallbackDevices?: Device[] | null,
+): number {
+  if (panel?.railCount && panel.railCount > 0) return panel.railCount;
+  return deriveRailCount(panel?.devices ?? fallbackDevices);
+}
 
 function readSkipOnboarding(): boolean {
   if (typeof window === "undefined") return false;
@@ -290,7 +302,10 @@ export function AppShell() {
               devices: result.devices,
               linesCount: result.linesCount,
               photoDataUrl: photoDataUrl ?? item.photoDataUrl,
-              railCount: result.railCount ?? item.railCount ?? 1,
+              railCount:
+                result.railCount ??
+                item.railCount ??
+                deriveRailCount(result.devices),
               safety: null,
             };
             void persistPanel(next).catch((error) => console.error(error));
@@ -302,7 +317,9 @@ export function AppShell() {
         setDevices(result.devices);
         setSafetyScore(null);
         setLinesCount(result.linesCount);
-        setRailCount(result.railCount ?? 1);
+        setRailCount(
+          result.railCount ?? deriveRailCount(result.devices),
+        );
         hapticNotification("success");
         setScreen("scheme");
         return;
@@ -330,7 +347,7 @@ export function AppShell() {
         linesCount: result.linesCount,
         photoDataUrl: photoDataUrl ?? undefined,
         named: false,
-        railCount: result.railCount ?? 1,
+        railCount: result.railCount ?? deriveRailCount(result.devices),
       };
 
       setItems((prev) => [panel, ...prev]);
@@ -353,7 +370,7 @@ export function AppShell() {
       setDevices(result.devices);
       setSafetyScore(null);
       setLinesCount(result.linesCount);
-      setRailCount(result.railCount ?? 1);
+      setRailCount(result.railCount ?? deriveRailCount(result.devices));
       hapticNotification("success");
       setScreen("scheme");
       void refreshQuota();
@@ -378,7 +395,7 @@ export function AppShell() {
           : null,
       );
       setLinesCount(panel?.linesCount ?? null);
-      setRailCount(panel?.railCount ?? 1);
+      setRailCount(panelRailCount(panel));
       go("scheme");
     },
     [go, items],
@@ -397,7 +414,7 @@ export function AppShell() {
           : null,
       );
       setLinesCount(panel.linesCount ?? null);
-      setRailCount(panel.railCount ?? 1);
+      setRailCount(panelRailCount(panel));
       setScreen("scheme");
     },
     [],
@@ -443,10 +460,7 @@ export function AppShell() {
             : null,
         );
         setLinesCount(panel.linesCount ?? null);
-        setRailCount(
-          panel.railCount ??
-            Math.max(1, ...(panel.devices ?? []).map((d) => (d.rail ?? 0) + 1)),
-        );
+        setRailCount(panelRailCount(panel));
         setScreen("scheme");
       } catch (error) {
         setItemsError(
@@ -742,9 +756,22 @@ export function AppShell() {
 
       const patchDevice = (device: Device): Device => {
         if (device.id !== deviceId) return device;
+        const typeLabel = patch.type
+          ? (DEVICE_TYPE_OPTIONS.find((item) => item.type === patch.type)
+              ?.label ?? device.name)
+          : undefined;
+        const characteristics = {
+          ...(device.characteristics ?? {}),
+          ...(patch.manufacturer
+            ? { Производитель: patch.manufacturer }
+            : {}),
+          ...(typeLabel ? { Тип: typeLabel } : {}),
+        };
         return {
           ...device,
           ...patch,
+          name: typeLabel ?? device.name,
+          characteristics,
           // User confirmed identity — show logo/type/specs on the scheme.
           status: "verified",
           confidence: 100,

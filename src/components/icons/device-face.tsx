@@ -3,7 +3,11 @@
 import { useRef, useState, type MouseEvent, type ReactNode } from "react";
 import { motion } from "framer-motion";
 import { hapticContextMenu } from "@/lib/haptics";
-import { getManufacturerPalette } from "@/lib/manufacturer-brands";
+import {
+  DEVICE_BODY_COLOR,
+  DEVICE_BORDER_COLOR,
+  getManufacturerPalette,
+} from "@/lib/manufacturer-brands";
 import { cn } from "@/lib/utils";
 import type { Device, DeviceType } from "@/types";
 
@@ -383,16 +387,8 @@ export function DeviceFaceStatic({
   const powered = isDevicePowered(device);
   const palette = devicePalette(device);
   const accent = showDetails ? palette.accent : "#A1A1AA";
-  const body = powered
-    ? showDetails
-      ? palette.body
-      : "#FAFAFA"
-    : "#F4F4F5";
-  const border = powered
-    ? showDetails
-      ? palette.border
-      : "#E4E4E7"
-    : "#E4E4E7";
+  const body = powered ? DEVICE_BODY_COLOR : "#F4F4F5";
+  const border = DEVICE_BORDER_COLOR;
 
   return (
     <div
@@ -447,11 +443,7 @@ export function DeviceFaceStatic({
             powered={powered}
           />
         ) : (
-          <div className="mt-auto px-[1px]">
-            <span className="block text-left text-[8px] font-semibold leading-tight text-amber-700">
-              Уточнить
-            </span>
-          </div>
+          <div className="mt-auto" aria-hidden />
         )}
       </div>
       {showTerminals && (

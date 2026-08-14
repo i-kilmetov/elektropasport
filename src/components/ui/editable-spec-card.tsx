@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { GlassCard } from "@/components/ui/glass-card";
 import {
@@ -12,9 +12,6 @@ import { getSpecFieldOptions } from "@/lib/device-spec-guide";
 import { hapticContextMenu } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
 import type { DeviceType } from "@/types";
-
-const LONG_PRESS_MS = 480;
-const MOVE_CANCEL_PX = 10;
 
 export function EditableSpecCard({
   deviceType,
@@ -31,47 +28,10 @@ export function EditableSpecCard({
 }) {
   const [hintOpen, setHintOpen] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
-  const timerRef = useRef<number | null>(null);
-  const startRef = useRef<{ x: number; y: number } | null>(null);
-  const longPressedRef = useRef(false);
 
   const hint = getCharacteristicHint(label);
   const options = getSpecFieldOptions(deviceType, label);
   const canEdit = editable && options.length > 0 && Boolean(onChange);
-
-  const clearTimer = () => {
-    if (timerRef.current != null) {
-      window.clearTimeout(timerRef.current);
-      timerRef.current = null;
-    }
-  };
-
-  const endPress = () => {
-    clearTimer();
-    startRef.current = null;
-  };
-
-  const onPointerDown = (clientX: number, clientY: number) => {
-    if (!canEdit) return;
-    longPressedRef.current = false;
-    clearTimer();
-    startRef.current = { x: clientX, y: clientY };
-    timerRef.current = window.setTimeout(() => {
-      longPressedRef.current = true;
-      hapticContextMenu();
-      setPickerOpen(true);
-    }, LONG_PRESS_MS);
-  };
-
-  const onPointerMove = (clientX: number, clientY: number) => {
-    const start = startRef.current;
-    if (!start) return;
-    const dx = Math.abs(clientX - start.x);
-    const dy = Math.abs(clientY - start.y);
-    if (dx > MOVE_CANCEL_PX || dy > MOVE_CANCEL_PX) {
-      endPress();
-    }
-  };
 
   if (!canEdit) {
     return <SpecCharacteristicCard label={label} value={value} />;
@@ -81,22 +41,12 @@ export function EditableSpecCard({
     <>
       <GlassCard
         className={cn(
-          "p-3 touch-manipulation select-none",
+          "cursor-pointer p-3 touch-manipulation select-none",
           pickerOpen && "ring-2 ring-zinc-900/20",
         )}
-        onPointerDown={(e) => {
-          if (e.button !== 0) return;
-          onPointerDown(e.clientX, e.clientY);
-        }}
-        onPointerMove={(e) => onPointerMove(e.clientX, e.clientY)}
-        onPointerUp={endPress}
-        onPointerLeave={endPress}
-        onPointerCancel={endPress}
-        onClick={(e) => {
-          if (longPressedRef.current) {
-            e.preventDefault();
-            longPressedRef.current = false;
-          }
+        onClick={() => {
+          hapticContextMenu();
+          setPickerOpen(true);
         }}
       >
         <div className="flex items-start justify-between gap-2">
@@ -106,17 +56,22 @@ export function EditableSpecCard({
               {value}
             </div>
             <p className="mt-1.5 text-[10px] text-zinc-400">
-              Удержите, чтобы изменить
+              Нажмите, чтобы изменить
             </p>
           </div>
-          <HintInfoButton
-            label={`Пояснение: ${label}`}
-            open={hintOpen}
-            onToggle={() => setHintOpen((v) => !v)}
-          />
+          <div onClick={(e) => e.stopPropagation()}>
+            <HintInfoButton
+              label={`Пояснение: ${label}`}
+              open={hintOpen}
+              onToggle={() => setHintOpen((v) => !v)}
+            />
+          </div>
         </div>
         {hintOpen && (
-          <p className="mt-2.5 border-t border-black/[0.06] pt-2.5 text-[12px] leading-relaxed text-zinc-500">
+          <p
+            className="mt-2.5 border-t border-black/[0.06] pt-2.5 text-[12px] leading-relaxed text-zinc-500"
+            onClick={(e) => e.stopPropagation()}
+          >
             {hint}
           </p>
         )}

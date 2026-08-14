@@ -172,6 +172,10 @@ export async function ensureSchema(): Promise<void> {
         ADD COLUMN IF NOT EXISTS has_ground BOOLEAN
       `;
       await sql`
+        ALTER TABLE panels
+        ADD COLUMN IF NOT EXISTS rail_count INT
+      `;
+      await sql`
         CREATE TABLE IF NOT EXISTS panel_shares (
           token TEXT PRIMARY KEY,
           panel_id TEXT NOT NULL,
@@ -391,6 +395,7 @@ type PanelRow = {
   phases: string | null;
   power_kw: string | null;
   has_ground: boolean | null;
+  rail_count: number | null;
   source_share_token: string | null;
   created_at: string;
 };
@@ -438,6 +443,10 @@ function rowToPanel(row: PanelRow): PanelObject {
         : row.has_ground === false
           ? false
           : undefined,
+    railCount:
+      typeof row.rail_count === "number" && row.rail_count > 0
+        ? row.rail_count
+        : undefined,
     sourceShareToken: row.source_share_token ?? undefined,
   };
 }
@@ -484,7 +493,7 @@ export async function listHomeItems(
     SELECT
       id, type, title, address, last_check, breakers, safety,
       devices, lines_count, photo_data_url, named, phases, power_kw,
-      has_ground, source_share_token, created_at
+      has_ground, rail_count, source_share_token, created_at
     FROM panels
     WHERE telegram_user_id = ${telegramUserId}
   `) as PanelRow[];
@@ -528,7 +537,7 @@ export async function insertPanel(
     INSERT INTO panels (
       id, telegram_user_id, type, title, address, last_check, breakers, safety,
       devices, lines_count, photo_data_url, named, phases, power_kw,
-      has_ground, source_share_token, created_at, updated_at
+      has_ground, rail_count, source_share_token, created_at, updated_at
     ) VALUES (
       ${panel.id},
       ${telegramUserId},
@@ -545,6 +554,7 @@ export async function insertPanel(
       ${panel.phases ?? null},
       ${panel.powerKw ?? null},
       ${panel.hasGround ?? null},
+      ${panel.railCount ?? null},
       ${panel.sourceShareToken ?? null},
       NOW(),
       NOW()
@@ -561,6 +571,7 @@ export async function insertPanel(
       phases = EXCLUDED.phases,
       power_kw = EXCLUDED.power_kw,
       has_ground = EXCLUDED.has_ground,
+      rail_count = EXCLUDED.rail_count,
       source_share_token = EXCLUDED.source_share_token,
       updated_at = NOW()
     WHERE panels.telegram_user_id = ${telegramUserId}
@@ -593,7 +604,7 @@ export async function updatePanel(
     RETURNING
       id, type, title, address, last_check, breakers, safety,
       devices, lines_count, photo_data_url, named, phases, power_kw,
-      has_ground, source_share_token, created_at
+      has_ground, rail_count, source_share_token, created_at
   `) as PanelRow[];
   return rows[0] ? rowToPanel(rows[0]) : null;
 }
@@ -607,7 +618,7 @@ export async function getPanelByOwner(
     SELECT
       id, type, title, address, last_check, breakers, safety,
       devices, lines_count, photo_data_url, named, phases, power_kw,
-      has_ground, source_share_token, created_at
+      has_ground, rail_count, source_share_token, created_at
     FROM panels
     WHERE id = ${id} AND telegram_user_id = ${telegramUserId}
     LIMIT 1
@@ -645,7 +656,7 @@ export async function getSharedPanel(token: string): Promise<{
       panels.id, panels.type, panels.title, panels.address, panels.last_check,
       panels.breakers, panels.safety, panels.devices, panels.lines_count,
       panels.photo_data_url, panels.named, panels.phases, panels.power_kw,
-      panels.has_ground, panels.source_share_token, panels.created_at,
+      panels.has_ground, panels.rail_count, panels.source_share_token, panels.created_at,
       panel_shares.owner_telegram_id
     FROM panel_shares
     JOIN panels ON panels.id = panel_shares.panel_id

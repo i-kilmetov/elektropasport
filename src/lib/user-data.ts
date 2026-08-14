@@ -146,19 +146,24 @@ export async function fetchHomeItems(): Promise<HomeListItem[]> {
   }
 
   const data = (await res.json()) as { items: HomeListItem[] };
-  // Preserve local-only photos when server has the same panel without photo
   const localById = new Map(
     readLocalItems()
-      .filter((i): i is PanelObject => i.kind === "panel" && Boolean(i.photoDataUrl))
-      .map((i) => [i.id, i.photoDataUrl]),
+      .filter((i): i is PanelObject => i.kind === "panel")
+      .map((i) => [i.id, i]),
   );
   const merged = data.items.map((item) => {
     if (item.kind !== "panel") return item;
-    const localPhoto = localById.get(item.id);
-    if (localPhoto && !item.photoDataUrl) {
-      return { ...item, photoDataUrl: localPhoto };
-    }
-    return item;
+    const local = localById.get(item.id);
+    if (!local) return item;
+    const serverDevices = item.devices ?? [];
+    const localDevices = local.devices ?? [];
+    return {
+      ...item,
+      photoDataUrl: item.photoDataUrl || local.photoDataUrl,
+      devices:
+        serverDevices.length > 0 ? serverDevices : localDevices,
+      railCount: item.railCount ?? local.railCount,
+    };
   });
   writeLocalItems(merged);
   return merged;

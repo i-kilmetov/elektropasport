@@ -64,3 +64,14 @@ export function groupDevicesByRail(
   }
   return rails;
 }
+
+/** Infer row count from device.rail when panel.railCount was not persisted. */
+export function deriveRailCount(devices?: Device[] | null): number {
+  const list = (devices ?? []).filter(
+    (device) => device.type !== "pe_bus" && device.type !== "n_bus",
+  );
+  if (list.length === 0) return 1;
+  const maxRail =
+    list.reduce((max, device) => Math.max(max, device.rail ?? 0), 0) + 1;
+  return Math.min(4, Math.max(1, maxRail));
+}
