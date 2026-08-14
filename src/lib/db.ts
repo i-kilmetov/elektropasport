@@ -818,11 +818,15 @@ export async function insertMasterApplication(
 }
 
 export async function getPublicStats(): Promise<{
+  usersCount: number;
   panelsCount: number;
   mastersCount: number;
 }> {
   const sql = getSql();
   await ensureSchema();
+  const [usersRow] = (await sql`
+    SELECT COUNT(*)::int AS count FROM users
+  `) as Array<{ count: number }>;
   const [panelsRow] = (await sql`
     SELECT COUNT(*)::int AS count FROM panels
   `) as Array<{ count: number }>;
@@ -831,6 +835,7 @@ export async function getPublicStats(): Promise<{
     FROM master_applications
   `) as Array<{ count: number }>;
   return {
+    usersCount: usersRow?.count ?? 0,
     panelsCount: panelsRow?.count ?? 0,
     mastersCount: mastersRow?.count ?? 0,
   };
