@@ -92,6 +92,26 @@ export function formatProfileDisplayName(profile: UserProfile): string {
   return [profile.firstName, profile.lastName].filter(Boolean).join(" ").trim();
 }
 
+/** Telegram-style initials: first letters of first and last name. */
+export function profileInitials(
+  profile: UserProfile,
+  fallback = "",
+): string {
+  const first = Array.from(profile.firstName?.trim() ?? "");
+  const last = Array.from(profile.lastName?.trim() ?? "");
+  const extra = Array.from(fallback.replace(/^@/, "").trim());
+  const upper = (value: string) => value.toLocaleUpperCase("ru-RU");
+
+  if (first[0] && last[0]) return upper(first[0] + last[0]);
+  if (first.length >= 2) return upper(first[0] + first[1]);
+  if (first[0]) return upper(first[0]);
+  if (last.length >= 2) return upper(last[0] + last[1]);
+  if (last[0]) return upper(last[0]);
+  if (extra.length >= 2) return upper(extra[0] + extra[1]);
+  if (extra[0]) return upper(extra[0]);
+  return "";
+}
+
 async function parseError(res: Response): Promise<string> {
   try {
     const data = (await res.json()) as { error?: string };

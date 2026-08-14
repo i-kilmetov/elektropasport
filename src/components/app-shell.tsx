@@ -106,7 +106,7 @@ export function AppShell() {
   const [linesCount, setLinesCount] = useState<number | null>(null);
   const [railCount, setRailCount] = useState<number | null>(null);
   const [pendingAuthAction, setPendingAuthAction] = useState<
-    "add-panel" | "no-panel" | "call-master" | "send-request" | null
+    "add-panel" | "no-panel" | "call-master" | null
   >(null);
   const [leadBackScreen, setLeadBackScreen] = useState<AppScreen>(
     "panel-advantages",
@@ -172,7 +172,6 @@ export function AppShell() {
       | "add-panel"
       | "no-panel"
       | "call-master"
-      | "send-request"
       | null;
     if (!pending || !canUseServerAuth()) return;
 
@@ -186,10 +185,6 @@ export function AppShell() {
       setLeadFlow("install");
       setLeadBackScreen("scheme");
       setScreen("lead-contact");
-    } else if (pending === "send-request") {
-      setLeadFlow("install");
-      setLeadBackScreen("objects");
-      setScreen("request-type");
     }
   }, []);
 
@@ -244,21 +239,6 @@ export function AppShell() {
       return;
     }
     setPendingAuthAction("call-master");
-    go("telegram-auth");
-  }, [go]);
-
-  const startSubmitRequest = useCallback(() => {
-    setLeadFlow("install");
-    setElectricalDetails(null);
-    setSelectedCity(null);
-    setNoPanelSetupId(null);
-    setRequestNeedId(null);
-    setLeadBackScreen("objects");
-    if (canUseServerAuth()) {
-      go("request-type");
-      return;
-    }
-    setPendingAuthAction("send-request");
     go("telegram-auth");
   }, [go]);
 
@@ -860,7 +840,6 @@ export function AppShell() {
               onDeleteItem={deleteHomeItem}
               onRenameItem={renameHomeItem}
               onNoPanel={() => requireTelegramAuth("no-panel")}
-              onSubmitRequest={startSubmitRequest}
               onMenuSelect={(id) => {
                 if (id === "profile") go("profile");
                 if (id === "about") go("about-service");

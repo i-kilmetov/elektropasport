@@ -245,7 +245,6 @@ export function ObjectsScreen({
   onDeleteItem,
   onRenameItem,
   onNoPanel,
-  onSubmitRequest,
   onMenuSelect,
 }: {
   items: HomeListItem[];
@@ -257,7 +256,6 @@ export function ObjectsScreen({
   onDeleteItem: (id: string) => void;
   onRenameItem: (id: string, name: string) => void;
   onNoPanel: () => void;
-  onSubmitRequest: () => void;
   onMenuSelect: (id: MainMenuId) => void;
 }) {
   const [page, setPage] = useState(0);
@@ -308,6 +306,7 @@ export function ObjectsScreen({
       ),
     [items],
   );
+  const showRequests = requests.length > 0;
 
   const pendingDelete = items.find((item) => item.id === pendingDeleteId);
   const actionsItem = items.find((item) => item.id === actionsItemId);
@@ -328,6 +327,7 @@ export function ObjectsScreen({
   }, []);
 
   useLayoutEffect(() => {
+    if (!showRequests) return;
     const first = tab0Ref.current;
     const second = tab1Ref.current;
     if (!first || !second) return;
@@ -344,7 +344,14 @@ export function ObjectsScreen({
     observer.observe(first);
     observer.observe(second);
     return () => observer.disconnect();
-  }, [panels.length, requests.length]);
+  }, [panels.length, requests.length, showRequests]);
+
+  useEffect(() => {
+    if (!showRequests && page !== 0) {
+      pageRef.current = 0;
+      setPage(0);
+    }
+  }, [page, showRequests]);
 
   useEffect(() => {
     if (!pagerWidth) return;
@@ -363,6 +370,10 @@ export function ObjectsScreen({
   };
 
   const onPagerDragEnd = (_: unknown, info: PanInfo) => {
+    if (!showRequests) {
+      snapTo(0);
+      return;
+    }
     const current = pageRef.current as 0 | 1;
     const { offset, velocity } = info;
     const absOffset = Math.abs(offset.x);
@@ -445,39 +456,43 @@ export function ObjectsScreen({
           >
             <Menu className="h-5 w-5" />
           </button>
-          <div className="relative flex rounded-full bg-zinc-100 p-1">
-            {tabMetrics.width0 > 0 && (
-              <motion.div
-                aria-hidden
-                className="pointer-events-none absolute top-1 h-[calc(100%-8px)] rounded-full bg-white shadow-sm"
-                style={{ left: pillLeft, width: pillWidth }}
-              />
-            )}
-            <motion.button
-              ref={tab0Ref}
-              type="button"
-              onClick={() => settlePage(0)}
-              style={{ color: tab0Color }}
-              className="relative z-10 rounded-full px-3 py-1.5 text-[13px] font-semibold"
-            >
-              Щитки
-              <span className="ml-1 text-[11px] font-medium text-zinc-400">
-                {panels.length}
-              </span>
-            </motion.button>
-            <motion.button
-              ref={tab1Ref}
-              type="button"
-              onClick={() => settlePage(1)}
-              style={{ color: tab1Color }}
-              className="relative z-10 rounded-full px-3 py-1.5 text-[13px] font-semibold"
-            >
-              Заявки
-              <span className="ml-1 text-[11px] font-medium text-zinc-400">
-                {requests.length}
-              </span>
-            </motion.button>
-          </div>
+          {showRequests ? (
+            <div className="relative flex rounded-full bg-zinc-100 p-1">
+              {tabMetrics.width0 > 0 && (
+                <motion.div
+                  aria-hidden
+                  className="pointer-events-none absolute top-1 h-[calc(100%-8px)] rounded-full bg-white shadow-sm"
+                  style={{ left: pillLeft, width: pillWidth }}
+                />
+              )}
+              <motion.button
+                ref={tab0Ref}
+                type="button"
+                onClick={() => settlePage(0)}
+                style={{ color: tab0Color }}
+                className="relative z-10 rounded-full px-3 py-1.5 text-[13px] font-semibold"
+              >
+                Щитки
+                <span className="ml-1 text-[11px] font-medium text-zinc-400">
+                  {panels.length}
+                </span>
+              </motion.button>
+              <motion.button
+                ref={tab1Ref}
+                type="button"
+                onClick={() => settlePage(1)}
+                style={{ color: tab1Color }}
+                className="relative z-10 rounded-full px-3 py-1.5 text-[13px] font-semibold"
+              >
+                Заявки
+                <span className="ml-1 text-[11px] font-medium text-zinc-400">
+                  {requests.length}
+                </span>
+              </motion.button>
+            </div>
+          ) : (
+            <h1 className="text-[20px] font-semibold text-zinc-900">Щитки</h1>
+          )}
         </div>
       </header>
 
@@ -490,23 +505,27 @@ export function ObjectsScreen({
       <div ref={pagerRef} className="min-h-0 flex-1 overflow-hidden">
         <motion.div
           className="flex h-full touch-pan-y"
-          drag="x"
+          drag={showRequests ? "x" : false}
           dragDirectionLock
           dragElastic={0.16}
           dragConstraints={{
-            left: pagerWidth ? -pagerWidth : 0,
+            left: pagerWidth && showRequests ? -pagerWidth : 0,
             right: 0,
           }}
           dragMomentum={false}
           style={{
             x,
-            width: pagerWidth ? pagerWidth * 2 : "200%",
+            width: pagerWidth
+              ? pagerWidth * (showRequests ? 2 : 1)
+              : showRequests
+                ? "200%"
+                : "100%",
           }}
           onDragEnd={onPagerDragEnd}
         >
           <div
             className="flex h-full min-h-0 flex-col px-5"
-            style={{ width: pagerWidth || "50%" }}
+            style={{ width: pagerWidth || (showRequests ? "50%" : "100%") }}
           >
             <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
               {renderList(panels, {
@@ -515,22 +534,24 @@ export function ObjectsScreen({
               })}
             </div>
           </div>
-          <div
-            className="flex h-full min-h-0 flex-col px-5"
-            style={{ width: pagerWidth || "50%" }}
-          >
-            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
-              {renderList(requests, {
-                icon: <ClipboardList className="h-10 w-10" />,
-                text: "Здесь появятся ваши заявки на консультацию, проект, сборку щитка или монтаж.",
-              })}
+          {showRequests && (
+            <div
+              className="flex h-full min-h-0 flex-col px-5"
+              style={{ width: pagerWidth || "50%" }}
+            >
+              <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
+                {renderList(requests, {
+                  icon: <ClipboardList className="h-10 w-10" />,
+                  text: "Здесь появятся заявки, оформленные по сценарию «У меня нет щитка».",
+                })}
+              </div>
             </div>
-          </div>
+          )}
         </motion.div>
       </div>
 
-      <div className="shrink-0 border-t border-black/[0.06] bg-[var(--bg)] px-5 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
-        {page === 0 ? (
+      {page === 0 && (
+        <div className="shrink-0 border-t border-black/[0.06] bg-[var(--bg)] px-5 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
           <div className="space-y-3">
             <Button className="w-full" onClick={onAdd}>
               <Plus className="h-5 w-5" />
@@ -544,12 +565,8 @@ export function ObjectsScreen({
               У меня нет щитка
             </button>
           </div>
-        ) : (
-          <Button className="w-full" onClick={onSubmitRequest}>
-            Отправить заявку
-          </Button>
-        )}
-      </div>
+        </div>
+      )}
 
       <AnimatePresence>
         {menuOpen && (

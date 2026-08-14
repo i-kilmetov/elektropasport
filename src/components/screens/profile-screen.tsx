@@ -2,13 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, Check, Phone, X } from "lucide-react";
-import {
-  AvatarIcon,
-  AVATAR_IDS,
-  isAvatarId,
-  type AvatarId,
-} from "@/components/icons/avatar-icon";
+import { ArrowLeft, Check, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { GlassCard } from "@/components/ui/glass-card";
@@ -24,98 +18,23 @@ import {
   formatProfileDisplayName,
   getUserProfile,
   persistUserProfile,
+  profileInitials,
   syncUserProfileFromServer,
 } from "@/lib/user-profile";
-import { cn } from "@/lib/utils";
 
 type ProfileDraft = {
   firstName: string;
   lastName: string;
   birthDate: string;
   digits: string;
-  avatarId: AvatarId;
 };
-
-function AvatarPickerSheet({
-  selected,
-  onSelect,
-  onClose,
-}: {
-  selected: AvatarId;
-  onSelect: (id: AvatarId) => void;
-  onClose: () => void;
-}) {
-  return (
-    <Portal>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[110] flex items-end bg-black/60 backdrop-blur-sm"
-        onClick={onClose}
-      >
-        <motion.div
-          initial={{ y: 40 }}
-          animate={{ y: 0 }}
-          exit={{ y: 40 }}
-          transition={{ type: "spring", stiffness: 320, damping: 30 }}
-          onClick={(e) => e.stopPropagation()}
-          className="w-full rounded-t-[28px] border border-black/8 bg-white p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-2xl"
-        >
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <div>
-              <h2 className="text-[18px] font-semibold text-zinc-900">
-                Иконка профиля
-              </h2>
-              <p className="mt-0.5 text-[13px] text-zinc-500">
-                Выберите схематичный аватар
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex h-10 w-10 items-center justify-center rounded-full border border-black/8 bg-zinc-100 text-zinc-600"
-              aria-label="Закрыть"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-
-          <div className="grid grid-cols-3 gap-3">
-            {AVATAR_IDS.map((id) => (
-              <button
-                key={id}
-                type="button"
-                onClick={() => {
-                  onSelect(id);
-                  onClose();
-                }}
-                className={cn(
-                  "flex aspect-square items-center justify-center rounded-[20px] border p-2 transition-colors",
-                  selected === id
-                    ? "border-zinc-900 bg-zinc-900/5 ring-2 ring-zinc-900"
-                    : "border-black/8 bg-zinc-50 hover:bg-zinc-100",
-                )}
-                aria-label={`Аватар ${id}`}
-                aria-pressed={selected === id}
-              >
-                <AvatarIcon id={id} className="h-full w-full" />
-              </button>
-            ))}
-          </div>
-        </motion.div>
-      </motion.div>
-    </Portal>
-  );
-}
 
 function sameDraft(a: ProfileDraft, b: ProfileDraft): boolean {
   return (
     a.firstName.trim() === b.firstName.trim() &&
     a.lastName.trim() === b.lastName.trim() &&
     a.birthDate === b.birthDate &&
-    a.digits === b.digits &&
-    a.avatarId === b.avatarId
+    a.digits === b.digits
   );
 }
 
@@ -143,14 +62,12 @@ export function ProfileScreen({
       lastName: initial.lastName ?? telegramDefaults.lastName,
       birthDate: initial.birthDate ?? "",
       digits: initial.phoneDigits ?? "",
-      avatarId: isAvatarId(initial.avatarId) ? initial.avatarId : "circle",
     }),
     [initial, telegramDefaults],
   );
 
   const [draft, setDraft] = useState<ProfileDraft>(initialDraft);
   const [baseline, setBaseline] = useState<ProfileDraft>(initialDraft);
-  const [pickerOpen, setPickerOpen] = useState(false);
   const [logoutOpen, setLogoutOpen] = useState(false);
   const [saveFlash, setSaveFlash] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -174,7 +91,6 @@ export function ProfileScreen({
           lastName: profile.lastName ?? telegramDefaults.lastName,
           birthDate: profile.birthDate ?? "",
           digits: profile.phoneDigits ?? "",
-          avatarId: isAvatarId(profile.avatarId) ? profile.avatarId : "circle",
         };
         setDraft(next);
         setBaseline(next);
@@ -193,18 +109,17 @@ export function ProfileScreen({
     setError(null);
     try {
       const saved = await persistUserProfile({
+        ...getUserProfile(),
         firstName: draft.firstName.trim() || undefined,
         lastName: draft.lastName.trim() || undefined,
         birthDate: draft.birthDate || undefined,
         phoneDigits: draft.digits || undefined,
-        avatarId: draft.avatarId,
       });
       const next: ProfileDraft = {
         firstName: saved.firstName ?? telegramDefaults.firstName,
         lastName: saved.lastName ?? telegramDefaults.lastName,
         birthDate: saved.birthDate ?? "",
         digits: saved.phoneDigits ?? "",
-        avatarId: isAvatarId(saved.avatarId) ? saved.avatarId : draft.avatarId,
       };
       setDraft(next);
       setBaseline(next);
@@ -222,6 +137,11 @@ export function ProfileScreen({
       setSaving(false);
     }
   };
+
+  const initials = profileInitials(
+    { firstName: draft.firstName, lastName: draft.lastName },
+    telegram.username,
+  );
 
   const logout = () => {
     clearBrowserSession();
@@ -261,14 +181,12 @@ export function ProfileScreen({
         )}
 
         <div className="flex flex-col items-center gap-3">
-          <button
-            type="button"
-            onClick={() => setPickerOpen(true)}
-            className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full border border-black/8 bg-zinc-100 transition-transform active:scale-95"
-            aria-label="Сменить иконку профиля"
+          <div
+            className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-[#6B8AFD] text-[26px] font-semibold tracking-wide text-white"
+            aria-hidden
           >
-            <AvatarIcon id={draft.avatarId} />
-          </button>
+            {initials || "?"}
+          </div>
           {telegram.username && (
             <p className="truncate text-[14px] text-zinc-500">
               @{telegram.username}
@@ -394,16 +312,6 @@ export function ProfileScreen({
           </Button>
         )}
       </div>
-
-      <AnimatePresence>
-        {pickerOpen && (
-          <AvatarPickerSheet
-            selected={draft.avatarId}
-            onSelect={(id) => setDraft((prev) => ({ ...prev, avatarId: id }))}
-            onClose={() => setPickerOpen(false)}
-          />
-        )}
-      </AnimatePresence>
 
       <AnimatePresence>
         {logoutOpen && (
