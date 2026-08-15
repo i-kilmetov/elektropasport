@@ -31,11 +31,30 @@ export interface Device {
   brandKey?: string;
   /** Which DIN rail row this device is on (0-based, default 0) */
   rail?: number;
-  /** Switch state on the scheme. Default ON when undefined. */
+  /** @deprecated Devices are always shown ON on the scheme. */
   powered?: boolean;
   /** Icon id for the printable DIN-rail sticker */
   stickerIcon?: string;
 }
+
+/** One screw terminal on a DIN module face (top or bottom row). */
+export type TerminalRef = {
+  deviceId: number;
+  side: "top" | "bottom";
+  /** 0-based module index within the device */
+  index: number;
+};
+
+/** User-drawn cable between two terminals on the panel scheme. */
+export type PanelWire = {
+  id: string;
+  from: TerminalRef;
+  to: TerminalRef;
+  /** CSS color / hex for the insulation */
+  color: string;
+  /** Cross-section in mm² */
+  thicknessMm: number;
+};
 
 export type ObjectType = "apartment" | "house" | "garage" | "dacha";
 
@@ -55,6 +74,8 @@ export interface PanelObject {
   named?: boolean;
   /** Number of DIN rails (rows) in the panel, 1–4 */
   railCount?: number;
+  /** User wiring between device terminals */
+  wires?: PanelWire[];
   /** Declared supply phases for safety assessment */
   phases?: "1" | "3";
   /** Declared allocated power in kW */

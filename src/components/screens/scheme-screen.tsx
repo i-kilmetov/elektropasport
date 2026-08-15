@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowLeft,
@@ -27,6 +27,10 @@ import {
   DEVICE_GAP_PX,
   MODULE_PX,
 } from "@/components/icons/device-face";
+import {
+  findTerminalAtPoint,
+  PanelWiresSvg,
+} from "@/components/scheme/panel-wires-svg";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
@@ -36,11 +40,19 @@ import { Progress } from "@/components/ui/progress";
 import { SafetyParamsSheet } from "@/components/ui/safety-params-sheet";
 import { SafetyExplainSheet } from "@/components/ui/safety-explain-sheet";
 import { EditableSpecCard } from "@/components/ui/editable-spec-card";
+import { WireSpecSheet } from "@/components/ui/wire-spec-sheet";
 import { circuitIdentifySteps } from "@/lib/device-catalog";
 import { deviceTypeGuide } from "@/lib/panel-device-guide";
 import {
   manualSpecEditDisclaimer,
 } from "@/lib/device-spec-guide";
+import {
+  createWireId,
+  sameTerminal,
+  terminalKey,
+  wireConnectsSamePair,
+} from "@/lib/panel-wires";
+import { hapticContextMenu, hapticImpact } from "@/lib/haptics";
 import {
   analyzePanelSafety,
   computePanelSafetyScore,
@@ -63,7 +75,9 @@ import {
   MANUFACTURER_BRANDS,
 } from "@/lib/manufacturer-brands";
 import { cn } from "@/lib/utils";
-import type { Device, DeviceType } from "@/types";
+import type { Device, DeviceType, PanelWire, TerminalRef } from "@/types";
+
+const TERMINAL_HOLD_MS = 320;
 
 const typeShort: Record<DeviceType, string> = {
   main_breaker: "Ввод",
@@ -80,13 +94,20 @@ const typeShort: Record<DeviceType, string> = {
 function DeviceBlock({
   device,
   selected,
+  showTerminals,
+  highlightTerminalKey,
   onSelect,
-  onTogglePower,
+  onTerminalPointerDown,
 }: {
   device: Device;
   selected: boolean;
+  showTerminals: boolean;
+  highlightTerminalKey?: string | null;
   onSelect: (clientY: number) => void;
-  onTogglePower?: (deviceId: number) => void;
+  onTerminalPointerDown?: (
+    terminal: { deviceId: number; side: "top" | "bottom"; index: number },
+    event: PointerEvent<HTMLButtonElement>,
+  ) => void;
 }) {
   const modules = deviceModules(device);
   const width = modules * MODULE_PX;
@@ -106,10 +127,12 @@ function DeviceBlock({
         device={device}
         modules={modules}
         selected={selected}
-        showTerminals={false}
+        showTerminals={showTerminals}
+        interactiveTerminals={showTerminals}
+        highlightTerminalKey={highlightTerminalKey}
         showDetails={confident}
         onSelect={(event) => onSelect(event.clientY)}
-        onLongPress={() => onTogglePower?.(device.id)}
+        onTerminalPointerDown={onTerminalPointerDown}
         brand={
           confident ? (
             <BrandMark brandKey={device.brandKey} brand={device.manufacturer} />
@@ -267,7 +290,7 @@ function DeviceSheet({
               </p>
             )}
             <p className="mt-1 text-[12px] text-zinc-400">
-              На схеме удержите прибор, чтобы переключить состояние
+              Включите «Клеммы» на схеме, чтобы провести кабели между приборами
             </p>
             {device.circuitLabel?.trim() && (
               <p className="mt-1 text-[13px] text-zinc-600">
@@ -469,10 +492,11 @@ export function SchemeScreen({
   onUpdateDeviceCharacteristic,
   onUpdateDeviceIdentity,
   onUpdateDeviceSticker,
-  onToggleDevicePower,
+  onUpdateWires,
   onAssessSafety,
   onCallMaster,
   devices: devicesProp,
+  wires: wiresProp,
   safetyScore: safetyProp,
   phases,
   powerKw,
@@ -506,7 +530,7 @@ export function SchemeScreen({
     deviceId: number,
     patch: { circuitLabel?: string; stickerIcon?: string },
   ) => void;
-  onToggleDevicePower?: (deviceId: number) => void;
+  onUpdateWires?: (wires: PanelWire[]) => void;
   onAssessSafety?: (payload: {
     phases: "1" | "3";
     powerKw: string;
@@ -515,6 +539,7 @@ export function SchemeScreen({
   }) => void;
   onCallMaster?: () => void;
   devices?: Device[];
+  wires?: PanelWire[];
   safetyScore?: number | null;
   phases?: "1" | "3";
   powerKw?: string;
@@ -522,12 +547,14 @@ export function SchemeScreen({
   railCount?: number;
 }) {
   const devices = devicesProp ?? [];
+  const wires = wiresProp ?? [];
   const safetyKnown =
     Boolean(phases && powerKw?.trim()) && typeof safetyProp === "number";
   const safetyScore = safetyKnown ? safetyProp : null;
   const networkParamsFilled = Boolean(phases && powerKw?.trim());
 
   const [tab, setTab] = useState<"scheme" | "photo">("scheme");
+  const [showTerminals, setShowTerminals] = useState(false);
   const [sheetAnchorY, setSheetAnchorY] = useState<number | null>(null);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -541,7 +568,29 @@ export function SchemeScreen({
   const [safetyAssessing, setSafetyAssessing] = useState(false);
   const [safetyProgress, setSafetyProgress] = useState(0);
   const [stickerOpen, setStickerOpen] = useState(false);
+  const [wireDraft, setWireDraft] = useState<{
+    from: TerminalRef;
+    x: number;
+    y: number;
+  } | null>(null);
+  const [pendingWire, setPendingWire] = useState<{
+    from: TerminalRef;
+    to: TerminalRef;
+    existing?: PanelWire;
+  } | null>(null);
+  const [editingWire, setEditingWire] = useState<PanelWire | null>(null);
+  const [wiresLayoutTick, setWiresLayoutTick] = useState(0);
   const safetyFrameRef = useRef<number | null>(null);
+  const schemeCanvasRef = useRef<HTMLDivElement | null>(null);
+  const [schemeCanvasEl, setSchemeCanvasEl] = useState<HTMLDivElement | null>(
+    null,
+  );
+  const wiringHoldRef = useRef<{
+    from: TerminalRef;
+    timer: number;
+    pointerId: number;
+    started: boolean;
+  } | null>(null);
   const selected = devices.find((d) => d.id === selectedId) ?? null;
 
   const allRailDevices = devices.filter(
@@ -574,6 +623,149 @@ export function SchemeScreen({
   const verified = devices.filter((d) => d.status === "verified").length;
   const pending = devices.filter((d) => d.status === "pending").length;
   const unknown = devices.filter((d) => d.status === "unknown").length;
+
+  useEffect(() => {
+    setWiresLayoutTick((v) => v + 1);
+  }, [showTerminals, devices, railDisplay, wires.length]);
+
+  useEffect(() => {
+    const onResize = () => setWiresLayoutTick((v) => v + 1);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  const wiringPointRef = useRef({ x: 0, y: 0 });
+
+  const clearWiringHold = () => {
+    const hold = wiringHoldRef.current;
+    if (hold) {
+      window.clearTimeout(hold.timer);
+      wiringHoldRef.current = null;
+    }
+  };
+
+  const handleTerminalPointerDown = (
+    terminal: TerminalRef,
+    event: PointerEvent<HTMLButtonElement>,
+  ) => {
+    if (sharedPreview || !onUpdateWires || !showTerminals) return;
+    if (event.button !== 0) return;
+    event.preventDefault();
+    clearWiringHold();
+    const pointerId = event.pointerId;
+    const target = event.currentTarget;
+    target.setPointerCapture(pointerId);
+    wiringPointRef.current = { x: event.clientX, y: event.clientY };
+
+    const timer = window.setTimeout(() => {
+      const hold = wiringHoldRef.current;
+      if (!hold || hold.pointerId !== pointerId) return;
+      hold.started = true;
+      hapticContextMenu();
+      setWireDraft({
+        from: terminal,
+        x: wiringPointRef.current.x,
+        y: wiringPointRef.current.y,
+      });
+    }, TERMINAL_HOLD_MS);
+
+    wiringHoldRef.current = {
+      from: terminal,
+      timer,
+      pointerId,
+      started: false,
+    };
+
+    const onMove = (moveEvent: globalThis.PointerEvent) => {
+      if (moveEvent.pointerId !== pointerId) return;
+      wiringPointRef.current = {
+        x: moveEvent.clientX,
+        y: moveEvent.clientY,
+      };
+      const hold = wiringHoldRef.current;
+      if (!hold) return;
+      if (hold.started) {
+        setWireDraft({
+          from: hold.from,
+          x: moveEvent.clientX,
+          y: moveEvent.clientY,
+        });
+      }
+    };
+
+    const finish = (upEvent: globalThis.PointerEvent) => {
+      if (upEvent.pointerId !== pointerId) return;
+      try {
+        target.releasePointerCapture(pointerId);
+      } catch {
+        // already released
+      }
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", finish);
+      window.removeEventListener("pointercancel", finish);
+
+      const hold = wiringHoldRef.current;
+      clearWiringHold();
+      setWireDraft(null);
+      if (!hold?.started) return;
+
+      const to = findTerminalAtPoint(upEvent.clientX, upEvent.clientY);
+      if (!to || sameTerminal(hold.from, to)) return;
+
+      const existing = wires.find((wire) =>
+        wireConnectsSamePair(wire, hold.from, to),
+      );
+      hapticImpact("medium");
+      setPendingWire({ from: hold.from, to, existing });
+    };
+
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", finish);
+    window.addEventListener("pointercancel", finish);
+  };
+
+  const commitWire = (spec: { color: string; thicknessMm: number }) => {
+    if (!onUpdateWires) return;
+    if (editingWire) {
+      onUpdateWires(
+        wires.map((wire) =>
+          wire.id === editingWire.id
+            ? { ...wire, color: spec.color, thicknessMm: spec.thicknessMm }
+            : wire,
+        ),
+      );
+      setEditingWire(null);
+      return;
+    }
+    if (!pendingWire) return;
+    const nextWire: PanelWire = {
+      id: pendingWire.existing?.id ?? createWireId(),
+      from: pendingWire.from,
+      to: pendingWire.to,
+      color: spec.color,
+      thicknessMm: spec.thicknessMm,
+    };
+    const without = wires.filter(
+      (wire) => !wireConnectsSamePair(wire, pendingWire.from, pendingWire.to),
+    );
+    onUpdateWires([...without, nextWire]);
+    setPendingWire(null);
+  };
+
+  const deleteWire = () => {
+    if (!onUpdateWires) return;
+    if (editingWire) {
+      onUpdateWires(wires.filter((wire) => wire.id !== editingWire.id));
+      setEditingWire(null);
+      return;
+    }
+    if (pendingWire?.existing) {
+      onUpdateWires(
+        wires.filter((wire) => wire.id !== pendingWire.existing?.id),
+      );
+      setPendingWire(null);
+    }
+  };
   const widestRailModules = Math.max(
     ...railDisplay.map((rail) =>
       rail.visible.reduce((sum, device) => sum + deviceModules(device), 0),
@@ -871,11 +1063,35 @@ export function SchemeScreen({
         </button>
         <button
           type="button"
-          onClick={() => setStickerOpen(true)}
-          className="ml-auto inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-medium text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-zinc-900"
+          role="switch"
+          aria-checked={showTerminals}
+          onClick={() => {
+            if (tab !== "scheme") setTab("scheme");
+            setShowTerminals((v) => !v);
+          }}
+          className={cn(
+            "ml-auto inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors",
+            showTerminals
+              ? "bg-zinc-900 text-white"
+              : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900",
+          )}
         >
-          <StickerBadgeIcon className="h-3.5 w-3.5" />
-          Стикеры в щиток
+          <span
+            className={cn(
+              "relative h-5 w-9 rounded-full transition-colors",
+              showTerminals ? "bg-white/25" : "bg-zinc-200",
+            )}
+          >
+            <span
+              className={cn(
+                "absolute top-0.5 h-4 w-4 rounded-full transition-all",
+                showTerminals
+                  ? "left-4 bg-white"
+                  : "left-0.5 bg-zinc-500",
+              )}
+            />
+          </span>
+          Клеммы
         </button>
       </div>
 
@@ -894,43 +1110,80 @@ export function SchemeScreen({
               </span>
             </div>
 
-            {railDisplay.map((rail, railIdx) => {
-              const railModules = rail.totalModules;
-              return (
-                <div key={railIdx} className={railIdx > 0 ? "mt-5" : ""}>
-                  {numRails > 1 && (
-                    <div className="mb-1.5 flex items-center justify-between">
-                      <span className="text-[11px] font-medium text-zinc-400">
-                        Ряд {railIdx + 1}
-                      </span>
-                      <span className="text-[11px] text-zinc-400">
-                        {railModules} мод.
-                      </span>
+            <div
+              ref={(el) => {
+                schemeCanvasRef.current = el;
+                setSchemeCanvasEl(el);
+              }}
+              className="relative"
+            >
+              {showTerminals && (
+                <PanelWiresSvg
+                  key={wiresLayoutTick}
+                  container={schemeCanvasEl}
+                  wires={wires}
+                  draft={wireDraft}
+                  onWireClick={
+                    sharedPreview || !onUpdateWires
+                      ? undefined
+                      : (wire) => setEditingWire(wire)
+                  }
+                />
+              )}
+              {railDisplay.map((rail, railIdx) => {
+                const railModules = rail.totalModules;
+                return (
+                  <div key={railIdx} className={railIdx > 0 ? "mt-5" : ""}>
+                    {numRails > 1 && (
+                      <div className="mb-1.5 flex items-center justify-between">
+                        <span className="text-[11px] font-medium text-zinc-400">
+                          Ряд {railIdx + 1}
+                        </span>
+                        <span className="text-[11px] text-zinc-400">
+                          {railModules} мод.
+                        </span>
+                      </div>
+                    )}
+                    <div className="mb-2 h-2 rounded-full bg-gradient-to-r from-zinc-500 via-zinc-300 to-zinc-500 shadow-inner" />
+                    <div
+                      className="mb-2 flex items-start"
+                      style={{ gap: DEVICE_GAP_PX }}
+                    >
+                      {rail.visible.map((device) => (
+                        <DeviceBlock
+                          key={device.id}
+                          device={device}
+                          selected={selectedId === device.id}
+                          showTerminals={showTerminals}
+                          highlightTerminalKey={
+                            wireDraft
+                              ? terminalKey(wireDraft.from)
+                              : null
+                          }
+                          onSelect={(clientY) => {
+                            if (wireDraft) return;
+                            setSheetAnchorY(clientY);
+                            setSelectedId(device.id);
+                          }}
+                          onTerminalPointerDown={
+                            sharedPreview ? undefined : handleTerminalPointerDown
+                          }
+                        />
+                      ))}
                     </div>
-                  )}
-                  <div className="mb-2 h-2 rounded-full bg-gradient-to-r from-zinc-500 via-zinc-300 to-zinc-500 shadow-inner" />
-                  <div
-                    className="mb-2 flex items-start"
-                    style={{ gap: DEVICE_GAP_PX }}
-                  >
-                    {rail.visible.map((device) => (
-                      <DeviceBlock
-                        key={device.id}
-                        device={device}
-                        selected={selectedId === device.id}
-                        onSelect={(clientY) => {
-                          setSheetAnchorY(clientY);
-                          setSelectedId(device.id);
-                        }}
-                        onTogglePower={onToggleDevicePower}
-                      />
-                    ))}
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </GlassCard>
           </div>
+
+          {showTerminals && !sharedPreview && (
+            <p className="mt-2 text-[12px] leading-relaxed text-zinc-500">
+              Удержите клемму и протяните кабель к другой клемме. Нажмите на
+              кабель, чтобы изменить цвет, сечение или удалить.
+            </p>
+          )}
 
           <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-[12px] text-zinc-500">
             <span className="flex items-center gap-1.5">
@@ -946,6 +1199,15 @@ export function SchemeScreen({
               Не определён ({unknown})
             </span>
           </div>
+
+          <button
+            type="button"
+            onClick={() => setStickerOpen(true)}
+            className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-[16px] border border-black/8 bg-white px-4 py-3 text-[14px] font-medium text-zinc-800 shadow-sm transition-colors hover:bg-zinc-50"
+          >
+            <StickerBadgeIcon className="h-4 w-4 text-zinc-600" />
+            Стикеры в щиток
+          </button>
 
           <PanelDeviceGuideSection
             devices={allRailDevices}
@@ -990,6 +1252,30 @@ export function SchemeScreen({
             editable={!sharedPreview}
             onClose={() => setStickerOpen(false)}
             onUpdate={sharedPreview ? undefined : onUpdateDeviceSticker}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {(pendingWire || editingWire) && (
+          <WireSpecSheet
+            initialColor={
+              editingWire?.color ??
+              pendingWire?.existing?.color ??
+              "#92400E"
+            }
+            initialThicknessMm={
+              editingWire?.thicknessMm ??
+              pendingWire?.existing?.thicknessMm ??
+              2.5
+            }
+            allowDelete={Boolean(editingWire || pendingWire?.existing)}
+            onConfirm={commitWire}
+            onDelete={deleteWire}
+            onCancel={() => {
+              setPendingWire(null);
+              setEditingWire(null);
+            }}
           />
         )}
       </AnimatePresence>

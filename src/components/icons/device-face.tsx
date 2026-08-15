@@ -1,8 +1,6 @@
 "use client";
 
-import { useRef, useState, type MouseEvent, type ReactNode } from "react";
-import { motion } from "framer-motion";
-import { hapticContextMenu } from "@/lib/haptics";
+import { type MouseEvent, type PointerEvent, type ReactNode } from "react";
 import {
   DEVICE_BODY_COLOR,
   DEVICE_BORDER_COLOR,
@@ -18,12 +16,9 @@ export const TERMINAL_HEIGHT_PX = 18;
 /** Gap between neighboring devices on the rail */
 export const DEVICE_GAP_PX = 6;
 
-const LONG_PRESS_MS = 480;
-const LIFT_DELAY_MS = 90;
-const MOVE_CANCEL_PX = 8;
-
-export function isDevicePowered(device: Device): boolean {
-  return device.powered !== false;
+export function isDevicePowered(_device?: Device): boolean {
+  // Scheme always shows devices as ON — power toggle was removed.
+  return true;
 }
 
 function leverCount(device: Device, modules: number): number {
@@ -63,35 +58,74 @@ function devicePalette(device: Device) {
 function TerminalRow({
   modules,
   side,
-  powered,
+  deviceId,
+  interactive,
+  highlightKey,
+  onTerminalPointerDown,
 }: {
   modules: number;
   side: "top" | "bottom";
-  powered: boolean;
+  deviceId?: number;
+  interactive?: boolean;
+  highlightKey?: string | null;
+  onTerminalPointerDown?: (
+    terminal: { deviceId: number; side: "top" | "bottom"; index: number },
+    event: PointerEvent<HTMLButtonElement>,
+  ) => void;
 }) {
   return (
     <div
       className={cn(
-        "relative z-[1] flex w-full shrink-0 items-center justify-around",
-        powered ? "bg-zinc-200" : "bg-zinc-100",
+        "relative z-[3] flex w-full shrink-0 items-center justify-around bg-zinc-200",
         side === "top"
           ? "rounded-t-[6px] border-b border-zinc-300"
           : "rounded-b-[6px] border-t border-zinc-300",
       )}
       style={{ height: TERMINAL_HEIGHT_PX }}
-      aria-hidden
+      aria-hidden={!interactive}
     >
-      {Array.from({ length: modules }, (_, i) => (
-        <span
-          key={i}
-          className={cn(
-            "h-[10px] w-[10px] rounded-[2px] border",
-            powered
-              ? "border-zinc-400 bg-zinc-300"
-              : "border-zinc-300 bg-zinc-200",
-          )}
-        />
-      ))}
+      {Array.from({ length: modules }, (_, i) => {
+        const key =
+          deviceId != null ? `${deviceId}:${side}:${i}` : `term-${side}-${i}`;
+        const active = highlightKey === key;
+        const screw = (
+          <span
+            className={cn(
+              "h-[10px] w-[10px] rounded-[2px] border border-zinc-400 bg-zinc-300",
+              active && "border-zinc-900 bg-zinc-900",
+            )}
+          />
+        );
+        if (!interactive || deviceId == null) {
+          return (
+            <span key={key} className="flex h-full flex-1 items-center justify-center">
+              {screw}
+            </span>
+          );
+        }
+        return (
+          <button
+            key={key}
+            type="button"
+            data-terminal={key}
+            aria-label={`Клемма ${side === "top" ? "сверху" : "снизу"} ${i + 1}`}
+            className={cn(
+              "flex h-full flex-1 items-center justify-center touch-none",
+              active && "bg-zinc-900/10",
+            )}
+            onPointerDown={(event) => {
+              event.stopPropagation();
+              onTerminalPointerDown?.(
+                { deviceId, side, index: i },
+                event,
+              );
+            }}
+            onClick={(event) => event.stopPropagation()}
+          >
+            {screw}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -373,6 +407,9 @@ export function DeviceFaceStatic({
   showTerminals = false,
   brand,
   showDetails = true,
+  interactiveTerminals = false,
+  highlightTerminalKey = null,
+  onTerminalPointerDown,
   className,
 }: {
   device: Device;
@@ -381,13 +418,19 @@ export function DeviceFaceStatic({
   brand?: ReactNode;
   /** When false, hide logo/type-specific chrome/ratings (low confidence). */
   showDetails?: boolean;
+  interactiveTerminals?: boolean;
+  highlightTerminalKey?: string | null;
+  onTerminalPointerDown?: (
+    terminal: { deviceId: number; side: "top" | "bottom"; index: number },
+    event: PointerEvent<HTMLButtonElement>,
+  ) => void;
   className?: string;
 }) {
   const width = modules * MODULE_PX;
-  const powered = isDevicePowered(device);
+  const powered = true;
   const palette = devicePalette(device);
   const accent = showDetails ? palette.accent : "#A1A1AA";
-  const body = powered ? DEVICE_BODY_COLOR : "#F4F4F5";
+  const body = DEVICE_BODY_COLOR;
   const border = DEVICE_BORDER_COLOR;
 
   return (
@@ -399,22 +442,28 @@ export function DeviceFaceStatic({
         boxSizing: "border-box",
         backgroundColor: body,
         borderColor: border,
-        color: powered ? palette.text : undefined,
+        color: palette.text,
       }}
       className={cn(
         "relative flex w-full min-w-0 flex-col overflow-hidden rounded-[8px] border text-left transition-colors duration-200",
-        !powered && "text-zinc-400 grayscale",
         className,
       )}
     >
       <span
         aria-hidden
         className="absolute inset-x-0 top-0 z-[2] h-[3px]"
-        style={{ backgroundColor: powered ? accent : "#d4d4d8" }}
+        style={{ backgroundColor: accent }}
       />
       <ModuleDividers modules={modules} />
       {showTerminals && (
-        <TerminalRow modules={modules} side="top" powered={powered} />
+        <TerminalRow
+          modules={modules}
+          side="top"
+          deviceId={device.id}
+          interactive={interactiveTerminals}
+          highlightKey={highlightTerminalKey}
+          onTerminalPointerDown={onTerminalPointerDown}
+        />
       )}
       <div
         className="relative z-[1] flex w-full flex-col px-[3px] pt-2 pb-1.5"
@@ -422,7 +471,7 @@ export function DeviceFaceStatic({
       >
         {showDetails && brand && (
           <div
-            className={cn("mb-1 overflow-hidden", !powered && "opacity-40")}
+            className="mb-1 overflow-hidden"
             style={{ maxWidth: MODULE_PX - 4 }}
           >
             {brand}
@@ -447,7 +496,14 @@ export function DeviceFaceStatic({
         )}
       </div>
       {showTerminals && (
-        <TerminalRow modules={modules} side="bottom" powered={powered} />
+        <TerminalRow
+          modules={modules}
+          side="bottom"
+          deviceId={device.id}
+          interactive={interactiveTerminals}
+          highlightKey={highlightTerminalKey}
+          onTerminalPointerDown={onTerminalPointerDown}
+        />
       )}
     </div>
   );
@@ -498,130 +554,64 @@ export function DeviceFace({
   selected,
   showTerminals,
   onSelect,
-  onLongPress,
   brand,
   showDetails = true,
+  interactiveTerminals = false,
+  highlightTerminalKey = null,
+  onTerminalPointerDown,
 }: {
   device: Device;
   modules: number;
   selected: boolean;
   showTerminals: boolean;
   onSelect: (event: MouseEvent<HTMLButtonElement>) => void;
-  onLongPress?: () => void;
   brand?: ReactNode;
   showDetails?: boolean;
+  interactiveTerminals?: boolean;
+  highlightTerminalKey?: string | null;
+  onTerminalPointerDown?: (
+    terminal: { deviceId: number; side: "top" | "bottom"; index: number },
+    event: PointerEvent<HTMLButtonElement>,
+  ) => void;
 }) {
   const width = modules * MODULE_PX;
-  const timerRef = useRef<number | null>(null);
-  const liftTimerRef = useRef<number | null>(null);
-  const settleTimerRef = useRef<number | null>(null);
-  const startPointRef = useRef<{ x: number; y: number } | null>(null);
-  const longPressedRef = useRef(false);
-  const [lifted, setLifted] = useState(false);
-
-  const clearTimers = () => {
-    if (timerRef.current != null) {
-      window.clearTimeout(timerRef.current);
-      timerRef.current = null;
-    }
-    if (liftTimerRef.current != null) {
-      window.clearTimeout(liftTimerRef.current);
-      liftTimerRef.current = null;
-    }
-  };
-
-  const startPress = (clientX: number, clientY: number) => {
-    longPressedRef.current = false;
-    clearTimers();
-    startPointRef.current = { x: clientX, y: clientY };
-    liftTimerRef.current = window.setTimeout(() => {
-      setLifted(true);
-    }, LIFT_DELAY_MS);
-    timerRef.current = window.setTimeout(() => {
-      longPressedRef.current = true;
-      setLifted(true);
-      hapticContextMenu();
-      onLongPress?.();
-      if (settleTimerRef.current != null) {
-        window.clearTimeout(settleTimerRef.current);
-      }
-      settleTimerRef.current = window.setTimeout(() => {
-        setLifted(false);
-        settleTimerRef.current = null;
-      }, 280);
-    }, LONG_PRESS_MS);
-  };
-
-  const endPress = () => {
-    clearTimers();
-    startPointRef.current = null;
-    if (!longPressedRef.current) setLifted(false);
-  };
 
   return (
-    <motion.button
-      type="button"
-      onClick={(event) => {
-        if (longPressedRef.current) {
-          longPressedRef.current = false;
-          return;
-        }
-        onSelect(event);
-      }}
-      onPointerDown={(event) => {
-        if (event.button !== 0) return;
-        startPress(event.clientX, event.clientY);
-      }}
-      onPointerMove={(event) => {
-        const start = startPointRef.current;
-        if (!start) return;
-        if (
-          Math.abs(event.clientX - start.x) > MOVE_CANCEL_PX ||
-          Math.abs(event.clientY - start.y) > MOVE_CANCEL_PX
-        ) {
-          endPress();
-        }
-      }}
-      onPointerUp={endPress}
-      onPointerLeave={endPress}
-      onPointerCancel={endPress}
-      onContextMenu={(event) => event.preventDefault()}
-      animate={{
-        scale: lifted ? 1.08 : 1,
-        y: lifted ? -3 : 0,
-      }}
-      transition={{
-        type: "spring",
-        stiffness: 420,
-        damping: 28,
-        mass: 0.7,
-      }}
+    <div
       style={{
         width,
         minWidth: width,
         maxWidth: width,
         boxSizing: "border-box",
-        touchAction: "manipulation",
-        filter: lifted
-          ? "drop-shadow(0 12px 22px rgba(17,17,19,0.22))"
-          : "drop-shadow(0 0 0 rgba(0,0,0,0))",
       }}
       className={cn(
-        "block origin-center p-0 select-none",
-        lifted && "relative z-20",
+        "relative block origin-center select-none",
         selected &&
           "rounded-[8px] ring-2 ring-zinc-900 ring-offset-2 ring-offset-white",
       )}
-      aria-pressed={isDevicePowered(device)}
     >
+      <button
+        type="button"
+        onClick={onSelect}
+        className="absolute inset-x-0 z-[1] p-0"
+        style={{
+          top: showTerminals ? TERMINAL_HEIGHT_PX : 0,
+          bottom: showTerminals ? TERMINAL_HEIGHT_PX : 0,
+          touchAction: "manipulation",
+        }}
+        aria-label={device.name}
+      />
       <DeviceFaceStatic
         device={device}
         modules={modules}
         showTerminals={showTerminals}
         brand={brand}
         showDetails={showDetails}
+        interactiveTerminals={interactiveTerminals}
+        highlightTerminalKey={highlightTerminalKey}
+        onTerminalPointerDown={onTerminalPointerDown}
       />
-    </motion.button>
+    </div>
   );
 }
 

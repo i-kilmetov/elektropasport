@@ -45,7 +45,6 @@ import {
 import { syncUserProfileFromServer } from "@/lib/user-profile";
 import {
   hapticDelete,
-  hapticImpact,
   hapticNav,
   hapticNotification,
 } from "@/lib/haptics";
@@ -83,6 +82,7 @@ import type {
   InstallRequest,
   LeadFlow,
   PanelObject,
+  PanelWire,
 } from "@/types";
 import { installStatusLabels } from "@/types";
 import { cn } from "@/lib/utils";
@@ -669,27 +669,13 @@ export function AppShell() {
     [activePanelId],
   );
 
-  const toggleDevicePower = useCallback(
-    (deviceId: number) => {
+  const updatePanelWires = useCallback(
+    (nextWires: PanelWire[]) => {
       if (!activePanelId) return;
-      hapticImpact("heavy");
-      setDevices((prev) => {
-        if (!prev) return prev;
-        return prev.map((device) =>
-          device.id === deviceId
-            ? { ...device, powered: device.powered === false }
-            : device,
-        );
-      });
       setItems((prev) =>
         prev.map((item) => {
           if (item.kind !== "panel" || item.id !== activePanelId) return item;
-          const nextDevices = (item.devices ?? []).map((device) =>
-            device.id === deviceId
-              ? { ...device, powered: device.powered === false }
-              : device,
-          );
-          const next = { ...item, devices: nextDevices };
+          const next = { ...item, wires: nextWires };
           void persistPanel(next).catch((error) => console.error(error));
           return next;
         }),
@@ -1152,10 +1138,11 @@ export function AppShell() {
               onUpdateDeviceSticker={updateDeviceSticker}
               onUpdateDeviceCharacteristic={updateDeviceCharacteristic}
               onUpdateDeviceIdentity={updateDeviceIdentity}
-              onToggleDevicePower={toggleDevicePower}
+              onUpdateWires={sharedPreview ? undefined : updatePanelWires}
               onAssessSafety={assessPanelSafety}
               onCallMaster={startCallMaster}
               devices={devices ?? undefined}
+              wires={activePanel?.wires}
               safetyScore={safetyScore}
               phases={activePanel?.phases}
               powerKw={activePanel?.powerKw}

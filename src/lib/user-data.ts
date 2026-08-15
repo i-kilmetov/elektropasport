@@ -163,6 +163,10 @@ export async function fetchHomeItems(): Promise<HomeListItem[]> {
       devices:
         serverDevices.length > 0 ? serverDevices : localDevices,
       railCount: item.railCount ?? local.railCount,
+      wires:
+        item.wires && item.wires.length > 0
+          ? item.wires
+          : local.wires,
     };
   });
   writeLocalItems(merged);
