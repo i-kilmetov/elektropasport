@@ -435,6 +435,7 @@ export function DeviceFaceStatic({
 
   return (
     <div
+      data-device-face={device.id}
       style={{
         width,
         minWidth: width,

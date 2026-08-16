@@ -590,7 +590,9 @@ export function SchemeScreen({
     timer: number;
     pointerId: number;
     started: boolean;
+    hoverKey: string | null;
   } | null>(null);
+  const [hoverTerminalKey, setHoverTerminalKey] = useState<string | null>(null);
   const selected = devices.find((d) => d.id === selectedId) ?? null;
 
   const allRailDevices = useMemo(
@@ -669,10 +671,12 @@ export function SchemeScreen({
     if (event.button !== 0) return;
     event.preventDefault();
     clearWiringHold();
+    setHoverTerminalKey(null);
     const pointerId = event.pointerId;
     const target = event.currentTarget;
     target.setPointerCapture(pointerId);
     wiringPointRef.current = { x: event.clientX, y: event.clientY };
+    const fromKey = terminalKey(terminal);
 
     const timer = window.setTimeout(() => {
       const hold = wiringHoldRef.current;
@@ -691,6 +695,7 @@ export function SchemeScreen({
       timer,
       pointerId,
       started: false,
+      hoverKey: fromKey,
     };
 
     const onMove = (moveEvent: globalThis.PointerEvent) => {
@@ -707,6 +712,18 @@ export function SchemeScreen({
           x: moveEvent.clientX,
           y: moveEvent.clientY,
         });
+
+        const over = findTerminalAtPoint(moveEvent.clientX, moveEvent.clientY);
+        const overKey = over ? terminalKey(over) : null;
+        if (overKey !== hold.hoverKey) {
+          hold.hoverKey = overKey;
+          setHoverTerminalKey(
+            overKey && overKey !== fromKey ? overKey : null,
+          );
+          if (overKey && overKey !== fromKey) {
+            hapticImpact("light");
+          }
+        }
       }
     };
 
@@ -724,6 +741,7 @@ export function SchemeScreen({
       const hold = wiringHoldRef.current;
       clearWiringHold();
       setWireDraft(null);
+      setHoverTerminalKey(null);
       if (!hold?.started) return;
 
       const to = findTerminalAtPoint(upEvent.clientX, upEvent.clientY);
@@ -1116,8 +1134,11 @@ export function SchemeScreen({
       <div className="flex flex-col lg:flex-row lg:items-start lg:gap-6 lg:px-10">
       {tab === "scheme" ? (
         <div className="px-5 pb-4 lg:min-w-0 lg:flex-1 lg:px-0">
-          <div className="overflow-x-auto">
-            <GlassCard className="p-4" style={{ minWidth: railMinWidth }}>
+          <div className={cn("overflow-x-auto", showTerminals && "overflow-y-visible")}>
+            <GlassCard
+              className={cn("p-4", showTerminals && "overflow-visible")}
+              style={{ minWidth: railMinWidth }}
+            >
             <div className="mb-3 flex items-center justify-between">
               <span className="text-[13px] font-medium text-zinc-500">
                 {numRails > 1 ? `${numRails} DIN-рейки` : "DIN-рейка"}
@@ -1127,8 +1148,10 @@ export function SchemeScreen({
               </span>
             </div>
 
-            <div ref={setSchemeCanvasRef} className="relative">
-              {showTerminals && (
+            <div
+              ref={setSchemeCanvasRef}
+              className={cn("relative", showTerminals && "py-11")}
+            >              {showTerminals && (
                 <PanelWiresSvg
                   key={wiresLayoutTick}
                   container={schemeCanvasEl}
@@ -1167,9 +1190,8 @@ export function SchemeScreen({
                           selected={selectedId === device.id}
                           showTerminals={showTerminals}
                           highlightTerminalKey={
-                            wireDraft
-                              ? terminalKey(wireDraft.from)
-                              : null
+                            hoverTerminalKey ??
+                            (wireDraft ? terminalKey(wireDraft.from) : null)
                           }
                           onSelect={(clientY) => {
                             if (wireDraft) return;

@@ -9,33 +9,100 @@ import {
 import type { PanelWire, TerminalRef } from "@/types";
 
 type Point = { x: number; y: number };
+type AnchoredPoint = Point & { side: "top" | "bottom" };
 
-function terminalCenter(
+/** Minimal vertical stub length after leaving the device edge. */
+const STUB_PX = 12;
+/** Extra arc bulge beyond the stubs. */
+const ARC_BULGE_PX = 28;
+
+/**
+ * Wire attaches at the outer edge of the device face (top/bottom),
+ * on the same X axis as the terminal screw — not at the screw center.
+ */
+export function terminalAnchor(
   container: HTMLElement,
   terminal: TerminalRef,
-): Point | null {
-  const el = container.querySelector(
-    `[data-terminal="${terminalKey(terminal)}"]`,
-  );
-  if (!(el instanceof HTMLElement)) return null;
+): AnchoredPoint | null {
+  const key = terminalKey(terminal);
+  const screw = container.querySelector(`[data-terminal="${key}"]`);
+  if (!(screw instanceof HTMLElement)) return null;
+
+  const device =
+    screw.closest("[data-device-face]") ??
+    container.querySelector(`[data-device-face="${terminal.deviceId}"]`);
+  if (!(device instanceof HTMLElement)) return null;
+
   const c = container.getBoundingClientRect();
-  const t = el.getBoundingClientRect();
+  const s = screw.getBoundingClientRect();
+  const d = device.getBoundingClientRect();
+  const x = s.left + s.width / 2 - c.left + container.scrollLeft;
+  const y =
+    terminal.side === "top"
+      ? d.top - c.top + container.scrollTop
+      : d.bottom - c.top + container.scrollTop;
+
+  return { x, y, side: terminal.side };
+}
+
+function outward(point: AnchoredPoint, distance = STUB_PX): Point {
   return {
-    x: t.left + t.width / 2 - c.left + container.scrollLeft,
-    y: t.top + t.height / 2 - c.top + container.scrollTop,
+    x: point.x,
+    y: point.side === "top" ? point.y - distance : point.y + distance,
   };
 }
 
-function wirePath(from: Point, to: Point): string {
-  const dx = Math.abs(to.x - from.x);
-  const dy = to.y - from.y;
-  const bend = Math.max(18, Math.min(56, dx * 0.35 + Math.abs(dy) * 0.15));
-  if (Math.abs(dy) < 8) {
-    return `M ${from.x} ${from.y} L ${to.x} ${to.y}`;
+/**
+ * Vertical stub out of each terminal, then a bulging cubic arc between stubs.
+ */
+export function wirePath(from: AnchoredPoint, to: AnchoredPoint): string {
+  const fromOut = outward(from);
+  const toOut = outward(to);
+  const dx = Math.abs(toOut.x - fromOut.x);
+  const bulge = Math.max(ARC_BULGE_PX, dx * 0.28 + 18);
+
+  let c1: Point;
+  let c2: Point;
+
+  if (from.side === "top" && to.side === "top") {
+    const apex = Math.min(fromOut.y, toOut.y) - bulge;
+    c1 = { x: fromOut.x, y: apex };
+    c2 = { x: toOut.x, y: apex };
+  } else if (from.side === "bottom" && to.side === "bottom") {
+    const apex = Math.max(fromOut.y, toOut.y) + bulge;
+    c1 = { x: fromOut.x, y: apex };
+    c2 = { x: toOut.x, y: apex };
+  } else {
+    // Opposite sides: keep stubs outward, then S-curve between them.
+    const midX = (fromOut.x + toOut.x) / 2;
+    c1 = {
+      x: midX,
+      y: fromOut.y + (from.side === "top" ? -bulge * 0.55 : bulge * 0.55),
+    };
+    c2 = {
+      x: midX,
+      y: toOut.y + (to.side === "top" ? -bulge * 0.55 : bulge * 0.55),
+    };
   }
-  // Route with a soft vertical-ish curve between rails / terminals.
-  const midY = (from.y + to.y) / 2;
-  return `M ${from.x} ${from.y} C ${from.x} ${from.y + Math.sign(dy || 1) * bend}, ${to.x} ${midY}, ${to.x} ${to.y}`;
+
+  return [
+    `M ${from.x} ${from.y}`,
+    `L ${fromOut.x} ${fromOut.y}`,
+    `C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${toOut.x} ${toOut.y}`,
+    `L ${to.x} ${to.y}`,
+  ].join(" ");
+}
+
+function draftWirePath(from: AnchoredPoint, cursor: Point): string {
+  const fromOut = outward(from);
+  const bulge = ARC_BULGE_PX;
+  const tip = outward(from, STUB_PX + bulge);
+  // Rise vertically, then arc toward the finger.
+  return [
+    `M ${from.x} ${from.y}`,
+    `L ${fromOut.x} ${fromOut.y}`,
+    `Q ${tip.x} ${tip.y}, ${cursor.x} ${cursor.y}`,
+  ].join(" ");
 }
 
 export function PanelWiresSvg({
@@ -57,8 +124,8 @@ export function PanelWiresSvg({
     if (!container) return [] as Array<{ wire: PanelWire; d: string }>;
     return wires
       .map((wire) => {
-        const from = terminalCenter(container, wire.from);
-        const to = terminalCenter(container, wire.to);
+        const from = terminalAnchor(container, wire.from);
+        const to = terminalAnchor(container, wire.to);
         if (!from || !to) return null;
         return { wire, d: wirePath(from, to) };
       })
@@ -67,14 +134,14 @@ export function PanelWiresSvg({
 
   const draftGeometry = useMemo(() => {
     if (!container || !draft) return null;
-    const from = terminalCenter(container, draft.from);
+    const from = terminalAnchor(container, draft.from);
     if (!from) return null;
     const c = container.getBoundingClientRect();
-    const to = {
+    const cursor = {
       x: draft.x - c.left + container.scrollLeft,
       y: draft.y - c.top + container.scrollTop,
     };
-    return { d: wirePath(from, to), from };
+    return { d: draftWirePath(from, cursor) };
   }, [container, draft]);
 
   if (!container) return null;
@@ -107,7 +174,6 @@ export function PanelWiresSvg({
                   : undefined
               }
             />
-            {/* Wider invisible hit target */}
             {onWireClick && (
               <path
                 d={d}
@@ -132,6 +198,7 @@ export function PanelWiresSvg({
           stroke="#52525B"
           strokeWidth={2.5}
           strokeLinecap="round"
+          strokeLinejoin="round"
           strokeDasharray="6 4"
           opacity={0.85}
         />
@@ -144,11 +211,15 @@ export function findTerminalAtPoint(
   clientX: number,
   clientY: number,
 ): TerminalRef | null {
-  const el = document.elementFromPoint(clientX, clientY);
-  if (!el) return null;
-  const host = el.closest("[data-terminal]");
-  if (!(host instanceof HTMLElement)) return null;
-  const key = host.dataset.terminal;
-  if (!key) return null;
-  return parseTerminalKey(key);
+  const stack = document.elementsFromPoint(clientX, clientY);
+  for (const el of stack) {
+    if (!(el instanceof Element)) continue;
+    const host = el.closest("[data-terminal]");
+    if (!(host instanceof HTMLElement)) continue;
+    const key = host.dataset.terminal;
+    if (!key) continue;
+    const parsed = parseTerminalKey(key);
+    if (parsed) return parsed;
+  }
+  return null;
 }
