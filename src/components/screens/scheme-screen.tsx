@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowLeft,
@@ -593,8 +593,10 @@ export function SchemeScreen({
   } | null>(null);
   const selected = devices.find((d) => d.id === selectedId) ?? null;
 
-  const allRailDevices = devices.filter(
-    (d) => d.type !== "pe_bus" && d.type !== "n_bus",
+  const allRailDevices = useMemo(
+    () =>
+      devices.filter((d) => d.type !== "pe_bus" && d.type !== "n_bus"),
+    [devices],
   );
   const safetyAdvice = useMemo(() => {
     const powerNum = Number((powerKw ?? "").replace(",", "."));
@@ -607,7 +609,13 @@ export function SchemeScreen({
   }, [allRailDevices, phases, powerKw, hasGround]);
 
   // Group devices by rail
-  const numRails = railCount ?? Math.max(1, ...allRailDevices.map((d) => (d.rail ?? 0) + 1));
+  const numRails =
+    railCount ??
+    Math.max(
+      1,
+      ...allRailDevices.map((d) => (d.rail ?? 0) + 1),
+      1,
+    );
   const rails = useMemo(
     () => groupDevicesByRail(allRailDevices, numRails),
     [allRailDevices, numRails],
@@ -625,13 +633,22 @@ export function SchemeScreen({
   const unknown = devices.filter((d) => d.status === "unknown").length;
 
   useEffect(() => {
-    setWiresLayoutTick((v) => v + 1);
-  }, [showTerminals, devices, railDisplay, wires.length]);
+    if (!showTerminals) return;
+    const id = window.requestAnimationFrame(() => {
+      setWiresLayoutTick((v) => v + 1);
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [showTerminals, wires.length, devices, numRails]);
 
   useEffect(() => {
     const onResize = () => setWiresLayoutTick((v) => v + 1);
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  const setSchemeCanvasRef = useCallback((el: HTMLDivElement | null) => {
+    schemeCanvasRef.current = el;
+    setSchemeCanvasEl((prev) => (prev === el ? prev : el));
   }, []);
 
   const wiringPointRef = useRef({ x: 0, y: 0 });
@@ -1110,13 +1127,7 @@ export function SchemeScreen({
               </span>
             </div>
 
-            <div
-              ref={(el) => {
-                schemeCanvasRef.current = el;
-                setSchemeCanvasEl(el);
-              }}
-              className="relative"
-            >
+            <div ref={setSchemeCanvasRef} className="relative">
               {showTerminals && (
                 <PanelWiresSvg
                   key={wiresLayoutTick}
