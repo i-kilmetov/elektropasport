@@ -19,6 +19,7 @@ import {
   type LeadFinishPayload,
 } from "@/components/screens/lead-contact-screen";
 import { LeadServiceScreen } from "@/components/screens/lead-service-screen";
+import { LeadAddressScreen } from "@/components/screens/lead-address-screen";
 import { NoPanelDetailScreen } from "@/components/screens/no-panel-detail-screen";
 import { NoPanelOptionsScreen } from "@/components/screens/no-panel-options-screen";
 import { ObjectsScreen } from "@/components/screens/objects-screen";
@@ -57,6 +58,7 @@ import {
   masterLabelingPriceRub,
   ONLINE_CONSULTATION_PRICE_RUB,
   resolveRequestTypeCodeForService,
+  isMoscow,
   type LeadServiceType,
 } from "@/lib/lead-services";
 import {
@@ -149,6 +151,7 @@ export function AppShell() {
   const [electricalDetails, setElectricalDetails] =
     useState<ElectricalDetails | null>(null);
   const [selectedCity, setSelectedCity] = useState<string | null>(null);
+  const [selectedAddress, setSelectedAddress] = useState<string | null>(null);
   const [selectedLeadService, setSelectedLeadService] =
     useState<LeadServiceType | null>(null);
   const [leadPanelModules, setLeadPanelModules] = useState<number | null>(null);
@@ -245,6 +248,7 @@ export function AppShell() {
       setRequestNeedId(null);
       setNoPanelSetupId(null);
       setSelectedCity(null);
+      setSelectedAddress(null);
       setSelectedLeadService(null);
       setLeadBackScreen("scheme");
       setScreen("city-select");
@@ -318,6 +322,7 @@ export function AppShell() {
     setLeadFlow("install");
     setElectricalDetails(null);
     setSelectedCity(null);
+    setSelectedAddress(null);
     setSelectedLeadService(null);
     setRequestNeedId(null);
     setNoPanelSetupId(null);
@@ -1005,6 +1010,7 @@ export function AppShell() {
         dwelling: payload.dwelling ?? electricalDetails?.dwelling,
         phases: payload.phases ?? electricalDetails?.phases,
         powerKw: payload.powerKw ?? electricalDetails?.powerKw,
+        exactAddress: payload.exactAddress?.trim() || selectedAddress || undefined,
         setupTitle,
       };
 
@@ -1031,6 +1037,7 @@ export function AppShell() {
       noPanelSetupId,
       requestNeedId,
       selectedCity,
+      selectedAddress,
     ],
   );
 
@@ -1222,6 +1229,7 @@ export function AppShell() {
                 setLeadFlow("install");
                 setElectricalDetails(null);
                 setSelectedCity(null);
+                setSelectedAddress(null);
                 setSelectedLeadService(null);
                 setLeadPanelModules(null);
                 setLeadBackScreen("panel-advantages");
@@ -1237,6 +1245,7 @@ export function AppShell() {
                 setElectricalDetails(details);
                 setLeadFlow("install");
                 setSelectedCity(null);
+                setSelectedAddress(null);
                 setSelectedLeadService(null);
                 setLeadPanelModules(null);
                 setLeadBackScreen("electrical-details");
@@ -1262,8 +1271,13 @@ export function AppShell() {
               }
               onConfirm={(city) => {
                 setSelectedCity(city);
+                setSelectedAddress(null);
                 if (leadFlow === "master") {
                   go("master-about");
+                  return;
+                }
+                if (isMoscow(city)) {
+                  go("address-select");
                   return;
                 }
                 go("lead-service");
@@ -1278,10 +1292,23 @@ export function AppShell() {
                 setRequestNeedId(id);
                 setLeadFlow("install");
                 setSelectedCity(null);
+                setSelectedAddress(null);
                 setSelectedLeadService(null);
                 setLeadPanelModules(null);
                 setLeadBackScreen("request-type");
                 go("city-select");
+              }}
+            />
+          )}
+          {screen === "address-select" && selectedCity && (
+            <LeadAddressScreen
+              key={`address-${selectedCity}`}
+              city={selectedCity}
+              initialAddress={selectedAddress ?? undefined}
+              onBack={() => go("city-select")}
+              onConfirm={(address) => {
+                setSelectedAddress(address);
+                go("lead-service");
               }}
             />
           )}
@@ -1290,7 +1317,9 @@ export function AppShell() {
               key={`lead-service-${selectedCity}-${leadPanelModules ?? 0}`}
               city={selectedCity}
               panelModules={leadPanelModules}
-              onBack={() => go("city-select")}
+              onBack={() =>
+                go(isMoscow(selectedCity) ? "address-select" : "city-select")
+              }
               onSelect={(serviceType) => {
                 setSelectedLeadService(serviceType);
                 go("lead-contact");
@@ -1302,6 +1331,7 @@ export function AppShell() {
               key={`lead-${leadFlow}-${requestNeedId ?? "default"}-${selectedLeadService ?? "none"}`}
               variant={leadFlow}
               city={selectedCity ?? undefined}
+              exactAddress={selectedAddress ?? undefined}
               serviceType={selectedLeadService ?? undefined}
               panelModules={leadPanelModules ?? undefined}
               setupTitle={installSetupTitle}
@@ -1323,6 +1353,7 @@ export function AppShell() {
                 setRequestNeedId(null);
                 setSelectedLeadService(null);
                 setSelectedCity(null);
+                setSelectedAddress(null);
                 setLeadPanelModules(null);
                 go("objects");
               }}
@@ -1384,6 +1415,7 @@ export function AppShell() {
               onConfirm={() => {
                 setLeadFlow("master");
                 setSelectedCity(null);
+                setSelectedAddress(null);
                 setMasterAbout("");
                 go("city-select");
               }}

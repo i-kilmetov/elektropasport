@@ -15,8 +15,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { GlassCard } from "@/components/ui/glass-card";
+import { AddressSuggestField } from "@/components/ui/address-suggest-field";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
+import { isMoscow } from "@/lib/lead-services";
 import type { InstallRequest, InstallRequestStatus } from "@/types";
 import {
   installStatusLabels,
@@ -326,13 +328,28 @@ export function RequestDetailsScreen({
                 </p>
               </div>
             </div>
-            <textarea
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              rows={2}
-              placeholder="Улица, дом, квартира / участок"
-              className="w-full resize-none rounded-[16px] border border-black/8 bg-zinc-50 px-4 py-3 text-[15px] text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-zinc-300"
-            />
+            {isMoscow(request.city) ? (
+              <AddressSuggestField
+                city={request.city}
+                value={address}
+                onChange={setAddress}
+                onSelect={(suggestion) => {
+                  setAddress(suggestion.value);
+                  onUpdate({ exactAddress: suggestion.value });
+                  setAddressSaved(true);
+                  window.setTimeout(() => setAddressSaved(false), 1600);
+                }}
+                placeholder="Улица, дом"
+              />
+            ) : (
+              <textarea
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                rows={2}
+                placeholder="Улица, дом, квартира / участок"
+                className="w-full resize-none rounded-[16px] border border-black/8 bg-zinc-50 px-4 py-3 text-[15px] text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-zinc-300"
+              />
+            )}
             <Button
               className="w-full"
               variant="secondary"

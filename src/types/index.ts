@@ -125,6 +125,7 @@ export type AppScreen =
   | "panel-advantages"
   | "electrical-details"
   | "city-select"
+  | "address-select"
   | "lead-service"
   | "lead-contact"
   | "request-type"

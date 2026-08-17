@@ -1,0 +1,99 @@
+"use client";
+
+import { useState } from "react";
+import { motion } from "framer-motion";
+import { ArrowLeft } from "lucide-react";
+import { AddressSuggestField } from "@/components/ui/address-suggest-field";
+import { Button } from "@/components/ui/button";
+import { hasHouse, type AddressSuggestion } from "@/lib/dadata";
+import { normalizeCityName } from "@/lib/lead-services";
+
+export function LeadAddressScreen({
+  city,
+  initialAddress,
+  onBack,
+  onConfirm,
+}: {
+  city: string;
+  initialAddress?: string;
+  onBack: () => void;
+  onConfirm: (address: string) => void;
+}) {
+  const [query, setQuery] = useState(initialAddress ?? "");
+  const [selected, setSelected] = useState<AddressSuggestion | null>(
+    initialAddress
+      ? {
+          value: initialAddress,
+          unrestrictedValue: initialAddress,
+          fiasLevel: 8,
+        }
+      : null,
+  );
+  const [lookupFailed, setLookupFailed] = useState(false);
+
+  const cityLabel = normalizeCityName(city);
+  const trimmed = query.trim();
+  const ready =
+    (selected != null &&
+      selected.value === trimmed &&
+      hasHouse(selected)) ||
+    (lookupFailed && trimmed.length >= 8);
+
+  return (
+    <motion.section
+      initial={{ opacity: 0, x: 40 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: -40 }}
+      className="flex min-h-dvh flex-col px-5 pb-8 pt-[max(1.25rem,env(safe-area-inset-top))]"
+    >
+      <header className="mb-6 flex items-center gap-3">
+        <button
+          type="button"
+          onClick={onBack}
+          className="flex h-11 w-11 items-center justify-center rounded-full border border-black/8 bg-zinc-100 text-zinc-900"
+          aria-label="Назад"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </button>
+        <h1 className="text-[20px] font-semibold text-zinc-900">Адрес</h1>
+      </header>
+
+      <h2 className="mb-2 text-[26px] font-bold tracking-tight text-zinc-900">
+        Адрес в Москве
+      </h2>
+      <p className="mb-5 text-[15px] leading-relaxed text-zinc-500">
+        Начните вводить улицу — подскажем дом из адресного реестра.
+      </p>
+
+      <AddressSuggestField
+        city={cityLabel}
+        value={query}
+        onChange={(next) => {
+          setQuery(next);
+          if (selected && next.trim() !== selected.value) {
+            setSelected(null);
+          }
+        }}
+        onSelect={(item) => {
+          setSelected(item);
+          setLookupFailed(false);
+        }}
+        onLookupError={(message) => setLookupFailed(Boolean(message))}
+        placeholder="Например, Тверская 1"
+      />
+
+      <div className="mt-auto pt-6">
+        <Button
+          className="w-full"
+          size="lg"
+          disabled={!ready}
+          onClick={() => {
+            if (ready) onConfirm(selected?.value ?? trimmed);
+          }}
+        >
+          Продолжить
+        </Button>
+      </div>
+    </motion.section>
+  );
+}

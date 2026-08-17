@@ -1,0 +1,71 @@
+import { authErrorResponse, requireTelegramUser } from "@/lib/telegram-auth";
+import { isMoscow, normalizeCityName } from "@/lib/lead-services";
+import { MOSCOW_KLADR_ID, parseDaDataSuggestions } from "@/lib/dadata";
+
+const DADATA_URL =
+  "https://suggestions.dadata.ru/suggestions/api/4_1/rs/suggest/address";
+const MAX_QUERY_LENGTH = 120;
+
+export async function POST(request: Request) {
+  try {
+    requireTelegramUser(request);
+
+    const token = process.env.DADATA_API_KEY?.trim();
+    if (!token) {
+      return Response.json(
+        { error: "Подсказки адресов не настроены" },
+        { status: 503 },
+      );
+    }
+
+    const body = (await request.json()) as { query?: string; city?: string };
+    const query = body.query?.trim() ?? "";
+    const city = normalizeCityName(body.city ?? "");
+
+    if (query.length < 2) {
+      return Response.json({ suggestions: [] });
+    }
+    if (query.length > MAX_QUERY_LENGTH) {
+      return Response.json(
+        { error: "Слишком длинный запрос" },
+        { status: 400 },
+      );
+    }
+    if (!isMoscow(city)) {
+      return Response.json(
+        { error: "Подсказки адресов доступны только для Москвы" },
+        { status: 400 },
+      );
+    }
+
+    const res = await fetch(DADATA_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        Authorization: `Token ${token}`,
+      },
+      body: JSON.stringify({
+        query,
+        count: 8,
+        locations: [{ kladr_id: MOSCOW_KLADR_ID }],
+        restrict_value: true,
+        from_bound: { value: "street" },
+        to_bound: { value: "flat" },
+      }),
+    });
+
+    if (!res.ok) {
+      console.error("DaData suggest failed", res.status, await res.text());
+      return Response.json(
+        { error: "Не удалось получить адреса" },
+        { status: 502 },
+      );
+    }
+
+    const payload: unknown = await res.json();
+    return Response.json({ suggestions: parseDaDataSuggestions(payload) });
+  } catch (error) {
+    return authErrorResponse(error);
+  }
+}

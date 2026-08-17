@@ -9,6 +9,7 @@ export type PendingInstallLead = {
   phone: string;
   name: string;
   city?: string;
+  exactAddress?: string;
   serviceType?: LeadServiceType;
   estimatedPriceRub?: number | null;
   panelModules?: number;

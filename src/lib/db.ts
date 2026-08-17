@@ -719,7 +719,7 @@ export async function insertInstallRequest(
     INSERT INTO install_requests (
       id, telegram_user_id, title, subtitle, status, status_label,
       created_at_label, city, contact_method, phone, name,
-      dwelling, phases, power_kw, setup_title, public_code, created_at
+      dwelling, phases, power_kw, setup_title, exact_address, public_code, created_at
     ) VALUES (
       ${request.id},
       ${telegramUserId},
@@ -736,6 +736,7 @@ export async function insertInstallRequest(
       ${request.phases ?? null},
       ${request.powerKw ?? null},
       ${request.setupTitle ?? null},
+      ${request.exactAddress ?? null},
       ${request.publicCode ?? null},
       NOW()
     )

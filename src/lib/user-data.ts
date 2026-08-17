@@ -1,3 +1,4 @@
+import type { AddressSuggestion } from "@/lib/dadata";
 import type { HomeListItem, InstallRequest, PanelObject } from "@/types";
 import {
   authHeaders,
@@ -356,6 +357,31 @@ export async function allocateRequestPublicCode(
     // fall through to local
   }
   return allocateLocalRequestPublicCode(typeCode);
+}
+
+export async function suggestAddresses(
+  query: string,
+  city: string,
+): Promise<AddressSuggestion[]> {
+  if (!canUseServer()) {
+    throw new Error("Подсказки адресов доступны после входа через Telegram");
+  }
+
+  const res = await fetch("/api/address-suggest", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders(),
+    },
+    body: JSON.stringify({ query, city }),
+  });
+
+  if (!res.ok) {
+    throw new Error(await parseError(res));
+  }
+
+  const data = (await res.json()) as { suggestions?: AddressSuggestion[] };
+  return Array.isArray(data.suggestions) ? data.suggestions : [];
 }
 
 export async function persistInstallRequest(

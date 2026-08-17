@@ -56,6 +56,7 @@ export type LeadFinishPayload = {
   phases?: PhaseCount;
   powerKw?: string;
   setupTitle?: string;
+  exactAddress?: string;
   publicCode?: string;
 };
 
@@ -80,6 +81,7 @@ export function LeadContactScreen({
   variant = "install",
   setupTitle,
   city,
+  exactAddress,
   serviceType,
   panelModules,
   typeCode = "U",
@@ -90,6 +92,7 @@ export function LeadContactScreen({
   variant?: "install" | "master";
   setupTitle?: string;
   city?: string;
+  exactAddress?: string;
   serviceType?: LeadServiceType;
   panelModules?: number;
   typeCode?: RequestTypeCode;
@@ -199,6 +202,7 @@ export function LeadContactScreen({
         phone: `+7${digits}`,
         name,
         city,
+        exactAddress,
         serviceType,
         estimatedPriceRub,
         panelModules,
@@ -391,6 +395,11 @@ export function LeadContactScreen({
             <p className="text-[13px] text-zinc-500">
               Город:{" "}
               <span className="font-medium text-zinc-800">{city}</span>
+            </p>
+          )}
+          {exactAddress && (
+            <p className="mt-1 text-[13px] leading-relaxed text-zinc-600">
+              {exactAddress}
             </p>
           )}
           {serviceType && (
