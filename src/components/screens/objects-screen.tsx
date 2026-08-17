@@ -23,6 +23,7 @@ import {
   MAIN_MENU_ITEMS,
   type MainMenuId,
 } from "@/components/screens/main-menu-sheet";
+import { HomeListSkeleton } from "@/components/ui/home-list-skeleton";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { GlassCard } from "@/components/ui/glass-card";
@@ -397,11 +398,7 @@ export function ObjectsScreen({
     empty: { icon: ReactNode; text: string },
   ) => {
     if (loading) {
-      return (
-        <div className="flex flex-1 flex-col items-center justify-center px-4 text-center">
-          <p className="text-[15px] text-zinc-500">Загрузка…</p>
-        </div>
-      );
+      return <HomeListSkeleton count={3} />;
     }
     if (list.length === 0) {
       return <EmptyState icon={empty.icon} text={empty.text} />;

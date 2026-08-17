@@ -8,7 +8,6 @@ import {
   Check,
   Clock3,
   Home,
-  MapPin,
   Phone,
 } from "lucide-react";
 import { RequestTicket } from "@/components/icons/request-ticket";
@@ -19,9 +18,16 @@ import type {
 } from "@/components/screens/electrical-details-screen";
 import { Button } from "@/components/ui/button";
 import { hapticImpact, hapticNotification } from "@/lib/haptics";
-import { completeCity } from "@/lib/cities";
 import { allocateRequestPublicCode } from "@/lib/user-data";
 import type { RequestTypeCode } from "@/lib/request-codes";
+import {
+  buildLeadServiceSetupTitle,
+  formatRub,
+  getLeadServiceLabel,
+  masterLabelingPriceRub,
+  ONLINE_CONSULTATION_PRICE_RUB,
+  type LeadServiceType,
+} from "@/lib/lead-services";
 import {
   clearPendingInstallLead,
   writePendingInstallLead,
@@ -43,6 +49,9 @@ export type LeadFinishPayload = {
   phone: string;
   name: string;
   city?: string;
+  serviceType?: LeadServiceType;
+  estimatedPriceRub?: number | null;
+  panelModules?: number;
   dwelling?: DwellingType;
   phases?: PhaseCount;
   powerKw?: string;
@@ -50,12 +59,29 @@ export type LeadFinishPayload = {
   publicCode?: string;
 };
 
+function resolveEstimatedPriceRub(
+  serviceType?: LeadServiceType,
+  panelModules?: number,
+): number | null | undefined {
+  if (serviceType === "online_consultation") {
+    return ONLINE_CONSULTATION_PRICE_RUB;
+  }
+  if (serviceType === "master_labeling" && panelModules && panelModules > 0) {
+    return masterLabelingPriceRub(panelModules);
+  }
+  if (serviceType === "other") return null;
+  return undefined;
+}
+
 export function LeadContactScreen({
   onBack,
   onFinish,
   onGoHome,
   variant = "install",
   setupTitle,
+  city,
+  serviceType,
+  panelModules,
   typeCode = "U",
 }: {
   onBack: () => void;
@@ -63,6 +89,9 @@ export function LeadContactScreen({
   onGoHome: () => void;
   variant?: "install" | "master";
   setupTitle?: string;
+  city?: string;
+  serviceType?: LeadServiceType;
+  panelModules?: number;
   typeCode?: RequestTypeCode;
 }) {
   const [step, setStep] = useState<Step>("contact");
@@ -73,7 +102,6 @@ export function LeadContactScreen({
   const [consent, setConsent] = useState(false);
   const [displayName, setDisplayName] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [cityQuery, setCityQuery] = useState("");
   const [publicCode, setPublicCode] = useState<string | null>(null);
   const [dwelling, setDwelling] = useState<DwellingType | null>(null);
   const [phases, setPhases] = useState<PhaseCount | null>(null);
@@ -86,9 +114,19 @@ export function LeadContactScreen({
   const phoneValid = digits.length === 10;
   const canSubmit = phoneValid && consent && !submitting;
 
-  const hasDetails = Boolean(
-    cityQuery.trim() || dwelling || phases || powerKw.trim(),
-  );
+  const estimatedPriceRub = resolveEstimatedPriceRub(serviceType, panelModules);
+
+  const resolvedSetupTitle = useMemo(() => {
+    if (setupTitle) return setupTitle;
+    if (!serviceType) return undefined;
+    return buildLeadServiceSetupTitle({
+      serviceType,
+      panelModules,
+      estimatedPriceRub,
+    });
+  }, [setupTitle, serviceType, panelModules, estimatedPriceRub]);
+
+  const hasDetails = Boolean(dwelling || phases || powerKw.trim());
 
   const syncPending = (patch: Partial<PendingInstallLead>) => {
     const current = pendingRef.current;
@@ -143,6 +181,7 @@ export function LeadContactScreen({
           contactMethod: "phone",
           phone: `+7${digits}`,
           name,
+          city,
         });
       } finally {
         setSubmitting(false);
@@ -159,7 +198,11 @@ export function LeadContactScreen({
         contactMethod: preferTelegram ? "telegram" : "phone",
         phone: `+7${digits}`,
         name,
-        setupTitle,
+        city,
+        serviceType,
+        estimatedPriceRub,
+        panelModules,
+        setupTitle: resolvedSetupTitle,
         publicCode: code,
       };
       pendingRef.current = draft;
@@ -214,43 +257,6 @@ export function LeadContactScreen({
                 Эти данные помогут нам быстрее и точнее вам помочь. Можно не
                 заполнять.
               </p>
-            </div>
-
-            <div>
-              <div className="mb-2 text-[13px] font-medium text-zinc-600">
-                Город
-              </div>
-              <label className="relative block">
-                <MapPin className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
-                <input
-                  value={cityQuery}
-                  onChange={(e) => {
-                    const input = e.target;
-                    const next = input.value;
-                    const native = e.nativeEvent as InputEvent;
-                    const deleting = native.inputType?.startsWith("delete");
-                    if (deleting || next.trim().length < 2) {
-                      setCityQuery(next);
-                      syncPending({ city: next.trim() || undefined });
-                      return;
-                    }
-                    const match = completeCity(next);
-                    if (match && match !== next) {
-                      setCityQuery(match);
-                      syncPending({ city: match });
-                      requestAnimationFrame(() => {
-                        input.setSelectionRange(next.length, match.length);
-                      });
-                      return;
-                    }
-                    setCityQuery(next);
-                    syncPending({ city: next.trim() || undefined });
-                  }}
-                  placeholder="Например, Казань"
-                  autoComplete="off"
-                  className="h-12 w-full rounded-[20px] border border-black/8 bg-zinc-50 pl-11 pr-4 text-[15px] text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-zinc-300"
-                />
-              </label>
             </div>
 
             <div>
@@ -378,6 +384,32 @@ export function LeadContactScreen({
           {variant === "master" ? "Контакты для связи" : "Связь с мастером"}
         </h1>
       </header>
+
+      {variant === "install" && (city || serviceType) && (
+        <div className="mb-5 rounded-[20px] border border-black/8 bg-zinc-50 p-4">
+          {city && (
+            <p className="text-[13px] text-zinc-500">
+              Город:{" "}
+              <span className="font-medium text-zinc-800">{city}</span>
+            </p>
+          )}
+          {serviceType && (
+            <p className="mt-1 text-[15px] font-semibold text-zinc-900">
+              {getLeadServiceLabel(serviceType)}
+            </p>
+          )}
+          {estimatedPriceRub != null && (
+            <p className="mt-1 text-[14px] font-medium tabular-nums text-zinc-700">
+              {formatRub(estimatedPriceRub)}
+            </p>
+          )}
+          {serviceType === "other" && (
+            <p className="mt-1 text-[13px] leading-relaxed text-zinc-500">
+              Стоимость определим после разговора по телефону.
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="mb-5 rounded-[20px] border border-sky-400/20 bg-sky-500/10 p-4">
         <div className="mb-2 flex items-center gap-2 text-sky-700">

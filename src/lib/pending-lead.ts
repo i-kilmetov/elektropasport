@@ -1,4 +1,5 @@
 import type { ElectricalDetails } from "@/components/screens/electrical-details-screen";
+import type { LeadServiceType } from "@/lib/lead-services";
 
 export const PENDING_INSTALL_LEAD_KEY = "ep_pending_install_lead";
 
@@ -8,6 +9,9 @@ export type PendingInstallLead = {
   phone: string;
   name: string;
   city?: string;
+  serviceType?: LeadServiceType;
+  estimatedPriceRub?: number | null;
+  panelModules?: number;
   dwelling?: ElectricalDetails["dwelling"];
   phases?: ElectricalDetails["phases"];
   powerKw?: string;

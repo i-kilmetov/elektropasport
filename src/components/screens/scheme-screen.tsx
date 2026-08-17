@@ -289,9 +289,6 @@ function DeviceSheet({
                 меняется цветовой полоской под прибором.
               </p>
             )}
-            <p className="mt-1 text-[12px] text-zinc-400">
-              Включите «Клеммы» на схеме, чтобы провести кабели между приборами
-            </p>
             {device.circuitLabel?.trim() && (
               <p className="mt-1 text-[13px] text-zinc-600">
                 Линия: {device.circuitLabel.trim()}
@@ -1096,38 +1093,6 @@ export function SchemeScreen({
         >
           Фото
         </button>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={showTerminals}
-          onClick={() => {
-            if (tab !== "scheme") setTab("scheme");
-            setShowTerminals((v) => !v);
-          }}
-          className={cn(
-            "ml-auto inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors",
-            showTerminals
-              ? "bg-zinc-900 text-white"
-              : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900",
-          )}
-        >
-          <span
-            className={cn(
-              "relative h-5 w-9 rounded-full transition-colors",
-              showTerminals ? "bg-white/25" : "bg-zinc-200",
-            )}
-          >
-            <span
-              className={cn(
-                "absolute top-0.5 h-4 w-4 rounded-full transition-all",
-                showTerminals
-                  ? "left-4 bg-white"
-                  : "left-0.5 bg-zinc-500",
-              )}
-            />
-          </span>
-          Клеммы
-        </button>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto lg:pb-8">
@@ -1210,13 +1175,6 @@ export function SchemeScreen({
             </div>
           </GlassCard>
           </div>
-
-          {showTerminals && !sharedPreview && (
-            <p className="mt-2 text-[12px] leading-relaxed text-zinc-500">
-              Удержите клемму и протяните кабель к другой клемме. Нажмите на
-              кабель, чтобы изменить цвет, сечение или удалить.
-            </p>
-          )}
 
           <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-[12px] text-zinc-500">
             <span className="flex items-center gap-1.5">

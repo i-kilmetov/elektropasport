@@ -18,6 +18,7 @@ import {
   LeadContactScreen,
   type LeadFinishPayload,
 } from "@/components/screens/lead-contact-screen";
+import { LeadServiceScreen } from "@/components/screens/lead-service-screen";
 import { NoPanelDetailScreen } from "@/components/screens/no-panel-detail-screen";
 import { NoPanelOptionsScreen } from "@/components/screens/no-panel-options-screen";
 import { ObjectsScreen } from "@/components/screens/objects-screen";
@@ -50,6 +51,14 @@ import {
 } from "@/lib/haptics";
 import { getNoPanelSetup, type NoPanelSetupId } from "@/lib/no-panel-setups";
 import { resolveRequestTypeCode } from "@/lib/request-codes";
+import {
+  buildLeadServiceSetupTitle,
+  countPanelModules,
+  masterLabelingPriceRub,
+  ONLINE_CONSULTATION_PRICE_RUB,
+  resolveRequestTypeCodeForService,
+  type LeadServiceType,
+} from "@/lib/lead-services";
 import {
   claimInviteToken,
   fetchHomeItems,
@@ -140,6 +149,9 @@ export function AppShell() {
   const [electricalDetails, setElectricalDetails] =
     useState<ElectricalDetails | null>(null);
   const [selectedCity, setSelectedCity] = useState<string | null>(null);
+  const [selectedLeadService, setSelectedLeadService] =
+    useState<LeadServiceType | null>(null);
+  const [leadPanelModules, setLeadPanelModules] = useState<number | null>(null);
   const [masterAbout, setMasterAbout] = useState("");
   const [leadFlow, setLeadFlow] = useState<LeadFlow>("install");
   const [activeRuleId, setActiveRuleId] = useState<string | null>(null);
@@ -229,8 +241,13 @@ export function AppShell() {
       setScreen("no-panel-options");
     } else if (pending === "call-master") {
       setLeadFlow("install");
+      setElectricalDetails(null);
+      setRequestNeedId(null);
+      setNoPanelSetupId(null);
+      setSelectedCity(null);
+      setSelectedLeadService(null);
       setLeadBackScreen("scheme");
-      setScreen("lead-contact");
+      setScreen("city-select");
     }
   }, []);
 
@@ -253,6 +270,30 @@ export function AppShell() {
       ) ?? null,
     [items, activeRequestId],
   );
+
+  const installSetupTitle = useMemo(() => {
+    if (selectedLeadService) {
+      const estimatedPriceRub =
+        selectedLeadService === "online_consultation"
+          ? ONLINE_CONSULTATION_PRICE_RUB
+          : selectedLeadService === "master_labeling" && leadPanelModules
+            ? masterLabelingPriceRub(leadPanelModules)
+            : null;
+      return buildLeadServiceSetupTitle({
+        serviceType: selectedLeadService,
+        panelModules: leadPanelModules ?? undefined,
+        estimatedPriceRub,
+      });
+    }
+    if (requestNeedId) return getRequestNeedTitle(requestNeedId);
+    if (noPanelSetupId) return getNoPanelSetup(noPanelSetupId).title;
+    return undefined;
+  }, [
+    selectedLeadService,
+    leadPanelModules,
+    requestNeedId,
+    noPanelSetupId,
+  ]);
 
   const handlePhoto = useCallback((dataUrl: string) => {
     setPhotoDataUrl(dataUrl);
@@ -277,16 +318,20 @@ export function AppShell() {
     setLeadFlow("install");
     setElectricalDetails(null);
     setSelectedCity(null);
+    setSelectedLeadService(null);
     setRequestNeedId(null);
     setNoPanelSetupId(null);
     setLeadBackScreen("scheme");
+    const panelDevices = activePanel?.devices ?? devices;
+    const modules = countPanelModules(panelDevices);
+    setLeadPanelModules(modules > 0 ? modules : null);
     if (canUseServerAuth()) {
-      go("lead-contact");
+      go("city-select");
       return;
     }
     setPendingAuthAction("call-master");
     go("telegram-auth");
-  }, [go]);
+  }, [go, activePanel?.devices, devices]);
 
   const handleAnalysisDone = useCallback(
     (result: AnalyzePanelResult) => {
@@ -1177,8 +1222,10 @@ export function AppShell() {
                 setLeadFlow("install");
                 setElectricalDetails(null);
                 setSelectedCity(null);
+                setSelectedLeadService(null);
+                setLeadPanelModules(null);
                 setLeadBackScreen("panel-advantages");
-                go("lead-contact");
+                go("city-select");
               }}
             />
           )}
@@ -1189,8 +1236,11 @@ export function AppShell() {
               onContinue={(details) => {
                 setElectricalDetails(details);
                 setLeadFlow("install");
+                setSelectedCity(null);
+                setSelectedLeadService(null);
+                setLeadPanelModules(null);
                 setLeadBackScreen("electrical-details");
-                go("lead-contact");
+                go("city-select");
               }}
             />
           )}
@@ -1208,14 +1258,15 @@ export function AppShell() {
                   : "Укажите город — мы свяжемся и подскажем, как правильно собрать щиток в вашей ситуации."
               }
               onBack={() =>
-                go(
-                  leadFlow === "master" ? "become-master" : "panel-advantages",
-                )
+                go(leadFlow === "master" ? "become-master" : leadBackScreen)
               }
               onConfirm={(city) => {
                 setSelectedCity(city);
-                setLeadBackScreen("city-select");
-                go(leadFlow === "master" ? "master-about" : "lead-contact");
+                if (leadFlow === "master") {
+                  go("master-about");
+                  return;
+                }
+                go("lead-service");
               }}
             />
           )}
@@ -1226,34 +1277,53 @@ export function AppShell() {
               onSelect={(id) => {
                 setRequestNeedId(id);
                 setLeadFlow("install");
+                setSelectedCity(null);
+                setSelectedLeadService(null);
+                setLeadPanelModules(null);
                 setLeadBackScreen("request-type");
+                go("city-select");
+              }}
+            />
+          )}
+          {screen === "lead-service" && selectedCity && (
+            <LeadServiceScreen
+              key={`lead-service-${selectedCity}-${leadPanelModules ?? 0}`}
+              city={selectedCity}
+              panelModules={leadPanelModules}
+              onBack={() => go("city-select")}
+              onSelect={(serviceType) => {
+                setSelectedLeadService(serviceType);
                 go("lead-contact");
               }}
             />
           )}
           {screen === "lead-contact" && (
             <LeadContactScreen
-              key={`lead-${leadFlow}-${requestNeedId ?? "default"}`}
+              key={`lead-${leadFlow}-${requestNeedId ?? "default"}-${selectedLeadService ?? "none"}`}
               variant={leadFlow}
-              setupTitle={
-                requestNeedId
-                  ? getRequestNeedTitle(requestNeedId)
-                  : noPanelSetupId
-                    ? getNoPanelSetup(noPanelSetupId).title
-                    : undefined
+              city={selectedCity ?? undefined}
+              serviceType={selectedLeadService ?? undefined}
+              panelModules={leadPanelModules ?? undefined}
+              setupTitle={installSetupTitle}
+              typeCode={
+                selectedLeadService
+                  ? resolveRequestTypeCodeForService(selectedLeadService)
+                  : resolveRequestTypeCode({
+                      requestNeedId,
+                      noPanelSetupId,
+                      callMaster: leadBackScreen === "scheme",
+                    })
               }
-              typeCode={resolveRequestTypeCode({
-                requestNeedId,
-                noPanelSetupId,
-                callMaster: leadBackScreen === "scheme",
-              })}
               onBack={() =>
-                go(leadFlow === "master" ? "master-about" : leadBackScreen)
+                go(leadFlow === "master" ? "master-about" : "lead-service")
               }
               onFinish={submitLead}
               onGoHome={() => {
                 setLeadFlow("install");
                 setRequestNeedId(null);
+                setSelectedLeadService(null);
+                setSelectedCity(null);
+                setLeadPanelModules(null);
                 go("objects");
               }}
             />
