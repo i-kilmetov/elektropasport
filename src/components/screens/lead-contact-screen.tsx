@@ -16,6 +16,7 @@ import type {
   DwellingType,
   PhaseCount,
 } from "@/components/screens/electrical-details-screen";
+import { LeadPaymentPanel } from "@/components/screens/lead-payment-panel";
 import { Button } from "@/components/ui/button";
 import { hapticImpact, hapticNotification } from "@/lib/haptics";
 import { allocateRequestPublicCode } from "@/lib/user-data";
@@ -24,8 +25,7 @@ import {
   buildLeadServiceSetupTitle,
   formatRub,
   getLeadServiceLabel,
-  masterLabelingPriceRub,
-  ONLINE_CONSULTATION_PRICE_RUB,
+  payableAmountRub,
   type LeadServiceType,
 } from "@/lib/lead-services";
 import {
@@ -41,7 +41,7 @@ import {
 } from "@/lib/user-profile";
 import { cn } from "@/lib/utils";
 
-type Step = "contact" | "done";
+type Step = "contact" | "payment" | "done";
 
 export type LeadFinishPayload = {
   id?: string;
@@ -58,20 +58,16 @@ export type LeadFinishPayload = {
   setupTitle?: string;
   exactAddress?: string;
   publicCode?: string;
+  paymentStatus?: "pending" | "confirmed";
+  paidAmountRub?: number;
+  tbankPaymentId?: string;
 };
 
 function resolveEstimatedPriceRub(
   serviceType?: LeadServiceType,
   panelModules?: number,
 ): number | null | undefined {
-  if (serviceType === "online_consultation") {
-    return ONLINE_CONSULTATION_PRICE_RUB;
-  }
-  if (serviceType === "master_labeling" && panelModules && panelModules > 0) {
-    return masterLabelingPriceRub(panelModules);
-  }
-  if (serviceType === "other") return null;
-  return undefined;
+  return payableAmountRub({ serviceType, panelModules }) ?? undefined;
 }
 
 export function LeadContactScreen({
@@ -118,6 +114,7 @@ export function LeadContactScreen({
   const canSubmit = phoneValid && consent && !submitting;
 
   const estimatedPriceRub = resolveEstimatedPriceRub(serviceType, panelModules);
+  const payableAmount = payableAmountRub({ serviceType, panelModules });
 
   const resolvedSetupTitle = useMemo(() => {
     if (setupTitle) return setupTitle;
@@ -143,6 +140,8 @@ export function LeadContactScreen({
     if (variant !== "install" || flushedRef.current) return;
     const draft = pendingRef.current;
     if (!draft) return;
+    const due = payableAmountRub(draft);
+    if (due && draft.paymentStatus !== "confirmed") return;
     flushedRef.current = true;
     clearPendingInstallLead();
     void onFinish(draft);
@@ -175,9 +174,9 @@ export function LeadContactScreen({
       ...getUserProfile(),
       phoneDigits: digits,
     }).catch((error) => console.error(error));
-    hapticNotification("success");
 
     if (variant === "master") {
+      hapticNotification("success");
       setSubmitting(true);
       try {
         await onFinish({
@@ -208,11 +207,18 @@ export function LeadContactScreen({
         panelModules,
         setupTitle: resolvedSetupTitle,
         publicCode: code,
+        paymentStatus: payableAmount ? "pending" : undefined,
+        paidAmountRub: payableAmount ?? undefined,
       };
       pendingRef.current = draft;
       writePendingInstallLead(draft);
       setPublicCode(code);
-      setStep("done");
+      if (payableAmount) {
+        setStep("payment");
+      } else {
+        hapticNotification("success");
+        setStep("done");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -222,6 +228,63 @@ export function LeadContactScreen({
     flushLead();
     onGoHome();
   };
+
+  if (step === "payment" && pendingRef.current && payableAmount) {
+    return (
+      <motion.section
+        initial={{ opacity: 0, x: 40 }}
+        animate={{ opacity: 1, x: 0 }}
+        exit={{ opacity: 0, x: -40 }}
+        className="flex min-h-dvh flex-col px-5 pb-8 pt-[max(1.25rem,env(safe-area-inset-top))]"
+      >
+        <header className="mb-6 flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setStep("contact")}
+            className="flex h-11 w-11 items-center justify-center rounded-full border border-black/8 bg-zinc-100 text-zinc-900"
+            aria-label="Назад"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+          <h1 className="text-[20px] font-semibold text-zinc-900">Оплата СБП</h1>
+        </header>
+        <LeadPaymentPanel
+          lead={pendingRef.current}
+          amountRub={payableAmount}
+          serviceTitle={
+            serviceType ? getLeadServiceLabel(serviceType) : "Услуга"
+          }
+          onPaid={(payment) => {
+            const current = pendingRef.current;
+            if (!current) return;
+            const next: PendingInstallLead = {
+              ...current,
+              paymentStatus: "confirmed",
+              paymentOrderId: payment.id,
+              tbankPaymentId: payment.tbankPaymentId ?? undefined,
+              paidAmountRub: payment.amountRub,
+            };
+            pendingRef.current = next;
+            writePendingInstallLead(next);
+            hapticNotification("success");
+            setStep("done");
+          }}
+          onCreated={(payment) => {
+            const current = pendingRef.current;
+            if (!current) return;
+            const next: PendingInstallLead = {
+              ...current,
+              paymentOrderId: payment.id,
+              tbankPaymentId: payment.tbankPaymentId ?? undefined,
+            };
+            pendingRef.current = next;
+            writePendingInstallLead(next);
+          }}
+          onBack={() => setStep("contact")}
+        />
+      </motion.section>
+    );
+  }
 
   if (step === "done") {
     return (
@@ -247,7 +310,9 @@ export function LeadContactScreen({
           <p className="max-w-sm text-[15px] leading-relaxed text-zinc-500">
             {variant === "master"
               ? `Спасибо${displayName ? `, ${displayName}` : ""}! Мы получили вашу заявку и свяжемся для обсуждения сотрудничества.`
-              : "Свяжемся с вами в ближайшее время."}
+              : payableAmount
+                ? "Оплата прошла, заявка принята. Свяжемся в ближайшее время."
+                : "Свяжемся с вами в ближайшее время."}
           </p>
         </div>
 
@@ -514,7 +579,9 @@ export function LeadContactScreen({
           disabled={!canSubmit}
           onClick={() => void submit()}
         >
-          Отправить заявку
+          {payableAmount
+            ? `Оплатить ${formatRub(payableAmount)}`
+            : "Отправить заявку"}
         </Button>
       </div>
     </motion.section>

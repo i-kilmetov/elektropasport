@@ -221,6 +221,39 @@ export async function ensureSchema(): Promise<void> {
         CREATE INDEX IF NOT EXISTS invite_events_inviter_created_idx
         ON invite_events (inviter_telegram_id, created_at DESC)
       `;
+      await sql`
+        ALTER TABLE install_requests
+        ADD COLUMN IF NOT EXISTS payment_status TEXT
+      `;
+      await sql`
+        ALTER TABLE install_requests
+        ADD COLUMN IF NOT EXISTS paid_amount_rub INT
+      `;
+      await sql`
+        ALTER TABLE install_requests
+        ADD COLUMN IF NOT EXISTS tbank_payment_id TEXT
+      `;
+      await sql`
+        CREATE TABLE IF NOT EXISTS sbp_payments (
+          id TEXT PRIMARY KEY,
+          telegram_user_id BIGINT NOT NULL REFERENCES users(telegram_id) ON DELETE CASCADE,
+          order_id TEXT NOT NULL UNIQUE,
+          tbank_payment_id TEXT,
+          service_type TEXT NOT NULL,
+          amount_rub INT NOT NULL,
+          status TEXT NOT NULL DEFAULT 'pending',
+          qr_payload TEXT,
+          qr_image TEXT,
+          lead_payload JSONB,
+          request_id TEXT,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+      `;
+      await sql`
+        CREATE INDEX IF NOT EXISTS sbp_payments_tbank_id_idx
+        ON sbp_payments (tbank_payment_id)
+      `;
     })().catch((error) => {
       schemaReady = null;
       throw error;
@@ -423,6 +456,9 @@ type RequestRow = {
   setup_title: string | null;
   exact_address: string | null;
   public_code: string | null;
+  payment_status: string | null;
+  paid_amount_rub: number | null;
+  tbank_payment_id: string | null;
   created_at: string;
 };
 
@@ -489,6 +525,17 @@ function rowToRequest(row: RequestRow): InstallRequest {
     setupTitle: row.setup_title ?? undefined,
     exactAddress: row.exact_address ?? undefined,
     publicCode: row.public_code ?? undefined,
+    paymentStatus:
+      row.payment_status === "confirmed" ||
+      row.payment_status === "pending" ||
+      row.payment_status === "failed"
+        ? row.payment_status
+        : undefined,
+    paidAmountRub:
+      typeof row.paid_amount_rub === "number" && row.paid_amount_rub > 0
+        ? row.paid_amount_rub
+        : undefined,
+    tbankPaymentId: row.tbank_payment_id ?? undefined,
   };
 }
 
@@ -509,7 +556,8 @@ export async function listHomeItems(
     SELECT
       id, title, subtitle, status, status_label, created_at_label,
       city, contact_method, phone, name, dwelling, phases, power_kw,
-      setup_title, exact_address, public_code, created_at
+      setup_title, exact_address, public_code, payment_status,
+      paid_amount_rub, tbank_payment_id, created_at
     FROM install_requests
     WHERE telegram_user_id = ${telegramUserId}
   `) as RequestRow[];
@@ -713,13 +761,19 @@ export async function allocateRequestPublicCode(
 export async function insertInstallRequest(
   telegramUserId: number,
   request: InstallRequest,
-): Promise<InstallRequest> {
+): Promise<{ request: InstallRequest; created: boolean }> {
   const sql = getSql();
+  const existing = (await sql`
+    SELECT id FROM install_requests WHERE id = ${request.id} LIMIT 1
+  `) as Array<{ id: string }>;
+  const created = existing.length === 0;
+
   await sql`
     INSERT INTO install_requests (
       id, telegram_user_id, title, subtitle, status, status_label,
       created_at_label, city, contact_method, phone, name,
-      dwelling, phases, power_kw, setup_title, exact_address, public_code, created_at
+      dwelling, phases, power_kw, setup_title, exact_address, public_code,
+      payment_status, paid_amount_rub, tbank_payment_id, created_at
     ) VALUES (
       ${request.id},
       ${telegramUserId},
@@ -738,10 +792,146 @@ export async function insertInstallRequest(
       ${request.setupTitle ?? null},
       ${request.exactAddress ?? null},
       ${request.publicCode ?? null},
+      ${request.paymentStatus ?? null},
+      ${request.paidAmountRub ?? null},
+      ${request.tbankPaymentId ?? null},
       NOW()
     )
+    ON CONFLICT (id) DO UPDATE SET
+      dwelling = COALESCE(EXCLUDED.dwelling, install_requests.dwelling),
+      phases = COALESCE(EXCLUDED.phases, install_requests.phases),
+      power_kw = COALESCE(EXCLUDED.power_kw, install_requests.power_kw),
+      exact_address = COALESCE(EXCLUDED.exact_address, install_requests.exact_address),
+      payment_status = COALESCE(EXCLUDED.payment_status, install_requests.payment_status),
+      paid_amount_rub = COALESCE(EXCLUDED.paid_amount_rub, install_requests.paid_amount_rub),
+      tbank_payment_id = COALESCE(EXCLUDED.tbank_payment_id, install_requests.tbank_payment_id)
   `;
-  return request;
+  return { request, created };
+}
+
+export type SbpPaymentRecord = {
+  id: string;
+  telegramUserId: number;
+  orderId: string;
+  tbankPaymentId: string | null;
+  serviceType: string;
+  amountRub: number;
+  status: "pending" | "confirmed" | "failed";
+  qrPayload: string | null;
+  qrImage: string | null;
+  leadPayload: unknown;
+  requestId: string | null;
+};
+
+type SbpPaymentRow = {
+  id: string;
+  telegram_user_id: string | number;
+  order_id: string;
+  tbank_payment_id: string | null;
+  service_type: string;
+  amount_rub: number;
+  status: string;
+  qr_payload: string | null;
+  qr_image: string | null;
+  lead_payload: unknown;
+  request_id: string | null;
+};
+
+function rowToSbpPayment(row: SbpPaymentRow): SbpPaymentRecord {
+  const status =
+    row.status === "confirmed" || row.status === "failed"
+      ? row.status
+      : "pending";
+  return {
+    id: row.id,
+    telegramUserId: Number(row.telegram_user_id),
+    orderId: row.order_id,
+    tbankPaymentId: row.tbank_payment_id,
+    serviceType: row.service_type,
+    amountRub: Number(row.amount_rub),
+    status,
+    qrPayload: row.qr_payload,
+    qrImage: row.qr_image,
+    leadPayload: row.lead_payload,
+    requestId: row.request_id,
+  };
+}
+
+export async function insertSbpPayment(
+  payment: Omit<SbpPaymentRecord, "status"> & { status?: SbpPaymentRecord["status"] },
+): Promise<SbpPaymentRecord> {
+  const sql = getSql();
+  const status = payment.status ?? "pending";
+  await sql`
+    INSERT INTO sbp_payments (
+      id, telegram_user_id, order_id, tbank_payment_id, service_type,
+      amount_rub, status, qr_payload, qr_image, lead_payload, request_id
+    ) VALUES (
+      ${payment.id},
+      ${payment.telegramUserId},
+      ${payment.orderId},
+      ${payment.tbankPaymentId},
+      ${payment.serviceType},
+      ${payment.amountRub},
+      ${status},
+      ${payment.qrPayload},
+      ${payment.qrImage},
+      ${payment.leadPayload ?? null},
+      ${payment.requestId}
+    )
+  `;
+  return { ...payment, status };
+}
+
+export async function getSbpPaymentById(
+  id: string,
+  telegramUserId?: number,
+): Promise<SbpPaymentRecord | null> {
+  const sql = getSql();
+  const rows = (
+    telegramUserId
+      ? await sql`
+          SELECT * FROM sbp_payments
+          WHERE id = ${id} AND telegram_user_id = ${telegramUserId}
+          LIMIT 1
+        `
+      : await sql`
+          SELECT * FROM sbp_payments WHERE id = ${id} LIMIT 1
+        `
+  ) as SbpPaymentRow[];
+  return rows[0] ? rowToSbpPayment(rows[0]) : null;
+}
+
+export async function getSbpPaymentByTbankId(
+  tbankPaymentId: string,
+): Promise<SbpPaymentRecord | null> {
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT * FROM sbp_payments
+    WHERE tbank_payment_id = ${tbankPaymentId}
+    LIMIT 1
+  `) as SbpPaymentRow[];
+  return rows[0] ? rowToSbpPayment(rows[0]) : null;
+}
+
+export async function updateSbpPayment(
+  id: string,
+  patch: Partial<
+    Pick<SbpPaymentRecord, "status" | "requestId" | "qrPayload" | "qrImage">
+  >,
+): Promise<SbpPaymentRecord | null> {
+  const sql = getSql();
+  const rows = (await sql`
+    UPDATE sbp_payments SET
+      status = COALESCE(${patch.status ?? null}, status),
+      request_id = COALESCE(${patch.requestId ?? null}, request_id),
+      qr_payload = COALESCE(${patch.qrPayload ?? null}, qr_payload),
+      qr_image = COALESCE(${patch.qrImage ?? null}, qr_image),
+      updated_at = NOW()
+    WHERE id = ${id}
+    RETURNING *
+  `) as SbpPaymentRow[];
+  return rows[0] ? rowToSbpPayment(rows[0]) : null;
 }
 
 export async function updateInstallRequest(
@@ -762,7 +952,8 @@ export async function updateInstallRequest(
     RETURNING
       id, title, subtitle, status, status_label, created_at_label,
       city, contact_method, phone, name, dwelling, phases, power_kw,
-      setup_title, exact_address, public_code, created_at
+      setup_title, exact_address, public_code, payment_status,
+      paid_amount_rub, tbank_payment_id, created_at
   `) as RequestRow[];
   return rows[0] ? rowToRequest(rows[0]) : null;
 }
@@ -775,7 +966,8 @@ export async function getInstallRequestById(
     SELECT
       id, telegram_user_id, title, subtitle, status, status_label, created_at_label,
       city, contact_method, phone, name, dwelling, phases, power_kw,
-      setup_title, exact_address, public_code, created_at
+      setup_title, exact_address, public_code, payment_status,
+      paid_amount_rub, tbank_payment_id, created_at
     FROM install_requests
     WHERE id = ${id}
     LIMIT 1
@@ -806,7 +998,8 @@ export async function adminUpdateInstallRequest(
     RETURNING
       id, title, subtitle, status, status_label, created_at_label,
       city, contact_method, phone, name, dwelling, phases, power_kw,
-      setup_title, exact_address, public_code, created_at
+      setup_title, exact_address, public_code, payment_status,
+      paid_amount_rub, tbank_payment_id, created_at
   `) as RequestRow[];
   return rows[0] ? rowToRequest(rows[0]) : null;
 }

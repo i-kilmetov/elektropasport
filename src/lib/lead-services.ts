@@ -127,6 +127,23 @@ export function getLeadServiceOptions(input: {
   return [online, master, other];
 }
 
+export function payableAmountRub(input: {
+  serviceType?: LeadServiceType | null;
+  panelModules?: number | null;
+}): number | null {
+  if (input.serviceType === "online_consultation") {
+    return ONLINE_CONSULTATION_PRICE_RUB;
+  }
+  if (
+    input.serviceType === "master_labeling" &&
+    typeof input.panelModules === "number" &&
+    input.panelModules > 0
+  ) {
+    return masterLabelingPriceRub(input.panelModules);
+  }
+  return null;
+}
+
 export function resolveRequestTypeCodeForService(
   serviceType: LeadServiceType,
 ): "C" | "V" | "O" {

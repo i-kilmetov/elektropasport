@@ -18,6 +18,10 @@ export type PendingInstallLead = {
   powerKw?: string;
   setupTitle?: string;
   publicCode?: string;
+  paymentStatus?: "pending" | "confirmed";
+  paidAmountRub?: number;
+  paymentOrderId?: string;
+  tbankPaymentId?: string;
 };
 
 export function readPendingInstallLead(): PendingInstallLead | null {

@@ -110,6 +110,9 @@ export interface InstallRequest {
   setupTitle?: string;
   exactAddress?: string;
   publicCode?: string;
+  paymentStatus?: "pending" | "confirmed" | "failed";
+  paidAmountRub?: number;
+  tbankPaymentId?: string;
 }
 
 export type HomeListItem = PanelObject | InstallRequest;

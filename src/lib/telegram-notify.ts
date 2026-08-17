@@ -96,6 +96,11 @@ function formatInstallRequestMessage(
     request.phases ? `Фаз: ${request.phases}` : null,
     request.powerKw ? `Мощность: ${request.powerKw} кВт` : null,
     request.setupTitle ? `Схема: ${request.setupTitle}` : null,
+    request.paymentStatus === "confirmed" && request.paidAmountRub
+      ? `Оплата СБП: ${request.paidAmountRub.toLocaleString("ru-RU")} ₽ ✅`
+      : request.paymentStatus === "confirmed"
+        ? "Оплата СБП: получена ✅"
+        : null,
     `Дата: ${request.createdAt}`,
     `ID заявки: ${request.id}`,
     `Telegram user id: ${customerTelegramId}`,

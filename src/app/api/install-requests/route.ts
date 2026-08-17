@@ -31,22 +31,24 @@ export async function POST(request: Request) {
     const item = await insertInstallRequest(user.telegramId, body.request);
 
     let botCanMessage: boolean | undefined;
-    if (item.contactMethod === "telegram") {
+    if (item.created && item.request.contactMethod === "telegram") {
       botCanMessage = await canBotMessageUser(user.telegramId);
     }
 
     // Must await: Vercel freezes the function after the response is sent.
     try {
-      await notifyAdminNewInstallRequest(item, user.telegramId, {
-        username: user.username,
-        botCanMessage,
-      });
+      if (item.created) {
+        await notifyAdminNewInstallRequest(item.request, user.telegramId, {
+          username: user.username,
+          botCanMessage,
+        });
+      }
     } catch (error) {
       console.error("Failed to notify admin about install request", error);
     }
 
     return Response.json(
-      { request: item, botCanMessage },
+      { request: item.request, botCanMessage },
       { status: 201 },
     );
   } catch (error) {

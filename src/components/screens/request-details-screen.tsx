@@ -216,6 +216,15 @@ export function RequestDetailsScreen({
     request.setupTitle
       ? { label: "Задача", value: request.setupTitle, wide: true }
       : null,
+    request.paymentStatus === "confirmed"
+      ? {
+          label: "Оплата",
+          value: request.paidAmountRub
+            ? `СБП · ${request.paidAmountRub.toLocaleString("ru-RU")} ₽`
+            : "СБП · оплачено",
+          wide: true,
+        }
+      : null,
   ].filter((field): field is { label: string; value: string; wide?: boolean } =>
     Boolean(field),
   );

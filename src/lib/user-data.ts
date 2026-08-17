@@ -384,6 +384,58 @@ export async function suggestAddresses(
   return Array.isArray(data.suggestions) ? data.suggestions : [];
 }
 
+export type SbpPaymentClient = {
+  id: string;
+  amountRub: number;
+  status: "pending" | "confirmed" | "failed";
+  qrPayload: string | null;
+  qrImage: string | null;
+  tbankPaymentId: string | null;
+};
+
+export async function createSbpPayment(
+  lead: import("@/lib/pending-lead").PendingInstallLead,
+): Promise<SbpPaymentClient> {
+  if (!canUseServer()) {
+    throw new Error("Оплата доступна после входа через Telegram");
+  }
+  const res = await fetch("/api/payments/sbp", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders(),
+    },
+    body: JSON.stringify({ lead }),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return (await res.json()) as SbpPaymentClient;
+}
+
+export async function fetchSbpPayment(id: string): Promise<SbpPaymentClient> {
+  if (!canUseServer()) {
+    throw new Error("Оплата доступна после входа через Telegram");
+  }
+  const res = await fetch(`/api/payments/sbp/${encodeURIComponent(id)}`, {
+    headers: { ...authHeaders() },
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return (await res.json()) as SbpPaymentClient;
+}
+
+export function openSbpPayload(payload: string): void {
+  const url = payload.startsWith("http")
+    ? payload
+    : `https://qr.nspk.ru/${payload}`;
+  const webApp = window.Telegram?.WebApp as
+    | { openLink?: (link: string) => void }
+    | undefined;
+  if (webApp?.openLink) {
+    webApp.openLink(url);
+    return;
+  }
+  window.open(url, "_blank", "noopener,noreferrer");
+}
+
 export async function persistInstallRequest(
   request: InstallRequest,
 ): Promise<{ botCanMessage?: boolean }> {
