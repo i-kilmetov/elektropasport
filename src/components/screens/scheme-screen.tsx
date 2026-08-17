@@ -1176,20 +1176,28 @@ export function SchemeScreen({
           </GlassCard>
           </div>
 
-          <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-[12px] text-zinc-500">
-            <span className="flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
-              Определён ({verified})
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-full bg-amber-400" />
-              Требует проверки ({pending})
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-full bg-zinc-300" />
-              Не определён ({unknown})
-            </span>
-          </div>
+          {(pending > 0 || unknown > 0) && (
+            <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-[12px] text-zinc-500">
+              {verified > 0 && (
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
+                  Определён ({verified})
+                </span>
+              )}
+              {pending > 0 && (
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-full bg-amber-400" />
+                  Требует проверки ({pending})
+                </span>
+              )}
+              {unknown > 0 && (
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-full bg-zinc-300" />
+                  Не определён ({unknown})
+                </span>
+              )}
+            </div>
+          )}
 
           <button
             type="button"
@@ -1216,9 +1224,12 @@ export function SchemeScreen({
                 className="max-h-[60vh] w-full object-contain bg-zinc-100"
               />
             ) : (
-              <div className="flex aspect-[4/3] flex-col items-center justify-center gap-3 text-zinc-400">
+              <div className="flex aspect-[4/3] flex-col items-center justify-center gap-3 px-6 text-zinc-400">
                 <ImageIcon className="h-10 w-10" />
-                <p className="text-[14px]">Фото щитка недоступно</p>
+                <p className="max-w-[280px] text-center text-[14px] leading-relaxed text-zinc-500">
+                  Фотография щитка доступна только на том устройстве, с которого
+                  была сделана или загружена фотография.
+                </p>
               </div>
             )}
           </GlassCard>

@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 
-/** Round sticker with a folded corner. */
+/** Peel-off rectangular sticker / наклейка. */
 export function StickerBadgeIcon({
   className,
   strokeWidth = 1.75,
@@ -19,9 +19,10 @@ export function StickerBadgeIcon({
       className={cn("h-5 w-5", className)}
       aria-hidden
     >
-      <path d="M8.2 4.35a8.25 8.25 0 1 0 11.45 11.45" />
-      <path d="M14.55 4.2 19.8 9.45" />
-      <path d="M14.55 4.2v5.25H19.8" />
+      <path d="M7 3.75h7.15L19.25 8.85V19.5A1.75 1.75 0 0 1 17.5 21.25h-10.5A1.75 1.75 0 0 1 5.25 19.5v-14A1.75 1.75 0 0 1 7 3.75Z" />
+      <path d="M14.15 3.75V8.1h4.35" />
+      <path d="M8.5 13h7" />
+      <path d="M8.5 16.25h4.5" />
     </svg>
   );
 }

@@ -7,11 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Portal } from "@/components/ui/portal";
 import { ShareSheet } from "@/components/ui/share-sheet";
 import { INVITE_SHARE_TEXT } from "@/lib/panel-share";
-import {
-  PANELS_PER_INVITE,
-  panelWord,
-  type PanelQuota,
-} from "@/lib/invites";
+import { BASE_PANEL_LIMIT, panelWord, type PanelQuota } from "@/lib/invites";
 import { cn } from "@/lib/utils";
 
 function formatEventDate(value: string): string {
@@ -53,11 +49,11 @@ export function PanelLimitSheet({
           <div className="mb-4 flex items-start justify-between gap-3">
             <div>
               <h2 className="text-[20px] font-semibold text-zinc-900">
-                Лимит щитков
+                Пригласите человека
               </h2>
               <p className="mt-1 text-[13px] text-zinc-500">
-                {quota.panelCount} из {quota.panelLimit}{" "}
-                {panelWord(quota.panelLimit)}
+                {quota.panelCount} из {BASE_PANEL_LIMIT}{" "}
+                {panelWord(BASE_PANEL_LIMIT)} без приглашения
               </p>
             </div>
             <button
@@ -71,11 +67,12 @@ export function PanelLimitSheet({
           </div>
 
           <p className="text-[15px] leading-relaxed text-zinc-600">
-            Сейчас можно хранить {quota.panelLimit}{" "}
-            {panelWord(quota.panelLimit)}. Чтобы добавить ещё, удалите щиток из
-            списка или пригласите нового пользователя. Когда он откроет
-            приложение, вам добавятся ещё {PANELS_PER_INVITE}{" "}
-            {panelWord(PANELS_PER_INVITE)}.
+            Один щиток можно добавить сразу. Чтобы хранить сколько угодно,
+            пригласите хотя бы одного человека — лимит снимется полностью.
+          </p>
+          <p className="mt-3 text-[15px] leading-relaxed text-zinc-600">
+            Сервис полезен каждому: по фото понятно, что в щитке и как он
+            работает. Приглашая людей, вы в первую очередь помогаете им.
           </p>
 
           {canInvite && (
@@ -92,7 +89,7 @@ export function PanelLimitSheet({
             {quota.events.length === 0 ? (
               <p className="text-[13px] leading-relaxed text-zinc-400">
                 Пока никто не открыл вашу ссылку. Когда человек зайдёт в
-                приложение, здесь появится, засчитано приглашение или нет.
+                приложение, лимит щитков снимется.
               </p>
             ) : (
               <ul className="divide-y divide-black/[0.06] overflow-hidden rounded-[20px] border border-black/8 bg-zinc-50">
@@ -112,8 +109,8 @@ export function PanelLimitSheet({
                           )}
                         >
                           {event.outcome === "credited"
-                            ? `Засчитано, +${PANELS_PER_INVITE} ${panelWord(PANELS_PER_INVITE)}`
-                            : "Уже пользуется сервисом, слот не начислен"}
+                            ? "Засчитано, лимит щитков снят"
+                            : "Уже пользуется сервисом, лимит не снят"}
                         </p>
                       </div>
                       <span className="shrink-0 text-[12px] text-zinc-400">

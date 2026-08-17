@@ -6,7 +6,10 @@ import {
 } from "@/lib/client-auth";
 import {
   BASE_PANEL_LIMIT,
+  hasUnlockedPanelLimit,
+  isAtPanelLimit,
   isInviteToken,
+  PANEL_LIMIT_MESSAGE,
   type PanelQuota,
 } from "@/lib/invites";
 import {
@@ -67,12 +70,19 @@ async function parseError(res: Response): Promise<string> {
   }
 }
 
+function normalizeQuota(quota: PanelQuota): PanelQuota {
+  const unlimited =
+    quota.unlimited || hasUnlockedPanelLimit(quota.creditedInvites);
+  return { ...quota, unlimited };
+}
+
 export function localPanelQuota(items: HomeListItem[]): PanelQuota {
   const panelCount = items.filter((item) => item.kind === "panel").length;
   return {
     panelCount,
     panelLimit: BASE_PANEL_LIMIT,
     remaining: Math.max(0, BASE_PANEL_LIMIT - panelCount),
+    unlimited: false,
     creditedInvites: 0,
     inviteUrl: "",
     events: [],
@@ -94,7 +104,7 @@ export async function fetchPanelQuota(): Promise<PanelQuota> {
   }
   const data = (await res.json()) as { quota?: PanelQuota };
   if (!data.quota) return localPanelQuota(readLocalItems());
-  return data.quota;
+  return normalizeQuota(data.quota);
 }
 
 export async function claimInviteToken(
@@ -115,7 +125,7 @@ export async function claimInviteToken(
     throw new Error(await parseError(res));
   }
   const data = (await res.json()) as { quota?: PanelQuota };
-  return data.quota ?? null;
+  return data.quota ? normalizeQuota(data.quota) : null;
 }
 
 function enqueuePanelOp<T>(id: string, op: () => Promise<T>): Promise<T> {
@@ -181,10 +191,8 @@ export async function persistPanel(panel: PanelObject): Promise<void> {
       const quota = canUseServer()
         ? null
         : localPanelQuota(readLocalItems());
-      if (quota && quota.remaining <= 0) {
-        const error = new Error(
-          `Сейчас можно хранить ${quota.panelLimit} щитка. Удалите один или пригласите нового пользователя.`,
-        );
+      if (isAtPanelLimit(quota)) {
+        const error = new Error(PANEL_LIMIT_MESSAGE);
         error.name = "PanelLimitError";
         throw error;
       }

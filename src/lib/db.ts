@@ -16,8 +16,10 @@ import {
 } from "@/lib/request-codes";
 import {
   inviteeDisplayName,
+  isAtPanelLimit,
+  PANEL_LIMIT_MESSAGE,
   panelLimitForInvites,
-  panelWord,
+  hasUnlockedPanelLimit,
   type InviteEvent,
   type InviteOutcome,
   type PanelQuota,
@@ -1157,11 +1159,15 @@ export async function getPanelQuota(
     listInviteEvents(telegramUserId),
   ]);
 
+  const unlimited = hasUnlockedPanelLimit(creditedInvites);
   const panelLimit = panelLimitForInvites(creditedInvites);
   return {
     panelCount,
     panelLimit,
-    remaining: Math.max(0, panelLimit - panelCount),
+    remaining: unlimited
+      ? Number.MAX_SAFE_INTEGER
+      : Math.max(0, panelLimit - panelCount),
+    unlimited,
     creditedInvites,
     inviteUrl: buildPanelShareUrl(inviteToken),
     events,
@@ -1170,12 +1176,8 @@ export async function getPanelQuota(
 
 async function assertCanAddPanel(telegramUserId: number): Promise<void> {
   const quota = await getPanelQuota(telegramUserId);
-  if (quota.panelCount >= quota.panelLimit) {
-    throw new DbError(
-      `Сейчас можно хранить ${quota.panelLimit} ${panelWord(quota.panelLimit)}. Удалите один или пригласите нового пользователя.`,
-      403,
-      "PANEL_LIMIT",
-    );
+  if (isAtPanelLimit(quota)) {
+    throw new DbError(PANEL_LIMIT_MESSAGE, 403, "PANEL_LIMIT");
   }
 }
 

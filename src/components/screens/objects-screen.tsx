@@ -33,7 +33,7 @@ import { hapticContextMenu } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
 import type { HomeListItem, InstallRequest, PanelObject } from "@/types";
 import { installStatusTone } from "@/types";
-import type { PanelQuota } from "@/lib/invites";
+import { isAtPanelLimit, type PanelQuota } from "@/lib/invites";
 
 /** Hold duration before context menu — close to iOS Haptic Touch. */
 const LONG_PRESS_MS = 480;
@@ -210,10 +210,22 @@ function HomeListCard({
 function EmptyState({
   icon,
   text,
+  framed = false,
 }: {
   icon: ReactNode;
   text: string;
+  framed?: boolean;
 }) {
+  if (framed) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center px-4">
+        <div className="max-w-[320px] rounded-[20px] border border-black/8 bg-white px-5 py-4 text-center text-[15px] leading-relaxed text-zinc-600 shadow-sm">
+          {text}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-1 flex-col items-center justify-center px-4 text-center">
       <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-[24px] border border-black/8 bg-zinc-100 text-zinc-500">
@@ -239,6 +251,8 @@ export function ObjectsScreen({
   onNoPanel,
   onMenuSelect,
   onPanelLimit,
+  menuOpen = false,
+  onMenuOpenChange,
 }: {
   items: HomeListItem[];
   loading?: boolean;
@@ -252,9 +266,10 @@ export function ObjectsScreen({
   onNoPanel: () => void;
   onMenuSelect: (id: MainMenuId) => void;
   onPanelLimit?: () => void;
+  menuOpen?: boolean;
+  onMenuOpenChange?: (open: boolean) => void;
 }) {
   const [page, setPage] = useState(0);
-  const [menuOpen, setMenuOpen] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [actionsItemId, setActionsItemId] = useState<string | null>(null);
   const [renameItemId, setRenameItemId] = useState<string | null>(null);
@@ -302,7 +317,7 @@ export function ObjectsScreen({
     [items],
   );
   const showRequests = requests.length > 0;
-  const atPanelLimit = (quota?.remaining ?? 1) <= 0;
+  const atPanelLimit = isAtPanelLimit(quota);
 
   const pendingDelete = items.find((item) => item.id === pendingDeleteId);
   const actionsItem = items.find((item) => item.id === actionsItemId);
@@ -395,13 +410,19 @@ export function ObjectsScreen({
 
   const renderList = (
     list: HomeListItem[],
-    empty: { icon: ReactNode; text: string },
+    empty: { icon: ReactNode; text: string; framed?: boolean },
   ) => {
     if (loading) {
       return <HomeListSkeleton count={3} />;
     }
     if (list.length === 0) {
-      return <EmptyState icon={empty.icon} text={empty.text} />;
+      return (
+        <EmptyState
+          icon={empty.icon}
+          text={empty.text}
+          framed={empty.framed}
+        />
+      );
     }
     return (
       <div className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:gap-4 xl:grid-cols-3">
@@ -481,7 +502,7 @@ export function ObjectsScreen({
         <div className="relative flex items-center justify-center lg:justify-between">
           <button
             type="button"
-            onClick={() => setMenuOpen(true)}
+            onClick={() => onMenuOpenChange?.(true)}
             className="absolute left-0 flex h-11 w-11 items-center justify-center rounded-full border border-black/8 bg-zinc-100 text-zinc-900 lg:hidden"
             aria-label="Меню"
           >
@@ -552,7 +573,8 @@ export function ObjectsScreen({
         {page === 0
           ? renderList(panels, {
               icon: <BreakerIcon className="h-10 w-10" />,
-              text: "Сфотографируйте существующий щиток или расскажите, как у вас устроена электрика без него.",
+              text: "Просто сфотографируй щиток. Дальше мы все расскажем и покажем, что в нём и как это работает.",
+              framed: true,
             })
           : renderList(requests, {
               icon: <ClipboardList className="h-10 w-10" />,
@@ -588,7 +610,8 @@ export function ObjectsScreen({
             <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
               {renderList(panels, {
                 icon: <BreakerIcon className="h-10 w-10" />,
-                text: "Сфотографируйте существующий щиток или расскажите, как у вас устроена электрика без него.",
+                text: "Просто сфотографируй щиток. Дальше мы все расскажем и покажем, что в нём и как это работает.",
+                framed: true,
               })}
             </div>
           </div>
@@ -630,9 +653,8 @@ export function ObjectsScreen({
       <AnimatePresence>
         {menuOpen && (
           <MainMenuSheet
-            onClose={() => setMenuOpen(false)}
+            onClose={() => onMenuOpenChange?.(false)}
             onSelect={(id) => {
-              setMenuOpen(false);
               onMenuSelect(id);
             }}
           />

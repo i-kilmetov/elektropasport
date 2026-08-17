@@ -115,7 +115,7 @@ export function PanelDeviceGuideSection({
         >
           <div>
             <h3 className="text-[16px] font-semibold text-zinc-900">
-              Что у вас в щитке
+              Что в этом щитке
             </h3>
             <p className="mt-1 text-[13px] text-zinc-500">
               {present.length > 0

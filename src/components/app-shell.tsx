@@ -79,7 +79,7 @@ import {
 } from "@/lib/user-data";
 import { syncRatingFromCharacteristics } from "@/lib/device-spec-guide";
 import { deriveRailCount } from "@/lib/panel-rails";
-import { isInviteToken, type PanelQuota } from "@/lib/invites";
+import { isAtPanelLimit, isInviteToken, type PanelQuota } from "@/lib/invites";
 import {
   DEVICE_TYPE_OPTIONS,
 } from "@/lib/manufacturer-brands";
@@ -124,6 +124,7 @@ export function AppShell() {
   const [itemsLoading, setItemsLoading] = useState(true);
   const [itemsError, setItemsError] = useState<string | null>(null);
   const [quota, setQuota] = useState<PanelQuota | null>(null);
+  const [mainMenuOpen, setMainMenuOpen] = useState(false);
   const [limitOpen, setLimitOpen] = useState(false);
   const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
   const [activePanelId, setActivePanelId] = useState<string | null>(null);
@@ -377,7 +378,7 @@ export function AppShell() {
         return;
       }
 
-      if (quota && quota.remaining <= 0) {
+      if (isAtPanelLimit(quota)) {
         setScreen("objects");
         openPanelLimit();
         return;
@@ -531,7 +532,7 @@ export function AppShell() {
       go("objects");
       return;
     }
-    if (quota && quota.remaining <= 0) {
+    if (isAtPanelLimit(quota)) {
       go("objects");
       openPanelLimit();
       return;
@@ -1133,6 +1134,8 @@ export function AppShell() {
               loading={itemsLoading}
               error={itemsError}
               quota={quota}
+              menuOpen={mainMenuOpen}
+              onMenuOpenChange={setMainMenuOpen}
               onAdd={() => requireTelegramAuth("add-panel")}
               onOpenPanel={openPanel}
               onOpenRequest={(id) => {
@@ -1401,6 +1404,7 @@ export function AppShell() {
                 setActivePanelId(null);
                 setActiveRequestId(null);
                 setPendingAuthAction(null);
+                setMainMenuOpen(false);
                 go("telegram-auth");
               }}
             />
