@@ -24,6 +24,7 @@ import {
   type MainMenuId,
 } from "@/components/screens/main-menu-sheet";
 import { HomeListSkeleton } from "@/components/ui/home-list-skeleton";
+import { BrandLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { GlassCard } from "@/components/ui/glass-card";
@@ -469,9 +470,7 @@ export function ObjectsScreen({
     >
       <aside className="hidden w-72 shrink-0 flex-col border-r border-black/[0.06] bg-zinc-50/70 px-6 py-8 lg:flex">
         <div className="mb-8">
-          <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-400">
-            Электропаспорт
-          </div>
+          <BrandLogo className="h-12 w-[148px] rounded-[12px]" />
         </div>
         <nav className="space-y-1.5">
           {MAIN_MENU_ITEMS.map((item) => (

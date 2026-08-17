@@ -10,12 +10,12 @@ const manrope = Manrope({
 });
 
 export const metadata: Metadata = {
-  title: "Электропаспорт",
+  title: "Токщиток",
   description: "Цифровой паспорт электрического щитка",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Электропаспорт",
+    title: "Токщиток",
   },
 };
 

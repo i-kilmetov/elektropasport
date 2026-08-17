@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { ArrowLeft } from "lucide-react";
+import { BrandLogo } from "@/components/brand-logo";
 import { TelegramAppIcon } from "@/components/icons/telegram-app-icon";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
@@ -48,6 +49,7 @@ export function TelegramAuthScreen({
 
       <div className="flex flex-1 flex-col items-center justify-center">
         <GlassCard className="w-full max-w-sm space-y-5 p-6 text-center">
+          <BrandLogo className="mx-auto h-16 w-[200px] rounded-[16px]" />
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-[#2AABEE] text-white shadow-[0_8px_24px_rgba(42,171,238,0.28)]">
             <TelegramAppIcon className="h-8 w-8" />
           </div>

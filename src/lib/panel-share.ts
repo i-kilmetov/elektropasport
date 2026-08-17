@@ -47,8 +47,8 @@ export function buildPanelShareUrl(token: string): string {
   return `https://t.me/${bot}?startapp=${encodeURIComponent(token)}`;
 }
 
-const SHARE_TEXT = "Щиток в Электропаспорте";
-export const INVITE_SHARE_TEXT = "Приглашаю в Электропаспорт";
+const SHARE_TEXT = "Щиток в Токщитке";
+export const INVITE_SHARE_TEXT = "Приглашаю в Токщиток";
 
 export async function shareViaNative(
   url: string,

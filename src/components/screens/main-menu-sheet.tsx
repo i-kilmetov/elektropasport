@@ -9,6 +9,7 @@ import {
   Wrench,
   X,
 } from "lucide-react";
+import { BrandLogo } from "@/components/brand-logo";
 import { Portal } from "@/components/ui/portal";
 
 export type MainMenuId = "profile" | "about" | "feedback" | "master";
@@ -28,7 +29,7 @@ const items: Array<{
   {
     id: "about",
     title: "О сервисе",
-    description: "Как работает Электропаспорт",
+    description: "Как работает Токщиток",
     icon: Info,
   },
   {
@@ -71,8 +72,8 @@ export function MainMenuSheet({
           onClick={(e) => e.stopPropagation()}
           className="mx-auto w-full max-w-[430px] rounded-t-[28px] border border-black/8 bg-white p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-2xl lg:max-w-md lg:rounded-[28px]"
         >
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-[20px] font-semibold text-zinc-900">Меню</h2>
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <BrandLogo className="h-11 w-[132px] rounded-[12px]" />
             <button
               type="button"
               onClick={onClose}
