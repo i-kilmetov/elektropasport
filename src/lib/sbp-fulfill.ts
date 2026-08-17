@@ -7,7 +7,7 @@ import {
 } from "@/lib/db";
 import { installRequestFromLead } from "@/lib/install-request";
 import { notifyAdminNewInstallRequest } from "@/lib/telegram-notify";
-import { mapTBankStatus, tbankGetState } from "@/lib/tbank";
+import { mapYooKassaStatus, yooKassaGetPayment } from "@/lib/yookassa";
 
 export async function refreshSbpPaymentFromBank(
   payment: SbpPaymentRecord,
@@ -15,8 +15,8 @@ export async function refreshSbpPaymentFromBank(
   if (payment.status !== "pending" || !payment.tbankPaymentId) {
     return payment;
   }
-  const state = await tbankGetState(payment.tbankPaymentId);
-  const next = mapTBankStatus(state.status);
+  const remote = await yooKassaGetPayment(payment.tbankPaymentId);
+  const next = mapYooKassaStatus(remote.status, remote.paid);
   if (next === "pending") return payment;
   if (next === "failed") {
     return (

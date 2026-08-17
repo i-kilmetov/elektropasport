@@ -36,7 +36,7 @@ function QrFrame({ image, payload }: { image: string | null; payload: string | n
       />
     );
   }
-  if (payload) {
+  if (payload && !payload.startsWith("http")) {
     return (
       <p className="break-all rounded-[16px] bg-zinc-50 px-3 py-2 text-center text-[12px] text-zinc-500">
         {payload}
@@ -125,8 +125,8 @@ export function LeadPaymentPanel({
           {formatRub(amountRub)}
         </p>
         <p className="mt-2 text-[13px] leading-relaxed text-zinc-500">
-          Оплата по СБП на счёт самозанятого в Т‑Банке. Отсканируйте QR или
-          откройте приложение банка.
+          Оплата по СБП через ЮKassa. Откроется страница с выбором банка —
+          деньги придут на счёт самозанятого.
         </p>
       </div>
 
@@ -168,7 +168,7 @@ export function LeadPaymentPanel({
             size="lg"
             onClick={() => openSbpPayload(payment.qrPayload!)}
           >
-            Оплатить в приложении банка
+            Оплатить по СБП
           </Button>
         )}
         <Button className="w-full" variant="secondary" onClick={onBack}>

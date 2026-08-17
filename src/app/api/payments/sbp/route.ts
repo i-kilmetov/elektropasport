@@ -12,12 +12,7 @@ import {
 } from "@/lib/db";
 import { payableAmountRub, getLeadServiceLabel } from "@/lib/lead-services";
 import type { PendingInstallLead } from "@/lib/pending-lead";
-import {
-  isTBankConfigured,
-  tbankGetQr,
-  tbankInit,
-  tbankNotificationUrl,
-} from "@/lib/tbank";
+import { isYooKassaConfigured, yooKassaCreateSbpPayment } from "@/lib/yookassa";
 
 function newOrderId(): string {
   return `p${Date.now().toString(36)}${randomBytes(6).toString("hex")}`.slice(
@@ -32,7 +27,7 @@ export async function POST(request: Request) {
     await ensureSchema();
     await upsertUser(user);
 
-    if (!isTBankConfigured()) {
+    if (!isYooKassaConfigured()) {
       return Response.json(
         { error: "Оплата по СБП пока не настроена" },
         { status: 503 },
@@ -58,29 +53,31 @@ export async function POST(request: Request) {
 
     const orderId = newOrderId();
     const description = getLeadServiceLabel(lead.serviceType);
-    const init = await tbankInit({
+    const created = await yooKassaCreateSbpPayment({
       orderId,
-      amountKopecks: amountRub * 100,
+      amountRub,
       description,
-      notificationUrl: tbankNotificationUrl(),
-      phone: lead.phone,
+      metadata: {
+        order_id: orderId,
+        request_id: lead.id,
+        telegram_id: String(user.telegramId),
+      },
     });
-    const qr = await tbankGetQr(init.paymentId);
 
     const payment = await insertSbpPayment({
       id: orderId,
       telegramUserId: user.telegramId,
       orderId,
-      tbankPaymentId: init.paymentId,
+      tbankPaymentId: created.paymentId,
       serviceType: lead.serviceType,
       amountRub,
       status: "pending",
-      qrPayload: qr.payload,
-      qrImage: qr.image ?? null,
+      qrPayload: created.confirmationUrl,
+      qrImage: null,
       leadPayload: {
         ...lead,
         paymentOrderId: orderId,
-        tbankPaymentId: init.paymentId,
+        tbankPaymentId: created.paymentId,
         paidAmountRub: amountRub,
         paymentStatus: "pending",
       },
