@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import {
   ArrowRight,
+  Gamepad2,
   Info,
   MessageCircle,
   UserRound,
@@ -12,7 +13,7 @@ import {
 import { BrandLogo } from "@/components/brand-logo";
 import { Portal } from "@/components/ui/portal";
 
-export type MainMenuId = "profile" | "about" | "feedback" | "master";
+export type MainMenuId = "profile" | "game" | "about" | "feedback" | "master";
 
 const items: Array<{
   id: MainMenuId;
@@ -25,6 +26,12 @@ const items: Array<{
     title: "Личный кабинет",
     description: "Данные и контакты",
     icon: UserRound,
+  },
+  {
+    id: "game",
+    title: "Игра",
+    description: "Собери щиток — как 2048",
+    icon: Gamepad2,
   },
   {
     id: "about",

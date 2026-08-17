@@ -134,6 +134,7 @@ export type AppScreen =
   | "request-type"
   | "request-details"
   | "about-service"
+  | "panel-game"
   | "profile"
   | "electrical-rules"
   | "electrical-rule-detail"

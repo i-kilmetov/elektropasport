@@ -25,6 +25,7 @@ import { NoPanelOptionsScreen } from "@/components/screens/no-panel-options-scre
 import { ObjectsScreen } from "@/components/screens/objects-screen";
 import { PanelLimitSheet } from "@/components/screens/panel-limit-sheet";
 import { PanelAdvantagesScreen } from "@/components/screens/panel-advantages-screen";
+import { PanelGameScreen } from "@/components/screens/panel-game-screen";
 import { PhotoScreen } from "@/components/screens/photo-screen";
 import { ProfileScreen } from "@/components/screens/profile-screen";
 import { RequestDetailsScreen } from "@/components/screens/request-details-screen";
@@ -1148,6 +1149,7 @@ export function AppShell() {
               onPanelLimit={openPanelLimit}
               onMenuSelect={(id) => {
                 if (id === "profile") go("profile");
+                if (id === "game") go("panel-game");
                 if (id === "about") go("about-service");
                 if (id === "feedback") go("feedback");
                 if (id === "master") go("become-master");
@@ -1412,6 +1414,12 @@ export function AppShell() {
           {screen === "about-service" && (
             <AboutServiceScreen
               key="about-service"
+              onBack={() => go("objects")}
+            />
+          )}
+          {screen === "panel-game" && (
+            <PanelGameScreen
+              key="panel-game"
               onBack={() => go("objects")}
             />
           )}
