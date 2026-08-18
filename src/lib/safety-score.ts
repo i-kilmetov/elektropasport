@@ -35,67 +35,96 @@ function looksSinglePhase(poles?: string): boolean {
   );
 }
 
+export type SafetyAxisId = "person" | "fire" | "equipment";
+
 export type SafetyAdviceItem = {
   id: string;
   title: string;
   detail: string;
   kind: "good" | "improve";
+  axis: SafetyAxisId | "general";
 };
 
-function mainCapacityKw(
-  amps: number,
-  phases: "1" | "3",
-): number {
+export type SafetyAxes = Record<SafetyAxisId, number>;
+
+export const SAFETY_AXIS_META: Array<{
+  id: SafetyAxisId;
+  title: string;
+  hint: string;
+}> = [
+  { id: "person", title: "Человек", hint: "от поражения током" },
+  { id: "fire", title: "Пожар", hint: "от нагрева и дуги" },
+  { id: "equipment", title: "Техника", hint: "от скачков сети" },
+];
+
+function mainCapacityKw(amps: number, phases: "1" | "3"): number {
   return phases === "3"
     ? ((amps * 400 * Math.sqrt(3)) / 1000) * 0.9
     : ((amps * 230) / 1000) * 0.9;
 }
 
+function clampScore(value: number): number {
+  return Math.min(100, Math.max(5, Math.round(value)));
+}
+
+export type PanelSafetyAnalysis = {
+  score: number;
+  axes: SafetyAxes;
+  advice: SafetyAdviceItem[];
+};
+
 /**
- * Heuristic safety score from device composition, declared network params,
- * and identified line loads. Does NOT assess wiring correctness.
+ * Three-axis heuristic: person (shock), fire (heat/arc), equipment (power quality).
+ * Does NOT assess wiring correctness.
  */
 export function analyzePanelSafety(
   devices: Device[],
   phases?: "1" | "3",
   powerKw?: number,
   hasGround?: boolean,
-): { score: number; advice: SafetyAdviceItem[] } {
+): PanelSafetyAnalysis {
   const rail = devices.filter(
     (device) => device.type !== "pe_bus" && device.type !== "n_bus",
   );
   const advice: SafetyAdviceItem[] = [];
-  let score = 28;
-
   const has = (type: Device["type"]) =>
     rail.some((device) => device.type === type);
   const count = (type: Device["type"]) =>
     rail.filter((device) => device.type === type).length;
 
-  if (has("main_breaker")) {
-    score += 16;
+  const hasLeakage = has("rcd") || has("diff_breaker");
+  const loadsComplete = allPanelLoadsIdentified(rail);
+  const main = rail.find((device) => device.type === "main_breaker");
+  const lineProtection = count("breaker") + count("diff_breaker");
+  const paramsReady = Boolean(phases && powerKw != null && powerKw > 0);
+
+  if (!loadsComplete) {
     advice.push({
-      id: "main_breaker",
-      kind: "good",
-      title: "Есть вводной автомат",
-      detail:
-        "Он ограничивает общий ток и отключает весь щиток при перегрузке или коротком замыкании на вводе.",
-    });
-  } else {
-    score -= 14;
-    advice.push({
-      id: "main_breaker",
+      id: "line_loads",
+      axis: "general",
       kind: "improve",
-      title: "Поставьте вводной автомат",
+      title: "Определите нагрузки по всем приборам",
       detail:
-        "Без него нет общей защиты объекта: при аварии на вводе линии могут не отключиться вовремя. Это один из самых важных приборов в щитке.",
+        "Оценка появится, когда для каждого автомата и дифавтомата будет указано, какие помещения и техника на нём.",
+    });
+  }
+  if (!paramsReady) {
+    advice.push({
+      id: "params",
+      axis: "general",
+      kind: "improve",
+      title: "Заполните параметры сети",
+      detail:
+        "Укажите число фаз, выделенную мощность и землю — без этого оценка неполная.",
     });
   }
 
-  if (has("rcd") || has("diff_breaker")) {
-    score += 22;
+  let person = 38;
+  if (hasLeakage) {
+    person += 38;
     advice.push({
       id: "rcd",
+      axis: "person",
       kind: "good",
       title: "Есть защита от утечки",
       detail: has("diff_breaker")
@@ -103,60 +132,104 @@ export function analyzePanelSafety(
         : "УЗО отслеживает утечку тока и отключает питание, если человек коснулся корпуса или повреждённой изоляции.",
     });
   } else {
-    score -= 18;
+    person -= 22;
     advice.push({
       id: "rcd",
+      axis: "person",
       kind: "improve",
       title: "Добавьте УЗО или дифавтомат",
       detail:
-        "Сейчас нет защиты человека от тока утечки. Для розеточных линий обычно ставят УЗО 30 мА или дифавтомат. Это сильнее всего поднимает оценку.",
+        "Сейчас нет защиты человека от тока утечки. Для розеточных линий обычно ставят УЗО 30 мА или дифавтомат.",
     });
   }
-
-  if (has("voltage_relay")) {
-    score += 12;
+  if (hasGround === true) {
+    person += 22;
     advice.push({
-      id: "voltage_relay",
+      id: "ground",
+      axis: "person",
       kind: "good",
-      title: "Есть реле напряжения",
+      title: "Есть заземление",
       detail:
-        "Оно отключает питание при скачках и просадках — техника меньше рискует сгореть.",
+        "УЗО и дифавтоматы работают штатно, а металлические корпуса можно безопасно занулить через PE.",
+    });
+  } else if (hasGround === false) {
+    person -= 18;
+    advice.push({
+      id: "ground",
+      axis: "person",
+      kind: "improve",
+      title: "Нет заземления",
+      detail:
+        "Без PE корпуса техники остаются опасными при пробое. В квартире уточните у УК, можно ли подключить PE; в доме контур делает электрик.",
     });
   } else {
     advice.push({
-      id: "voltage_relay",
+      id: "ground",
+      axis: "person",
       kind: "improve",
-      title: "Поставьте реле напряжения",
+      title: "Укажите, есть ли земля",
       detail:
-        powerKw != null && powerKw >= 10
-          ? "При выделенной мощности от 10 кВт скачки особенно опасны для техники. Реле напряжения отключит щиток, пока сеть не вернётся в норму."
-          : "Реле напряжения защитит холодильник, бойлер и электронику при скачках в сети.",
+        "Откройте параметры сети и отметьте наличие PE. Заземление сильнее всего влияет на защиту человека.",
     });
   }
 
-  if (has("spd")) {
-    score += 8;
+  let fire = 36;
+  if (has("main_breaker")) {
+    fire += 16;
     advice.push({
-      id: "spd",
+      id: "main_breaker",
+      axis: "fire",
       kind: "good",
-      title: "Есть УЗИП",
+      title: "Есть вводной автомат",
       detail:
-        "Ограничитель импульсных перенапряжений гасит грозовые и коммутационные всплески.",
+        "Он ограничивает общий ток и отключает щиток при перегрузке или коротком замыкании на вводе.",
     });
   } else {
+    fire -= 12;
     advice.push({
-      id: "spd",
+      id: "main_breaker",
+      axis: "fire",
       kind: "improve",
-      title: "Имеет смысл поставить УЗИП",
+      title: "Поставьте вводной автомат",
       detail:
-        "Особенно полезен в частном доме и если дом питается воздушной линией. В квартире это плюс, но не первая очередь.",
+        "Без него нет общей защиты: при аварии на вводе линии могут не отключиться вовремя.",
     });
   }
-
+  if (lineProtection >= 3) {
+    fire += 12;
+    advice.push({
+      id: "lines",
+      axis: "fire",
+      kind: "good",
+      title: "Линии разведены по автоматам",
+      detail: `На схеме ${lineProtection} защищённых линий — свет и розетки не сидят на одном автомате.`,
+    });
+  } else if (lineProtection >= 1) {
+    fire += 6;
+    advice.push({
+      id: "lines",
+      axis: "fire",
+      kind: "improve",
+      title: "Разведите линии по отдельным автоматам",
+      detail:
+        "Свет, розетки кухни и мощную технику лучше сажать на свои автоматы — так авария не обесточит весь дом и кабель не останется без своей защиты.",
+    });
+  } else {
+    fire -= 8;
+    advice.push({
+      id: "lines",
+      axis: "fire",
+      kind: "improve",
+      title: "Нет автоматов на линии",
+      detail:
+        "Кроме ввода нужны автоматы на отдельные группы. Иначе кабель линии может остаться без защиты.",
+    });
+  }
   if (has("afdd")) {
-    score += 5;
+    fire += 10;
     advice.push({
       id: "afdd",
+      axis: "fire",
       kind: "good",
       title: "Есть защита от дуги (УЗДП)",
       detail:
@@ -165,30 +238,23 @@ export function analyzePanelSafety(
   } else {
     advice.push({
       id: "afdd",
+      axis: "fire",
       kind: "improve",
       title: "Можно добавить УЗДП",
       detail:
-        "Защита от дугового пробоя снижает риск пожара из‑за плохих контактов. Это дополнительный шаг, когда основные приборы уже стоят.",
+        "Защита от дугового пробоя снижает риск пожара из‑за плохих контактов.",
     });
   }
-
-  const loadsComplete = allPanelLoadsIdentified(rail);
-  if (!loadsComplete) {
-    advice.push({
-      id: "line_loads",
-      kind: "improve",
-      title: "Определите нагрузки по всем приборам",
-      detail:
-        "Оценка появится, когда для каждого автомата и дифавтомата будет указано, какие помещения и техника на нём. Без этих данных индекс не считается.",
-    });
-  } else {
+  if (hasLeakage) fire += 8;
+  if (loadsComplete) {
     const mismatched = rail.filter((device) =>
       assessDeviceLineLoadSafety(device),
     );
     if (mismatched.length > 0) {
-      score -= Math.min(28, 8 + mismatched.length * 6);
+      fire -= Math.min(24, 8 + mismatched.length * 6);
       advice.push({
         id: "load_mismatch",
+        axis: "fire",
         kind: "improve",
         title:
           mismatched.length === 1
@@ -197,217 +263,195 @@ export function analyzePanelSafety(
               ? `${mismatched.length} прибора не соответствуют нагрузке`
               : `${mismatched.length} приборов не соответствуют нагрузке`,
         detail:
-          "По схеме номинал слабее, чем выбранные розетки и техника. Это повышает риск отключений и нагрева кабеля. На схеме такие приборы отмечены красной линией.",
+          "Номинал слабее выбранных розеток и техники — риск отключений и нагрева кабеля. На схеме такие приборы отмечены красной линией.",
       });
     } else if (rail.some((device) => deviceNeedsLineIdentification(device.type))) {
-      score += 10;
+      fire += 8;
       advice.push({
         id: "load_mismatch",
+        axis: "fire",
         kind: "good",
         title: "Нагрузки согласованы с номиналами",
         detail:
-          "Указанные помещения и техника не превышают то, на что рассчитаны автоматы и дифавтоматы на схеме.",
+          "Указанные помещения и техника не превышают то, на что рассчитаны автоматы на схеме.",
       });
     }
   }
-
-  const lineProtection = count("breaker") + count("diff_breaker");
-  if (lineProtection >= 3) {
-    score += 10;
+  if (main && phases && powerKw != null && powerKw > 0) {
+    const amps = parseAmps(main.rating);
+    if (amps) {
+      const capacityKw = mainCapacityKw(amps, phases);
+      if (powerKw <= capacityKw) {
+        fire += 8;
+      } else if (powerKw <= capacityKw * 1.2) {
+        fire -= 6;
+        advice.push({
+          id: "main_rating",
+          axis: "fire",
+          kind: "improve",
+          title: "Вводной автомат на пределе мощности",
+          detail:
+            "Выделенная мощность почти равна тому, что выдерживает автомат. Иначе ввод будет часто выбивать или греться.",
+        });
+      } else {
+        fire -= 14;
+        advice.push({
+          id: "main_rating",
+          axis: "fire",
+          kind: "improve",
+          title: "Номинал ввода меньше выделенной мощности",
+          detail:
+            "Автомат слабее разрешённой мощности по договору. Это стоит проверить в первую очередь.",
+        });
+      }
+    }
+  }
+  if (powerKw != null && powerKw >= 15 && phases === "1") {
+    fire -= 6;
     advice.push({
-      id: "lines",
-      kind: "good",
-      title: "Линии разведены по автоматам",
-      detail: `На схеме ${lineProtection} защищённых линий — свет и розетки не сидят на одном автомате.`,
-    });
-  } else if (lineProtection >= 1) {
-    score += 5;
-    advice.push({
-      id: "lines",
+      id: "high_power_1p",
+      axis: "fire",
       kind: "improve",
-      title: "Разведите линии по отдельным автоматам",
+      title: "Большая мощность на одной фазе",
       detail:
-        "Сейчас мало отдельных линий. Свет, розетки кухни и мощную технику лучше сажать на свои автоматы — так авария не обесточит весь дом.",
-    });
-  } else {
-    score -= 6;
-    advice.push({
-      id: "lines",
-      kind: "improve",
-      title: "Нет автоматов на линии",
-      detail:
-        "Кроме ввода нужны автоматы на отдельные группы. Иначе любая неисправность может погасить всё сразу, а кабель линии останется без своей защиты.",
+        "От 15 кВт однофазный ввод часто перегружает кабель и автомат.",
     });
   }
 
-  const main = rail.find((device) => device.type === "main_breaker");
+  let equipment = 40;
+  if (has("voltage_relay")) {
+    equipment += 28;
+    advice.push({
+      id: "voltage_relay",
+      axis: "equipment",
+      kind: "good",
+      title: "Есть реле напряжения",
+      detail:
+        "Оно отключает питание при скачках и просадках — техника меньше рискует сгореть.",
+    });
+  } else {
+    if (powerKw != null && powerKw >= 10) equipment -= 8;
+    advice.push({
+      id: "voltage_relay",
+      axis: "equipment",
+      kind: "improve",
+      title: "Поставьте реле напряжения",
+      detail:
+        powerKw != null && powerKw >= 10
+          ? "При выделенной мощности от 10 кВт скачки особенно опасны для техники."
+          : "Реле напряжения защитит холодильник, бойлер и электронику при скачках в сети.",
+    });
+  }
+  if (has("spd")) {
+    equipment += 18;
+    advice.push({
+      id: "spd",
+      axis: "equipment",
+      kind: "good",
+      title: "Есть УЗИП",
+      detail:
+        "Ограничитель импульсных перенапряжений гасит грозовые и коммутационные всплески.",
+    });
+  } else {
+    advice.push({
+      id: "spd",
+      axis: "equipment",
+      kind: "improve",
+      title: "Имеет смысл поставить УЗИП",
+      detail:
+        "Особенно полезен в частном доме и если дом питается воздушной линией.",
+    });
+  }
   if (main && phases) {
     if (phases === "3" && looksThreePhase(main.poles)) {
-      score += 6;
+      equipment += 6;
       advice.push({
         id: "main_poles",
+        axis: "equipment",
         kind: "good",
         title: "Вводной автомат подходит к трём фазам",
         detail: "Число полюсов совпадает с трёхфазным вводом.",
       });
     }
     if (phases === "1" && looksThreePhase(main.poles)) {
-      score -= 6;
+      equipment -= 4;
       advice.push({
         id: "main_poles",
+        axis: "equipment",
         kind: "improve",
         title: "Вводной автомат на три фазы, а сеть однофазная",
         detail:
-          "Проверьте параметры: для одной фазы обычно ставят 1P+N или 2P. Если фазы указаны неверно — поправьте их в параметрах сети.",
+          "Для одной фазы обычно ставят 1P+N или 2P. Если фазы указаны неверно — поправьте их в параметрах сети.",
       });
     }
     if (phases === "3" && looksSinglePhase(main.poles)) {
-      score -= 12;
+      equipment -= 10;
       advice.push({
         id: "main_poles",
+        axis: "equipment",
         kind: "improve",
         title: "Вводной автомат не на все фазы",
         detail:
-          "При трёх фазах нужен 3P или 4P. Иначе часть ввода останется без защиты. Замену делает электрик.",
+          "При трёх фазах нужен 3P или 4P. Иначе часть ввода останется без защиты.",
       });
     }
-
     const amps = parseAmps(main.rating);
     if (amps && powerKw != null && powerKw > 0) {
       const capacityKw = mainCapacityKw(amps, phases);
       if (powerKw <= capacityKw) {
-        score += 10;
+        equipment += 8;
         advice.push({
-          id: "main_rating",
+          id: "main_rating_eq",
+          axis: "equipment",
           kind: "good",
           title: "Номинал ввода согласован с мощностью",
           detail: `Автомат примерно на ${amps} А выдерживает заявленные ${String(powerKw).replace(".", ",")} кВт.`,
         });
-      } else if (powerKw <= capacityKw * 1.2) {
-        score -= 4;
-        advice.push({
-          id: "main_rating",
-          kind: "improve",
-          title: "Вводной автомат на пределе мощности",
-          detail:
-            "Выделенная мощность почти равна тому, что выдерживает автомат. Имеет смысл уточнить номинал у электрика — иначе ввод будет часто выбивать или греться.",
-        });
+      } else if (powerKw > capacityKw * 1.2) {
+        equipment -= 10;
       } else {
-        score -= 16;
-        advice.push({
-          id: "main_rating",
-          kind: "improve",
-          title: "Номинал ввода меньше выделенной мощности",
-          detail:
-            "Автомат слабее, чем разрешённая мощность по договору. Либо занижен номинал на схеме, либо автомат нужно заменить. Это стоит проверить в первую очередь.",
-        });
+        equipment -= 4;
       }
     }
   }
 
-  if (
-    powerKw != null &&
-    powerKw > 0 &&
-    powerKw < 3 &&
-    !has("rcd") &&
-    !has("diff_breaker")
-  ) {
-    score -= 4;
-  }
-  if (powerKw != null && powerKw >= 10 && !has("voltage_relay")) {
-    score -= 4;
-  }
-  if (powerKw != null && powerKw >= 15 && phases === "1") {
-    score -= 6;
-    advice.push({
-      id: "high_power_1p",
-      kind: "improve",
-      title: "Большая мощность на одной фазе",
-      detail:
-        "От 15 кВт однофазный ввод часто перегружает кабель и автомат. Обсудите с сетевой трёхфазное подключение или снижение нагрузки.",
-    });
-  }
-
-  if (hasGround === true) {
-    score += 8;
-    advice.push({
-      id: "ground",
-      kind: "good",
-      title: "Есть заземление",
-      detail:
-        "УЗО и дифавтоматы работают штатно, а металлические корпуса можно безопасно занулить через PE.",
-    });
-  } else if (hasGround === false) {
-    score -= 12;
-    advice.push({
-      id: "ground",
-      kind: "improve",
-      title: "Нет заземления",
-      detail:
-        "Без PE защита человека слабее: корпуса техники остаются опасными при пробое. В квартире уточните у УК, можно ли подключить PE; в доме — контур заземления делает электрик.",
-    });
-  } else {
-    advice.push({
-      id: "ground",
-      kind: "improve",
-      title: "Укажите, есть ли земля",
-      detail:
-        "Откройте параметры сети и отметьте наличие PE. Без этого оценка неполная: заземление сильно влияет на безопасность.",
-    });
-  }
-
-  if (!phases || powerKw == null || !(powerKw > 0)) {
-    advice.push({
-      id: "params",
-      kind: "improve",
-      title: "Заполните параметры сети",
-      detail:
-        "Укажите число фаз и выделенную мощность — тогда оценка учтёт, подходит ли вводной автомат и не слишком ли большая нагрузка.",
-    });
-  }
-
-  const verified = rail.filter((device) => device.status === "verified").length;
-  if (rail.length > 0) {
-    score += Math.round((verified / rail.length) * 8);
-    if (verified / rail.length < 0.6) {
-      advice.push({
-        id: "recognition",
-        kind: "improve",
-        title: "Не все приборы уверенно распознаны",
-        detail:
-          "Переснимите щиток при хорошем свете или поправьте характеристики вручную. Чем точнее схема, тем честнее оценка.",
-      });
-    }
-  }
+  const axes: SafetyAxes = {
+    person: clampScore(person),
+    fire: clampScore(fire),
+    equipment: clampScore(equipment),
+  };
+  const score = clampScore(
+    (axes.person + axes.fire + axes.equipment) / 3,
+  );
 
   const improveOrder = [
     "line_loads",
     "params",
     "rcd",
+    "ground",
     "main_breaker",
     "load_mismatch",
-    "ground",
     "main_rating",
-    "main_poles",
     "lines",
+    "main_poles",
     "voltage_relay",
     "high_power_1p",
     "spd",
-    "recognition",
     "afdd",
+    "main_rating_eq",
   ];
+  const axisOrder = ["general", "person", "fire", "equipment"] as const;
   advice.sort((a, b) => {
     if (a.kind !== b.kind) return a.kind === "improve" ? -1 : 1;
+    const axisDiff = axisOrder.indexOf(a.axis) - axisOrder.indexOf(b.axis);
+    if (axisDiff !== 0) return axisDiff;
     if (a.kind === "improve") {
       return improveOrder.indexOf(a.id) - improveOrder.indexOf(b.id);
     }
     return 0;
   });
 
-  return {
-    score: Math.min(100, Math.max(5, Math.round(score))),
-    advice,
-  };
+  return { score, axes, advice };
 }
 
 export function computePanelSafetyScore(
@@ -442,7 +486,7 @@ export function safetyTextColor(score: number): string {
 }
 
 export const safetyScoreDisclaimer =
-  "Оценка считается по составу приборов, указанным нагрузкам линий и параметрам сети — числу фаз, выделенной мощности и наличию заземления. Сервис не учитывает, насколько корректно приборы расключены внутри щитка.";
+  "Оценка считается по трём осям: защита человека, пожарная безопасность и защита техники. Сервис не проверяет, насколько корректно приборы расключены внутри щитка.";
 
 export function isPanelSafetyKnown(panel: {
   phases?: "1" | "3";

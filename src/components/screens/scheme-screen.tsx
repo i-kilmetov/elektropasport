@@ -46,9 +46,9 @@ import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ShareSheet } from "@/components/ui/share-sheet";
-import { Progress } from "@/components/ui/progress";
 import { SafetyParamsSheet } from "@/components/ui/safety-params-sheet";
 import { SafetyExplainSheet } from "@/components/ui/safety-explain-sheet";
+import { SafetyAxisMeters } from "@/components/ui/safety-axis-meters";
 import { EditableSpecCard } from "@/components/ui/editable-spec-card";
 import { WireSpecSheet } from "@/components/ui/wire-spec-sheet";
 import { Portal } from "@/components/ui/portal";
@@ -66,9 +66,6 @@ import { hapticContextMenu, hapticImpact } from "@/lib/haptics";
 import {
   analyzePanelSafety,
   computePanelSafetyScore,
-  safetyIndicatorColor,
-  safetyLabel,
-  safetyTextColor,
 } from "@/lib/safety-score";
 import { PanelDeviceGuideSection } from "@/components/screens/panel-device-guide-section";
 import { StickerDesigner } from "@/components/screens/sticker-designer";
@@ -1641,11 +1638,18 @@ export function SchemeScreen({
     () => allPanelLoadsIdentified(allRailDevices),
     [allRailDevices],
   );
-  const safetyKnown =
-    allLoadsIdentified &&
-    networkParamsFilled &&
-    typeof safetyProp === "number";
-  const safetyScore = safetyKnown ? safetyProp : null;
+  const safetyAnalysis = useMemo(() => {
+    const powerNum = Number((powerKw ?? "").replace(",", "."));
+    return analyzePanelSafety(
+      allRailDevices,
+      phases,
+      Number.isFinite(powerNum) && powerNum > 0 ? powerNum : undefined,
+      hasGround,
+    );
+  }, [allRailDevices, phases, powerKw, hasGround]);
+  const safetyKnown = allLoadsIdentified && networkParamsFilled;
+  const safetyScore = safetyKnown ? safetyAnalysis.score : null;
+  const safetyAdvice = safetyAnalysis.advice;
   const loadMismatchIds = useMemo(() => {
     const ids = new Set<number>();
     for (const device of allRailDevices) {
@@ -1685,18 +1689,7 @@ export function SchemeScreen({
     }
     setStickerOpen(true);
   };
-  const safetyAdvice = useMemo(() => {
-    const powerNum = Number((powerKw ?? "").replace(",", "."));
-    return analyzePanelSafety(
-      allRailDevices,
-      phases,
-      Number.isFinite(powerNum) && powerNum > 0 ? powerNum : undefined,
-      hasGround,
-    ).advice;
-  }, [allRailDevices, phases, powerKw, hasGround]);
 
-  // Group devices by rail. Never drop a row just because persisted
-  // railCount is lower than device.rail values from recognition.
   const rails = useMemo(
     () => groupDevicesByRail(allRailDevices, railCount),
     [allRailDevices, railCount],
@@ -2058,37 +2051,22 @@ export function SchemeScreen({
         <GlassCard className="flex h-full flex-col p-4 lg:p-5">
           <div className="mb-1 flex items-center gap-1.5 text-[12px] text-zinc-500">
             <Shield className="h-3.5 w-3.5 text-zinc-400" />
-            Уровень безопасности
+            Безопасность щитка
           </div>
-          {safetyKnown && typeof safetyScore === "number" ? (
-            <>
-              <div className="flex items-end gap-2">
-                <span
-                  className={cn(
-                    "text-[28px] font-bold tabular-nums",
-                    safetyTextColor(safetyScore),
-                  )}
-                >
-                  {safetyScore}%
-                </span>
-                <span className="mb-1.5 text-[12px] text-zinc-500">
-                  {safetyLabel(safetyScore)}
-                </span>
-              </div>
-              <Progress
-                value={safetyScore}
-                className="mt-2 h-1.5"
-                indicatorClassName={safetyIndicatorColor(safetyScore)}
-              />
-            </>
+          {safetyKnown && safetyAnalysis.axes ? (
+            <div className="mt-2">
+              <SafetyAxisMeters axes={safetyAnalysis.axes} compact />
+            </div>
           ) : (
             <>
-              <div className="text-[22px] font-bold text-zinc-400">Неизвестен</div>
+              <div className="text-[16px] font-semibold text-zinc-400">
+                Не посчитан
+              </div>
               <p className="mt-1 text-[11px] leading-snug text-zinc-400">
                 {!allLoadsIdentified
-                  ? "Сначала определите нагрузки по всем приборам"
+                  ? "Сначала определите нагрузки — затем появятся оценки человека, пожара и техники"
                   : networkParamsFilled
-                    ? "Нажмите, чтобы узнать, как считается оценка"
+                    ? "Нажмите, чтобы узнать, как считаются три оценки"
                     : "Сначала укажите параметры сети"}
               </p>
             </>
@@ -2573,6 +2551,7 @@ export function SchemeScreen({
         {safetyExplainOpen && (
           <SafetyExplainSheet
             score={safetyScore}
+            axes={safetyKnown ? safetyAnalysis.axes : null}
             advice={safetyAdvice}
             onClose={() => setSafetyExplainOpen(false)}
             onEditParams={
@@ -2630,7 +2609,7 @@ export function SchemeScreen({
                 Считаем уровень безопасности
               </div>
               <p className="mb-4 text-[13px] leading-relaxed text-zinc-500">
-                Сверяем состав приборов, нагрузки линий и параметры сети…
+                Считаем защиту человека, пожарную безопасность и защиту техники…
               </p>
               <div className="mb-2 h-2 overflow-hidden rounded-full bg-zinc-100">
                 <motion.div
