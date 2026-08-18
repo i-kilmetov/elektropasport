@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent } 
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowLeft,
+  Check,
+  ChevronRight,
   Gauge,
   ImageIcon,
   MoreHorizontal,
@@ -41,6 +43,7 @@ import { SafetyParamsSheet } from "@/components/ui/safety-params-sheet";
 import { SafetyExplainSheet } from "@/components/ui/safety-explain-sheet";
 import { EditableSpecCard } from "@/components/ui/editable-spec-card";
 import { WireSpecSheet } from "@/components/ui/wire-spec-sheet";
+import { Portal } from "@/components/ui/portal";
 import { circuitIdentifySteps } from "@/lib/device-catalog";
 import { deviceTypeGuide } from "@/lib/panel-device-guide";
 import {
@@ -169,6 +172,16 @@ function deviceTitle(device: Device): string {
   return deviceTypeGuide[device.type]?.title ?? device.name;
 }
 
+const ROOM_OPTIONS = [
+  "Кухня", "Коридор", "Ванная", "Туалет", "Спальня",
+  "Гостиная", "Детская", "Балкон", "Прихожая",
+] as const;
+
+const LOAD_OPTIONS = [
+  "Розетки", "Свет", "Плита", "Стиральная машина",
+  "Бойлер", "Кондиционер", "Тёплый пол",
+] as const;
+
 function DeviceSheet({
   device,
   anchorY,
@@ -199,6 +212,11 @@ function DeviceSheet({
 }) {
   const [label, setLabel] = useState(device.circuitLabel ?? "");
   const [sheetTop, setSheetTop] = useState(() => computeSheetTop(anchorY));
+  const [questStep, setQuestStep] = useState(0);
+  const [selectedRooms, setSelectedRooms] = useState<string[]>([]);
+  const [selectedLoads, setSelectedLoads] = useState<string[]>([]);
+  const [iKnow, setIKnow] = useState(false);
+  const [customLabel, setCustomLabel] = useState("");
   const confident = isDeviceDetailsConfident(device);
   const manufacturerValue =
     getManufacturerBrand(device.brandKey, device.manufacturer)?.label ??
@@ -257,6 +275,7 @@ function DeviceSheet({
   }, [anchorY, device.id]);
 
   return (
+    <Portal>
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -363,41 +382,187 @@ function DeviceSheet({
 
         <GlassCard className="mb-5 space-y-3 p-4">
           <div className="text-[15px] font-semibold text-zinc-900">
-            Как определить, за что отвечает прибор
+            🔍 Квест: определи линию прибора
           </div>
-          <p className="text-[13px] leading-relaxed text-zinc-500">
-            После фотографии помещение ещё неизвестно. Пройдите шаги ниже и
-            подпишите линию сами.
-          </p>
-          <ol className="space-y-2.5">
-            {circuitIdentifySteps.map((step, index) => (
-              <li
-                key={step}
-                className="flex gap-2.5 text-[13px] leading-relaxed text-zinc-700"
-              >
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-[11px] font-semibold text-zinc-600">
-                  {index + 1}
-                </span>
-                <span>{step}</span>
-              </li>
-            ))}
+
+          {/* Quest steps */}
+          <ol className="space-y-2">
+            {circuitIdentifySteps.map((step, index) => {
+              const done = index < questStep;
+              const active = index === questStep;
+              return (
+                <li key={step} className="flex gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (active) setQuestStep(index + 1);
+                      else if (done) setQuestStep(index);
+                    }}
+                    className={cn(
+                      "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold transition-colors",
+                      done
+                        ? "bg-emerald-500 text-white"
+                        : active
+                          ? "bg-zinc-900 text-white"
+                          : "bg-zinc-100 text-zinc-400",
+                    )}
+                  >
+                    {done ? <Check className="h-3.5 w-3.5" /> : index + 1}
+                  </button>
+                  <div className="min-w-0 flex-1">
+                    <span
+                      className={cn(
+                        "text-[13px] leading-relaxed",
+                        done
+                          ? "text-zinc-400 line-through"
+                          : active
+                            ? "font-medium text-zinc-900"
+                            : "text-zinc-400",
+                      )}
+                    >
+                      {step}
+                    </span>
+                    {active && (
+                      <button
+                        type="button"
+                        onClick={() => setQuestStep(index + 1)}
+                        className="mt-1 flex items-center gap-1 text-[12px] font-medium text-zinc-600"
+                      >
+                        Готово <ChevronRight className="h-3 w-3" />
+                      </button>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
           </ol>
-          <input
-            value={label}
-            onChange={(e) => setLabel(e.target.value)}
-            placeholder="Например: Кухня розетки"
-            className="h-12 w-full rounded-[16px] border border-black/8 bg-zinc-50 px-3 text-[15px] text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-zinc-300"
-          />
-          <Button
-            className="w-full"
-            variant="secondary"
-            disabled={!label.trim()}
-            onClick={() => {
-              onAssignCircuit(device.id, label.trim());
-            }}
-          >
-            Сохранить название линии
-          </Button>
+
+          {questStep >= circuitIdentifySteps.length && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="space-y-3 rounded-[16px] bg-emerald-50 p-3"
+            >
+              <p className="text-[13px] font-medium text-emerald-800">
+                Отлично! Теперь выберите помещение и нагрузку:
+              </p>
+              <div>
+                <p className="mb-1.5 text-[12px] font-medium text-zinc-500">Помещение</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {ROOM_OPTIONS.map((room) => {
+                    const active = selectedRooms.includes(room);
+                    return (
+                      <button
+                        key={room}
+                        type="button"
+                        onClick={() =>
+                          setSelectedRooms((prev) =>
+                            active ? prev.filter((r) => r !== room) : [...prev, room],
+                          )
+                        }
+                        className={cn(
+                          "rounded-full px-3 py-1 text-[13px] transition-colors",
+                          active
+                            ? "bg-zinc-900 text-white"
+                            : "bg-zinc-100 text-zinc-600",
+                        )}
+                      >
+                        {room}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div>
+                <p className="mb-1.5 text-[12px] font-medium text-zinc-500">Нагрузка</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {LOAD_OPTIONS.map((load) => {
+                    const active = selectedLoads.includes(load);
+                    return (
+                      <button
+                        key={load}
+                        type="button"
+                        onClick={() =>
+                          setSelectedLoads((prev) =>
+                            active ? prev.filter((l) => l !== load) : [...prev, load],
+                          )
+                        }
+                        className={cn(
+                          "rounded-full px-3 py-1 text-[13px] transition-colors",
+                          active
+                            ? "bg-zinc-900 text-white"
+                            : "bg-zinc-100 text-zinc-600",
+                        )}
+                      >
+                        {load}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              {(selectedRooms.length > 0 || selectedLoads.length > 0) && (
+                <Button
+                  className="w-full"
+                  onClick={() => {
+                    const parts = [...selectedRooms, ...selectedLoads];
+                    const built = parts.join(" · ");
+                    setLabel(built);
+                    onAssignCircuit(device.id, built);
+                  }}
+                >
+                  Сохранить: {[...selectedRooms, ...selectedLoads].join(" · ")}
+                </Button>
+              )}
+            </motion.div>
+          )}
+
+          {/* "I know" checkbox */}
+          <div className="border-t border-black/5 pt-3">
+            <label className="flex cursor-pointer items-center gap-2.5">
+              <span
+                className={cn(
+                  "flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition-colors",
+                  iKnow
+                    ? "border-zinc-900 bg-zinc-900 text-white"
+                    : "border-zinc-300 bg-white",
+                )}
+                onClick={() => setIKnow((v) => !v)}
+              >
+                {iKnow && <Check className="h-3.5 w-3.5" />}
+              </span>
+              <span
+                className="text-[14px] text-zinc-700"
+                onClick={() => setIKnow((v) => !v)}
+              >
+                Знаю, за что отвечает прибор
+              </span>
+            </label>
+            {iKnow && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                className="mt-3 space-y-2 overflow-hidden"
+              >
+                <input
+                  value={customLabel}
+                  onChange={(e) => setCustomLabel(e.target.value)}
+                  placeholder="Например: Кухня розетки"
+                  className="h-12 w-full rounded-[16px] border border-black/8 bg-zinc-50 px-3 text-[15px] text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-zinc-300"
+                />
+                <Button
+                  className="w-full"
+                  variant="secondary"
+                  disabled={!customLabel.trim()}
+                  onClick={() => {
+                    setLabel(customLabel.trim());
+                    onAssignCircuit(device.id, customLabel.trim());
+                  }}
+                >
+                  Сохранить название линии
+                </Button>
+              </motion.div>
+            )}
+          </div>
         </GlassCard>
 
         <Button className="w-full" onClick={onClose}>
@@ -406,6 +571,7 @@ function DeviceSheet({
         </Button>
       </motion.div>
     </motion.div>
+    </Portal>
   );
 }
 
