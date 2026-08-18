@@ -25,7 +25,6 @@ import {
 } from "lucide-react";
 import { BrandMark } from "@/components/icons/brand-mark";
 import { IosShareIcon } from "@/components/icons/ios-share-icon";
-import { BreakerIcon } from "@/components/icons/breaker-icon";
 import { StickerBadgeIcon } from "@/components/icons/sticker-badge";
 import {
   GroundSymbol,
@@ -345,6 +344,34 @@ const identifyFlowSteps = [
   },
 ] as const;
 
+function IdentifyFlowFooter({
+  onCancel,
+  onCallMaster,
+}: {
+  onCancel: () => void;
+  onCallMaster?: () => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <button
+        type="button"
+        onClick={onCancel}
+        className="text-[13px] text-zinc-400 transition-colors hover:text-zinc-600"
+      >
+        Отмена
+      </button>
+      <button
+        type="button"
+        onClick={onCallMaster}
+        disabled={!onCallMaster}
+        className="text-[13px] font-medium text-zinc-700 transition-colors hover:text-zinc-900 disabled:opacity-40"
+      >
+        Вызвать мастера
+      </button>
+    </div>
+  );
+}
+
 function DeviceSheet({
   device,
   anchorY,
@@ -358,6 +385,7 @@ function DeviceSheet({
   knownCatalogEquipment = [],
   panelDevices = [],
   onPersistIdentifyContext,
+  onCallMaster,
 }: {
   device: Device;
   anchorY: number | null;
@@ -382,6 +410,7 @@ function DeviceSheet({
   knownCatalogEquipment?: string[];
   panelDevices?: Device[];
   onPersistIdentifyContext?: (context: IdentifyContext) => void;
+  onCallMaster?: () => void;
 }) {
   const [sheetTop, setSheetTop] = useState(() => computeSheetTop(anchorY));
   const [flowStep, setFlowStep] = useState(0);
@@ -621,8 +650,14 @@ function DeviceSheet({
     setFlowStep(5);
   };
 
-  const handlePrimaryClose = () => {
+  const cancelIdentifyFlow = () => {
+    setFlowStep(0);
+  };
+
+  const handleCallMaster = () => {
+    if (!onCallMaster) return;
     onClose();
+    onCallMaster();
   };
 
   useEffect(() => {
@@ -635,13 +670,6 @@ function DeviceSheet({
   const stepCount = skipObjectStep ? 4 : 5;
   const visibleStep =
     flowStep <= 0 ? 0 : skipObjectStep ? Math.max(1, flowStep - 1) : flowStep;
-  const goToPrevFlowStep = () => {
-    setFlowStep((prev) => {
-      if (prev <= 1) return 0;
-      if (prev === 2 && skipObjectStep) return 0;
-      return prev - 1;
-    });
-  };
   const goToNextFlowStep = () => {
     setFlowStep((prev) => Math.min(6, prev + 1));
   };
@@ -720,7 +748,7 @@ function DeviceSheet({
           </button>
         </div>
 
-        {specEditable && (
+        {(identitySpecs.length > 0 || (confident && specs.length > 0)) && (
           <div className="mb-5 grid grid-cols-2 gap-3">
             {identitySpecs.map(([key, value]) => (
               <EditableSpecCard
@@ -729,51 +757,37 @@ function DeviceSheet({
                 label={key}
                 value={value}
                 editable={Boolean(
-                  onUpdateIdentity || onUpdateCharacteristic,
+                  specEditable && (onUpdateIdentity || onUpdateCharacteristic),
                 )}
                 onChange={
-                  onUpdateIdentity || onUpdateCharacteristic
+                  specEditable && (onUpdateIdentity || onUpdateCharacteristic)
                     ? (next) => handleSpecChange(key, next)
                     : undefined
                 }
               />
             ))}
+            {confident &&
+              specs.slice(0, 6).map(([key, value]) => (
+                <EditableSpecCard
+                  key={key}
+                  deviceType={device.type}
+                  label={key}
+                  value={value}
+                  editable={specEditable}
+                  onChange={
+                    specEditable && onUpdateCharacteristic
+                      ? (next) => handleSpecChange(key, next)
+                      : undefined
+                  }
+                />
+              ))}
           </div>
         )}
 
         {specEditable && onUpdateCharacteristic && confident && (
-          <p className="mb-3 text-[12px] leading-relaxed text-amber-800/90">
+          <p className="mb-5 text-[12px] leading-relaxed text-amber-800/90">
             {manualSpecEditDisclaimer}
           </p>
-        )}
-
-        {confident && specs.length > 0 && (
-          <div className="mb-5 grid grid-cols-2 gap-3">
-            {specs.slice(0, 6).map(([key, value]) => (
-              <EditableSpecCard
-                key={key}
-                deviceType={device.type}
-                label={key}
-                value={value}
-                editable={specEditable}
-                onChange={
-                  onUpdateCharacteristic
-                    ? (next) => onUpdateCharacteristic(device.id, key, next)
-                    : undefined
-                }
-              />
-            ))}
-          </div>
-        )}
-
-        {typeof device.confidence === "number" && (
-          <div className="mb-5">
-            <div className="mb-2 flex items-center justify-between text-[13px]">
-              <span className="text-zinc-500">Вероятность распознавания</span>
-              <span className="font-medium text-zinc-900">{device.confidence}%</span>
-            </div>
-            <Progress value={device.confidence} />
-          </div>
         )}
 
         <GlassCard className="mb-5 p-4">
@@ -1034,13 +1048,10 @@ function DeviceSheet({
               >
                 Продолжить
               </Button>
-              <button
-                type="button"
-                onClick={goToPrevFlowStep}
-                className="mx-auto block text-[13px] text-zinc-400 transition-colors hover:text-zinc-600"
-              >
-                Назад
-              </button>
+              <IdentifyFlowFooter
+                onCancel={cancelIdentifyFlow}
+                onCallMaster={onCallMaster ? handleCallMaster : undefined}
+              />
             </div>
           )}
 
@@ -1068,13 +1079,10 @@ function DeviceSheet({
               <Button className="w-full" onClick={goToNextFlowStep}>
                 {identifyFlowSteps[flowStep - 2].action}
               </Button>
-              <button
-                type="button"
-                onClick={goToPrevFlowStep}
-                className="mx-auto block text-[13px] text-zinc-400 transition-colors hover:text-zinc-600"
-              >
-                Назад
-              </button>
+              <IdentifyFlowFooter
+                onCancel={cancelIdentifyFlow}
+                onCallMaster={onCallMaster ? handleCallMaster : undefined}
+              />
             </div>
           )}
 
@@ -1212,21 +1220,13 @@ function DeviceSheet({
               >
                 Сохранить
               </Button>
-              <button
-                type="button"
-                onClick={goToPrevFlowStep}
-                className="mx-auto block text-[13px] text-zinc-400 transition-colors hover:text-zinc-600"
-              >
-                Назад
-              </button>
+              <IdentifyFlowFooter
+                onCancel={cancelIdentifyFlow}
+                onCallMaster={onCallMaster ? handleCallMaster : undefined}
+              />
             </div>
           )}
         </GlassCard>
-
-        <Button className="w-full" onClick={handlePrimaryClose}>
-          <BreakerIcon className="h-4 w-4" />
-          Закрыть
-        </Button>
           </>
         )}
       </motion.div>
@@ -2250,6 +2250,15 @@ export function SchemeScreen({
             }
             onUpdateIdentity={
               sharedPreview ? undefined : onUpdateDeviceIdentity
+            }
+            onCallMaster={
+              onCallMaster
+                ? () => {
+                    setSelectedId(null);
+                    setSheetAnchorY(null);
+                    onCallMaster();
+                  }
+                : undefined
             }
           />
         )}
