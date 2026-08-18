@@ -51,15 +51,20 @@ export function NoPanelOptionsScreen({
               transition={{ delay: 0.05 * i }}
               onClick={() => onSelect(setup.id)}
               className={cn(
-                "flex min-h-[190px] flex-col overflow-hidden rounded-[28px] bg-gradient-to-br p-3 text-left shadow-[0_10px_28px_rgba(17,17,19,0.1)] transition-transform active:scale-[0.98]",
+                "flex min-h-[230px] flex-col overflow-hidden rounded-[28px] border border-black/[0.04] p-3 text-left shadow-[0_8px_24px_rgba(17,17,19,0.06)] transition-transform active:scale-[0.98]",
                 visual.bg,
               )}
             >
               <div className="flex min-h-0 flex-1 items-center justify-center">
-                <NoPanelSetupArt id={setup.id} className="h-full max-h-[168px] w-full" />
+                <NoPanelSetupArt id={setup.id} className="h-full max-h-[120px] w-full" />
               </div>
-              <div className="mt-1 px-1 pb-1 text-[15px] font-bold leading-snug tracking-tight">
-                {visual.title}
+              <div className="mt-1 px-1 pb-1">
+                <div className="text-[15px] font-bold leading-snug tracking-tight">
+                  {visual.title}
+                </div>
+                <p className="mt-1 text-[12px] font-medium leading-snug opacity-70">
+                  {setup.subtitle}
+                </p>
               </div>
             </motion.button>
           );

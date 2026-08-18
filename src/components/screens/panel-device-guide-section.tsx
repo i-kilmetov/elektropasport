@@ -196,18 +196,20 @@ export function PanelDeviceGuideSection({
                   </>
                 )}
 
-                <p className="rounded-[14px] border border-amber-200 bg-amber-50 px-3.5 py-3 text-[12px] leading-relaxed text-amber-900/75">
-                  {panelGuideDisclaimer}{" "}
+                <div className="rounded-[14px] border border-amber-200 bg-amber-50 px-3.5 py-3">
+                  <p className="text-[12px] leading-relaxed text-amber-900/75">
+                    {panelGuideDisclaimer}
+                  </p>
                   {onCallMaster && (
                     <button
                       type="button"
                       onClick={onCallMaster}
-                      className="font-semibold text-amber-950 underline decoration-amber-800/40 underline-offset-2"
+                      className="mt-2.5 block text-[13px] font-semibold text-amber-950 underline decoration-amber-800/40 underline-offset-2"
                     >
-                      Вызвать мастера
+                      🦸 Вызвать мастера
                     </button>
                   )}
-                </p>
+                </div>
               </div>
             </motion.div>
           )}

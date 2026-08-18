@@ -174,7 +174,7 @@ export function SafetyExplainSheet({
                 variant={scoreKnown ? "default" : "secondary"}
                 onClick={onCallMaster}
               >
-                Вызвать мастера
+                🦸 Вызвать мастера
               </Button>
             )}
             <Button

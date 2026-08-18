@@ -32,6 +32,7 @@ export function LeadServiceScreen({
   });
   const modules =
     typeof panelModules === "number" && panelModules > 0 ? panelModules : null;
+  const vivid = Boolean(modules);
 
   return (
     <motion.section
@@ -85,32 +86,55 @@ export function LeadServiceScreen({
             >
               <div
                 className={cn(
-                  "overflow-hidden rounded-[28px] p-5 shadow-[0_12px_32px_rgba(17,17,19,0.1)]",
-                  isOnline &&
+                  "overflow-hidden rounded-[28px] p-5 shadow-[0_12px_32px_rgba(17,17,19,0.08)]",
+                  vivid &&
+                    isOnline &&
                     "bg-gradient-to-br from-indigo-500 via-violet-500 to-fuchsia-500 text-white",
-                  isMaster &&
+                  vivid &&
+                    isMaster &&
                     "bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-500 text-white",
+                  !vivid &&
+                    isOnline &&
+                    "border border-indigo-100 bg-indigo-50 text-indigo-950",
+                  !vivid &&
+                    isMaster &&
+                    "border border-emerald-100 bg-emerald-50 text-emerald-950",
                   !isOnline &&
                     !isMaster &&
                     "border border-black/8 bg-white text-zinc-900",
                 )}
               >
                 <div className="mb-3 flex items-start justify-between gap-3">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/20">
+                  <div
+                    className={cn(
+                      "flex h-11 w-11 items-center justify-center rounded-2xl",
+                      vivid && (isOnline || isMaster)
+                        ? "bg-white/20"
+                        : isOnline
+                          ? "bg-indigo-100 text-indigo-700"
+                          : isMaster
+                            ? "bg-emerald-100 text-emerald-700"
+                            : "bg-zinc-100 text-zinc-500",
+                    )}
+                  >
                     {isOnline ? (
                       <MessageCircle className="h-5 w-5" />
                     ) : isMaster ? (
                       <Wrench className="h-5 w-5" />
                     ) : (
-                      <MessageCircle className="h-5 w-5 text-zinc-500" />
+                      <MessageCircle className="h-5 w-5" />
                     )}
                   </div>
                   <div
                     className={cn(
                       "rounded-full px-3 py-1 text-[13px] font-bold tabular-nums",
-                      isOnline || isMaster
+                      vivid && (isOnline || isMaster)
                         ? "bg-white/20"
-                        : "bg-zinc-100 text-zinc-700",
+                        : isOnline
+                          ? "bg-white/80 text-indigo-800"
+                          : isMaster
+                            ? "bg-white/80 text-emerald-800"
+                            : "bg-zinc-100 text-zinc-700",
                     )}
                   >
                     {option.priceLabel}
@@ -122,15 +146,31 @@ export function LeadServiceScreen({
                 <p
                   className={cn(
                     "mt-2 text-[14px] leading-relaxed",
-                    isOnline || isMaster ? "text-white/90" : "text-zinc-500",
+                    vivid && (isOnline || isMaster)
+                      ? "text-white/90"
+                      : isOnline
+                        ? "text-indigo-950/70"
+                        : isMaster
+                          ? "text-emerald-950/70"
+                          : "text-zinc-500",
                   )}
                 >
                   {option.description}
                 </p>
 
                 {isMaster && modules && (
-                  <div className="mt-4 rounded-[20px] bg-white/18 p-3">
-                    <p className="text-[13px] font-medium text-white/85">
+                  <div
+                    className={cn(
+                      "mt-4 rounded-[20px] p-3",
+                      vivid ? "bg-white/18" : "bg-white/80",
+                    )}
+                  >
+                    <p
+                      className={cn(
+                        "text-[13px] font-medium",
+                        vivid ? "text-white/85" : "text-emerald-900/80",
+                      )}
+                    >
                       В вашем щитке {modules}{" "}
                       {modules % 10 === 1 && modules % 100 !== 11
                         ? "модуль"
@@ -144,7 +184,12 @@ export function LeadServiceScreen({
                       {modules} × {formatRub(MODULE_LABELING_PRICE_RUB)} ={" "}
                       {formatRub(masterLabelingPriceRub(modules))}
                     </p>
-                    <p className="mt-1 text-[12px] text-white/75">
+                    <p
+                      className={cn(
+                        "mt-1 text-[12px]",
+                        vivid ? "text-white/75" : "text-emerald-900/60",
+                      )}
+                    >
                       Стоимость выезда считается по числу модулей в паспорте
                       щитка.
                     </p>
@@ -152,7 +197,12 @@ export function LeadServiceScreen({
                 )}
 
                 {isOnline && (
-                  <p className="mt-4 text-[12px] leading-relaxed text-white/80">
+                  <p
+                    className={cn(
+                      "mt-4 text-[12px] leading-relaxed",
+                      vivid ? "text-white/80" : "text-indigo-950/60",
+                    )}
+                  >
                     Если нужно пересобрать щиток, сделать проект или выполнить
                     монтажные работы по электрике — сначала консультация. Эта
                     сумма будет вычтена из дальнейшей общей стоимости работ.

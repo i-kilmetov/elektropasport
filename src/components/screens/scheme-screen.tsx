@@ -85,6 +85,8 @@ import {
 } from "@/lib/manufacturer-brands";
 import {
   collectOccupiedLoads,
+  deviceHasLineIdentification,
+  deviceNeedsLineIdentification,
   formatLineLoads,
   inferObjectTypeFromLabel,
   loadIdentifyContext,
@@ -366,7 +368,7 @@ function IdentifyFlowFooter({
         disabled={!onCallMaster}
         className="text-[13px] font-medium text-zinc-700 transition-colors hover:text-zinc-900 disabled:opacity-40"
       >
-        Вызвать мастера
+        🦸 Вызвать мастера
       </button>
     </div>
   );
@@ -1476,18 +1478,26 @@ export function SchemeScreen({
       devices.filter((d) => d.type !== "pe_bus" && d.type !== "n_bus"),
     [devices],
   );
+  const lineIdentifyDevices = useMemo(
+    () =>
+      allRailDevices.filter((device) =>
+        deviceNeedsLineIdentification(device.type),
+      ),
+    [allRailDevices],
+  );
   const labeledLineCount = useMemo(
     () =>
-      allRailDevices.filter((device) => Boolean(device.circuitLabel?.trim()))
-        .length,
-    [allRailDevices],
+      lineIdentifyDevices.filter((device) =>
+        deviceHasLineIdentification(device.circuitLabel),
+      ).length,
+    [lineIdentifyDevices],
   );
   const unlabeledLineCount = Math.max(
     0,
-    allRailDevices.length - labeledLineCount,
+    lineIdentifyDevices.length - labeledLineCount,
   );
   const openStickers = () => {
-    if (allRailDevices.length > 0 && unlabeledLineCount > 0) {
+    if (lineIdentifyDevices.length > 0 && unlabeledLineCount > 0) {
       setStickerBlockedOpen(true);
       return;
     }
@@ -2182,8 +2192,8 @@ export function SchemeScreen({
                 </p>
                 <p className="mt-3 text-[14px] leading-relaxed text-zinc-700">
                   {labeledLineCount === 0
-                    ? `Надо заполнить информацию по ${devicesDativePhrase(allRailDevices.length)}.`
-                    : `Уже заполнено ${labeledLineCount} из ${allRailDevices.length} ${deviceWord(allRailDevices.length)}. ${remainingDevicesPhrase(unlabeledLineCount)}`}
+                    ? `Надо заполнить информацию по ${devicesDativePhrase(lineIdentifyDevices.length)}.`
+                    : `Уже заполнено ${labeledLineCount} из ${lineIdentifyDevices.length} ${deviceWord(lineIdentifyDevices.length)}. ${remainingDevicesPhrase(unlabeledLineCount)}`}
                 </p>
                 <p className="mt-3 text-[14px] leading-relaxed text-zinc-500">
                   Нажмите на прибор на схеме и выберите «Определить линию

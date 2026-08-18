@@ -78,6 +78,15 @@ export function inferObjectTypeFromLabel(
   return null;
 }
 
+/** Devices that protect a room/load line and must be identified before stickers. */
+export function deviceNeedsLineIdentification(type: string): boolean {
+  return type === "breaker" || type === "diff_breaker" || type === "afdd";
+}
+
+export function deviceHasLineIdentification(circuitLabel?: string): boolean {
+  return Boolean(circuitLabel?.trim());
+}
+
 export function occupiedLoadKey(room: string, load: string) {
   return `${room}::${load}`;
 }

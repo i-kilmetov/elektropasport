@@ -681,14 +681,16 @@ export function AppShell() {
       setDevices((prev) => {
         if (!prev) return prev;
         return prev.map((device) =>
-          device.id === deviceId ? { ...device, circuitLabel: label } : device,
+          Number(device.id) === Number(deviceId)
+            ? { ...device, circuitLabel: label }
+            : device,
         );
       });
       setItems((prev) =>
         prev.map((item) => {
           if (item.kind !== "panel" || item.id !== activePanelId) return item;
           const nextDevices = (item.devices ?? []).map((device) =>
-            device.id === deviceId
+            Number(device.id) === Number(deviceId)
               ? { ...device, circuitLabel: label }
               : device,
           );

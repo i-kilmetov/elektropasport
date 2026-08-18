@@ -197,22 +197,22 @@ const ART: Record<
 > = {
   plug_fuses: {
     title: "Пробки",
-    bg: "from-amber-400 via-orange-300 to-amber-200 text-amber-950",
+    bg: "bg-amber-50 text-amber-950",
     Art: PlugFusesArt,
   },
   floor_panel_only: {
     title: "Только этажный щит",
-    bg: "from-sky-400 via-blue-300 to-indigo-200 text-slate-900",
+    bg: "bg-sky-50 text-slate-900",
     Art: FloorPanelArt,
   },
   inlet_cable: {
     title: "Только вводной кабель",
-    bg: "from-emerald-400 via-teal-300 to-green-200 text-emerald-950",
+    bg: "bg-emerald-50 text-emerald-950",
     Art: InletCableArt,
   },
   other: {
     title: "Другое",
-    bg: "from-violet-400 via-fuchsia-300 to-purple-200 text-violet-950",
+    bg: "bg-violet-50 text-violet-950",
     Art: OtherArt,
   },
 };
