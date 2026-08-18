@@ -678,25 +678,21 @@ export function AppShell() {
     setScreen("objects");
   }, [activePanelId, deletePanelById]);
 
-  const assignCircuitLabel = useCallback(
-    (deviceId: number, label: string) => {
-      if (!activePanelId) return;
-      setDevices((prev) => {
-        if (!prev) return prev;
-        return prev.map((device) =>
-          Number(device.id) === Number(deviceId)
-            ? { ...device, circuitLabel: label }
-            : device,
-        );
-      });
+  const assignCircuitLabels = useCallback(
+    (updates: Array<{ deviceId: number; label: string }>) => {
+      if (!activePanelId || updates.length === 0) return;
+      const byId = new Map(
+        updates.map((item) => [Number(item.deviceId), item.label]),
+      );
+      const patchDevice = (device: Device): Device => {
+        const label = byId.get(Number(device.id));
+        return label != null ? { ...device, circuitLabel: label } : device;
+      };
+      setDevices((prev) => (prev ? prev.map(patchDevice) : prev));
       setItems((prev) =>
         prev.map((item) => {
           if (item.kind !== "panel" || item.id !== activePanelId) return item;
-          const nextDevices = (item.devices ?? []).map((device) =>
-            Number(device.id) === Number(deviceId)
-              ? { ...device, circuitLabel: label }
-              : device,
-          );
+          const nextDevices = (item.devices ?? []).map(patchDevice);
           const next = { ...item, devices: nextDevices };
           void persistPanel(next).catch((error) => console.error(error));
           return next;
@@ -704,6 +700,13 @@ export function AppShell() {
       );
     },
     [activePanelId],
+  );
+
+  const assignCircuitLabel = useCallback(
+    (deviceId: number, label: string) => {
+      assignCircuitLabels([{ deviceId, label }]);
+    },
+    [assignCircuitLabels],
   );
 
   const updateDeviceSticker = useCallback(
@@ -1221,6 +1224,7 @@ export function AppShell() {
               onRename={renamePanel}
               onDelete={deletePanel}
               onAssignCircuit={assignCircuitLabel}
+              onAssignCircuits={assignCircuitLabels}
               onUpdateDeviceSticker={updateDeviceSticker}
               onUpdateDeviceCharacteristic={updateDeviceCharacteristic}
               onUpdateDeviceIdentity={updateDeviceIdentity}

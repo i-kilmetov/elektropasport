@@ -78,13 +78,61 @@ export function inferObjectTypeFromLabel(
   return null;
 }
 
-/** Devices that protect a room/load line and must be identified before stickers. */
+/** Devices that feed a room/load line and need the guided walkthrough. */
 export function deviceNeedsLineIdentification(type: string): boolean {
   return type === "breaker" || type === "diff_breaker" || type === "afdd";
 }
 
 export function deviceHasLineIdentification(circuitLabel?: string): boolean {
   return Boolean(circuitLabel?.trim());
+}
+
+const PROTECTIVE_LABEL_BASE: Record<string, string> = {
+  main_breaker: "Ввод",
+  rcd: "УЗО",
+  voltage_relay: "Реле напряжения",
+  spd: "УЗИП",
+};
+
+export function protectiveLabelHint(type: string): string {
+  switch (type) {
+    case "main_breaker":
+      return "Вводной автомат отключает весь щиток, а не одну комнату. На стикере пишем «Ввод».";
+    case "rcd":
+      return "УЗО следит за утечкой сразу на нескольких линиях. На стикере — «УЗО» и номер, если их несколько.";
+    case "voltage_relay":
+      return "Реле напряжения защищает щиток от скачков сети. На стикере — «Реле напряжения».";
+    case "spd":
+      return "УЗИП принимает на себя импульс перенапряжения. На стикере — «УЗИП».";
+    default:
+      return "Этот прибор не кормит отдельную комнату. На стикере будет его роль в щитке.";
+  }
+}
+
+/** Auto caption for devices that do not feed a single room line. */
+export function defaultDeviceCircuitLabel(
+  device: { id: number; type: string; rail?: number; position?: number },
+  panelDevices: Array<{
+    id: number;
+    type: string;
+    rail?: number;
+    position?: number;
+  }>,
+): string | null {
+  const base = PROTECTIVE_LABEL_BASE[device.type];
+  if (!base) return null;
+  const sameType = panelDevices
+    .filter((item) => item.type === device.type)
+    .sort((a, b) => {
+      const rail = (a.rail ?? 0) - (b.rail ?? 0);
+      if (rail !== 0) return rail;
+      return (a.position ?? 0) - (b.position ?? 0);
+    });
+  if (sameType.length <= 1) return base;
+  const index = sameType.findIndex(
+    (item) => Number(item.id) === Number(device.id),
+  );
+  return `${base} ${Math.max(1, index + 1)}`;
 }
 
 export function occupiedLoadKey(room: string, load: string) {

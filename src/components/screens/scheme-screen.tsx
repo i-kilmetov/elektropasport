@@ -84,6 +84,7 @@ import {
 } from "@/lib/manufacturer-brands";
 import {
   collectOccupiedLoads,
+  defaultDeviceCircuitLabel,
   deviceHasLineIdentification,
   deviceNeedsLineIdentification,
   formatLineLoads,
@@ -91,6 +92,7 @@ import {
   loadIdentifyContext,
   occupiedLoadKey,
   parseLineLoads,
+  protectiveLabelHint,
   saveIdentifyContext,
   type IdentifyContext,
   type IdentifyObjectType,
@@ -137,6 +139,7 @@ function DeviceBlock({
   highlightTerminalKey,
   onSelect,
   onTerminalPointerDown,
+  caption,
 }: {
   device: Device;
   selected: boolean;
@@ -147,6 +150,7 @@ function DeviceBlock({
     terminal: { deviceId: number; side: "top" | "bottom"; index: number },
     event: PointerEvent<HTMLButtonElement>,
   ) => void;
+  caption?: string;
 }) {
   const modules = deviceModules(device);
   const width = modules * MODULE_PX;
@@ -179,9 +183,9 @@ function DeviceBlock({
         }
       />
       <DeviceStatusBar status={device.status} />
-      {device.circuitLabel?.trim() && (
+      {(device.circuitLabel?.trim() || caption?.trim()) && (
         <span className="mt-1 line-clamp-2 text-left text-[10px] font-medium leading-tight text-zinc-600">
-          {device.circuitLabel.trim()}
+          {device.circuitLabel?.trim() || caption?.trim()}
         </span>
       )}
     </div>
@@ -441,6 +445,10 @@ function DeviceSheet({
     load: string;
     owner: string;
   } | null>(null);
+  const [protectiveDraft, setProtectiveDraft] = useState("");
+  const needsLineWalkthrough = deviceNeedsLineIdentification(device.type);
+  const suggestedProtectiveLabel =
+    defaultDeviceCircuitLabel(device, panelDevices) ?? "";
   const confident = isDeviceDetailsConfident(device);
   const manufacturerValue =
     getManufacturerBrand(device.brandKey, device.manufacturer)?.label ??
@@ -511,6 +519,11 @@ function DeviceSheet({
     setActiveLineRoom(Object.keys(parsedLoads)[0] ?? null);
     setLineLoadsByRoom(parsedLoads);
     setOccupiedNotice(null);
+    setProtectiveDraft(
+      device.circuitLabel?.trim() ||
+        defaultDeviceCircuitLabel(device, panelDevices) ||
+        "",
+    );
     // Saving a line updates circuitLabel; that must not bounce the sheet
     // back to the first screen and hide the success step.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- apply known context only on device change
@@ -626,12 +639,23 @@ function DeviceSheet({
   };
 
   const startIdentifyFlow = () => {
+    if (!needsLineWalkthrough) {
+      setProtectiveDraft(
+        device.circuitLabel?.trim() || suggestedProtectiveLabel,
+      );
+      setFlowStep(7);
+      return;
+    }
     const nextType = objectType ?? knownObjectType;
     if (nextType) setObjectType(nextType);
     setFlowStep(nextType ? 2 : 1);
   };
 
   const startEditExistingLine = () => {
+    if (!needsLineWalkthrough) {
+      startIdentifyFlow();
+      return;
+    }
     const parsed = parseLineLoads(device.circuitLabel);
     const nextType =
       objectType ??
@@ -703,11 +727,13 @@ function DeviceSheet({
                 Готово
               </h3>
               <p className="mt-2 text-[15px] leading-relaxed text-zinc-500">
-                Теперь определено, за какую линию отвечает этот прибор.
+                {needsLineWalkthrough
+                  ? "Теперь определено, за какую линию отвечает этот прибор."
+                  : "Подпись для стикера сохранена."}
               </p>
-              {selectedLineLabel && (
+              {(selectedLineLabel || protectiveDraft.trim()) && (
                 <p className="mt-3 text-[14px] font-medium text-zinc-800">
-                  {selectedLineLabel}
+                  {selectedLineLabel || protectiveDraft.trim()}
                 </p>
               )}
             </div>
@@ -797,11 +823,19 @@ function DeviceSheet({
               <Button
                 className="w-full"
                 variant="secondary"
-                onClick={hasExistingLine ? startEditExistingLine : startIdentifyFlow}
+                onClick={
+                  hasExistingLine && needsLineWalkthrough
+                    ? startEditExistingLine
+                    : startIdentifyFlow
+                }
               >
-                {hasExistingLine
-                  ? "Исправить линию прибора"
-                  : "Определить линию прибора"}
+                {needsLineWalkthrough
+                  ? hasExistingLine
+                    ? "Исправить линию прибора"
+                    : "Определить линию прибора"
+                  : hasExistingLine
+                    ? "Исправить подпись"
+                    : "Подписать прибор"}
               </Button>
             </div>
           )}
@@ -1227,6 +1261,43 @@ function DeviceSheet({
               />
             </div>
           )}
+
+          {flowStep === 7 && (
+            <div className="space-y-4">
+              <div className="rounded-[20px] bg-zinc-50 p-4">
+                <p className="text-[15px] leading-relaxed text-zinc-900">
+                  {protectiveLabelHint(device.type)}
+                </p>
+              </div>
+              <div>
+                <p className="mb-2 text-[12px] font-medium text-zinc-500">
+                  Подпись на стикере
+                </p>
+                <input
+                  value={protectiveDraft}
+                  onChange={(e) => setProtectiveDraft(e.target.value)}
+                  placeholder={suggestedProtectiveLabel || "Подпись"}
+                  className="h-12 w-full rounded-[16px] border border-black/8 bg-white px-3 text-[15px] text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-zinc-300"
+                />
+              </div>
+              <Button
+                className="w-full"
+                disabled={!protectiveDraft.trim()}
+                onClick={() => {
+                  const next = protectiveDraft.trim();
+                  if (!next) return;
+                  onAssignCircuit(device.id, next);
+                  setFlowStep(6);
+                }}
+              >
+                Сохранить
+              </Button>
+              <IdentifyFlowFooter
+                onCancel={cancelIdentifyFlow}
+                onCallMaster={onCallMaster ? handleCallMaster : undefined}
+              />
+            </div>
+          )}
         </GlassCard>
           </>
         )}
@@ -1342,6 +1413,7 @@ export function SchemeScreen({
   onShare,
   onDelete,
   onAssignCircuit,
+  onAssignCircuits,
   onUpdateDeviceCharacteristic,
   onUpdateDeviceIdentity,
   onUpdateDeviceSticker,
@@ -1367,6 +1439,9 @@ export function SchemeScreen({
   onShare?: () => Promise<string>;
   onDelete: () => void;
   onAssignCircuit?: (deviceId: number, label: string) => void;
+  onAssignCircuits?: (
+    updates: Array<{ deviceId: number; label: string }>,
+  ) => void;
   onUpdateDeviceCharacteristic?: (
     deviceId: number,
     key: string,
@@ -1477,26 +1552,54 @@ export function SchemeScreen({
       devices.filter((d) => d.type !== "pe_bus" && d.type !== "n_bus"),
     [devices],
   );
-  const lineIdentifyDevices = useMemo(
+  const unlabeledProtectiveUpdates = useMemo(
     () =>
-      allRailDevices.filter((device) =>
-        deviceNeedsLineIdentification(device.type),
-      ),
+      allRailDevices.flatMap((device) => {
+        if (deviceHasLineIdentification(device.circuitLabel)) return [];
+        const label = defaultDeviceCircuitLabel(device, allRailDevices);
+        return label ? [{ deviceId: device.id, label }] : [];
+      }),
     [allRailDevices],
   );
-  const labeledLineCount = useMemo(
+  const labeledDeviceCount = useMemo(
     () =>
-      lineIdentifyDevices.filter((device) =>
-        deviceHasLineIdentification(device.circuitLabel),
-      ).length,
-    [lineIdentifyDevices],
+      allRailDevices.filter((device) => {
+        if (deviceHasLineIdentification(device.circuitLabel)) return true;
+        return Boolean(defaultDeviceCircuitLabel(device, allRailDevices));
+      }).length,
+    [allRailDevices],
   );
-  const unlabeledLineCount = Math.max(
+  const unlabeledDeviceCount = Math.max(
     0,
-    lineIdentifyDevices.length - labeledLineCount,
+    allRailDevices.length - labeledDeviceCount,
   );
+  const applyProtectiveLabels = useCallback(() => {
+    if (sharedPreview || unlabeledProtectiveUpdates.length === 0) return;
+    if (onAssignCircuits) {
+      onAssignCircuits(unlabeledProtectiveUpdates);
+      return;
+    }
+    for (const update of unlabeledProtectiveUpdates) {
+      onAssignCircuit?.(update.deviceId, update.label);
+    }
+  }, [
+    onAssignCircuit,
+    onAssignCircuits,
+    sharedPreview,
+    unlabeledProtectiveUpdates,
+  ]);
+
+  useEffect(() => {
+    applyProtectiveLabels();
+  }, [applyProtectiveLabels]);
+
   const openStickers = () => {
-    if (lineIdentifyDevices.length > 0 && unlabeledLineCount > 0) {
+    applyProtectiveLabels();
+    const stillUnlabeled = allRailDevices.filter((device) => {
+      if (deviceHasLineIdentification(device.circuitLabel)) return false;
+      return !defaultDeviceCircuitLabel(device, allRailDevices);
+    });
+    if (stillUnlabeled.length > 0) {
       setStickerBlockedOpen(true);
       return;
     }
@@ -2059,6 +2162,10 @@ export function SchemeScreen({
                           onTerminalPointerDown={
                             sharedPreview ? undefined : handleTerminalPointerDown
                           }
+                          caption={
+                            defaultDeviceCircuitLabel(device, allRailDevices) ??
+                            undefined
+                          }
                         />
                       ))}
                     </div>
@@ -2173,20 +2280,24 @@ export function SchemeScreen({
                   Стикеры пока недоступны
                 </h3>
                 <p className="text-[14px] leading-relaxed text-zinc-500">
-                  Стикеры можно распечатать после того, как будет определено,
-                  какие помещения и техника подключены к каждому прибору в
-                  щитке.
+                  Стикеры можно распечатать после того, как у каждого прибора
+                  на схеме будет подпись.
                 </p>
                 <p className="mt-3 text-[14px] leading-relaxed text-zinc-700">
-                  {labeledLineCount === 0
-                    ? `Надо заполнить информацию по ${devicesDativePhrase(lineIdentifyDevices.length)}.`
-                    : `Уже заполнено ${labeledLineCount} из ${lineIdentifyDevices.length} ${deviceWord(lineIdentifyDevices.length)}. ${remainingDevicesPhrase(unlabeledLineCount)}`}
+                  {labeledDeviceCount === 0
+                    ? `Надо заполнить информацию по ${devicesDativePhrase(allRailDevices.length)}.`
+                    : `Уже заполнено ${labeledDeviceCount} из ${allRailDevices.length} ${deviceWord(allRailDevices.length)}. ${remainingDevicesPhrase(unlabeledDeviceCount)}`}
                 </p>
                 <p className="mt-3 text-[14px] leading-relaxed text-zinc-500">
-                  Нажмите на прибор на схеме и выберите «Определить линию
-                  прибора». Дальше сервис проведёт по шагам: нужно будет
-                  отключить рычаг, обойти помещения и отметить, где пропал свет
-                  или перестала работать техника.
+                  Автоматы и дифавтоматы: нажмите на прибор и выберите
+                  «Определить линию прибора». Нужно будет отключить рычаг,
+                  обойти помещения и отметить, где пропал свет или перестала
+                  работать техника.
+                </p>
+                <p className="mt-3 text-[14px] leading-relaxed text-zinc-500">
+                  Ввод, УЗО, реле напряжения и УЗИП не кормят одну комнату —
+                  на стикере будет их роль в щитке, например «Ввод» или
+                  «УЗО 1». Подпись можно поправить, нажав на прибор.
                 </p>
                 <Button
                   className="mt-5 w-full"
