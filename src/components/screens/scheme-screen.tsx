@@ -112,6 +112,24 @@ const typeShort: Record<DeviceType, string> = {
   n_bus: "N",
 };
 
+function deviceWord(count: number): string {
+  const n10 = count % 10;
+  const n100 = count % 100;
+  if (n10 === 1 && n100 !== 11) return "прибор";
+  if (n10 >= 2 && n10 <= 4 && (n100 < 12 || n100 > 14)) return "прибора";
+  return "приборов";
+}
+
+function remainingDevicesPhrase(count: number): string {
+  if (count === 1) return "Остался ещё 1 прибор.";
+  return `Осталось ещё ${count} ${deviceWord(count)}.`;
+}
+
+function devicesDativePhrase(count: number): string {
+  if (count % 10 === 1 && count % 100 !== 11) return `${count} прибору`;
+  return `${count} приборам`;
+}
+
 function DeviceBlock({
   device,
   selected,
@@ -1407,6 +1425,7 @@ export function SchemeScreen({
   const [safetyAssessing, setSafetyAssessing] = useState(false);
   const [safetyProgress, setSafetyProgress] = useState(0);
   const [stickerOpen, setStickerOpen] = useState(false);
+  const [stickerBlockedOpen, setStickerBlockedOpen] = useState(false);
   const [wireDraft, setWireDraft] = useState<{
     from: TerminalRef;
     x: number;
@@ -1457,6 +1476,23 @@ export function SchemeScreen({
       devices.filter((d) => d.type !== "pe_bus" && d.type !== "n_bus"),
     [devices],
   );
+  const labeledLineCount = useMemo(
+    () =>
+      allRailDevices.filter((device) => Boolean(device.circuitLabel?.trim()))
+        .length,
+    [allRailDevices],
+  );
+  const unlabeledLineCount = Math.max(
+    0,
+    allRailDevices.length - labeledLineCount,
+  );
+  const openStickers = () => {
+    if (allRailDevices.length > 0 && unlabeledLineCount > 0) {
+      setStickerBlockedOpen(true);
+      return;
+    }
+    setStickerOpen(true);
+  };
   const safetyAdvice = useMemo(() => {
     const powerNum = Number((powerKw ?? "").replace(",", "."));
     return analyzePanelSafety(
@@ -1879,7 +1915,7 @@ export function SchemeScreen({
                     className="flex w-full items-center gap-2 px-4 py-3 text-left text-[15px] text-zinc-900 hover:bg-zinc-50"
                     onClick={() => {
                       setMenuOpen(false);
-                      setStickerOpen(true);
+                      openStickers();
                     }}
                   >
                     <StickerBadgeIcon className="h-4 w-4 text-zinc-600" />
@@ -2061,7 +2097,7 @@ export function SchemeScreen({
 
           <button
             type="button"
-            onClick={() => setStickerOpen(true)}
+            onClick={openStickers}
             className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-[16px] border border-black/8 bg-white px-4 py-3 text-[14px] font-medium text-zinc-800 shadow-sm transition-colors hover:bg-zinc-50"
           >
             <StickerBadgeIcon className="h-4 w-4 text-zinc-600" />
@@ -2115,6 +2151,55 @@ export function SchemeScreen({
             onClose={() => setStickerOpen(false)}
             onUpdate={sharedPreview ? undefined : onUpdateDeviceSticker}
           />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {stickerBlockedOpen && (
+          <Portal>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[100] flex items-end justify-center bg-black/30 backdrop-blur-sm sm:items-center sm:p-6"
+              onClick={() => setStickerBlockedOpen(false)}
+            >
+              <motion.div
+                initial={{ y: 40, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: 40, opacity: 0 }}
+                transition={{ type: "spring", stiffness: 320, damping: 30 }}
+                onClick={(e) => e.stopPropagation()}
+                className="w-full max-w-[430px] rounded-t-[28px] border border-black/[0.06] bg-white p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-[0_20px_60px_rgba(17,17,19,0.15)] sm:rounded-[28px]"
+              >
+                <h3 className="mb-2 text-[20px] font-semibold text-zinc-900">
+                  Стикеры пока недоступны
+                </h3>
+                <p className="text-[14px] leading-relaxed text-zinc-500">
+                  Стикеры можно распечатать после того, как будет определено,
+                  какие помещения и техника подключены к каждому прибору в
+                  щитке.
+                </p>
+                <p className="mt-3 text-[14px] leading-relaxed text-zinc-700">
+                  {labeledLineCount === 0
+                    ? `Надо заполнить информацию по ${devicesDativePhrase(allRailDevices.length)}.`
+                    : `Уже заполнено ${labeledLineCount} из ${allRailDevices.length} ${deviceWord(allRailDevices.length)}. ${remainingDevicesPhrase(unlabeledLineCount)}`}
+                </p>
+                <p className="mt-3 text-[14px] leading-relaxed text-zinc-500">
+                  Нажмите на прибор на схеме и выберите «Определить линию
+                  прибора». Дальше сервис проведёт по шагам: нужно будет
+                  отключить рычаг, обойти помещения и отметить, где пропал свет
+                  или перестала работать техника.
+                </p>
+                <Button
+                  className="mt-5 w-full"
+                  onClick={() => setStickerBlockedOpen(false)}
+                >
+                  Понятно
+                </Button>
+              </motion.div>
+            </motion.div>
+          </Portal>
         )}
       </AnimatePresence>
 
