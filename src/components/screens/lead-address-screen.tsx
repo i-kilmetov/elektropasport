@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { ArrowLeft } from "lucide-react";
 import { AddressSuggestField } from "@/components/ui/address-suggest-field";
 import { Button } from "@/components/ui/button";
-import { hasHouse, type AddressSuggestion } from "@/lib/dadata";
+import { hasFlat, hasHouse, type AddressSuggestion } from "@/lib/dadata";
 import { normalizeCityName } from "@/lib/lead-services";
 
 export function LeadAddressScreen({
@@ -29,14 +29,21 @@ export function LeadAddressScreen({
         }
       : null,
   );
+  const [apartments, setApartments] = useState<AddressSuggestion[]>([]);
   const [lookupFailed, setLookupFailed] = useState(false);
 
   const cityLabel = normalizeCityName(city);
   const trimmed = query.trim();
+  const needsApartment =
+    selected != null &&
+    hasHouse(selected) &&
+    !hasFlat(selected) &&
+    apartments.length > 0;
   const ready =
     (selected != null &&
       selected.value === trimmed &&
-      hasHouse(selected)) ||
+      hasHouse(selected) &&
+      !needsApartment) ||
     (lookupFailed && trimmed.length >= 8);
 
   return (
@@ -61,8 +68,9 @@ export function LeadAddressScreen({
       <h2 className="mb-2 text-[26px] font-bold tracking-tight text-zinc-900">
         Адрес в Москве
       </h2>
-      <p className="mb-5 text-[15px] leading-relaxed text-zinc-500">
-        Начните вводить улицу — подскажем дом из адресного реестра.
+      <p className="mb-5 text-[15px] leading-relaxed text-zinc-600">
+        В этом городе у нас есть квалифицированные мастера-электрики. Укажите
+        точный адрес, чтобы сориентировать вас по времени и цене.
       </p>
 
       <AddressSuggestField
@@ -72,15 +80,24 @@ export function LeadAddressScreen({
           setQuery(next);
           if (selected && next.trim() !== selected.value) {
             setSelected(null);
+            setApartments([]);
           }
         }}
-        onSelect={(item) => {
+        onSelect={(item, extras) => {
           setSelected(item);
+          setApartments(extras?.apartments ?? []);
           setLookupFailed(false);
         }}
         onLookupError={(message) => setLookupFailed(Boolean(message))}
-        placeholder="Например, Тверская 1"
+        placeholder="Улица, дом, квартира"
       />
+
+      {needsApartment && (
+        <p className="mt-3 text-[13px] leading-relaxed text-amber-800">
+          В этом доме есть квартиры в адресном реестре — выберите квартиру из
+          списка.
+        </p>
+      )}
 
       <div className="mt-auto pt-6">
         <Button

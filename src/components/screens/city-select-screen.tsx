@@ -5,18 +5,22 @@ import { motion } from "framer-motion";
 import { ArrowLeft, Check, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
+import { hapticImpact } from "@/lib/haptics";
 import { filterCities } from "@/lib/cities";
+import { isMoscow } from "@/lib/lead-services";
 
 export function CitySelectScreen({
   onBack,
   onConfirm,
   title = "Ваш город",
   description = "Начните вводить название — подскажем города.",
+  moscowHint,
 }: {
   onBack: () => void;
   onConfirm: (city: string) => void;
   title?: string;
   description?: string;
+  moscowHint?: string;
 }) {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
@@ -28,6 +32,16 @@ export function CitySelectScreen({
     () => (showSuggestions ? filterCities(trimmed) : []),
     [showSuggestions, trimmed],
   );
+  const exactMatch = suggestions.find(
+    (city) => city.toLowerCase() === trimmed.toLowerCase(),
+  );
+  const chosen = selected ?? exactMatch ?? null;
+
+  const pickCity = (city: string) => {
+    hapticImpact("light");
+    setSelected(city);
+    setQuery(city);
+  };
 
   return (
     <motion.section
@@ -76,14 +90,14 @@ export function CitySelectScreen({
               </li>
             ) : (
               suggestions.map((city) => {
-                const active = selected === city;
+                const active = chosen === city;
                 return (
                   <li key={city}>
                     <button
                       type="button"
-                      onClick={() => {
-                        setSelected(city);
-                        setQuery(city);
+                      onPointerDown={(event) => {
+                        event.preventDefault();
+                        pickCity(city);
                       }}
                       className={`flex w-full items-center justify-between px-4 py-3.5 text-left text-[16px] transition-colors ${
                         active
@@ -104,12 +118,18 @@ export function CitySelectScreen({
         </GlassCard>
       )}
 
+      {chosen && isMoscow(chosen) && moscowHint && (
+        <p className="mb-4 text-[15px] leading-relaxed text-zinc-600">
+          {moscowHint}
+        </p>
+      )}
+
       <div className="mt-auto">
         <Button
           className="w-full"
           size="lg"
-          disabled={!selected}
-          onClick={() => selected && onConfirm(selected)}
+          disabled={!chosen}
+          onClick={() => chosen && onConfirm(chosen)}
         >
           Продолжить
         </Button>

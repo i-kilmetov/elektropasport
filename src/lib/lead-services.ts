@@ -1,7 +1,7 @@
 import type { Device } from "@/types";
 import { deviceModules } from "@/lib/panel-rails";
 
-export const ONLINE_CONSULTATION_PRICE_RUB = 499;
+export const ONLINE_CONSULTATION_PRICE_RUB = 990;
 export const MODULE_LABELING_PRICE_RUB = 500;
 
 export type LeadServiceType =
@@ -92,7 +92,7 @@ export function getLeadServiceOptions(input: {
     id: "online_consultation",
     title: "Онлайн-консультация",
     description:
-      "Поможем базово разобраться, куда смотреть в щитке, что нажимать, а что лучше не нажимать.",
+      "Разберём щиток по фото и схеме: что можно сделать самим, а где уже нужен мастер. Если дальше понадобится пересборка, проект или монтаж — сначала консультация. Эти 990 ₽ вычтем из общей стоимости работ.",
     priceLabel: formatRub(ONLINE_CONSULTATION_PRICE_RUB),
     priceRub: ONLINE_CONSULTATION_PRICE_RUB,
   };
@@ -100,8 +100,9 @@ export function getLeadServiceOptions(input: {
   const master: LeadServiceOption = {
     id: "master_labeling",
     title: "Вызов мастера для прозвонки и маркировки",
-    description:
-      "Аудит щитка, затяжка клемм, прозвонка линий и маркировка. Стоимость — 500 ₽ за модуль.",
+    description: modules
+      ? `Мастер приедет, прозвонит линии и подпишет каждый автомат — в щитке сразу станет понятно, что за что отвечает.`
+      : "Мастер приедет, прозвонит линии и подпишет автоматы. Стоимость — 500 ₽ за модуль.",
     priceLabel: modules
       ? formatRub(masterLabelingPriceRub(modules))
       : "500 ₽ / модуль",
@@ -117,14 +118,13 @@ export function getLeadServiceOptions(input: {
       "Пересобрать щиток, переделать электрику, сделать проект — стоимость определим после разговора по телефону.",
     priceLabel: "После уточнения",
     priceRub: null,
-    moscowOnly: !moscow ? false : false,
   };
 
   if (!moscow) {
     return [online, other];
   }
 
-  return [online, master, other];
+  return [online, master];
 }
 
 export function payableAmountRub(input: {

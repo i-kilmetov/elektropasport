@@ -1,11 +1,13 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { ArrowLeft, ChevronRight, Info } from "lucide-react";
-import { GlassCard } from "@/components/ui/glass-card";
+import { ArrowLeft, MessageCircle, Wrench } from "lucide-react";
 import {
+  formatRub,
   getLeadServiceOptions,
   isMoscow,
+  masterLabelingPriceRub,
+  MODULE_LABELING_PRICE_RUB,
   normalizeCityName,
   type LeadServiceType,
 } from "@/lib/lead-services";
@@ -28,6 +30,8 @@ export function LeadServiceScreen({
     city: normalizedCity,
     panelModules,
   });
+  const modules =
+    typeof panelModules === "number" && panelModules > 0 ? panelModules : null;
 
   return (
     <motion.section
@@ -51,67 +55,113 @@ export function LeadServiceScreen({
       <h2 className="mb-2 text-[26px] font-bold tracking-tight text-zinc-900">
         Что вам нужно?
       </h2>
-      <p className="mb-4 text-[15px] leading-relaxed text-zinc-500">
-        Город: <span className="font-medium text-zinc-800">{normalizedCity}</span>
+      <p className="mb-5 text-[15px] leading-relaxed text-zinc-500">
+        Город:{" "}
+        <span className="font-medium text-zinc-800">{normalizedCity}</span>
       </p>
 
       {!moscow && (
-        <div className="mb-5 flex gap-3 rounded-[20px] border border-amber-200/80 bg-amber-50 p-4">
-          <Info className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" />
+        <div className="mb-5 rounded-[24px] bg-amber-50 p-4">
           <p className="text-[14px] leading-relaxed text-amber-950/85">
-            В этом городе работает только{" "}
-            <span className="font-semibold">онлайн-консультация</span>. Выезд
-            мастера для прозвонки и маркировки доступен в Москве.
+            В этом городе пока доступна онлайн-консультация. Выезд мастера для
+            прозвонки и маркировки есть в Москве.
           </p>
         </div>
       )}
 
-      {moscow && panelModules && panelModules > 0 && (
-        <div className="mb-5 rounded-[20px] border border-sky-200/80 bg-sky-50 p-4">
-          <p className="text-[14px] leading-relaxed text-sky-950/85">
-            По вашему щитку в паспорте —{" "}
-            <span className="font-semibold">{panelModules} мод.</span>. Для
-            выезда мастера посчитаем стоимость маркировки автоматически.
-          </p>
-        </div>
-      )}
-
-      <div className="flex flex-col gap-3">
-        {options.map((option, i) => (
-          <motion.button
-            key={option.id}
-            type="button"
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.04 * i }}
-            onClick={() => onSelect(option.id)}
-            className="text-left"
-          >
-            <GlassCard className="flex items-start gap-3 p-4 transition-colors hover:bg-zinc-50">
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <div className="text-[16px] font-semibold text-zinc-900">
-                    {option.title}
+      <div className="flex flex-col gap-4">
+        {options.map((option, i) => {
+          const isOnline = option.id === "online_consultation";
+          const isMaster = option.id === "master_labeling";
+          return (
+            <motion.button
+              key={option.id}
+              type="button"
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.05 * i }}
+              onClick={() => onSelect(option.id)}
+              className="text-left"
+            >
+              <div
+                className={cn(
+                  "overflow-hidden rounded-[28px] p-5 shadow-[0_12px_32px_rgba(17,17,19,0.1)]",
+                  isOnline &&
+                    "bg-gradient-to-br from-indigo-500 via-violet-500 to-fuchsia-500 text-white",
+                  isMaster &&
+                    "bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-500 text-white",
+                  !isOnline &&
+                    !isMaster &&
+                    "border border-black/8 bg-white text-zinc-900",
+                )}
+              >
+                <div className="mb-3 flex items-start justify-between gap-3">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/20">
+                    {isOnline ? (
+                      <MessageCircle className="h-5 w-5" />
+                    ) : isMaster ? (
+                      <Wrench className="h-5 w-5" />
+                    ) : (
+                      <MessageCircle className="h-5 w-5 text-zinc-500" />
+                    )}
                   </div>
                   <div
                     className={cn(
-                      "shrink-0 text-[14px] font-semibold tabular-nums",
-                      option.priceRub != null
-                        ? "text-zinc-900"
-                        : "text-zinc-500",
+                      "rounded-full px-3 py-1 text-[13px] font-bold tabular-nums",
+                      isOnline || isMaster
+                        ? "bg-white/20"
+                        : "bg-zinc-100 text-zinc-700",
                     )}
                   >
                     {option.priceLabel}
                   </div>
                 </div>
-                <p className="mt-2 text-[13px] leading-relaxed text-zinc-500">
+                <div className="text-[20px] font-bold leading-snug tracking-tight">
+                  {option.title}
+                </div>
+                <p
+                  className={cn(
+                    "mt-2 text-[14px] leading-relaxed",
+                    isOnline || isMaster ? "text-white/90" : "text-zinc-500",
+                  )}
+                >
                   {option.description}
                 </p>
+
+                {isMaster && modules && (
+                  <div className="mt-4 rounded-[20px] bg-white/18 p-3">
+                    <p className="text-[13px] font-medium text-white/85">
+                      В вашем щитке {modules}{" "}
+                      {modules % 10 === 1 && modules % 100 !== 11
+                        ? "модуль"
+                        : modules % 10 >= 2 &&
+                            modules % 10 <= 4 &&
+                            (modules % 100 < 12 || modules % 100 > 14)
+                          ? "модуля"
+                          : "модулей"}
+                    </p>
+                    <p className="mt-1 text-[15px] font-semibold">
+                      {modules} × {formatRub(MODULE_LABELING_PRICE_RUB)} ={" "}
+                      {formatRub(masterLabelingPriceRub(modules))}
+                    </p>
+                    <p className="mt-1 text-[12px] text-white/75">
+                      Стоимость выезда считается по числу модулей в паспорте
+                      щитка.
+                    </p>
+                  </div>
+                )}
+
+                {isOnline && (
+                  <p className="mt-4 text-[12px] leading-relaxed text-white/80">
+                    Если нужно пересобрать щиток, сделать проект или выполнить
+                    монтажные работы по электрике — сначала консультация. Эта
+                    сумма будет вычтена из дальнейшей общей стоимости работ.
+                  </p>
+                )}
               </div>
-              <ChevronRight className="mt-1 h-5 w-5 shrink-0 text-zinc-400" />
-            </GlassCard>
-          </motion.button>
-        ))}
+            </motion.button>
+          );
+        })}
       </div>
     </motion.section>
   );

@@ -47,7 +47,7 @@ export async function POST(request: Request) {
       },
       body: JSON.stringify({
         query,
-        count: 8,
+        count: 20,
         locations: [{ kladr_id: MOSCOW_KLADR_ID }],
         restrict_value: true,
         from_bound: { value: "street" },
