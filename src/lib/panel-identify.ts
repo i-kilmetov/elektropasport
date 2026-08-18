@@ -78,6 +78,27 @@ export function inferObjectTypeFromLabel(
   return null;
 }
 
+export function occupiedLoadKey(room: string, load: string) {
+  return `${room}::${load}`;
+}
+
+export function collectOccupiedLoads(
+  devices: Array<{ id: number; name: string; circuitLabel?: string }>,
+  excludeDeviceId: number,
+): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const device of devices) {
+    if (device.id === excludeDeviceId) continue;
+    const loads = parseLineLoads(device.circuitLabel);
+    for (const [room, items] of Object.entries(loads)) {
+      for (const load of items) {
+        map.set(occupiedLoadKey(room, load), device.name);
+      }
+    }
+  }
+  return map;
+}
+
 export function formatLineLoads(loadsByRoom: Record<string, string[]>): string {
   return Object.entries(loadsByRoom)
     .filter(([, loads]) => loads.length > 0)

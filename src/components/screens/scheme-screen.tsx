@@ -85,9 +85,11 @@ import {
   MANUFACTURER_BRANDS,
 } from "@/lib/manufacturer-brands";
 import {
+  collectOccupiedLoads,
   formatLineLoads,
   inferObjectTypeFromLabel,
   loadIdentifyContext,
+  occupiedLoadKey,
   parseLineLoads,
   saveIdentifyContext,
   type IdentifyContext,
@@ -336,6 +338,7 @@ function DeviceSheet({
   knownObjectType = null,
   knownCatalogRooms = [],
   knownCatalogEquipment = [],
+  panelDevices = [],
   onPersistIdentifyContext,
 }: {
   device: Device;
@@ -359,6 +362,7 @@ function DeviceSheet({
   knownObjectType?: IdentifyObjectType | null;
   knownCatalogRooms?: string[];
   knownCatalogEquipment?: string[];
+  panelDevices?: Device[];
   onPersistIdentifyContext?: (context: IdentifyContext) => void;
 }) {
   const [sheetTop, setSheetTop] = useState(() => computeSheetTop(anchorY));
@@ -374,8 +378,6 @@ function DeviceSheet({
   const [selectedCatalogEquipment, setSelectedCatalogEquipment] = useState<
     string[]
   >(knownCatalogEquipment);
-  const [iKnow, setIKnow] = useState(false);
-  const [customLabel, setCustomLabel] = useState("");
   const [showCustomCatalogRoomInput, setShowCustomCatalogRoomInput] =
     useState(false);
   const [showCustomCatalogEquipmentInput, setShowCustomCatalogEquipmentInput] =
@@ -386,6 +388,11 @@ function DeviceSheet({
   const [lineLoadsByRoom, setLineLoadsByRoom] = useState<Record<string, string[]>>(
     {},
   );
+  const [occupiedNotice, setOccupiedNotice] = useState<{
+    room: string;
+    load: string;
+    owner: string;
+  } | null>(null);
   const confident = isDeviceDetailsConfident(device);
   const manufacturerValue =
     getManufacturerBrand(device.brandKey, device.manufacturer)?.label ??
@@ -449,14 +456,13 @@ function DeviceSheet({
     setShowMoreCatalogEquipment(false);
     setSelectedCatalogRooms(knownCatalogRooms);
     setSelectedCatalogEquipment(knownCatalogEquipment);
-    setIKnow(false);
-    setCustomLabel(device.circuitLabel ?? "");
     setShowCustomCatalogRoomInput(false);
     setShowCustomCatalogEquipmentInput(false);
     setCustomCatalogRoom("");
     setCustomCatalogEquipment("");
     setActiveLineRoom(Object.keys(parsedLoads)[0] ?? null);
     setLineLoadsByRoom(parsedLoads);
+    setOccupiedNotice(null);
     // Saving a line updates circuitLabel; that must not bounce the sheet
     // back to the first screen and hide the success step.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- apply known context only on device change
@@ -508,11 +514,19 @@ function DeviceSheet({
   );
   const hasExistingLine = Boolean(device.circuitLabel?.trim());
   const skipObjectStep = Boolean(objectType ?? knownObjectType);
-  const manualLabel = customLabel.trim();
-  const showManualInput = flowStep === 0 && iKnow;
   const canSaveSelection = flowStep === 5 && selectedLineLabel.length > 0;
-  const closeButtonLabel =
-    showManualInput && manualLabel ? "Сохранить и закрыть" : "Закрыть";
+  const occupiedLoads = useMemo(
+    () =>
+      collectOccupiedLoads(
+        panelDevices.map((item) => ({
+          id: item.id,
+          name: deviceTitle(item),
+          circuitLabel: item.circuitLabel,
+        })),
+        device.id,
+      ),
+    [device.id, panelDevices],
+  );
 
   const toggleSelectedValue = (
     value: string,
@@ -564,14 +578,12 @@ function DeviceSheet({
   };
 
   const startIdentifyFlow = () => {
-    setIKnow(false);
     const nextType = objectType ?? knownObjectType;
     if (nextType) setObjectType(nextType);
     setFlowStep(nextType ? 2 : 1);
   };
 
   const startEditExistingLine = () => {
-    setIKnow(false);
     const parsed = parseLineLoads(device.circuitLabel);
     const nextType =
       objectType ??
@@ -592,9 +604,6 @@ function DeviceSheet({
   };
 
   const handlePrimaryClose = () => {
-    if (showManualInput && manualLabel) {
-      onAssignCircuit(device.id, manualLabel);
-    }
     onClose();
   };
 
@@ -761,30 +770,6 @@ function DeviceSheet({
                   ? "Исправить линию прибора"
                   : "Определить линию прибора"}
               </Button>
-              <button
-                type="button"
-                onClick={() => {
-                  setFlowStep(0);
-                  setIKnow((prev) => !prev);
-                }}
-                className="text-[14px] text-zinc-600 underline underline-offset-4"
-              >
-                Знаю, за что отвечает прибор
-              </button>
-              {showManualInput && (
-                <motion.div
-                  initial={{ opacity: 0, y: -4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="pt-1"
-                >
-                  <input
-                    value={customLabel}
-                    onChange={(e) => setCustomLabel(e.target.value)}
-                    placeholder="Например: Кухня розетки"
-                    className="h-12 w-full rounded-[16px] border border-black/8 bg-zinc-50 px-3 text-[15px] text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-zinc-300"
-                  />
-                </motion.div>
-              )}
             </div>
           )}
 
@@ -1132,24 +1117,39 @@ function DeviceSheet({
                 </p>
                 <div className="flex flex-wrap gap-1.5">
                   {lineLoadOptions.map((load) => {
-                    const active = activeLineRoom
+                    const selected = activeLineRoom
                       ? (lineLoadsByRoom[activeLineRoom] ?? []).includes(load)
                       : false;
+                    const occupiedOwner = activeLineRoom
+                      ? occupiedLoads.get(
+                          occupiedLoadKey(activeLineRoom, load),
+                        )
+                      : undefined;
+                    const occupied = Boolean(occupiedOwner);
                     return (
                       <button
                         key={load}
                         type="button"
                         disabled={!activeLineRoom}
-                        onClick={() =>
-                          activeLineRoom
-                            ? toggleLineLoad(activeLineRoom, load)
-                            : undefined
-                        }
+                        onClick={() => {
+                          if (!activeLineRoom) return;
+                          if (occupiedOwner) {
+                            setOccupiedNotice({
+                              room: activeLineRoom,
+                              load,
+                              owner: occupiedOwner,
+                            });
+                            return;
+                          }
+                          toggleLineLoad(activeLineRoom, load);
+                        }}
                         className={cn(
                           "rounded-full px-3 py-1 text-[13px] transition-colors",
-                          active
-                            ? "bg-zinc-900 text-white"
-                            : "bg-zinc-100 text-zinc-600",
+                          occupied
+                            ? "bg-zinc-300 text-zinc-600"
+                            : selected
+                              ? "bg-zinc-900 text-white"
+                              : "bg-zinc-100 text-zinc-600",
                           !activeLineRoom && "opacity-50",
                         )}
                       >
@@ -1207,12 +1207,40 @@ function DeviceSheet({
 
         <Button className="w-full" onClick={handlePrimaryClose}>
           <BreakerIcon className="h-4 w-4" />
-          {closeButtonLabel}
+          Закрыть
         </Button>
           </>
         )}
       </motion.div>
     </motion.div>
+    {occupiedNotice && (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="fixed inset-0 z-[60] flex items-end justify-center bg-black/30 backdrop-blur-sm sm:items-center sm:p-6"
+        onClick={() => setOccupiedNotice(null)}
+      >
+        <motion.div
+          initial={{ y: 24, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ type: "spring", stiffness: 320, damping: 32 }}
+          onClick={(e) => e.stopPropagation()}
+          className="w-full max-w-[430px] rounded-t-[28px] border border-black/[0.06] bg-white p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-[0_20px_60px_rgba(17,17,19,0.15)] sm:rounded-[28px]"
+        >
+          <h3 className="mb-2 text-[20px] font-semibold text-zinc-900">
+            Нагрузка уже выбрана
+          </h3>
+          <p className="mb-5 text-[14px] leading-relaxed text-zinc-500">
+            «{occupiedNotice.load}» в помещении «{occupiedNotice.room}» уже
+            относится к прибору «{occupiedNotice.owner}». Одну и ту же нагрузку
+            в одном помещении нельзя назначить двум приборам.
+          </p>
+          <Button className="w-full" onClick={() => setOccupiedNotice(null)}>
+            Понятно
+          </Button>
+        </motion.div>
+      </motion.div>
+    )}
     </Portal>
   );
 }
@@ -2123,6 +2151,7 @@ export function SchemeScreen({
             knownObjectType={inferredObjectType}
             knownCatalogRooms={identifyContext?.rooms ?? []}
             knownCatalogEquipment={identifyContext?.equipment ?? []}
+            panelDevices={devices}
             onPersistIdentifyContext={persistIdentifyContext}
             onClose={() => {
               setSelectedId(null);
