@@ -128,7 +128,6 @@ export function AppShell() {
   const [itemsLoading, setItemsLoading] = useState(true);
   const [itemsError, setItemsError] = useState<string | null>(null);
   const [quota, setQuota] = useState<PanelQuota | null>(null);
-  const [mainMenuOpen, setMainMenuOpen] = useState(false);
   const [limitOpen, setLimitOpen] = useState(false);
   const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
   const [activePanelId, setActivePanelId] = useState<string | null>(null);
@@ -1115,13 +1114,15 @@ export function AppShell() {
         "relative w-full",
         screen === "welcome"
           ? "bg-black text-white"
-          : "bg-[var(--bg)] text-zinc-900",
+          : screen === "objects"
+            ? "bg-[#f4f4f6] text-zinc-900"
+            : "bg-[var(--bg)] text-zinc-900",
         fillViewport
           ? "flex h-[var(--app-height,100dvh)] flex-col overflow-hidden"
           : "min-h-[var(--app-height,100dvh)]",
       )}
     >
-      {screen !== "welcome" && (
+      {screen !== "welcome" && screen !== "objects" && (
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(17,17,19,0.035),transparent_55%)]" />
       )}
       <div
@@ -1143,8 +1144,6 @@ export function AppShell() {
               loading={itemsLoading}
               error={itemsError}
               quota={quota}
-              menuOpen={mainMenuOpen}
-              onMenuOpenChange={setMainMenuOpen}
               onAdd={() => requireTelegramAuth("add-panel")}
               onOpenPanel={openPanel}
               onOpenRequest={(id) => {
@@ -1421,7 +1420,6 @@ export function AppShell() {
                 setActivePanelId(null);
                 setActiveRequestId(null);
                 setPendingAuthAction(null);
-                setMainMenuOpen(false);
                 go("telegram-auth");
               }}
             />
