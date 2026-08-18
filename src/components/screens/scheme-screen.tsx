@@ -12,6 +12,7 @@ import {
 } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
+  AlertTriangle,
   ArrowLeft,
   Check,
   Gauge,
@@ -97,6 +98,7 @@ import {
   type IdentifyContext,
   type IdentifyObjectType,
 } from "@/lib/panel-identify";
+import { assessLineLoadSafety } from "@/lib/line-load-safety";
 import { cn } from "@/lib/utils";
 import type { Device, DeviceType, PanelWire, TerminalRef } from "@/types";
 
@@ -588,6 +590,10 @@ function DeviceSheet({
       ),
     [device.id, panelDevices],
   );
+  const loadAlarm = useMemo(
+    () => assessLineLoadSafety(device, lineLoadsByRoom),
+    [device, lineLoadsByRoom],
+  );
 
   const toggleSelectedValue = (
     value: string,
@@ -735,6 +741,16 @@ function DeviceSheet({
                 <p className="mt-3 text-[14px] font-medium text-zinc-800">
                   {selectedLineLabel || protectiveDraft.trim()}
                 </p>
+              )}
+              {loadAlarm && (
+                <div className="mt-4 rounded-[18px] border border-rose-200 bg-rose-50 p-3 text-left">
+                  <p className="text-[14px] font-semibold text-rose-950">
+                    {loadAlarm.title}
+                  </p>
+                  <p className="mt-1 text-[13px] leading-relaxed text-rose-900/80">
+                    {loadAlarm.summary}
+                  </p>
+                </div>
               )}
             </div>
             <Button className="w-full" onClick={onClose}>
@@ -1209,7 +1225,9 @@ function DeviceSheet({
                           occupied
                             ? "bg-zinc-300 text-zinc-600"
                             : selected
-                              ? "bg-zinc-900 text-white"
+                              ? loadAlarm?.unsafeLoads.includes(load)
+                                ? "bg-rose-600 text-white"
+                                : "bg-zinc-900 text-white"
                               : "bg-zinc-100 text-zinc-600",
                           !activeLineRoom && "opacity-50",
                         )}
@@ -1242,6 +1260,31 @@ function DeviceSheet({
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+              {loadAlarm && (
+                <div className="rounded-[20px] border border-rose-200 bg-rose-50 p-4">
+                  <div className="flex items-start gap-2.5">
+                    <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-rose-600" />
+                    <div>
+                      <p className="text-[15px] font-semibold text-rose-950">
+                        {loadAlarm.title}
+                      </p>
+                      <p className="mt-1 text-[14px] leading-relaxed text-rose-900/85">
+                        {loadAlarm.summary}
+                      </p>
+                      <ul className="mt-3 space-y-2">
+                        {loadAlarm.points.map((point, index) => (
+                          <li
+                            key={index}
+                            className="text-[13px] leading-relaxed text-rose-900/80"
+                          >
+                            {point}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
                 </div>
               )}
               <Button
