@@ -201,6 +201,86 @@ const DEFAULT_LOAD_OPTIONS = [
   "Тёплый пол",
 ] as const;
 
+type ObjectType = "apartment" | "house" | "other";
+
+const OBJECT_TYPE_OPTIONS: Array<{ id: ObjectType; label: string }> = [
+  { id: "apartment", label: "Квартира" },
+  { id: "house", label: "Дом" },
+  { id: "other", label: "Другое" },
+];
+
+const OBJECT_TYPE_CONFIG: Record<
+  ObjectType,
+  {
+    wholeLabel: string;
+    roomBase: string[];
+    roomExtra: string[];
+    equipmentBase: string[];
+    equipmentExtra: string[];
+  }
+> = {
+  apartment: {
+    wholeLabel: "Вся квартира",
+    roomBase: ["Кухня", "Коридор", "Ванная", "Туалет", "Гостиная"],
+    roomExtra: [
+      "Спальня",
+      "Детская",
+      "Балкон",
+      "Кладовая",
+      "Гардеробная",
+      "Кабинет",
+    ],
+    equipmentBase: ["Свет", "Розетки", "Стиральная машина", "Бойлер"],
+    equipmentExtra: [
+      "Плита",
+      "Духовка",
+      "Кондиционер",
+      "Тёплый пол",
+      "Посудомоечная машина",
+      "Холодильник",
+    ],
+  },
+  house: {
+    wholeLabel: "Весь дом",
+    roomBase: ["Кухня", "Коридор", "Гостиная", "Спальня", "Ванная"],
+    roomExtra: [
+      "Детская",
+      "Котельная",
+      "Мансарда",
+      "Терраса",
+      "Гараж",
+      "Сарай",
+      "Ворота",
+      "Септик",
+      "Насос",
+    ],
+    equipmentBase: ["Свет", "Розетки", "Бойлер", "Стиральная машина"],
+    equipmentExtra: [
+      "Плита",
+      "Духовка",
+      "Кондиционер",
+      "Тёплый пол",
+      "Насос",
+      "Септик",
+      "Ворота",
+      "Котёл",
+    ],
+  },
+  other: {
+    wholeLabel: "Весь объект",
+    roomBase: ["Основное помещение", "Коридор", "Санузел"],
+    roomExtra: ["Склад", "Подсобка", "Мастерская", "Улица"],
+    equipmentBase: ["Свет", "Розетки", "Вентиляция"],
+    equipmentExtra: [
+      "Кондиционер",
+      "Насос",
+      "Котёл",
+      "Ворота",
+      "Охрана",
+    ],
+  },
+};
+
 const identifyFlowSteps = [
   {
     text: "Убедитесь, что квартиру/дом можно кратковременно обесточить: бытовая техника и компьютеры не работают, в помещении светло (или есть фонарик)",
@@ -245,21 +325,26 @@ function DeviceSheet({
   specEditable?: boolean;
 }) {
   const [sheetTop, setSheetTop] = useState(() => computeSheetTop(anchorY));
-  const [flowStep, setFlowStep] = useState<0 | 1 | 2 | 3 | 4 | 5>(0);
-  const [roomOptions, setRoomOptions] = useState<string[]>(() => [
-    ...DEFAULT_ROOM_OPTIONS,
-  ]);
-  const [loadOptions, setLoadOptions] = useState<string[]>(() => [
-    ...DEFAULT_LOAD_OPTIONS,
-  ]);
-  const [selectedRooms, setSelectedRooms] = useState<string[]>([]);
-  const [selectedLoads, setSelectedLoads] = useState<string[]>([]);
+  const [flowStep, setFlowStep] = useState(0);
+  const [objectType, setObjectType] = useState<ObjectType | null>(null);
+  const [showMoreCatalogRooms, setShowMoreCatalogRooms] = useState(false);
+  const [showMoreCatalogEquipment, setShowMoreCatalogEquipment] = useState(false);
+  const [selectedCatalogRooms, setSelectedCatalogRooms] = useState<string[]>([]);
+  const [selectedCatalogEquipment, setSelectedCatalogEquipment] = useState<
+    string[]
+  >([]);
   const [iKnow, setIKnow] = useState(false);
   const [customLabel, setCustomLabel] = useState("");
-  const [showCustomRoomInput, setShowCustomRoomInput] = useState(false);
-  const [showCustomLoadInput, setShowCustomLoadInput] = useState(false);
-  const [customRoom, setCustomRoom] = useState("");
-  const [customLoad, setCustomLoad] = useState("");
+  const [showCustomCatalogRoomInput, setShowCustomCatalogRoomInput] =
+    useState(false);
+  const [showCustomCatalogEquipmentInput, setShowCustomCatalogEquipmentInput] =
+    useState(false);
+  const [customCatalogRoom, setCustomCatalogRoom] = useState("");
+  const [customCatalogEquipment, setCustomCatalogEquipment] = useState("");
+  const [activeLineRoom, setActiveLineRoom] = useState<string | null>(null);
+  const [lineLoadsByRoom, setLineLoadsByRoom] = useState<Record<string, string[]>>(
+    {},
+  );
   const confident = isDeviceDetailsConfident(device);
   const manufacturerValue =
     getManufacturerBrand(device.brandKey, device.manufacturer)?.label ??
@@ -315,25 +400,68 @@ function DeviceSheet({
 
   useEffect(() => {
     setFlowStep(0);
-    setRoomOptions([...DEFAULT_ROOM_OPTIONS]);
-    setLoadOptions([...DEFAULT_LOAD_OPTIONS]);
-    setSelectedRooms([]);
-    setSelectedLoads([]);
+    setObjectType(null);
+    setShowMoreCatalogRooms(false);
+    setShowMoreCatalogEquipment(false);
+    setSelectedCatalogRooms([]);
+    setSelectedCatalogEquipment([]);
     setIKnow(false);
     setCustomLabel(device.circuitLabel ?? "");
-    setShowCustomRoomInput(false);
-    setShowCustomLoadInput(false);
-    setCustomRoom("");
-    setCustomLoad("");
+    setShowCustomCatalogRoomInput(false);
+    setShowCustomCatalogEquipmentInput(false);
+    setCustomCatalogRoom("");
+    setCustomCatalogEquipment("");
+    setActiveLineRoom(null);
+    setLineLoadsByRoom({});
   }, [device.circuitLabel, device.id]);
 
+  const selectedObjectConfig = objectType ? OBJECT_TYPE_CONFIG[objectType] : null;
+  const catalogRoomOptions = useMemo(() => {
+    if (!selectedObjectConfig) return [...DEFAULT_ROOM_OPTIONS];
+    return showMoreCatalogRooms
+      ? [...selectedObjectConfig.roomBase, ...selectedObjectConfig.roomExtra]
+      : selectedObjectConfig.roomBase;
+  }, [selectedObjectConfig, showMoreCatalogRooms]);
+  const catalogEquipmentOptions = useMemo(() => {
+    if (!selectedObjectConfig) return [...DEFAULT_LOAD_OPTIONS];
+    return showMoreCatalogEquipment
+      ? [
+          ...selectedObjectConfig.equipmentBase,
+          ...selectedObjectConfig.equipmentExtra,
+        ]
+      : selectedObjectConfig.equipmentBase;
+  }, [selectedObjectConfig, showMoreCatalogEquipment]);
+  const lineRoomOptions = useMemo(() => {
+    if (!selectedObjectConfig) return [];
+    const rooms =
+      selectedCatalogRooms.length > 0
+        ? selectedCatalogRooms
+        : [
+            ...selectedObjectConfig.roomBase,
+            ...selectedObjectConfig.roomExtra,
+          ];
+    return [selectedObjectConfig.wholeLabel, ...rooms];
+  }, [selectedCatalogRooms, selectedObjectConfig]);
+  const lineLoadOptions = useMemo(() => {
+    if (!selectedObjectConfig) return [...DEFAULT_LOAD_OPTIONS];
+    return selectedCatalogEquipment.length > 0
+      ? selectedCatalogEquipment
+      : [
+          ...selectedObjectConfig.equipmentBase,
+          ...selectedObjectConfig.equipmentExtra,
+        ];
+  }, [selectedCatalogEquipment, selectedObjectConfig]);
   const selectedLineLabel = useMemo(
-    () => [...selectedRooms, ...selectedLoads].join(" · "),
-    [selectedLoads, selectedRooms],
+    () =>
+      Object.entries(lineLoadsByRoom)
+        .filter(([, loads]) => loads.length > 0)
+        .map(([room, loads]) => `${room}: ${loads.join(", ")}`)
+        .join("; "),
+    [lineLoadsByRoom],
   );
   const manualLabel = customLabel.trim();
   const showManualInput = flowStep === 0 && iKnow;
-  const canSaveSelection = flowStep === 4 && selectedLineLabel.length > 0;
+  const canSaveSelection = flowStep === 5 && selectedLineLabel.length > 0;
   const closeButtonLabel =
     showManualInput && manualLabel ? "Сохранить и закрыть" : "Закрыть";
 
@@ -363,6 +491,20 @@ function DeviceSheet({
     setSelected((prev) => (prev.includes(next) ? prev : [...prev, next]));
     clear();
   };
+  const toggleLineLoad = (room: string, load: string) => {
+    setLineLoadsByRoom((prev) => {
+      const current = prev[room] ?? [];
+      const nextLoads = current.includes(load)
+        ? current.filter((item) => item !== load)
+        : [...current, load];
+      if (nextLoads.length === 0) {
+        const next = { ...prev };
+        delete next[room];
+        return next;
+      }
+      return { ...prev, [room]: nextLoads };
+    });
+  };
 
   const handlePrimaryClose = () => {
     if (showManualInput && manualLabel) {
@@ -371,42 +513,19 @@ function DeviceSheet({
     onClose();
   };
 
-  const stepCount = 4;
+  useEffect(() => {
+    if (flowStep !== 5) return;
+    if (!activeLineRoom && lineRoomOptions.length > 0) {
+      setActiveLineRoom(lineRoomOptions[0]);
+    }
+  }, [activeLineRoom, flowStep, lineRoomOptions]);
+
+  const stepCount = 5;
   const goToPrevFlowStep = () => {
-    setFlowStep((prev) => {
-      switch (prev) {
-        case 5:
-          return 4;
-        case 4:
-          return 3;
-        case 3:
-          return 2;
-        case 2:
-          return 1;
-        case 1:
-          return 0;
-        default:
-          return 0;
-      }
-    });
+    setFlowStep((prev) => Math.max(0, prev - 1));
   };
   const goToNextFlowStep = () => {
-    setFlowStep((prev) => {
-      switch (prev) {
-        case 0:
-          return 1;
-        case 1:
-          return 2;
-        case 2:
-          return 3;
-        case 3:
-          return 4;
-        case 4:
-          return 5;
-        default:
-          return 5;
-      }
-    });
+    setFlowStep((prev) => Math.min(6, prev + 1));
   };
 
   return (
@@ -555,7 +674,256 @@ function DeviceSheet({
             </div>
           )}
 
-          {flowStep > 0 && flowStep < 4 && (
+          {flowStep === 1 && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                {Array.from({ length: stepCount }, (_, index) => (
+                  <div
+                    key={index}
+                    className={cn(
+                      "h-2 flex-1 rounded-full transition-colors",
+                      index === 0 ? "bg-zinc-900" : "bg-zinc-200",
+                    )}
+                  />
+                ))}
+              </div>
+              <p className="text-[13px] font-medium text-zinc-500">
+                Шаг 1 из {stepCount}
+              </p>
+              <div className="rounded-[20px] bg-zinc-50 p-4">
+                <p className="text-[15px] leading-relaxed text-zinc-900">
+                  Перед определением линии укажите тип объекта. Ниже можно
+                  отметить помещения и технику, которые есть на объекте.
+                </p>
+              </div>
+
+              <div>
+                <p className="mb-2 text-[12px] font-medium text-zinc-500">
+                  Тип объекта
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {OBJECT_TYPE_OPTIONS.map((option) => (
+                    <button
+                      key={option.id}
+                      type="button"
+                      onClick={() => {
+                        setObjectType(option.id);
+                        setSelectedCatalogRooms([]);
+                        setSelectedCatalogEquipment([]);
+                        setShowMoreCatalogRooms(false);
+                        setShowMoreCatalogEquipment(false);
+                        setShowCustomCatalogRoomInput(false);
+                        setShowCustomCatalogEquipmentInput(false);
+                        setCustomCatalogRoom("");
+                        setCustomCatalogEquipment("");
+                        setActiveLineRoom(null);
+                        setLineLoadsByRoom({});
+                      }}
+                      className={cn(
+                        "rounded-full px-3 py-1 text-[13px] transition-colors",
+                        objectType === option.id
+                          ? "bg-zinc-900 text-white"
+                          : "bg-zinc-100 text-zinc-600",
+                      )}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {objectType && (
+                <>
+                  <div>
+                    <p className="mb-2 text-[12px] font-medium text-zinc-500">
+                      Помещения
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {catalogRoomOptions.map((room) => {
+                        const active = selectedCatalogRooms.includes(room);
+                        return (
+                          <button
+                            key={room}
+                            type="button"
+                            onClick={() =>
+                              toggleSelectedValue(room, setSelectedCatalogRooms)
+                            }
+                            className={cn(
+                              "rounded-full px-3 py-1 text-[13px] transition-colors",
+                              active
+                                ? "bg-zinc-900 text-white"
+                                : "bg-zinc-100 text-zinc-600",
+                            )}
+                          >
+                            {room}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+                      {selectedObjectConfig &&
+                        selectedObjectConfig.roomExtra.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setShowMoreCatalogRooms((prev) => !prev)
+                            }
+                            className="text-[13px] text-zinc-500 underline underline-offset-4"
+                          >
+                            {showMoreCatalogRooms
+                              ? "Скрыть"
+                              : "Показать больше"}
+                          </button>
+                        )}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setShowCustomCatalogRoomInput((prev) => !prev)
+                        }
+                        className="text-[13px] text-zinc-500 underline underline-offset-4"
+                      >
+                        + Добавить
+                      </button>
+                    </div>
+                    {showCustomCatalogRoomInput && (
+                      <div className="mt-2 flex gap-2">
+                        <input
+                          value={customCatalogRoom}
+                          onChange={(e) => setCustomCatalogRoom(e.target.value)}
+                          placeholder="Добавить помещение"
+                          className="h-11 flex-1 rounded-[14px] border border-black/8 bg-white px-3 text-[14px] text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-zinc-300"
+                        />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            addCustomOption(
+                              customCatalogRoom,
+                              [...catalogRoomOptions, ...selectedCatalogRooms],
+                              setSelectedCatalogRooms,
+                              setSelectedCatalogRooms,
+                              () => {
+                                setCustomCatalogRoom("");
+                                setShowCustomCatalogRoomInput(false);
+                              },
+                            )
+                          }
+                          className="h-11 rounded-[14px] border border-black/8 px-3 text-[13px] font-medium text-zinc-700 transition-colors hover:bg-zinc-50"
+                        >
+                          +
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <p className="mb-2 text-[12px] font-medium text-zinc-500">
+                      Техника и оборудование
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {catalogEquipmentOptions.map((item) => {
+                        const active = selectedCatalogEquipment.includes(item);
+                        return (
+                          <button
+                            key={item}
+                            type="button"
+                            onClick={() =>
+                              toggleSelectedValue(
+                                item,
+                                setSelectedCatalogEquipment,
+                              )
+                            }
+                            className={cn(
+                              "rounded-full px-3 py-1 text-[13px] transition-colors",
+                              active
+                                ? "bg-zinc-900 text-white"
+                                : "bg-zinc-100 text-zinc-600",
+                            )}
+                          >
+                            {item}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+                      {selectedObjectConfig &&
+                        selectedObjectConfig.equipmentExtra.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setShowMoreCatalogEquipment((prev) => !prev)
+                            }
+                            className="text-[13px] text-zinc-500 underline underline-offset-4"
+                          >
+                            {showMoreCatalogEquipment
+                              ? "Скрыть"
+                              : "Показать больше"}
+                          </button>
+                        )}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setShowCustomCatalogEquipmentInput((prev) => !prev)
+                        }
+                        className="text-[13px] text-zinc-500 underline underline-offset-4"
+                      >
+                        + Добавить
+                      </button>
+                    </div>
+                    {showCustomCatalogEquipmentInput && (
+                      <div className="mt-2 flex gap-2">
+                        <input
+                          value={customCatalogEquipment}
+                          onChange={(e) =>
+                            setCustomCatalogEquipment(e.target.value)
+                          }
+                          placeholder="Добавить вариант"
+                          className="h-11 flex-1 rounded-[14px] border border-black/8 bg-white px-3 text-[14px] text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-zinc-300"
+                        />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            addCustomOption(
+                              customCatalogEquipment,
+                              [
+                                ...catalogEquipmentOptions,
+                                ...selectedCatalogEquipment,
+                              ],
+                              setSelectedCatalogEquipment,
+                              setSelectedCatalogEquipment,
+                              () => {
+                                setCustomCatalogEquipment("");
+                                setShowCustomCatalogEquipmentInput(false);
+                              },
+                            )
+                          }
+                          className="h-11 rounded-[14px] border border-black/8 px-3 text-[13px] font-medium text-zinc-700 transition-colors hover:bg-zinc-50"
+                        >
+                          +
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+
+              <Button
+                className="w-full"
+                disabled={!objectType}
+                onClick={goToNextFlowStep}
+              >
+                Продолжить
+              </Button>
+              <button
+                type="button"
+                onClick={goToPrevFlowStep}
+                className="mx-auto block text-[13px] text-zinc-400 transition-colors hover:text-zinc-600"
+              >
+                Назад
+              </button>
+            </div>
+          )}
+
+          {flowStep > 1 && flowStep < 5 && (
             <div className="space-y-4">
               <div className="flex items-center gap-2">
                 {Array.from({ length: stepCount }, (_, index) => {
@@ -577,11 +945,11 @@ function DeviceSheet({
               </p>
               <div className="rounded-[20px] bg-zinc-50 p-4">
                 <p className="text-[15px] leading-relaxed text-zinc-900">
-                  {identifyFlowSteps[flowStep - 1].text}
+                  {identifyFlowSteps[flowStep - 2].text}
                 </p>
               </div>
               <Button className="w-full" onClick={goToNextFlowStep}>
-                {identifyFlowSteps[flowStep - 1].action}
+                {identifyFlowSteps[flowStep - 2].action}
               </Button>
               <button
                 type="button"
@@ -593,18 +961,25 @@ function DeviceSheet({
             </div>
           )}
 
-          {flowStep === 4 && (
+          {flowStep === 5 && (
             <div className="space-y-4">
               <div className="flex items-center gap-2">
-                {Array.from({ length: stepCount }, (_, index) => (
-                  <div
-                    key={index}
-                    className="h-2 flex-1 rounded-full bg-zinc-900"
-                  />
-                ))}
+                {Array.from({ length: stepCount }, (_, index) => {
+                  const active = index + 1 === flowStep;
+                  const done = index + 1 < flowStep;
+                  return (
+                    <div
+                      key={index}
+                      className={cn(
+                        "h-2 flex-1 rounded-full transition-colors",
+                        done || active ? "bg-zinc-900" : "bg-zinc-200",
+                      )}
+                    />
+                  );
+                })}
               </div>
               <p className="text-[13px] font-medium text-zinc-500">
-                Шаг 4 из {stepCount}
+                Шаг 5 из {stepCount}
               </p>
               <div className="rounded-[20px] bg-zinc-50 p-4">
                 <p className="text-[15px] leading-relaxed text-zinc-900">
@@ -618,15 +993,13 @@ function DeviceSheet({
                   Помещения
                 </p>
                 <div className="flex flex-wrap gap-1.5">
-                  {roomOptions.map((room) => {
-                    const active = selectedRooms.includes(room);
+                  {lineRoomOptions.map((room) => {
+                    const active = activeLineRoom === room;
                     return (
                       <button
                         key={room}
                         type="button"
-                        onClick={() =>
-                          toggleSelectedValue(room, setSelectedRooms)
-                        }
+                        onClick={() => setActiveLineRoom(room)}
                         className={cn(
                           "rounded-full px-3 py-1 text-[13px] transition-colors",
                           active
@@ -638,115 +1011,43 @@ function DeviceSheet({
                       </button>
                     );
                   })}
-                  <button
-                    type="button"
-                    onClick={() => setShowCustomRoomInput((prev) => !prev)}
-                    className={cn(
-                      "rounded-full px-3 py-1 text-[13px] transition-colors",
-                      showCustomRoomInput
-                        ? "bg-zinc-900 text-white"
-                        : "bg-zinc-100 text-zinc-600",
-                    )}
-                  >
-                    Добавить +
-                  </button>
                 </div>
-                {showCustomRoomInput && (
-                  <div className="mt-2 flex gap-2">
-                    <input
-                      value={customRoom}
-                      onChange={(e) => setCustomRoom(e.target.value)}
-                      placeholder="Добавить помещение"
-                      className="h-11 flex-1 rounded-[14px] border border-black/8 bg-white px-3 text-[14px] text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-zinc-300"
-                    />
-                    <button
-                      type="button"
-                      onClick={() =>
-                        addCustomOption(
-                          customRoom,
-                          roomOptions,
-                          setRoomOptions,
-                          setSelectedRooms,
-                          () => {
-                            setCustomRoom("");
-                            setShowCustomRoomInput(false);
-                          },
-                        )
-                      }
-                      className="h-11 rounded-[14px] border border-black/8 px-3 text-[13px] font-medium text-zinc-700 transition-colors hover:bg-zinc-50"
-                    >
-                      +
-                    </button>
-                  </div>
-                )}
               </div>
 
               <div>
                 <p className="mb-2 text-[12px] font-medium text-zinc-500">
-                  Нагрузки
+                  {activeLineRoom
+                    ? `Нагрузки в помещении «${activeLineRoom}»`
+                    : "Выберите помещение"}
                 </p>
                 <div className="flex flex-wrap gap-1.5">
-                  {loadOptions.map((load) => {
-                    const active = selectedLoads.includes(load);
+                  {lineLoadOptions.map((load) => {
+                    const active = activeLineRoom
+                      ? (lineLoadsByRoom[activeLineRoom] ?? []).includes(load)
+                      : false;
                     return (
                       <button
                         key={load}
                         type="button"
+                        disabled={!activeLineRoom}
                         onClick={() =>
-                          toggleSelectedValue(load, setSelectedLoads)
+                          activeLineRoom
+                            ? toggleLineLoad(activeLineRoom, load)
+                            : undefined
                         }
                         className={cn(
                           "rounded-full px-3 py-1 text-[13px] transition-colors",
                           active
                             ? "bg-zinc-900 text-white"
                             : "bg-zinc-100 text-zinc-600",
+                          !activeLineRoom && "opacity-50",
                         )}
                       >
                         {load}
                       </button>
                     );
                   })}
-                  <button
-                    type="button"
-                    onClick={() => setShowCustomLoadInput((prev) => !prev)}
-                    className={cn(
-                      "rounded-full px-3 py-1 text-[13px] transition-colors",
-                      showCustomLoadInput
-                        ? "bg-zinc-900 text-white"
-                        : "bg-zinc-100 text-zinc-600",
-                    )}
-                  >
-                    Добавить +
-                  </button>
                 </div>
-                {showCustomLoadInput && (
-                  <div className="mt-2 flex gap-2">
-                    <input
-                      value={customLoad}
-                      onChange={(e) => setCustomLoad(e.target.value)}
-                      placeholder="Добавить нагрузку"
-                      className="h-11 flex-1 rounded-[14px] border border-black/8 bg-white px-3 text-[14px] text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-zinc-300"
-                    />
-                    <button
-                      type="button"
-                      onClick={() =>
-                        addCustomOption(
-                          customLoad,
-                          loadOptions,
-                          setLoadOptions,
-                          setSelectedLoads,
-                          () => {
-                            setCustomLoad("");
-                            setShowCustomLoadInput(false);
-                          },
-                        )
-                      }
-                      className="h-11 rounded-[14px] border border-black/8 px-3 text-[13px] font-medium text-zinc-700 transition-colors hover:bg-zinc-50"
-                    >
-                      +
-                    </button>
-                  </div>
-                )}
               </div>
               <Button
                 className="w-full"
@@ -768,7 +1069,7 @@ function DeviceSheet({
             </div>
           )}
 
-          {flowStep === 5 && (
+          {flowStep === 6 && (
             <div className="space-y-4 text-center">
               <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
                 <Check className="h-7 w-7" />
@@ -788,7 +1089,7 @@ function DeviceSheet({
           )}
         </GlassCard>
 
-        {flowStep !== 5 && (
+        {flowStep !== 6 && (
           <Button className="w-full" onClick={handlePrimaryClose}>
             <BreakerIcon className="h-4 w-4" />
             {closeButtonLabel}
