@@ -201,6 +201,8 @@ const DEFAULT_LOAD_OPTIONS = [
   "Тёплый пол",
 ] as const;
 
+const CORE_ROOM_LOAD_OPTIONS = ["Розетки", "Свет"] as const;
+
 type ObjectType = "apartment" | "house" | "other";
 
 const OBJECT_TYPE_OPTIONS: Array<{ id: ObjectType; label: string }> = [
@@ -230,7 +232,7 @@ const OBJECT_TYPE_CONFIG: Record<
       "Гардеробная",
       "Кабинет",
     ],
-    equipmentBase: ["Свет", "Розетки", "Стиральная машина", "Бойлер"],
+    equipmentBase: ["Стиральная машина", "Бойлер"],
     equipmentExtra: [
       "Плита",
       "Духовка",
@@ -254,7 +256,7 @@ const OBJECT_TYPE_CONFIG: Record<
       "Септик",
       "Насос",
     ],
-    equipmentBase: ["Свет", "Розетки", "Бойлер", "Стиральная машина"],
+    equipmentBase: ["Бойлер", "Стиральная машина"],
     equipmentExtra: [
       "Плита",
       "Духовка",
@@ -270,7 +272,7 @@ const OBJECT_TYPE_CONFIG: Record<
     wholeLabel: "Весь объект",
     roomBase: ["Основное помещение", "Коридор", "Санузел"],
     roomExtra: ["Склад", "Подсобка", "Мастерская", "Улица"],
-    equipmentBase: ["Свет", "Розетки", "Вентиляция"],
+    equipmentBase: ["Вентиляция"],
     equipmentExtra: [
       "Кондиционер",
       "Насос",
@@ -444,12 +446,16 @@ function DeviceSheet({
   }, [selectedCatalogRooms, selectedObjectConfig]);
   const lineLoadOptions = useMemo(() => {
     if (!selectedObjectConfig) return [...DEFAULT_LOAD_OPTIONS];
-    return selectedCatalogEquipment.length > 0
-      ? selectedCatalogEquipment
-      : [
-          ...selectedObjectConfig.equipmentBase,
-          ...selectedObjectConfig.equipmentExtra,
-        ];
+    const objectEquipment =
+      selectedCatalogEquipment.length > 0
+        ? selectedCatalogEquipment
+        : [
+            ...selectedObjectConfig.equipmentBase,
+            ...selectedObjectConfig.equipmentExtra,
+          ];
+    return Array.from(
+      new Set([...CORE_ROOM_LOAD_OPTIONS, ...objectEquipment]),
+    );
   }, [selectedCatalogEquipment, selectedObjectConfig]);
   const selectedLineLabel = useMemo(
     () =>
@@ -1049,12 +1055,36 @@ function DeviceSheet({
                   })}
                 </div>
               </div>
+              {Object.keys(lineLoadsByRoom).length > 0 && (
+                <div className="space-y-2 rounded-[20px] bg-zinc-50 p-4">
+                  <p className="text-[12px] font-medium text-zinc-500">
+                    Уже отмечено
+                  </p>
+                  {Object.entries(lineLoadsByRoom).map(([room, loads]) => (
+                    <div key={room}>
+                      <p className="mb-1 text-[13px] font-medium text-zinc-700">
+                        {room}
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {loads.map((load) => (
+                          <span
+                            key={`${room}-${load}`}
+                            className="rounded-full bg-white px-3 py-1 text-[12px] text-zinc-600"
+                          >
+                            {load}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
               <Button
                 className="w-full"
                 disabled={!canSaveSelection}
                 onClick={() => {
                   onAssignCircuit(device.id, selectedLineLabel);
-                  setFlowStep(5);
+                  setFlowStep(6);
                 }}
               >
                 Сохранить
