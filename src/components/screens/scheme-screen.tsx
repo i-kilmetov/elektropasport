@@ -203,7 +203,7 @@ const DEFAULT_LOAD_OPTIONS = [
 
 const identifyFlowSteps = [
   {
-    text: "Убедись, квартиру/дом можно кратковременно обесточить: в данный момент бытовая техника и компьютеры не работают, в помещении светло (есть естественный свет) или есть фонарик",
+    text: "Убедитесь, что квартиру/дом можно кратковременно обесточить: бытовая техника и компьютеры не работают, в помещении светло (или есть фонарик)",
     action: "Подтверждаю",
   },
   {
@@ -211,7 +211,7 @@ const identifyFlowSteps = [
     action: "Включено",
   },
   {
-    text: "Отключите только этот прибор на схеме (рычаг вниз). Переживать не стоит, вас не ударит током. Рычаг всегда можно будет вернуть в исходное положение",
+    text: "Отключите только этот прибор на схеме (рычаг вниз).",
     action: "Рычаг опущен",
   },
 ] as const;
@@ -256,6 +256,8 @@ function DeviceSheet({
   const [selectedLoads, setSelectedLoads] = useState<string[]>([]);
   const [iKnow, setIKnow] = useState(false);
   const [customLabel, setCustomLabel] = useState("");
+  const [showCustomRoomInput, setShowCustomRoomInput] = useState(false);
+  const [showCustomLoadInput, setShowCustomLoadInput] = useState(false);
   const [customRoom, setCustomRoom] = useState("");
   const [customLoad, setCustomLoad] = useState("");
   const confident = isDeviceDetailsConfident(device);
@@ -319,6 +321,8 @@ function DeviceSheet({
     setSelectedLoads([]);
     setIKnow(false);
     setCustomLabel(device.circuitLabel ?? "");
+    setShowCustomRoomInput(false);
+    setShowCustomLoadInput(false);
     setCustomRoom("");
     setCustomLoad("");
   }, [device.circuitLabel, device.id]);
@@ -536,12 +540,11 @@ function DeviceSheet({
               </button>
               {showManualInput && (
                 <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  className="overflow-hidden"
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="pt-1"
                 >
                   <input
-                    autoFocus
                     value={customLabel}
                     onChange={(e) => setCustomLabel(e.target.value)}
                     placeholder="Например: Кухня розетки"
@@ -577,21 +580,16 @@ function DeviceSheet({
                   {identifyFlowSteps[flowStep - 1].text}
                 </p>
               </div>
-              <div className="flex gap-3">
-                <Button
-                  className="flex-1"
-                  variant="secondary"
-                  onClick={goToPrevFlowStep}
-                >
-                  Назад
-                </Button>
-                <Button
-                  className="flex-1"
-                  onClick={goToNextFlowStep}
-                >
-                  {identifyFlowSteps[flowStep - 1].action}
-                </Button>
-              </div>
+              <Button className="w-full" onClick={goToNextFlowStep}>
+                {identifyFlowSteps[flowStep - 1].action}
+              </Button>
+              <button
+                type="button"
+                onClick={goToPrevFlowStep}
+                className="mx-auto block text-[13px] text-zinc-400 transition-colors hover:text-zinc-600"
+              >
+                Назад
+              </button>
             </div>
           )}
 
@@ -640,29 +638,47 @@ function DeviceSheet({
                       </button>
                     );
                   })}
-                </div>
-                <div className="mt-2 flex gap-2">
-                  <input
-                    value={customRoom}
-                    onChange={(e) => setCustomRoom(e.target.value)}
-                    placeholder="Добавить помещение"
-                    className="h-11 flex-1 rounded-[14px] border border-black/8 bg-white px-3 text-[14px] text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-zinc-300"
-                  />
-                  <Button
-                    variant="secondary"
-                    onClick={() =>
-                      addCustomOption(
-                        customRoom,
-                        roomOptions,
-                        setRoomOptions,
-                        setSelectedRooms,
-                        () => setCustomRoom(""),
-                      )
-                    }
+                  <button
+                    type="button"
+                    onClick={() => setShowCustomRoomInput((prev) => !prev)}
+                    className={cn(
+                      "rounded-full px-3 py-1 text-[13px] transition-colors",
+                      showCustomRoomInput
+                        ? "bg-zinc-900 text-white"
+                        : "bg-zinc-100 text-zinc-600",
+                    )}
                   >
-                    Добавить
-                  </Button>
+                    Добавить +
+                  </button>
                 </div>
+                {showCustomRoomInput && (
+                  <div className="mt-2 flex gap-2">
+                    <input
+                      value={customRoom}
+                      onChange={(e) => setCustomRoom(e.target.value)}
+                      placeholder="Добавить помещение"
+                      className="h-11 flex-1 rounded-[14px] border border-black/8 bg-white px-3 text-[14px] text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-zinc-300"
+                    />
+                    <button
+                      type="button"
+                      onClick={() =>
+                        addCustomOption(
+                          customRoom,
+                          roomOptions,
+                          setRoomOptions,
+                          setSelectedRooms,
+                          () => {
+                            setCustomRoom("");
+                            setShowCustomRoomInput(false);
+                          },
+                        )
+                      }
+                      className="h-11 rounded-[14px] border border-black/8 px-3 text-[13px] font-medium text-zinc-700 transition-colors hover:bg-zinc-50"
+                    >
+                      +
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div>
@@ -690,56 +706,65 @@ function DeviceSheet({
                       </button>
                     );
                   })}
-                </div>
-                <div className="mt-2 flex gap-2">
-                  <input
-                    value={customLoad}
-                    onChange={(e) => setCustomLoad(e.target.value)}
-                    placeholder="Добавить нагрузку"
-                    className="h-11 flex-1 rounded-[14px] border border-black/8 bg-white px-3 text-[14px] text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-zinc-300"
-                  />
-                  <Button
-                    variant="secondary"
-                    onClick={() =>
-                      addCustomOption(
-                        customLoad,
-                        loadOptions,
-                        setLoadOptions,
-                        setSelectedLoads,
-                        () => setCustomLoad(""),
-                      )
-                    }
+                  <button
+                    type="button"
+                    onClick={() => setShowCustomLoadInput((prev) => !prev)}
+                    className={cn(
+                      "rounded-full px-3 py-1 text-[13px] transition-colors",
+                      showCustomLoadInput
+                        ? "bg-zinc-900 text-white"
+                        : "bg-zinc-100 text-zinc-600",
+                    )}
                   >
-                    Добавить
-                  </Button>
+                    Добавить +
+                  </button>
                 </div>
+                {showCustomLoadInput && (
+                  <div className="mt-2 flex gap-2">
+                    <input
+                      value={customLoad}
+                      onChange={(e) => setCustomLoad(e.target.value)}
+                      placeholder="Добавить нагрузку"
+                      className="h-11 flex-1 rounded-[14px] border border-black/8 bg-white px-3 text-[14px] text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-zinc-300"
+                    />
+                    <button
+                      type="button"
+                      onClick={() =>
+                        addCustomOption(
+                          customLoad,
+                          loadOptions,
+                          setLoadOptions,
+                          setSelectedLoads,
+                          () => {
+                            setCustomLoad("");
+                            setShowCustomLoadInput(false);
+                          },
+                        )
+                      }
+                      className="h-11 rounded-[14px] border border-black/8 px-3 text-[13px] font-medium text-zinc-700 transition-colors hover:bg-zinc-50"
+                    >
+                      +
+                    </button>
+                  </div>
+                )}
               </div>
-
-              {selectedLineLabel && (
-                <div className="rounded-[16px] border border-black/8 bg-white px-3 py-2 text-[14px] text-zinc-700">
-                  Будет сохранено: {selectedLineLabel}
-                </div>
-              )}
-
-              <div className="flex gap-3">
-                <Button
-                  className="flex-1"
-                  variant="secondary"
-                  onClick={() => setFlowStep(3)}
-                >
-                  Назад
-                </Button>
-                <Button
-                  className="flex-1"
-                  disabled={!canSaveSelection}
-                  onClick={() => {
-                    onAssignCircuit(device.id, selectedLineLabel);
-                    setFlowStep(5);
-                  }}
-                >
-                  Сохранить
-                </Button>
-              </div>
+              <Button
+                className="w-full"
+                disabled={!canSaveSelection}
+                onClick={() => {
+                  onAssignCircuit(device.id, selectedLineLabel);
+                  setFlowStep(5);
+                }}
+              >
+                Сохранить
+              </Button>
+              <button
+                type="button"
+                onClick={() => setFlowStep(3)}
+                className="mx-auto block text-[13px] text-zinc-400 transition-colors hover:text-zinc-600"
+              >
+                Назад
+              </button>
             </div>
           )}
 
@@ -753,13 +778,8 @@ function DeviceSheet({
                   Готово
                 </p>
                 <p className="mt-2 text-[14px] leading-relaxed text-zinc-500">
-                  Вы определили линию прибора и сохранили её в карточке.
+                  Теперь определено, за какую линию отвечает этот прибор.
                 </p>
-                {selectedLineLabel && (
-                  <p className="mt-3 text-[14px] font-medium text-zinc-700">
-                    {selectedLineLabel}
-                  </p>
-                )}
               </div>
               <Button className="w-full" onClick={onClose}>
                 Закрыть

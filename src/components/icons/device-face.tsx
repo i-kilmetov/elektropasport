@@ -594,7 +594,7 @@ export function DeviceFace({
       <button
         type="button"
         onClick={onSelect}
-        className="absolute inset-x-0 z-[1] p-0"
+        className="absolute inset-x-0 z-[4] p-0"
         style={{
           top: showTerminals ? TERMINAL_HEIGHT_PX : 0,
           bottom: showTerminals ? TERMINAL_HEIGHT_PX : 0,
