@@ -84,6 +84,15 @@ import {
   isDeviceDetailsConfident,
   MANUFACTURER_BRANDS,
 } from "@/lib/manufacturer-brands";
+import {
+  formatLineLoads,
+  inferObjectTypeFromLabel,
+  loadIdentifyContext,
+  parseLineLoads,
+  saveIdentifyContext,
+  type IdentifyContext,
+  type IdentifyObjectType,
+} from "@/lib/panel-identify";
 import { cn } from "@/lib/utils";
 import type { Device, DeviceType, PanelWire, TerminalRef } from "@/types";
 
@@ -203,16 +212,14 @@ const DEFAULT_LOAD_OPTIONS = [
 
 const CORE_ROOM_LOAD_OPTIONS = ["Розетки", "Свет"] as const;
 
-type ObjectType = "apartment" | "house" | "other";
-
-const OBJECT_TYPE_OPTIONS: Array<{ id: ObjectType; label: string }> = [
+const OBJECT_TYPE_OPTIONS: Array<{ id: IdentifyObjectType; label: string }> = [
   { id: "apartment", label: "Квартира" },
   { id: "house", label: "Дом" },
   { id: "other", label: "Другое" },
 ];
 
 const OBJECT_TYPE_CONFIG: Record<
-  ObjectType,
+  IdentifyObjectType,
   {
     wholeLabel: string;
     roomBase: string[];
@@ -232,14 +239,21 @@ const OBJECT_TYPE_CONFIG: Record<
       "Гардеробная",
       "Кабинет",
     ],
-    equipmentBase: ["Стиральная машина", "Бойлер"],
+    equipmentBase: ["Стиральная машина", "Посудомоечная машина", "Бойлер"],
     equipmentExtra: [
+      "Сушильная машина",
       "Плита",
+      "Варочная панель",
       "Духовка",
+      "Микроволновка",
+      "Вытяжка",
+      "Холодильник",
+      "Морозильник",
       "Кондиционер",
       "Тёплый пол",
-      "Посудомоечная машина",
-      "Холодильник",
+      "Водонагреватель",
+      "Пылесос",
+      "Утюг",
     ],
   },
   house: {
@@ -256,29 +270,42 @@ const OBJECT_TYPE_CONFIG: Record<
       "Септик",
       "Насос",
     ],
-    equipmentBase: ["Бойлер", "Стиральная машина"],
+    equipmentBase: ["Бойлер", "Стиральная машина", "Котёл"],
     equipmentExtra: [
+      "Сушильная машина",
+      "Посудомоечная машина",
       "Плита",
+      "Варочная панель",
       "Духовка",
+      "Микроволновка",
+      "Вытяжка",
+      "Холодильник",
+      "Морозильник",
       "Кондиционер",
       "Тёплый пол",
       "Насос",
       "Септик",
       "Ворота",
-      "Котёл",
+      "Тепловой насос",
+      "Газонокосилка",
+      "Зарядка электромобиля",
     ],
   },
   other: {
     wholeLabel: "Весь объект",
     roomBase: ["Основное помещение", "Коридор", "Санузел"],
     roomExtra: ["Склад", "Подсобка", "Мастерская", "Улица"],
-    equipmentBase: ["Вентиляция"],
+    equipmentBase: ["Вентиляция", "Кондиционер", "Освещение витрин"],
     equipmentExtra: [
-      "Кондиционер",
       "Насос",
       "Котёл",
       "Ворота",
       "Охрана",
+      "Компрессор",
+      "Станки",
+      "Сварка",
+      "Холодильная камера",
+      "Серверная",
     ],
   },
 };
@@ -306,6 +333,10 @@ function DeviceSheet({
   onUpdateCharacteristic,
   onUpdateIdentity,
   specEditable = true,
+  knownObjectType = null,
+  knownCatalogRooms = [],
+  knownCatalogEquipment = [],
+  onPersistIdentifyContext,
 }: {
   device: Device;
   anchorY: number | null;
@@ -325,16 +356,24 @@ function DeviceSheet({
     },
   ) => void;
   specEditable?: boolean;
+  knownObjectType?: IdentifyObjectType | null;
+  knownCatalogRooms?: string[];
+  knownCatalogEquipment?: string[];
+  onPersistIdentifyContext?: (context: IdentifyContext) => void;
 }) {
   const [sheetTop, setSheetTop] = useState(() => computeSheetTop(anchorY));
   const [flowStep, setFlowStep] = useState(0);
-  const [objectType, setObjectType] = useState<ObjectType | null>(null);
+  const [objectType, setObjectType] = useState<IdentifyObjectType | null>(
+    knownObjectType,
+  );
   const [showMoreCatalogRooms, setShowMoreCatalogRooms] = useState(false);
   const [showMoreCatalogEquipment, setShowMoreCatalogEquipment] = useState(false);
-  const [selectedCatalogRooms, setSelectedCatalogRooms] = useState<string[]>([]);
+  const [selectedCatalogRooms, setSelectedCatalogRooms] = useState<string[]>(
+    knownCatalogRooms,
+  );
   const [selectedCatalogEquipment, setSelectedCatalogEquipment] = useState<
     string[]
-  >([]);
+  >(knownCatalogEquipment);
   const [iKnow, setIKnow] = useState(false);
   const [customLabel, setCustomLabel] = useState("");
   const [showCustomCatalogRoomInput, setShowCustomCatalogRoomInput] =
@@ -401,21 +440,27 @@ function DeviceSheet({
   }, [anchorY, device.id]);
 
   useEffect(() => {
+    const inferredType =
+      knownObjectType ?? inferObjectTypeFromLabel(device.circuitLabel);
+    const parsedLoads = parseLineLoads(device.circuitLabel);
     setFlowStep(0);
-    setObjectType(null);
+    setObjectType(inferredType);
     setShowMoreCatalogRooms(false);
     setShowMoreCatalogEquipment(false);
-    setSelectedCatalogRooms([]);
-    setSelectedCatalogEquipment([]);
+    setSelectedCatalogRooms(knownCatalogRooms);
+    setSelectedCatalogEquipment(knownCatalogEquipment);
     setIKnow(false);
     setCustomLabel(device.circuitLabel ?? "");
     setShowCustomCatalogRoomInput(false);
     setShowCustomCatalogEquipmentInput(false);
     setCustomCatalogRoom("");
     setCustomCatalogEquipment("");
-    setActiveLineRoom(null);
-    setLineLoadsByRoom({});
-  }, [device.circuitLabel, device.id]);
+    setActiveLineRoom(Object.keys(parsedLoads)[0] ?? null);
+    setLineLoadsByRoom(parsedLoads);
+    // Saving a line updates circuitLabel; that must not bounce the sheet
+    // back to the first screen and hide the success step.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- apply known context only on device change
+  }, [device.id]);
 
   const selectedObjectConfig = objectType ? OBJECT_TYPE_CONFIG[objectType] : null;
   const catalogRoomOptions = useMemo(() => {
@@ -458,13 +503,11 @@ function DeviceSheet({
     );
   }, [selectedCatalogEquipment, selectedObjectConfig]);
   const selectedLineLabel = useMemo(
-    () =>
-      Object.entries(lineLoadsByRoom)
-        .filter(([, loads]) => loads.length > 0)
-        .map(([room, loads]) => `${room}: ${loads.join(", ")}`)
-        .join("; "),
+    () => formatLineLoads(lineLoadsByRoom),
     [lineLoadsByRoom],
   );
+  const hasExistingLine = Boolean(device.circuitLabel?.trim());
+  const skipObjectStep = Boolean(objectType ?? knownObjectType);
   const manualLabel = customLabel.trim();
   const showManualInput = flowStep === 0 && iKnow;
   const canSaveSelection = flowStep === 5 && selectedLineLabel.length > 0;
@@ -512,6 +555,42 @@ function DeviceSheet({
     });
   };
 
+  const persistCurrentContext = (nextType: IdentifyObjectType) => {
+    onPersistIdentifyContext?.({
+      objectType: nextType,
+      rooms: selectedCatalogRooms,
+      equipment: selectedCatalogEquipment,
+    });
+  };
+
+  const startIdentifyFlow = () => {
+    setIKnow(false);
+    const nextType = objectType ?? knownObjectType;
+    if (nextType) setObjectType(nextType);
+    setFlowStep(nextType ? 2 : 1);
+  };
+
+  const startEditExistingLine = () => {
+    setIKnow(false);
+    const parsed = parseLineLoads(device.circuitLabel);
+    const nextType =
+      objectType ??
+      knownObjectType ??
+      inferObjectTypeFromLabel(device.circuitLabel) ??
+      "apartment";
+    const wholeLabel = OBJECT_TYPE_CONFIG[nextType].wholeLabel;
+    const parsedRooms = Object.keys(parsed).filter(
+      (room) => room !== wholeLabel,
+    );
+    setObjectType(nextType);
+    setLineLoadsByRoom(parsed);
+    setSelectedCatalogRooms((prev) =>
+      Array.from(new Set([...prev, ...parsedRooms])),
+    );
+    setActiveLineRoom(Object.keys(parsed)[0] ?? wholeLabel);
+    setFlowStep(5);
+  };
+
   const handlePrimaryClose = () => {
     if (showManualInput && manualLabel) {
       onAssignCircuit(device.id, manualLabel);
@@ -526,9 +605,15 @@ function DeviceSheet({
     }
   }, [activeLineRoom, flowStep, lineRoomOptions]);
 
-  const stepCount = 5;
+  const stepCount = skipObjectStep ? 4 : 5;
+  const visibleStep =
+    flowStep <= 0 ? 0 : skipObjectStep ? Math.max(1, flowStep - 1) : flowStep;
   const goToPrevFlowStep = () => {
-    setFlowStep((prev) => Math.max(0, prev - 1));
+    setFlowStep((prev) => {
+      if (prev <= 1) return 0;
+      if (prev === 2 && skipObjectStep) return 0;
+      return prev - 1;
+    });
   };
   const goToNextFlowStep = () => {
     setFlowStep((prev) => Math.min(6, prev + 1));
@@ -552,6 +637,30 @@ function DeviceSheet({
         style={{ top: sheetTop }}
         className="fixed left-0 right-0 mx-auto max-h-[85dvh] w-full max-w-lg overflow-y-auto rounded-[28px] border border-black/8 bg-white p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-2xl backdrop-blur-2xl"
       >
+        {flowStep === 6 ? (
+          <div className="space-y-5 py-6 text-center">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+              <Check className="h-8 w-8" />
+            </div>
+            <div>
+              <h3 className="text-[22px] font-semibold text-zinc-900">
+                Готово
+              </h3>
+              <p className="mt-2 text-[15px] leading-relaxed text-zinc-500">
+                Теперь определено, за какую линию отвечает этот прибор.
+              </p>
+              {selectedLineLabel && (
+                <p className="mt-3 text-[14px] font-medium text-zinc-800">
+                  {selectedLineLabel}
+                </p>
+              )}
+            </div>
+            <Button className="w-full" onClick={onClose}>
+              Закрыть
+            </Button>
+          </div>
+        ) : (
+          <>
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
             <div className="mb-2 flex flex-wrap items-center gap-2">
@@ -646,12 +755,11 @@ function DeviceSheet({
               <Button
                 className="w-full"
                 variant="secondary"
-                onClick={() => {
-                  setIKnow(false);
-                  setFlowStep(1);
-                }}
+                onClick={hasExistingLine ? startEditExistingLine : startIdentifyFlow}
               >
-                Определить линию прибора
+                {hasExistingLine
+                  ? "Исправить линию прибора"
+                  : "Определить линию прибора"}
               </Button>
               <button
                 type="button"
@@ -688,13 +796,13 @@ function DeviceSheet({
                     key={index}
                     className={cn(
                       "h-2 flex-1 rounded-full transition-colors",
-                      index === 0 ? "bg-zinc-900" : "bg-zinc-200",
+                      index + 1 <= visibleStep ? "bg-zinc-900" : "bg-zinc-200",
                     )}
                   />
                 ))}
               </div>
               <p className="text-[13px] font-medium text-zinc-500">
-                Шаг 1 из {stepCount}
+                Шаг {visibleStep} из {stepCount}
               </p>
               <div className="rounded-[20px] bg-zinc-50 p-4">
                 <p className="text-[15px] leading-relaxed text-zinc-900">
@@ -915,7 +1023,11 @@ function DeviceSheet({
               <Button
                 className="w-full"
                 disabled={!objectType}
-                onClick={goToNextFlowStep}
+                onClick={() => {
+                  if (!objectType) return;
+                  persistCurrentContext(objectType);
+                  goToNextFlowStep();
+                }}
               >
                 Продолжить
               </Button>
@@ -932,22 +1044,18 @@ function DeviceSheet({
           {flowStep > 1 && flowStep < 5 && (
             <div className="space-y-4">
               <div className="flex items-center gap-2">
-                {Array.from({ length: stepCount }, (_, index) => {
-                  const active = index + 1 === flowStep;
-                  const done = index + 1 < flowStep;
-                  return (
-                    <div
-                      key={index}
-                      className={cn(
-                        "h-2 flex-1 rounded-full transition-colors",
-                        done || active ? "bg-zinc-900" : "bg-zinc-200",
-                      )}
-                    />
-                  );
-                })}
+                {Array.from({ length: stepCount }, (_, index) => (
+                  <div
+                    key={index}
+                    className={cn(
+                      "h-2 flex-1 rounded-full transition-colors",
+                      index + 1 <= visibleStep ? "bg-zinc-900" : "bg-zinc-200",
+                    )}
+                  />
+                ))}
               </div>
               <p className="text-[13px] font-medium text-zinc-500">
-                Шаг {flowStep} из {stepCount}
+                Шаг {visibleStep} из {stepCount}
               </p>
               <div className="rounded-[20px] bg-zinc-50 p-4">
                 <p className="text-[15px] leading-relaxed text-zinc-900">
@@ -970,22 +1078,18 @@ function DeviceSheet({
           {flowStep === 5 && (
             <div className="space-y-4">
               <div className="flex items-center gap-2">
-                {Array.from({ length: stepCount }, (_, index) => {
-                  const active = index + 1 === flowStep;
-                  const done = index + 1 < flowStep;
-                  return (
-                    <div
-                      key={index}
-                      className={cn(
-                        "h-2 flex-1 rounded-full transition-colors",
-                        done || active ? "bg-zinc-900" : "bg-zinc-200",
-                      )}
-                    />
-                  );
-                })}
+                {Array.from({ length: stepCount }, (_, index) => (
+                  <div
+                    key={index}
+                    className={cn(
+                      "h-2 flex-1 rounded-full transition-colors",
+                      index + 1 <= visibleStep ? "bg-zinc-900" : "bg-zinc-200",
+                    )}
+                  />
+                ))}
               </div>
               <p className="text-[13px] font-medium text-zinc-500">
-                Шаг 5 из {stepCount}
+                Шаг {visibleStep} из {stepCount}
               </p>
               <div className="rounded-[20px] bg-zinc-50 p-4">
                 <p className="text-[15px] leading-relaxed text-zinc-900">
@@ -1083,6 +1187,7 @@ function DeviceSheet({
                 className="w-full"
                 disabled={!canSaveSelection}
                 onClick={() => {
+                  if (objectType) persistCurrentContext(objectType);
                   onAssignCircuit(device.id, selectedLineLabel);
                   setFlowStep(6);
                 }}
@@ -1091,39 +1196,20 @@ function DeviceSheet({
               </Button>
               <button
                 type="button"
-                onClick={() => setFlowStep(3)}
+                onClick={goToPrevFlowStep}
                 className="mx-auto block text-[13px] text-zinc-400 transition-colors hover:text-zinc-600"
               >
                 Назад
               </button>
             </div>
           )}
-
-          {flowStep === 6 && (
-            <div className="space-y-4 text-center">
-              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
-                <Check className="h-7 w-7" />
-              </div>
-              <div>
-                <p className="text-[18px] font-semibold text-zinc-900">
-                  Готово
-                </p>
-                <p className="mt-2 text-[14px] leading-relaxed text-zinc-500">
-                  Теперь определено, за какую линию отвечает этот прибор.
-                </p>
-              </div>
-              <Button className="w-full" onClick={onClose}>
-                Закрыть
-              </Button>
-            </div>
-          )}
         </GlassCard>
 
-        {flowStep !== 6 && (
-          <Button className="w-full" onClick={handlePrimaryClose}>
-            <BreakerIcon className="h-4 w-4" />
-            {closeButtonLabel}
-          </Button>
+        <Button className="w-full" onClick={handlePrimaryClose}>
+          <BreakerIcon className="h-4 w-4" />
+          {closeButtonLabel}
+        </Button>
+          </>
         )}
       </motion.div>
     </motion.div>
@@ -1199,6 +1285,7 @@ function NameDialog({
 
 export function SchemeScreen({
   title = "Щиток",
+  panelId,
   photoDataUrl,
   askNameOnBack = false,
   sharedPreview = false,
@@ -1223,6 +1310,7 @@ export function SchemeScreen({
   railCount,
 }: {
   title?: string;
+  panelId?: string | null;
   photoDataUrl?: string | null;
   askNameOnBack?: boolean;
   sharedPreview?: boolean;
@@ -1272,6 +1360,10 @@ export function SchemeScreen({
   const safetyScore = safetyKnown ? safetyProp : null;
   const networkParamsFilled = Boolean(phases && powerKw?.trim());
 
+  const [identifyContext, setIdentifyContext] = useState<IdentifyContext | null>(
+    () => loadIdentifyContext(panelId),
+  );
+
   const [tab, setTab] = useState<"scheme" | "photo">("scheme");
   const [showTerminals, setShowTerminals] = useState(false);
   const [sheetAnchorY, setSheetAnchorY] = useState<number | null>(null);
@@ -1313,6 +1405,24 @@ export function SchemeScreen({
   } | null>(null);
   const [hoverTerminalKey, setHoverTerminalKey] = useState<string | null>(null);
   const selected = devices.find((d) => d.id === selectedId) ?? null;
+
+  useEffect(() => {
+    setIdentifyContext(loadIdentifyContext(panelId));
+  }, [panelId]);
+
+  const persistIdentifyContext = useCallback((context: IdentifyContext) => {
+    setIdentifyContext(context);
+    saveIdentifyContext(panelId, context);
+  }, [panelId]);
+
+  const inferredObjectType = useMemo(() => {
+    if (identifyContext?.objectType) return identifyContext.objectType;
+    for (const device of devices) {
+      const inferred = inferObjectTypeFromLabel(device.circuitLabel);
+      if (inferred) return inferred;
+    }
+    return null;
+  }, [devices, identifyContext]);
 
   const allRailDevices = useMemo(
     () =>
@@ -2010,6 +2120,10 @@ export function SchemeScreen({
             device={selected}
             anchorY={sheetAnchorY}
             specEditable={!sharedPreview}
+            knownObjectType={inferredObjectType}
+            knownCatalogRooms={identifyContext?.rooms ?? []}
+            knownCatalogEquipment={identifyContext?.equipment ?? []}
+            onPersistIdentifyContext={persistIdentifyContext}
             onClose={() => {
               setSelectedId(null);
               setSheetAnchorY(null);

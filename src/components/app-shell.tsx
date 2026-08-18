@@ -1203,6 +1203,7 @@ export function AppShell() {
                   : (activePanelId ?? "scheme")
               }
               title={activePanel?.title ?? "Щиток"}
+              panelId={activePanelId}
               photoDataUrl={activePanel?.photoDataUrl ?? photoDataUrl}
               askNameOnBack={askNameOnBack}
               sharedPreview={Boolean(sharedPreview)}
