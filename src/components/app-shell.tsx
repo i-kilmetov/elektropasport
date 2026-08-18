@@ -105,8 +105,11 @@ function panelRailCount(
   panel: Pick<PanelObject, "railCount" | "devices"> | null | undefined,
   fallbackDevices?: Device[] | null,
 ): number {
-  if (panel?.railCount && panel.railCount > 0) return panel.railCount;
-  return deriveRailCount(panel?.devices ?? fallbackDevices);
+  const derived = deriveRailCount(panel?.devices ?? fallbackDevices);
+  if (panel?.railCount && panel.railCount > 0) {
+    return Math.min(4, Math.max(panel.railCount, derived));
+  }
+  return derived;
 }
 
 function readSkipOnboarding(): boolean {

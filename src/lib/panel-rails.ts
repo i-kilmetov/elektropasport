@@ -56,7 +56,10 @@ export function groupDevicesByRail(
   );
   const maxRail =
     list.reduce((max, device) => Math.max(max, device.rail ?? 0), 0) + 1;
-  const numRails = Math.max(1, Math.min(4, railCount ?? maxRail));
+  const numRails = Math.max(
+    1,
+    Math.min(4, Math.max(railCount ?? 0, maxRail)),
+  );
   const rails: Device[][] = Array.from({ length: numRails }, () => []);
   for (const device of list) {
     const rail = Math.min(Math.max(device.rail ?? 0, 0), numRails - 1);

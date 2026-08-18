@@ -131,7 +131,7 @@ export function SchemeMiniPreview({
   const gradId = `din-${useId().replace(/:/g, "")}`;
   const rails = groupDevicesByRail(devices, railCount);
   const firstRail = rails[0] ?? [];
-  const numRails = Math.max(1, Math.min(4, railCount ?? rails.length));
+  const numRails = Math.max(1, rails.length);
   const extraRailCount = Math.max(0, numRails - 1);
 
   const inner = SIZE - PAD * 2;

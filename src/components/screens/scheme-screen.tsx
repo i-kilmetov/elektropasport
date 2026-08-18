@@ -74,8 +74,7 @@ import { StickerDesigner } from "@/components/screens/sticker-designer";
 import {
   deviceModules,
   groupDevicesByRail,
-  MAX_MODULES_PER_RAIL,
-  truncateDevicesForRail,
+  railModuleTotal,
 } from "@/lib/panel-rails";
 import {
   DEVICE_TYPE_OPTIONS,
@@ -1513,26 +1512,13 @@ export function SchemeScreen({
     ).advice;
   }, [allRailDevices, phases, powerKw, hasGround]);
 
-  // Group devices by rail
-  const numRails =
-    railCount ??
-    Math.max(
-      1,
-      ...allRailDevices.map((d) => (d.rail ?? 0) + 1),
-      1,
-    );
+  // Group devices by rail. Never drop a row just because persisted
+  // railCount is lower than device.rail values from recognition.
   const rails = useMemo(
-    () => groupDevicesByRail(allRailDevices, numRails),
-    [allRailDevices, numRails],
+    () => groupDevicesByRail(allRailDevices, railCount),
+    [allRailDevices, railCount],
   );
-  const railDisplay = useMemo(
-    () =>
-      rails.map((railDevices) => ({
-        ...truncateDevicesForRail(railDevices),
-        all: railDevices,
-      })),
-    [rails],
-  );
+  const numRails = rails.length;
   const verified = devices.filter((d) => d.status === "verified").length;
   const pending = devices.filter((d) => d.status === "pending").length;
   const unknown = devices.filter((d) => d.status === "unknown").length;
@@ -1705,15 +1691,13 @@ export function SchemeScreen({
     }
   };
   const widestRailModules = Math.max(
-    ...railDisplay.map((rail) =>
-      rail.visible.reduce((sum, device) => sum + deviceModules(device), 0),
-    ),
+    ...rails.map((railDevices) => railModuleTotal(railDevices)),
     1,
   );
-  const widestRailDevices = Math.max(...railDisplay.map((rail) => rail.visible.length));
+  const widestRailDevices = Math.max(...rails.map((rail) => rail.length), 1);
   const railMinWidth = Math.max(
     320,
-    Math.min(widestRailModules, MAX_MODULES_PER_RAIL) * MODULE_PX +
+    widestRailModules * MODULE_PX +
       Math.max(0, widestRailDevices - 1) * DEVICE_GAP_PX +
       32,
   );
@@ -2007,7 +1991,10 @@ export function SchemeScreen({
         <div className="px-5 pb-4 lg:min-w-0 lg:flex-1 lg:px-0">
           <div className={cn("overflow-x-auto", showTerminals && "overflow-y-visible")}>
             <GlassCard
-              className={cn("p-4", showTerminals && "overflow-visible")}
+              className={cn(
+                "w-max max-w-none overflow-visible p-4",
+                showTerminals && "overflow-visible",
+              )}
               style={{ minWidth: railMinWidth }}
             >
             <div className="mb-3 flex items-center justify-between">
@@ -2035,8 +2022,8 @@ export function SchemeScreen({
                   }
                 />
               )}
-              {railDisplay.map((rail, railIdx) => {
-                const railModules = rail.totalModules;
+              {rails.map((railDevices, railIdx) => {
+                const railModules = railModuleTotal(railDevices);
                 return (
                   <div key={railIdx} className={railIdx > 0 ? "mt-5" : ""}>
                     {numRails > 1 && (
@@ -2054,9 +2041,9 @@ export function SchemeScreen({
                       className="mb-2 flex items-start"
                       style={{ gap: DEVICE_GAP_PX }}
                     >
-                      {rail.visible.map((device) => (
+                      {railDevices.map((device, deviceIdx) => (
                         <DeviceBlock
-                          key={device.id}
+                          key={`${device.id}-${deviceIdx}`}
                           device={device}
                           selected={selectedId === device.id}
                           showTerminals={showTerminals}
@@ -2155,7 +2142,7 @@ export function SchemeScreen({
       <AnimatePresence>
         {stickerOpen && (
           <StickerDesigner
-            rails={railDisplay.map((rail) => rail.visible)}
+            rails={rails}
             panelTitle={title}
             editable={!sharedPreview}
             onClose={() => setStickerOpen(false)}
