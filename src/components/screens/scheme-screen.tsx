@@ -1,11 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type Dispatch,
+  type PointerEvent,
+  type SetStateAction,
+} from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowLeft,
   Check,
-  ChevronRight,
   Gauge,
   ImageIcon,
   MoreHorizontal,
@@ -44,7 +52,6 @@ import { SafetyExplainSheet } from "@/components/ui/safety-explain-sheet";
 import { EditableSpecCard } from "@/components/ui/editable-spec-card";
 import { WireSpecSheet } from "@/components/ui/wire-spec-sheet";
 import { Portal } from "@/components/ui/portal";
-import { circuitIdentifySteps } from "@/lib/device-catalog";
 import { deviceTypeGuide } from "@/lib/panel-device-guide";
 import {
   manualSpecEditDisclaimer,
@@ -172,14 +179,41 @@ function deviceTitle(device: Device): string {
   return deviceTypeGuide[device.type]?.title ?? device.name;
 }
 
-const ROOM_OPTIONS = [
-  "Кухня", "Коридор", "Ванная", "Туалет", "Спальня",
-  "Гостиная", "Детская", "Балкон", "Прихожая",
+const DEFAULT_ROOM_OPTIONS = [
+  "Кухня",
+  "Коридор",
+  "Ванная",
+  "Туалет",
+  "Спальня",
+  "Гостиная",
+  "Детская",
+  "Балкон",
+  "Прихожая",
 ] as const;
 
-const LOAD_OPTIONS = [
-  "Розетки", "Свет", "Плита", "Стиральная машина",
-  "Бойлер", "Кондиционер", "Тёплый пол",
+const DEFAULT_LOAD_OPTIONS = [
+  "Розетки",
+  "Свет",
+  "Плита",
+  "Стиральная машина",
+  "Бойлер",
+  "Кондиционер",
+  "Тёплый пол",
+] as const;
+
+const identifyFlowSteps = [
+  {
+    text: "Убедись, квартиру/дом можно кратковременно обесточить: в данный момент бытовая техника и компьютеры не работают, в помещении светло (есть естественный свет) или есть фонарик",
+    action: "Подтверждаю",
+  },
+  {
+    text: "Включите во всех комнатах свет, а в розетках любые заметные нагрузки (лампа, зарядка, радио и пр.)",
+    action: "Включено",
+  },
+  {
+    text: "Отключите только этот прибор на схеме (рычаг вниз). Переживать не стоит, вас не ударит током. Рычаг всегда можно будет вернуть в исходное положение",
+    action: "Рычаг опущен",
+  },
 ] as const;
 
 function DeviceSheet({
@@ -210,13 +244,20 @@ function DeviceSheet({
   ) => void;
   specEditable?: boolean;
 }) {
-  const [label, setLabel] = useState(device.circuitLabel ?? "");
   const [sheetTop, setSheetTop] = useState(() => computeSheetTop(anchorY));
-  const [questStep, setQuestStep] = useState(0);
+  const [flowStep, setFlowStep] = useState<0 | 1 | 2 | 3 | 4 | 5>(0);
+  const [roomOptions, setRoomOptions] = useState<string[]>(() => [
+    ...DEFAULT_ROOM_OPTIONS,
+  ]);
+  const [loadOptions, setLoadOptions] = useState<string[]>(() => [
+    ...DEFAULT_LOAD_OPTIONS,
+  ]);
   const [selectedRooms, setSelectedRooms] = useState<string[]>([]);
   const [selectedLoads, setSelectedLoads] = useState<string[]>([]);
   const [iKnow, setIKnow] = useState(false);
   const [customLabel, setCustomLabel] = useState("");
+  const [customRoom, setCustomRoom] = useState("");
+  const [customLoad, setCustomLoad] = useState("");
   const confident = isDeviceDetailsConfident(device);
   const manufacturerValue =
     getManufacturerBrand(device.brandKey, device.manufacturer)?.label ??
@@ -264,15 +305,105 @@ function DeviceSheet({
   };
 
   useEffect(() => {
-    setLabel(device.circuitLabel ?? "");
-  }, [device.circuitLabel, device.id]);
-
-  useEffect(() => {
     setSheetTop(computeSheetTop(anchorY));
     const onResize = () => setSheetTop(computeSheetTop(anchorY));
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, [anchorY, device.id]);
+
+  useEffect(() => {
+    setFlowStep(0);
+    setRoomOptions([...DEFAULT_ROOM_OPTIONS]);
+    setLoadOptions([...DEFAULT_LOAD_OPTIONS]);
+    setSelectedRooms([]);
+    setSelectedLoads([]);
+    setIKnow(false);
+    setCustomLabel(device.circuitLabel ?? "");
+    setCustomRoom("");
+    setCustomLoad("");
+  }, [device.circuitLabel, device.id]);
+
+  const selectedLineLabel = useMemo(
+    () => [...selectedRooms, ...selectedLoads].join(" · "),
+    [selectedLoads, selectedRooms],
+  );
+  const manualLabel = customLabel.trim();
+  const showManualInput = flowStep === 0 && iKnow;
+  const canSaveSelection = flowStep === 4 && selectedLineLabel.length > 0;
+  const closeButtonLabel =
+    showManualInput && manualLabel ? "Сохранить и закрыть" : "Закрыть";
+
+  const toggleSelectedValue = (
+    value: string,
+    setSelected: Dispatch<SetStateAction<string[]>>,
+  ) => {
+    setSelected((prev) =>
+      prev.includes(value)
+        ? prev.filter((item) => item !== value)
+        : [...prev, value],
+    );
+  };
+
+  const addCustomOption = (
+    value: string,
+    options: string[],
+    setOptions: Dispatch<SetStateAction<string[]>>,
+    setSelected: Dispatch<SetStateAction<string[]>>,
+    clear: () => void,
+  ) => {
+    const next = value.trim();
+    if (!next) return;
+    if (!options.includes(next)) {
+      setOptions((prev) => [...prev, next]);
+    }
+    setSelected((prev) => (prev.includes(next) ? prev : [...prev, next]));
+    clear();
+  };
+
+  const handlePrimaryClose = () => {
+    if (showManualInput && manualLabel) {
+      onAssignCircuit(device.id, manualLabel);
+    }
+    onClose();
+  };
+
+  const stepCount = 4;
+  const goToPrevFlowStep = () => {
+    setFlowStep((prev) => {
+      switch (prev) {
+        case 5:
+          return 4;
+        case 4:
+          return 3;
+        case 3:
+          return 2;
+        case 2:
+          return 1;
+        case 1:
+          return 0;
+        default:
+          return 0;
+      }
+    });
+  };
+  const goToNextFlowStep = () => {
+    setFlowStep((prev) => {
+      switch (prev) {
+        case 0:
+          return 1;
+        case 1:
+          return 2;
+        case 2:
+          return 3;
+        case 3:
+          return 4;
+        case 4:
+          return 5;
+        default:
+          return 5;
+      }
+    });
+  };
 
   return (
     <Portal>
@@ -380,85 +511,123 @@ function DeviceSheet({
           </div>
         )}
 
-        <GlassCard className="mb-5 space-y-3 p-4">
-          <div className="text-[15px] font-semibold text-zinc-900">
-            🔍 Квест: определи линию прибора
-          </div>
+        <GlassCard className="mb-5 p-4">
+          {flowStep === 0 && (
+            <div className="space-y-3">
+              <Button
+                className="w-full"
+                variant="secondary"
+                onClick={() => {
+                  setIKnow(false);
+                  setFlowStep(1);
+                }}
+              >
+                Определить линию прибора
+              </Button>
+              <button
+                type="button"
+                onClick={() => {
+                  setFlowStep(0);
+                  setIKnow((prev) => !prev);
+                }}
+                className="text-[14px] text-zinc-600 underline underline-offset-4"
+              >
+                Знаю, за что отвечает прибор
+              </button>
+              {showManualInput && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  className="overflow-hidden"
+                >
+                  <input
+                    autoFocus
+                    value={customLabel}
+                    onChange={(e) => setCustomLabel(e.target.value)}
+                    placeholder="Например: Кухня розетки"
+                    className="h-12 w-full rounded-[16px] border border-black/8 bg-zinc-50 px-3 text-[15px] text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-zinc-300"
+                  />
+                </motion.div>
+              )}
+            </div>
+          )}
 
-          {/* Quest steps */}
-          <ol className="space-y-2">
-            {circuitIdentifySteps.map((step, index) => {
-              const done = index < questStep;
-              const active = index === questStep;
-              return (
-                <li key={step} className="flex gap-2.5">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (active) setQuestStep(index + 1);
-                      else if (done) setQuestStep(index);
-                    }}
-                    className={cn(
-                      "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold transition-colors",
-                      done
-                        ? "bg-emerald-500 text-white"
-                        : active
-                          ? "bg-zinc-900 text-white"
-                          : "bg-zinc-100 text-zinc-400",
-                    )}
-                  >
-                    {done ? <Check className="h-3.5 w-3.5" /> : index + 1}
-                  </button>
-                  <div className="min-w-0 flex-1">
-                    <span
+          {flowStep > 0 && flowStep < 4 && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                {Array.from({ length: stepCount }, (_, index) => {
+                  const active = index + 1 === flowStep;
+                  const done = index + 1 < flowStep;
+                  return (
+                    <div
+                      key={index}
                       className={cn(
-                        "text-[13px] leading-relaxed",
-                        done
-                          ? "text-zinc-400 line-through"
-                          : active
-                            ? "font-medium text-zinc-900"
-                            : "text-zinc-400",
+                        "h-2 flex-1 rounded-full transition-colors",
+                        done || active ? "bg-zinc-900" : "bg-zinc-200",
                       )}
-                    >
-                      {step}
-                    </span>
-                    {active && (
-                      <button
-                        type="button"
-                        onClick={() => setQuestStep(index + 1)}
-                        className="mt-1 flex items-center gap-1 text-[12px] font-medium text-zinc-600"
-                      >
-                        Готово <ChevronRight className="h-3 w-3" />
-                      </button>
-                    )}
-                  </div>
-                </li>
-              );
-            })}
-          </ol>
-
-          {questStep >= circuitIdentifySteps.length && (
-            <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="space-y-3 rounded-[16px] bg-emerald-50 p-3"
-            >
-              <p className="text-[13px] font-medium text-emerald-800">
-                Отлично! Теперь выберите помещение и нагрузку:
+                    />
+                  );
+                })}
+              </div>
+              <p className="text-[13px] font-medium text-zinc-500">
+                Шаг {flowStep} из {stepCount}
               </p>
+              <div className="rounded-[20px] bg-zinc-50 p-4">
+                <p className="text-[15px] leading-relaxed text-zinc-900">
+                  {identifyFlowSteps[flowStep - 1].text}
+                </p>
+              </div>
+              <div className="flex gap-3">
+                <Button
+                  className="flex-1"
+                  variant="secondary"
+                  onClick={goToPrevFlowStep}
+                >
+                  Назад
+                </Button>
+                <Button
+                  className="flex-1"
+                  onClick={goToNextFlowStep}
+                >
+                  {identifyFlowSteps[flowStep - 1].action}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {flowStep === 4 && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                {Array.from({ length: stepCount }, (_, index) => (
+                  <div
+                    key={index}
+                    className="h-2 flex-1 rounded-full bg-zinc-900"
+                  />
+                ))}
+              </div>
+              <p className="text-[13px] font-medium text-zinc-500">
+                Шаг 4 из {stepCount}
+              </p>
+              <div className="rounded-[20px] bg-zinc-50 p-4">
+                <p className="text-[15px] leading-relaxed text-zinc-900">
+                  Обойдите помещения и отметьте, где пропал свет и перестала
+                  работать розетка
+                </p>
+              </div>
+
               <div>
-                <p className="mb-1.5 text-[12px] font-medium text-zinc-500">Помещение</p>
+                <p className="mb-2 text-[12px] font-medium text-zinc-500">
+                  Помещения
+                </p>
                 <div className="flex flex-wrap gap-1.5">
-                  {ROOM_OPTIONS.map((room) => {
+                  {roomOptions.map((room) => {
                     const active = selectedRooms.includes(room);
                     return (
                       <button
                         key={room}
                         type="button"
                         onClick={() =>
-                          setSelectedRooms((prev) =>
-                            active ? prev.filter((r) => r !== room) : [...prev, room],
-                          )
+                          toggleSelectedValue(room, setSelectedRooms)
                         }
                         className={cn(
                           "rounded-full px-3 py-1 text-[13px] transition-colors",
@@ -472,20 +641,43 @@ function DeviceSheet({
                     );
                   })}
                 </div>
+                <div className="mt-2 flex gap-2">
+                  <input
+                    value={customRoom}
+                    onChange={(e) => setCustomRoom(e.target.value)}
+                    placeholder="Добавить помещение"
+                    className="h-11 flex-1 rounded-[14px] border border-black/8 bg-white px-3 text-[14px] text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-zinc-300"
+                  />
+                  <Button
+                    variant="secondary"
+                    onClick={() =>
+                      addCustomOption(
+                        customRoom,
+                        roomOptions,
+                        setRoomOptions,
+                        setSelectedRooms,
+                        () => setCustomRoom(""),
+                      )
+                    }
+                  >
+                    Добавить
+                  </Button>
+                </div>
               </div>
+
               <div>
-                <p className="mb-1.5 text-[12px] font-medium text-zinc-500">Нагрузка</p>
+                <p className="mb-2 text-[12px] font-medium text-zinc-500">
+                  Нагрузки
+                </p>
                 <div className="flex flex-wrap gap-1.5">
-                  {LOAD_OPTIONS.map((load) => {
+                  {loadOptions.map((load) => {
                     const active = selectedLoads.includes(load);
                     return (
                       <button
                         key={load}
                         type="button"
                         onClick={() =>
-                          setSelectedLoads((prev) =>
-                            active ? prev.filter((l) => l !== load) : [...prev, load],
-                          )
+                          toggleSelectedValue(load, setSelectedLoads)
                         }
                         className={cn(
                           "rounded-full px-3 py-1 text-[13px] transition-colors",
@@ -499,76 +691,89 @@ function DeviceSheet({
                     );
                   })}
                 </div>
+                <div className="mt-2 flex gap-2">
+                  <input
+                    value={customLoad}
+                    onChange={(e) => setCustomLoad(e.target.value)}
+                    placeholder="Добавить нагрузку"
+                    className="h-11 flex-1 rounded-[14px] border border-black/8 bg-white px-3 text-[14px] text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-zinc-300"
+                  />
+                  <Button
+                    variant="secondary"
+                    onClick={() =>
+                      addCustomOption(
+                        customLoad,
+                        loadOptions,
+                        setLoadOptions,
+                        setSelectedLoads,
+                        () => setCustomLoad(""),
+                      )
+                    }
+                  >
+                    Добавить
+                  </Button>
+                </div>
               </div>
-              {(selectedRooms.length > 0 || selectedLoads.length > 0) && (
+
+              {selectedLineLabel && (
+                <div className="rounded-[16px] border border-black/8 bg-white px-3 py-2 text-[14px] text-zinc-700">
+                  Будет сохранено: {selectedLineLabel}
+                </div>
+              )}
+
+              <div className="flex gap-3">
                 <Button
-                  className="w-full"
+                  className="flex-1"
+                  variant="secondary"
+                  onClick={() => setFlowStep(3)}
+                >
+                  Назад
+                </Button>
+                <Button
+                  className="flex-1"
+                  disabled={!canSaveSelection}
                   onClick={() => {
-                    const parts = [...selectedRooms, ...selectedLoads];
-                    const built = parts.join(" · ");
-                    setLabel(built);
-                    onAssignCircuit(device.id, built);
+                    onAssignCircuit(device.id, selectedLineLabel);
+                    setFlowStep(5);
                   }}
                 >
-                  Сохранить: {[...selectedRooms, ...selectedLoads].join(" · ")}
+                  Сохранить
                 </Button>
-              )}
-            </motion.div>
+              </div>
+            </div>
           )}
 
-          {/* "I know" checkbox */}
-          <div className="border-t border-black/5 pt-3">
-            <label className="flex cursor-pointer items-center gap-2.5">
-              <span
-                className={cn(
-                  "flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition-colors",
-                  iKnow
-                    ? "border-zinc-900 bg-zinc-900 text-white"
-                    : "border-zinc-300 bg-white",
+          {flowStep === 5 && (
+            <div className="space-y-4 text-center">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+                <Check className="h-7 w-7" />
+              </div>
+              <div>
+                <p className="text-[18px] font-semibold text-zinc-900">
+                  Готово
+                </p>
+                <p className="mt-2 text-[14px] leading-relaxed text-zinc-500">
+                  Вы определили линию прибора и сохранили её в карточке.
+                </p>
+                {selectedLineLabel && (
+                  <p className="mt-3 text-[14px] font-medium text-zinc-700">
+                    {selectedLineLabel}
+                  </p>
                 )}
-                onClick={() => setIKnow((v) => !v)}
-              >
-                {iKnow && <Check className="h-3.5 w-3.5" />}
-              </span>
-              <span
-                className="text-[14px] text-zinc-700"
-                onClick={() => setIKnow((v) => !v)}
-              >
-                Знаю, за что отвечает прибор
-              </span>
-            </label>
-            {iKnow && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                className="mt-3 space-y-2 overflow-hidden"
-              >
-                <input
-                  value={customLabel}
-                  onChange={(e) => setCustomLabel(e.target.value)}
-                  placeholder="Например: Кухня розетки"
-                  className="h-12 w-full rounded-[16px] border border-black/8 bg-zinc-50 px-3 text-[15px] text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-zinc-300"
-                />
-                <Button
-                  className="w-full"
-                  variant="secondary"
-                  disabled={!customLabel.trim()}
-                  onClick={() => {
-                    setLabel(customLabel.trim());
-                    onAssignCircuit(device.id, customLabel.trim());
-                  }}
-                >
-                  Сохранить название линии
-                </Button>
-              </motion.div>
-            )}
-          </div>
+              </div>
+              <Button className="w-full" onClick={onClose}>
+                Закрыть
+              </Button>
+            </div>
+          )}
         </GlassCard>
 
-        <Button className="w-full" onClick={onClose}>
-          <BreakerIcon className="h-4 w-4" />
-          Закрыть
-        </Button>
+        {flowStep !== 5 && (
+          <Button className="w-full" onClick={handlePrimaryClose}>
+            <BreakerIcon className="h-4 w-4" />
+            {closeButtonLabel}
+          </Button>
+        )}
       </motion.div>
     </motion.div>
     </Portal>
