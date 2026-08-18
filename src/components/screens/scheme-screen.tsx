@@ -98,7 +98,7 @@ import {
   type IdentifyContext,
   type IdentifyObjectType,
 } from "@/lib/panel-identify";
-import { assessLineLoadSafety } from "@/lib/line-load-safety";
+import { assessDeviceLineLoadSafety, assessLineLoadSafety } from "@/lib/line-load-safety";
 import { cn } from "@/lib/utils";
 import type { Device, DeviceType, PanelWire, TerminalRef } from "@/types";
 
@@ -142,6 +142,7 @@ function DeviceBlock({
   onSelect,
   onTerminalPointerDown,
   caption,
+  loadMismatch = false,
 }: {
   device: Device;
   selected: boolean;
@@ -153,6 +154,7 @@ function DeviceBlock({
     event: PointerEvent<HTMLButtonElement>,
   ) => void;
   caption?: string;
+  loadMismatch?: boolean;
 }) {
   const modules = deviceModules(device);
   const width = modules * MODULE_PX;
@@ -168,25 +170,46 @@ function DeviceBlock({
       >
         {confident ? typeShort[device.type] : "·"}
       </span>
-      <DeviceFace
-        device={device}
-        modules={modules}
-        selected={selected}
-        showTerminals={showTerminals}
-        interactiveTerminals={showTerminals}
-        highlightTerminalKey={highlightTerminalKey}
-        showDetails={confident}
-        onSelect={(event) => onSelect(event.clientY)}
-        onTerminalPointerDown={onTerminalPointerDown}
-        brand={
-          confident ? (
-            <BrandMark brandKey={device.brandKey} brand={device.manufacturer} />
-          ) : undefined
-        }
-      />
+      <div
+        className={cn(
+          "relative",
+          loadMismatch &&
+            "rounded-[8px] ring-2 ring-rose-500 ring-offset-1 ring-offset-white",
+        )}
+      >
+        <DeviceFace
+          device={device}
+          modules={modules}
+          selected={selected}
+          showTerminals={showTerminals}
+          interactiveTerminals={showTerminals}
+          highlightTerminalKey={highlightTerminalKey}
+          showDetails={confident}
+          onSelect={(event) => onSelect(event.clientY)}
+          onTerminalPointerDown={onTerminalPointerDown}
+          brand={
+            confident ? (
+              <BrandMark brandKey={device.brandKey} brand={device.manufacturer} />
+            ) : undefined
+          }
+        />
+        {loadMismatch && (
+          <span
+            className="pointer-events-none absolute -right-1 -top-1 z-[6] flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-white shadow-sm"
+            title="Нагрузка не соответствует номиналу"
+          >
+            <AlertTriangle className="h-2.5 w-2.5" strokeWidth={2.75} />
+          </span>
+        )}
+      </div>
       <DeviceStatusBar status={device.status} />
       {(device.circuitLabel?.trim() || caption?.trim()) && (
-        <span className="mt-1 line-clamp-2 text-left text-[10px] font-medium leading-tight text-zinc-600">
+        <span
+          className={cn(
+            "mt-1 line-clamp-2 text-left text-[10px] font-medium leading-tight",
+            loadMismatch ? "text-rose-700" : "text-zinc-600",
+          )}
+        >
           {device.circuitLabel?.trim() || caption?.trim()}
         </span>
       )}
@@ -1616,6 +1639,13 @@ export function SchemeScreen({
     0,
     allRailDevices.length - labeledDeviceCount,
   );
+  const loadMismatchIds = useMemo(() => {
+    const ids = new Set<number>();
+    for (const device of allRailDevices) {
+      if (assessDeviceLineLoadSafety(device)) ids.add(device.id);
+    }
+    return ids;
+  }, [allRailDevices]);
   const applyProtectiveLabels = useCallback(() => {
     if (sharedPreview || unlabeledProtectiveUpdates.length === 0) return;
     if (onAssignCircuits) {
@@ -2209,6 +2239,7 @@ export function SchemeScreen({
                             defaultDeviceCircuitLabel(device, allRailDevices) ??
                             undefined
                           }
+                          loadMismatch={loadMismatchIds.has(device.id)}
                         />
                       ))}
                     </div>
@@ -2219,9 +2250,9 @@ export function SchemeScreen({
           </GlassCard>
           </div>
 
-          {(pending > 0 || unknown > 0) && (
+          {(pending > 0 || unknown > 0 || loadMismatchIds.size > 0) && (
             <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-[12px] text-zinc-500">
-              {verified > 0 && (
+              {verified > 0 && (pending > 0 || unknown > 0) && (
                 <span className="flex items-center gap-1.5">
                   <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
                   Определён ({verified})
@@ -2237,6 +2268,12 @@ export function SchemeScreen({
                 <span className="flex items-center gap-1.5">
                   <span className="h-2.5 w-2.5 rounded-full bg-zinc-300" />
                   Не определён ({unknown})
+                </span>
+              )}
+              {loadMismatchIds.size > 0 && (
+                <span className="flex items-center gap-1.5 text-rose-700">
+                  <AlertTriangle className="h-3 w-3" strokeWidth={2.5} />
+                  Нагрузка не соответствует номиналу ({loadMismatchIds.size})
                 </span>
               )}
             </div>

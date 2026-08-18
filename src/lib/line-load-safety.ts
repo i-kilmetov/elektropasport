@@ -1,4 +1,5 @@
 import type { Device } from "@/types";
+import { parseLineLoads } from "@/lib/panel-identify";
 
 const VOLTAGE_V = 230;
 const CONTINUOUS_LOAD_FACTOR = 0.8;
@@ -366,4 +367,10 @@ export function assessLineLoadSafety(
     points: [...points, closing],
     unsafeLoads,
   };
+}
+
+export function assessDeviceLineLoadSafety(
+  device: Pick<Device, "rating" | "characteristics" | "poles" | "circuitLabel">,
+): LineLoadAlarm | null {
+  return assessLineLoadSafety(device, parseLineLoads(device.circuitLabel));
 }
