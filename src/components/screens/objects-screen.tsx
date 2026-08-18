@@ -153,7 +153,7 @@ function PressableCard({
 
 function Chip({ children }: { children: ReactNode }) {
   return (
-    <span className="rounded-full bg-zinc-100 px-2.5 py-1 text-[12px] font-medium text-zinc-600">
+    <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] font-medium text-zinc-600">
       {children}
     </span>
   );
@@ -197,9 +197,9 @@ function PanelHomeCard({
       onContextMenu={onContextMenu}
       onPressingChange={onPressingChange}
     >
-      <GlassCard className="rounded-[24px] p-5">
-        <div className="mb-4 flex items-start justify-between gap-3">
-          <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-[18px] bg-zinc-100">
+      <GlassCard className="rounded-[24px] p-4">
+        <div className="mb-3 flex items-start justify-between gap-3">
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[16px] bg-zinc-100">
             {item.photoDataUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -214,12 +214,12 @@ function PanelHomeCard({
                 className="h-14 w-14"
               />
             ) : (
-              <BreakerIcon className="h-8 w-8 text-zinc-600" />
+              <BreakerIcon className="h-7 w-7 text-zinc-600" />
             )}
           </div>
           <span
             className={cn(
-              "shrink-0 rounded-full px-2.5 py-1 text-[12px] font-semibold",
+              "shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold",
               safetyKnown
                 ? "bg-emerald-500/12 text-emerald-700"
                 : "bg-zinc-100 text-zinc-500",
@@ -228,18 +228,18 @@ function PanelHomeCard({
             {safetyKnown ? `${item.safety}%` : "Оценка —"}
           </span>
         </div>
-        <h2 className="text-[20px] font-semibold leading-tight tracking-tight text-zinc-900">
+        <h2 className="text-[16px] font-semibold leading-tight text-zinc-900">
           {item.title}
         </h2>
-        <p className="mt-1.5 text-[14px] leading-snug text-zinc-500">
+        <p className="mt-1 text-[13px] leading-snug text-zinc-500">
           {item.address || "Адрес не указан"}
         </p>
-        <div className="mt-4 flex flex-wrap gap-1.5">
+        <div className="mt-3 flex flex-wrap gap-1.5">
           {chips.map((chip) => (
             <Chip key={chip}>{chip}</Chip>
           ))}
         </div>
-        <p className="mt-4 text-[12px] text-zinc-400">{item.lastCheck}</p>
+        <p className="mt-3 text-[11px] text-zinc-400">{item.lastCheck}</p>
       </GlassCard>
     </PressableCard>
   );
@@ -281,34 +281,34 @@ function RequestHomeCard({
       onContextMenu={onContextMenu}
       onPressingChange={onPressingChange}
     >
-      <GlassCard className="rounded-[24px] p-5">
-        <div className="mb-4 flex items-start justify-between gap-3">
-          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[18px] bg-zinc-100 text-zinc-500">
-            <ClipboardList className="h-7 w-7" />
+      <GlassCard className="rounded-[24px] p-4">
+        <div className="mb-3 flex items-start justify-between gap-3">
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[16px] bg-zinc-100 text-zinc-500">
+            <ClipboardList className="h-6 w-6" />
           </div>
           <span
             className={cn(
-              "shrink-0 rounded-full px-2.5 py-1 text-[12px] font-semibold",
+              "shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold",
               installStatusTone(item.status).badge,
             )}
           >
             {item.statusLabel}
           </span>
         </div>
-        <h2 className="text-[20px] font-semibold leading-tight tracking-tight text-zinc-900">
+        <h2 className="text-[16px] font-semibold leading-tight text-zinc-900">
           {item.publicCode || item.title}
         </h2>
-        <p className="mt-1.5 text-[14px] leading-snug text-zinc-500">
+        <p className="mt-1 text-[13px] leading-snug text-zinc-500">
           {item.subtitle || item.exactAddress || item.city || "Заявка"}
         </p>
         {chips.length > 0 && (
-          <div className="mt-4 flex flex-wrap gap-1.5">
+          <div className="mt-3 flex flex-wrap gap-1.5">
             {chips.map((chip) => (
               <Chip key={chip}>{chip}</Chip>
             ))}
           </div>
         )}
-        <p className="mt-4 text-[12px] text-zinc-400">{item.createdAt}</p>
+        <p className="mt-3 text-[11px] text-zinc-400">{item.createdAt}</p>
       </GlassCard>
     </PressableCard>
   );
@@ -322,29 +322,29 @@ function SafetyPromoBanner({
   onDismiss: () => void;
 }) {
   return (
-    <GlassCard className="relative rounded-[24px] p-5">
+    <GlassCard className="relative rounded-[24px] p-4">
       <button
         type="button"
         onClick={onDismiss}
-        className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"
+        className="absolute right-2.5 top-2.5 flex h-7 w-7 items-center justify-center rounded-full text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"
         aria-label="Скрыть"
       >
-        <X className="h-4 w-4" />
+        <X className="h-3.5 w-3.5" />
       </button>
-      <div className="flex items-center gap-4 pr-6">
-        <div className="h-[88px] w-[88px] shrink-0">
+      <div className="flex items-center gap-3.5 pr-5">
+        <div className="h-[72px] w-[72px] shrink-0">
           <HomeSafetyArt />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-[18px] font-semibold leading-snug tracking-tight text-zinc-900">
+          <p className="text-[15px] font-semibold leading-snug text-zinc-900">
             Теперь станет безопаснее
           </p>
-          <p className="mt-1 text-[13px] leading-snug text-zinc-500">
+          <p className="mt-1 text-[12px] leading-snug text-zinc-500">
             Разберём щиток и покажем, где риски.
           </p>
           <Button
             size="sm"
-            className="mt-3 h-10 rounded-full px-4 text-[14px] shadow-none"
+            className="mt-2.5 h-8 rounded-full px-3.5 text-[13px] shadow-none"
             onClick={onDetails}
           >
             Подробнее
@@ -357,7 +357,7 @@ function SafetyPromoBanner({
 
 function EmptyBlock({ text }: { text: string }) {
   return (
-    <div className="rounded-[24px] bg-white px-5 py-8 text-center text-[15px] leading-relaxed text-zinc-500 shadow-[0_1px_1px_rgba(17,17,19,0.04),0_2px_6px_rgba(17,17,19,0.04)]">
+    <div className="rounded-[24px] bg-white px-4 py-6 text-center text-[13px] leading-relaxed text-zinc-500 shadow-[0_1px_1px_rgba(17,17,19,0.04),0_2px_6px_rgba(17,17,19,0.04)]">
       {text}
     </div>
   );
@@ -365,7 +365,7 @@ function EmptyBlock({ text }: { text: string }) {
 
 function SectionTitle({ children }: { children: ReactNode }) {
   return (
-    <h2 className="mb-3 px-0.5 text-[22px] font-semibold tracking-tight text-zinc-900">
+    <h2 className="mb-2.5 px-0.5 text-[15px] font-semibold text-zinc-900">
       {children}
     </h2>
   );
@@ -444,9 +444,6 @@ export function ObjectsScreen({
     onAdd();
   };
 
-  const title =
-    tab === "home" ? "Главная" : tab === "add" ? "Добавить" : "Меню";
-
   return (
     <motion.section
       initial={{ opacity: 0, y: 16 }}
@@ -455,10 +452,19 @@ export function ObjectsScreen({
       transition={{ duration: 0.3 }}
       className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-[#f4f4f6]"
     >
-      <header className="shrink-0 px-5 pt-[max(1.25rem,env(safe-area-inset-top))] pb-3 lg:px-10 lg:pt-8">
-        <h1 className="text-[28px] font-semibold tracking-tight text-zinc-900 lg:text-[32px]">
-          {title}
-        </h1>
+      <header
+        className={cn(
+          "shrink-0 px-5 lg:px-10",
+          tab === "home"
+            ? "pt-[max(0.75rem,env(safe-area-inset-top))] pb-1"
+            : "pt-[max(1.15rem,env(safe-area-inset-top))] pb-2",
+        )}
+      >
+        {tab !== "home" && (
+          <h1 className="text-[17px] font-semibold text-zinc-900">
+            {tab === "add" ? "Добавить" : "Меню"}
+          </h1>
+        )}
       </header>
 
       {error && (
@@ -469,7 +475,7 @@ export function ObjectsScreen({
 
       <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-4 lg:px-10">
         {tab === "home" && (
-          <div className="mx-auto w-full max-w-xl space-y-7 lg:max-w-2xl">
+          <div className="mx-auto w-full max-w-xl space-y-5 lg:max-w-2xl">
             {loading ? (
               <HomeScreenSkeleton />
             ) : (
@@ -550,19 +556,19 @@ export function ObjectsScreen({
               onClick={addPanel}
               className="w-full text-left"
             >
-              <GlassCard className="flex items-center gap-4 rounded-[24px] p-5 transition-colors hover:bg-zinc-50">
-                <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[18px] bg-zinc-900 text-white">
-                  <Camera className="h-7 w-7" />
+              <GlassCard className="flex items-center gap-3.5 rounded-[24px] p-4 transition-colors hover:bg-zinc-50">
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[14px] bg-zinc-900 text-white">
+                  <Camera className="h-5 w-5" strokeWidth={1.5} />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block text-[18px] font-semibold text-zinc-900">
+                  <span className="block text-[15px] font-semibold text-zinc-900">
                     Добавить щиток
                   </span>
-                  <span className="mt-1 block text-[14px] leading-snug text-zinc-500">
+                  <span className="mt-0.5 block text-[13px] leading-snug text-zinc-500">
                     Сфотографируйте щиток — соберём схему и оценку безопасности.
                   </span>
                 </span>
-                <ArrowRight className="h-5 w-5 shrink-0 text-zinc-300" />
+                <ArrowRight className="h-4 w-4 shrink-0 text-zinc-300" />
               </GlassCard>
             </button>
             <button
@@ -570,19 +576,19 @@ export function ObjectsScreen({
               onClick={onNoPanel}
               className="w-full text-left"
             >
-              <GlassCard className="flex items-center gap-4 rounded-[24px] p-5 transition-colors hover:bg-zinc-50">
-                <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[18px] bg-zinc-100 text-zinc-700">
-                  <Home className="h-7 w-7" />
+              <GlassCard className="flex items-center gap-3.5 rounded-[24px] p-4 transition-colors hover:bg-zinc-50">
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[14px] bg-zinc-100 text-zinc-700">
+                  <Home className="h-5 w-5" strokeWidth={1.5} />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block text-[18px] font-semibold text-zinc-900">
+                  <span className="block text-[15px] font-semibold text-zinc-900">
                     У меня нет щитка
                   </span>
-                  <span className="mt-1 block text-[14px] leading-snug text-zinc-500">
+                  <span className="mt-0.5 block text-[13px] leading-snug text-zinc-500">
                     Подберём решение и мастера, если щиток ещё не собран.
                   </span>
                 </span>
-                <ArrowRight className="h-5 w-5 shrink-0 text-zinc-300" />
+                <ArrowRight className="h-4 w-4 shrink-0 text-zinc-300" />
               </GlassCard>
             </button>
           </div>
@@ -596,16 +602,16 @@ export function ObjectsScreen({
                   key={item.id}
                   type="button"
                   onClick={() => onMenuSelect(item.id)}
-                  className="flex w-full items-center gap-3.5 px-4 py-4 text-left transition-colors hover:bg-zinc-50"
+                  className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-zinc-50"
                 >
-                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] bg-zinc-100 text-zinc-700">
-                    <item.icon className="h-5 w-5" />
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[12px] bg-zinc-100 text-zinc-700">
+                    <item.icon className="h-4 w-4" strokeWidth={1.5} />
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block text-[16px] font-semibold text-zinc-900">
+                    <span className="block text-[15px] font-semibold text-zinc-900">
                       {item.title}
                     </span>
-                    <span className="mt-0.5 block text-[13px] text-zinc-500">
+                    <span className="mt-0.5 block text-[12px] text-zinc-500">
                       {item.description}
                     </span>
                   </span>

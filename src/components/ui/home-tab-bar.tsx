@@ -8,10 +8,11 @@ export type HomeTabId = "home" | "add" | "menu";
 const TABS: Array<{
   id: HomeTabId;
   label: string;
+  icon: typeof House;
 }> = [
-  { id: "home", label: "Главная" },
-  { id: "add", label: "Добавить" },
-  { id: "menu", label: "Меню" },
+  { id: "home", label: "Главная", icon: House },
+  { id: "add", label: "Добавить", icon: Plus },
+  { id: "menu", label: "Меню", icon: Menu },
 ];
 
 export function HomeTabBar({
@@ -23,47 +24,35 @@ export function HomeTabBar({
 }) {
   return (
     <nav
-      className="shrink-0 border-t border-black/[0.06] bg-white px-2 pt-1.5 pb-[max(0.4rem,env(safe-area-inset-bottom))]"
+      className="pointer-events-none shrink-0 bg-transparent px-5 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
       aria-label="Основные разделы"
     >
-      <div className="mx-auto grid max-w-md grid-cols-3">
+      <div className="pointer-events-auto mx-auto flex max-w-[340px] rounded-full bg-white p-1 shadow-[0_8px_30px_rgba(17,17,19,0.12)]">
         {TABS.map((tab) => {
           const selected = active === tab.id;
+          const Icon = tab.icon;
           return (
             <button
               key={tab.id}
               type="button"
               onClick={() => onChange(tab.id)}
-              className="flex flex-col items-center gap-1 py-1.5"
-            >
-              {tab.id === "add" ? (
-                <span
-                  className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-900 text-white"
-                >
-                  <Plus className="h-4 w-4" strokeWidth={2.5} />
-                </span>
-              ) : tab.id === "home" ? (
-                <House
-                  className={cn(
-                    "h-6 w-6",
-                    selected ? "text-zinc-900" : "text-zinc-400",
-                  )}
-                  strokeWidth={selected ? 2.25 : 1.8}
-                />
-              ) : (
-                <Menu
-                  className={cn(
-                    "h-6 w-6",
-                    selected ? "text-zinc-900" : "text-zinc-400",
-                  )}
-                  strokeWidth={selected ? 2.25 : 1.8}
-                />
+              className={cn(
+                "flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-full py-2 transition-colors",
+                selected ? "bg-zinc-100" : "bg-transparent",
               )}
+            >
+              <Icon
+                className={cn(
+                  "h-5 w-5",
+                  selected ? "text-zinc-900" : "text-zinc-400",
+                )}
+                strokeWidth={1.5}
+              />
               <span
                 className={cn(
-                  "text-[11px] leading-none",
+                  "text-[10px] leading-none",
                   selected
-                    ? "font-semibold text-zinc-900"
+                    ? "font-medium text-zinc-900"
                     : "font-medium text-zinc-400",
                 )}
               >
