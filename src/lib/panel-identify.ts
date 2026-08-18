@@ -47,15 +47,25 @@ export function saveIdentifyContext(
   localStorage.setItem(storageKey(panelId), JSON.stringify(context));
 }
 
+function roomLoadSeparatorIndex(text: string): number {
+  const separators = [":", "："];
+  let best = -1;
+  for (const separator of separators) {
+    const idx = text.indexOf(separator);
+    if (idx > 0 && (best < 0 || idx < best)) best = idx;
+  }
+  return best;
+}
+
 export function parseLineLoads(
   label: string | undefined | null,
 ): Record<string, string[]> {
   const raw = label?.trim() ?? "";
-  if (!raw || !raw.includes(":")) return {};
+  if (!raw) return {};
   const result: Record<string, string[]> = {};
   for (const part of raw.split(";")) {
     const trimmed = part.trim();
-    const idx = trimmed.indexOf(":");
+    const idx = roomLoadSeparatorIndex(trimmed);
     if (idx <= 0) continue;
     const room = trimmed.slice(0, idx).trim();
     const loads = trimmed
@@ -163,7 +173,19 @@ export function formatLineLoads(loadsByRoom: Record<string, string[]>): string {
     .join("; ");
 }
 
-/** True when every rail device has a label and line devices have room loads. */
+/** Line device has a user-chosen load/room label (any saved caption). */
+export function deviceHasSpecifiedLineLoads(device: {
+  type: string;
+  circuitLabel?: string;
+}): boolean {
+  if (!deviceNeedsLineIdentification(device.type)) return false;
+  return deviceHasLineIdentification(device.circuitLabel);
+}
+
+/**
+ * True when every line device (автомат / диф / УЗДП) has a saved caption.
+ * Protective devices do not block: they get role labels like «Ввод» / «УЗО».
+ */
 export function allPanelLoadsIdentified(
   devices: Array<{
     id: number;
@@ -177,13 +199,9 @@ export function allPanelLoadsIdentified(
     (device) => device.type !== "pe_bus" && device.type !== "n_bus",
   );
   if (rail.length === 0) return false;
-  return rail.every((device) => {
-    if (deviceNeedsLineIdentification(device.type)) {
-      return Object.keys(parseLineLoads(device.circuitLabel)).length > 0;
-    }
-    return (
-      deviceHasLineIdentification(device.circuitLabel) ||
-      Boolean(defaultDeviceCircuitLabel(device, rail))
-    );
-  });
+  const lineDevices = rail.filter((device) =>
+    deviceNeedsLineIdentification(device.type),
+  );
+  if (lineDevices.length === 0) return true;
+  return lineDevices.every((device) => deviceHasSpecifiedLineLoads(device));
 }

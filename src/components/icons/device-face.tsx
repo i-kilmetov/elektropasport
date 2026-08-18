@@ -391,11 +391,7 @@ function RatingBlock({
   );
 }
 
-const statusBarClass: Record<Device["status"], string> = {
-  verified: "bg-emerald-500",
-  pending: "bg-amber-500",
-  unknown: "bg-zinc-300",
-};
+export type DeviceLoadBarTone = "ok" | "mismatch" | null;
 
 export function deviceFaceHeight(showTerminals: boolean): number {
   return BODY_HEIGHT_PX + (showTerminals ? TERMINAL_HEIGHT_PX * 2 : 0);
@@ -616,13 +612,15 @@ export function DeviceFace({
   );
 }
 
-export function DeviceStatusBar({ status }: { status: Device["status"] }) {
+export function DeviceStatusBar({ tone }: { tone: DeviceLoadBarTone }) {
   return (
     <span
       aria-hidden
       className={cn(
         "mt-1 block h-[3px] w-full rounded-full",
-        statusBarClass[status],
+        tone === "ok" && "bg-emerald-500",
+        tone === "mismatch" && "bg-rose-500",
+        tone == null && "bg-transparent",
       )}
     />
   );

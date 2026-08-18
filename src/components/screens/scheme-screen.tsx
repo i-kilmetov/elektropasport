@@ -88,6 +88,7 @@ import {
   collectOccupiedLoads,
   defaultDeviceCircuitLabel,
   deviceHasLineIdentification,
+  deviceHasSpecifiedLineLoads,
   deviceNeedsLineIdentification,
   formatLineLoads,
   inferObjectTypeFromLabel,
@@ -160,6 +161,11 @@ function DeviceBlock({
   const modules = deviceModules(device);
   const width = modules * MODULE_PX;
   const confident = isDeviceDetailsConfident(device);
+  const loadTone = loadMismatch
+    ? "mismatch"
+    : deviceHasSpecifiedLineLoads(device)
+      ? "ok"
+      : null;
 
   return (
     <div className="flex flex-col items-stretch" style={{ width, flex: "none" }}>
@@ -171,13 +177,7 @@ function DeviceBlock({
       >
         {confident ? typeShort[device.type] : "·"}
       </span>
-      <div
-        className={cn(
-          "relative",
-          loadMismatch &&
-            "rounded-[8px] ring-2 ring-rose-500 ring-offset-1 ring-offset-white",
-        )}
-      >
+      <div className="relative">
         <DeviceFace
           device={device}
           modules={modules}
@@ -203,7 +203,7 @@ function DeviceBlock({
           </span>
         )}
       </div>
-      <DeviceStatusBar status={device.status} />
+      <DeviceStatusBar tone={loadTone} />
       {(device.circuitLabel?.trim() || caption?.trim()) && (
         <span
           className={cn(
@@ -1702,9 +1702,6 @@ export function SchemeScreen({
     [allRailDevices, railCount],
   );
   const numRails = rails.length;
-  const verified = devices.filter((d) => d.status === "verified").length;
-  const pending = devices.filter((d) => d.status === "pending").length;
-  const unknown = devices.filter((d) => d.status === "unknown").length;
 
   useEffect(() => {
     if (!showTerminals) return;
@@ -2309,35 +2306,6 @@ export function SchemeScreen({
             </div>
           </GlassCard>
           </div>
-
-          {(pending > 0 || unknown > 0 || loadMismatchIds.size > 0) && (
-            <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-[12px] text-zinc-500">
-              {verified > 0 && (pending > 0 || unknown > 0) && (
-                <span className="flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
-                  Определён ({verified})
-                </span>
-              )}
-              {pending > 0 && (
-                <span className="flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-full bg-amber-400" />
-                  Требует проверки ({pending})
-                </span>
-              )}
-              {unknown > 0 && (
-                <span className="flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-full bg-zinc-300" />
-                  Не определён ({unknown})
-                </span>
-              )}
-              {loadMismatchIds.size > 0 && (
-                <span className="flex items-center gap-1.5 text-rose-700">
-                  <AlertTriangle className="h-3 w-3" strokeWidth={2.5} />
-                  Нагрузка не соответствует номиналу ({loadMismatchIds.size})
-                </span>
-              )}
-            </div>
-          )}
 
           <button
             type="button"
