@@ -41,6 +41,9 @@ function a4OverflowsViewport(): boolean {
   return pageW > window.innerWidth - 48;
 }
 
+const STICKER_ICON_MM = 4.4;
+const STICKER_CAPTION_MM = 2.2;
+
 function cellIconId(device: Device): StickerIconId {
   return device.stickerIcon || suggestedStickerIcon(device);
 }
@@ -58,48 +61,54 @@ function StickerCell({
   const icon = getStickerIcon(cellIconId(device));
   const Icon = icon?.Icon;
   const caption = stickerCaption(device);
-  const className = cn(
-    "flex h-full flex-col items-center justify-center overflow-hidden border-r border-zinc-400/70 px-[0.6mm] text-center last:border-r-0",
-    onSelect && "cursor-pointer hover:bg-zinc-50",
-    selected && "bg-amber-50 ring-2 ring-inset ring-zinc-900",
-    !onSelect && "cursor-default",
-  );
   const style = { width: `${modules * STICKER_MODULE_MM}mm` };
-  const body = (
-    <>
+  const card = (
+    <div
+      className={cn(
+        "flex h-full w-full min-h-0 flex-col items-center justify-center overflow-hidden rounded-[2mm] border border-black/8 bg-zinc-50 px-[0.8mm] text-center",
+        selected && "border-zinc-900 bg-amber-50 ring-1 ring-inset ring-zinc-900",
+        onSelect && !selected && "hover:bg-zinc-100",
+      )}
+    >
       {Icon && (
         <Icon
           className="shrink-0 text-zinc-800"
           style={{
-            width: modules === 1 ? "3.6mm" : "4.4mm",
-            height: modules === 1 ? "3.6mm" : "4.4mm",
+            width: `${STICKER_ICON_MM}mm`,
+            height: `${STICKER_ICON_MM}mm`,
           }}
           strokeWidth={2.1}
         />
       )}
       <span
-        className="mt-[0.4mm] w-full truncate leading-none text-zinc-900"
+        className="mt-[0.5mm] line-clamp-2 w-full leading-tight text-zinc-900"
         style={{
-          fontSize: modules === 1 ? "2.1mm" : "2.4mm",
+          fontSize: `${STICKER_CAPTION_MM}mm`,
           fontWeight: 650,
+          overflowWrap: "anywhere",
+          wordBreak: "break-word",
         }}
       >
         {caption}
       </span>
-    </>
+    </div>
+  );
+  const className = cn(
+    "box-border flex h-full shrink-0 p-[0.55mm]",
+    onSelect ? "cursor-pointer border-0 bg-transparent" : "cursor-default",
   );
 
   if (!onSelect) {
     return (
       <div className={className} style={style}>
-        {body}
+        {card}
       </div>
     );
   }
 
   return (
     <button type="button" onClick={onSelect} className={className} style={style}>
-      {body}
+      {card}
     </button>
   );
 }
@@ -128,8 +137,12 @@ function StickerStripView({
         {` · ${strip.modules}×${STICKER_MODULE_MM} мм`}
       </div>
       <div
-        className="relative flex overflow-hidden border-[0.35mm] border-dashed border-zinc-800 bg-white"
-        style={{ width: `${width}mm`, height: `${STICKER_HEIGHT_MM}mm` }}
+        className="relative flex items-stretch bg-white"
+        style={{
+          width: `${width}mm`,
+          height: `${STICKER_HEIGHT_MM}mm`,
+          border: "0.15mm dashed rgba(24, 24, 27, 0.16)",
+        }}
       >
         {strip.devices.map((device) => (
           <StickerCell
@@ -187,8 +200,8 @@ function A4Page({
         ))}
       </div>
       <p className="text-zinc-400" style={{ fontSize: "2.6mm", marginTop: "6mm" }}>
-        Вырежьте по пунктиру. Если ряд разбит на части — клеите их слева направо
-        в том же порядке, что на схеме.
+        Вырежьте полосу по тонкому контуру. Если ряд разбит на части — клеите их
+        слева направо в том же порядке, что на схеме.
       </p>
     </div>
   );
