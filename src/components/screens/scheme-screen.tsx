@@ -84,6 +84,7 @@ import {
   MANUFACTURER_BRANDS,
 } from "@/lib/manufacturer-brands";
 import {
+  allPanelLoadsIdentified,
   collectOccupiedLoads,
   defaultDeviceCircuitLabel,
   deviceHasLineIdentification,
@@ -1530,7 +1531,7 @@ export function SchemeScreen({
     phases: "1" | "3";
     powerKw: string;
     hasGround: boolean;
-    safety: number;
+    safety: number | null;
   }) => void;
   onCallMaster?: () => void;
   devices?: Device[];
@@ -1543,9 +1544,6 @@ export function SchemeScreen({
 }) {
   const devices = devicesProp ?? [];
   const wires = wiresProp ?? [];
-  const safetyKnown =
-    Boolean(phases && powerKw?.trim()) && typeof safetyProp === "number";
-  const safetyScore = safetyKnown ? safetyProp : null;
   const networkParamsFilled = Boolean(phases && powerKw?.trim());
 
   const [identifyContext, setIdentifyContext] = useState<IdentifyContext | null>(
@@ -1639,6 +1637,15 @@ export function SchemeScreen({
     0,
     allRailDevices.length - labeledDeviceCount,
   );
+  const allLoadsIdentified = useMemo(
+    () => allPanelLoadsIdentified(allRailDevices),
+    [allRailDevices],
+  );
+  const safetyKnown =
+    allLoadsIdentified &&
+    networkParamsFilled &&
+    typeof safetyProp === "number";
+  const safetyScore = safetyKnown ? safetyProp : null;
   const loadMismatchIds = useMemo(() => {
     const ids = new Set<number>();
     for (const device of allRailDevices) {
@@ -1899,6 +1906,17 @@ export function SchemeScreen({
     nextPower: string;
     nextHasGround: boolean;
   }) => {
+    setSafetyOpen(false);
+    if (!allLoadsIdentified) {
+      onAssessSafety?.({
+        phases: nextPhases,
+        powerKw: nextPower,
+        hasGround: nextHasGround,
+        safety: null,
+      });
+      return;
+    }
+
     const powerNum = Number(nextPower.replace(",", "."));
     const safety = computePanelSafetyScore(
       allRailDevices,
@@ -1906,7 +1924,6 @@ export function SchemeScreen({
       powerNum,
       nextHasGround,
     );
-    setSafetyOpen(false);
     setSafetyAssessing(true);
     setSafetyProgress(0);
 
@@ -1943,6 +1960,47 @@ export function SchemeScreen({
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (sharedPreview || !onAssessSafety || safetyAssessing) return;
+    if (!allLoadsIdentified) {
+      if (typeof safetyProp === "number" && phases && powerKw?.trim()) {
+        onAssessSafety({
+          phases,
+          powerKw,
+          hasGround: hasGround === true,
+          safety: null,
+        });
+      }
+      return;
+    }
+    if (!phases || !powerKw?.trim()) return;
+    const powerNum = Number(powerKw.replace(",", "."));
+    if (!Number.isFinite(powerNum) || powerNum <= 0) return;
+    const next = computePanelSafetyScore(
+      allRailDevices,
+      phases,
+      powerNum,
+      hasGround,
+    );
+    if (safetyProp === next) return;
+    onAssessSafety({
+      phases,
+      powerKw,
+      hasGround: hasGround === true,
+      safety: next,
+    });
+  }, [
+    allLoadsIdentified,
+    allRailDevices,
+    hasGround,
+    onAssessSafety,
+    phases,
+    powerKw,
+    safetyAssessing,
+    safetyProp,
+    sharedPreview,
+  ]);
 
   const networkSafetyCards = (
     <>
@@ -2030,9 +2088,11 @@ export function SchemeScreen({
             <>
               <div className="text-[22px] font-bold text-zinc-400">Неизвестен</div>
               <p className="mt-1 text-[11px] leading-snug text-zinc-400">
-                {networkParamsFilled
-                  ? "Нажмите, чтобы узнать, как считается оценка"
-                  : "Сначала укажите параметры сети"}
+                {!allLoadsIdentified
+                  ? "Сначала определите нагрузки по всем приборам"
+                  : networkParamsFilled
+                    ? "Нажмите, чтобы узнать, как считается оценка"
+                    : "Сначала укажите параметры сети"}
               </p>
             </>
           )}
@@ -2602,7 +2662,7 @@ export function SchemeScreen({
                 Считаем уровень безопасности
               </div>
               <p className="mb-4 text-[13px] leading-relaxed text-zinc-500">
-                Сверяем состав приборов с фазами, мощностью и заземлением…
+                Сверяем состав приборов, нагрузки линий и параметры сети…
               </p>
               <div className="mb-2 h-2 overflow-hidden rounded-full bg-zinc-100">
                 <motion.div

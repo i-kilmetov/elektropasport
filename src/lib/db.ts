@@ -655,7 +655,10 @@ export async function updatePanel(
       title = COALESCE(${patch.title ?? null}, title),
       named = COALESCE(${patch.named ?? null}, named),
       address = COALESCE(${patch.address ?? null}, address),
-      safety = COALESCE(${patch.safety ?? null}, safety),
+      safety = CASE
+        WHEN ${patch.safety !== undefined} THEN ${patch.safety ?? null}
+        ELSE safety
+      END,
       phases = COALESCE(${patch.phases ?? null}, phases),
       power_kw = COALESCE(${patch.powerKw ?? null}, power_kw),
       has_ground = COALESCE(${patch.hasGround ?? null}, has_ground),

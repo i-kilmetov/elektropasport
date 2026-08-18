@@ -848,7 +848,7 @@ export function AppShell() {
       phases: "1" | "3";
       powerKw: string;
       hasGround: boolean;
-      safety: number;
+      safety: number | null;
     }) => {
       if (!activePanelId) return;
       setSafetyScore(payload.safety);

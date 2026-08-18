@@ -1,4 +1,9 @@
 import type { Device } from "@/types";
+import { assessDeviceLineLoadSafety } from "@/lib/line-load-safety";
+import {
+  allPanelLoadsIdentified,
+  deviceNeedsLineIdentification,
+} from "@/lib/panel-identify";
 
 function parseAmps(rating: string): number | null {
   const match = rating.match(/(\d+(?:[.,]\d+)?)\s*A\b/i);
@@ -47,8 +52,8 @@ function mainCapacityKw(
 }
 
 /**
- * Heuristic safety score from device composition + declared network params.
- * Does NOT assess wiring correctness.
+ * Heuristic safety score from device composition, declared network params,
+ * and identified line loads. Does NOT assess wiring correctness.
  */
 export function analyzePanelSafety(
   devices: Device[],
@@ -165,6 +170,45 @@ export function analyzePanelSafety(
       detail:
         "Защита от дугового пробоя снижает риск пожара из‑за плохих контактов. Это дополнительный шаг, когда основные приборы уже стоят.",
     });
+  }
+
+  const loadsComplete = allPanelLoadsIdentified(rail);
+  if (!loadsComplete) {
+    advice.push({
+      id: "line_loads",
+      kind: "improve",
+      title: "Определите нагрузки по всем приборам",
+      detail:
+        "Оценка появится, когда для каждого автомата и дифавтомата будет указано, какие помещения и техника на нём. Без этих данных индекс не считается.",
+    });
+  } else {
+    const mismatched = rail.filter((device) =>
+      assessDeviceLineLoadSafety(device),
+    );
+    if (mismatched.length > 0) {
+      score -= Math.min(28, 8 + mismatched.length * 6);
+      advice.push({
+        id: "load_mismatch",
+        kind: "improve",
+        title:
+          mismatched.length === 1
+            ? "Один автомат слабее своей нагрузки"
+            : mismatched.length < 5
+              ? `${mismatched.length} прибора не соответствуют нагрузке`
+              : `${mismatched.length} приборов не соответствуют нагрузке`,
+        detail:
+          "По схеме номинал слабее, чем выбранные розетки и техника. Это повышает риск отключений и нагрева кабеля. На схеме такие приборы отмечены красным.",
+      });
+    } else if (rail.some((device) => deviceNeedsLineIdentification(device.type))) {
+      score += 10;
+      advice.push({
+        id: "load_mismatch",
+        kind: "good",
+        title: "Нагрузки согласованы с номиналами",
+        detail:
+          "Указанные помещения и техника не превышают то, на что рассчитаны автоматы и дифавтоматы на схеме.",
+      });
+    }
   }
 
   const lineProtection = count("breaker") + count("diff_breaker");
@@ -337,9 +381,11 @@ export function analyzePanelSafety(
   }
 
   const improveOrder = [
+    "line_loads",
     "params",
     "rcd",
     "main_breaker",
+    "load_mismatch",
     "ground",
     "main_rating",
     "main_poles",
@@ -396,7 +442,7 @@ export function safetyTextColor(score: number): string {
 }
 
 export const safetyScoreDisclaimer =
-  "Оценка считается по составу приборов на схеме и указанным параметрам сети — числу фаз, выделенной мощности и наличию заземления. Сервис не учитывает, насколько корректно приборы расключены внутри щитка.";
+  "Оценка считается по составу приборов, указанным нагрузкам линий и параметрам сети — числу фаз, выделенной мощности и наличию заземления. Сервис не учитывает, насколько корректно приборы расключены внутри щитка.";
 
 export function isPanelSafetyKnown(panel: {
   phases?: "1" | "3";

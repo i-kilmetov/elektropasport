@@ -162,3 +162,28 @@ export function formatLineLoads(loadsByRoom: Record<string, string[]>): string {
     .map(([room, loads]) => `${room}: ${loads.join(", ")}`)
     .join("; ");
 }
+
+/** True when every rail device has a label and line devices have room loads. */
+export function allPanelLoadsIdentified(
+  devices: Array<{
+    id: number;
+    type: string;
+    rail?: number;
+    position?: number;
+    circuitLabel?: string;
+  }>,
+): boolean {
+  const rail = devices.filter(
+    (device) => device.type !== "pe_bus" && device.type !== "n_bus",
+  );
+  if (rail.length === 0) return false;
+  return rail.every((device) => {
+    if (deviceNeedsLineIdentification(device.type)) {
+      return Object.keys(parseLineLoads(device.circuitLabel)).length > 0;
+    }
+    return (
+      deviceHasLineIdentification(device.circuitLabel) ||
+      Boolean(defaultDeviceCircuitLabel(device, rail))
+    );
+  });
+}
