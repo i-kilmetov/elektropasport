@@ -323,7 +323,6 @@ export function ObjectsScreen({
       ),
     [items],
   );
-  const showRequests = requests.length > 0;
   const atPanelLimit = isAtPanelLimit(quota);
 
   const pendingDelete = items.find((item) => item.id === pendingDeleteId);
@@ -345,7 +344,6 @@ export function ObjectsScreen({
   }, []);
 
   useLayoutEffect(() => {
-    if (!showRequests) return;
     const first = tab0Ref.current;
     const second = tab1Ref.current;
     if (!first || !second) return;
@@ -362,14 +360,7 @@ export function ObjectsScreen({
     observer.observe(first);
     observer.observe(second);
     return () => observer.disconnect();
-  }, [panels.length, requests.length, showRequests]);
-
-  useEffect(() => {
-    if (!showRequests && page !== 0) {
-      pageRef.current = 0;
-      setPage(0);
-    }
-  }, [page, showRequests]);
+  }, [panels.length, requests.length]);
 
   useEffect(() => {
     if (!pagerWidth) return;
@@ -388,10 +379,6 @@ export function ObjectsScreen({
   };
 
   const onPagerDragEnd = (_: unknown, info: PanInfo) => {
-    if (!showRequests) {
-      snapTo(0);
-      return;
-    }
     const current = pageRef.current as 0 | 1;
     const { offset, velocity } = info;
     const absOffset = Math.abs(offset.x);
@@ -517,57 +504,59 @@ export function ObjectsScreen({
           >
             <Menu className="h-5 w-5" />
           </button>
-          {showRequests ? (
-            <div className="relative flex rounded-full bg-zinc-100 p-1">
-              {tabMetrics.width0 > 0 && (
-                <motion.div
-                  aria-hidden
-                  className="pointer-events-none absolute top-1 h-[calc(100%-8px)] rounded-full bg-white shadow-sm"
-                  style={{ left: pillLeft, width: pillWidth }}
-                />
-              )}
-              <motion.button
-                ref={tab0Ref}
-                type="button"
-                onClick={() => settlePage(0)}
-                style={{ color: tab0Color }}
-                className="relative z-10 rounded-full px-3 py-1.5 text-[13px] font-semibold"
-              >
-                Щитки
-                <span className="ml-1 text-[11px] font-medium text-zinc-400">
-                  {panels.length}
-                </span>
-              </motion.button>
-              <motion.button
-                ref={tab1Ref}
-                type="button"
-                onClick={() => settlePage(1)}
-                style={{ color: tab1Color }}
-                className="relative z-10 rounded-full px-3 py-1.5 text-[13px] font-semibold"
-              >
-                Заявки
-                <span className="ml-1 text-[11px] font-medium text-zinc-400">
-                  {requests.length}
-                </span>
-              </motion.button>
-            </div>
-          ) : (
-            <h1 className="text-[20px] font-semibold text-zinc-900 lg:text-[28px] lg:tracking-tight">
-              Щитки
-            </h1>
-          )}
-          <div className="hidden items-center gap-3 lg:flex">
-            <button
+          <div className="relative flex rounded-full bg-zinc-100 p-1">
+            {tabMetrics.width0 > 0 && (
+              <motion.div
+                aria-hidden
+                className="pointer-events-none absolute top-1 h-[calc(100%-8px)] rounded-full bg-white shadow-sm"
+                style={{ left: pillLeft, width: pillWidth }}
+              />
+            )}
+            <motion.button
+              ref={tab0Ref}
               type="button"
-              onClick={onNoPanel}
-              className="text-[14px] font-medium text-zinc-500 underline decoration-zinc-300 underline-offset-4 transition-colors hover:text-zinc-800"
+              onClick={() => settlePage(0)}
+              style={{ color: tab0Color }}
+              className="relative z-10 rounded-full px-3 py-1.5 text-[13px] font-semibold"
             >
-              У меня нет щитка
-            </button>
-            <Button className="h-11 px-5" onClick={addPanel}>
-              <Plus className="h-5 w-5" />
-              Добавить щиток
-            </Button>
+              Щитки
+              <span className="ml-1 text-[11px] font-medium text-zinc-400">
+                {loading ? "…" : panels.length}
+              </span>
+            </motion.button>
+            <motion.button
+              ref={tab1Ref}
+              type="button"
+              onClick={() => settlePage(1)}
+              style={{ color: tab1Color }}
+              className="relative z-10 rounded-full px-3 py-1.5 text-[13px] font-semibold"
+            >
+              Заявки
+              <span className="ml-1 text-[11px] font-medium text-zinc-400">
+                {loading ? "…" : requests.length}
+              </span>
+            </motion.button>
+          </div>
+          <div className="hidden items-center gap-3 lg:flex">
+            {page === 0 ? (
+              <>
+                <button
+                  type="button"
+                  onClick={onNoPanel}
+                  className="text-[14px] font-medium text-zinc-500 underline decoration-zinc-300 underline-offset-4 transition-colors hover:text-zinc-800"
+                >
+                  У меня нет щитка
+                </button>
+                <Button className="h-11 px-5" onClick={addPanel}>
+                  <Plus className="h-5 w-5" />
+                  Добавить щиток
+                </Button>
+              </>
+            ) : (
+              <Button className="h-11 px-5" onClick={onNoPanel}>
+                Помочь с электрикой
+              </Button>
+            )}
           </div>
         </div>
       </header>
@@ -587,34 +576,30 @@ export function ObjectsScreen({
             })
           : renderList(requests, {
               icon: <ClipboardList className="h-10 w-10" />,
-              text: "Здесь появятся заявки, оформленные по сценарию «У меня нет щитка».",
+              text: "Здесь появятся заявки на помощь с электрикой.",
             })}
       </div>
 
       <div ref={pagerRef} className="min-h-0 flex-1 overflow-hidden lg:hidden">
         <motion.div
           className="flex h-full touch-pan-y"
-          drag={showRequests ? "x" : false}
+          drag="x"
           dragDirectionLock
           dragElastic={0.16}
           dragConstraints={{
-            left: pagerWidth && showRequests ? -pagerWidth : 0,
+            left: pagerWidth ? -pagerWidth : 0,
             right: 0,
           }}
           dragMomentum={false}
           style={{
             x,
-            width: pagerWidth
-              ? pagerWidth * (showRequests ? 2 : 1)
-              : showRequests
-                ? "200%"
-                : "100%",
+            width: pagerWidth ? pagerWidth * 2 : "200%",
           }}
           onDragEnd={onPagerDragEnd}
         >
           <div
             className="flex h-full min-h-0 flex-col px-5 lg:px-10"
-            style={{ width: pagerWidth || (showRequests ? "50%" : "100%") }}
+            style={{ width: pagerWidth || "50%" }}
           >
             <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
               {renderList(panels, {
@@ -624,24 +609,22 @@ export function ObjectsScreen({
               })}
             </div>
           </div>
-          {showRequests && (
-            <div
-              className="flex h-full min-h-0 flex-col px-5 lg:px-10"
-              style={{ width: pagerWidth || "50%" }}
-            >
-              <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
-                {renderList(requests, {
-                  icon: <ClipboardList className="h-10 w-10" />,
-                  text: "Здесь появятся заявки, оформленные по сценарию «У меня нет щитка».",
-                })}
-              </div>
+          <div
+            className="flex h-full min-h-0 flex-col px-5 lg:px-10"
+            style={{ width: pagerWidth || "50%" }}
+          >
+            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
+              {renderList(requests, {
+                icon: <ClipboardList className="h-10 w-10" />,
+                text: "Здесь появятся заявки на помощь с электрикой.",
+              })}
             </div>
-          )}
+          </div>
         </motion.div>
       </div>
 
-      {page === 0 && (
-        <div className="shrink-0 border-t border-black/[0.06] bg-[var(--bg)] px-5 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))] lg:hidden">
+      <div className="shrink-0 border-t border-black/[0.06] bg-[var(--bg)] px-5 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))] lg:hidden">
+        {page === 0 ? (
           <div className="space-y-3">
             <Button className="w-full" onClick={addPanel}>
               <Plus className="h-5 w-5" />
@@ -655,8 +638,12 @@ export function ObjectsScreen({
               У меня нет щитка
             </button>
           </div>
-        </div>
-      )}
+        ) : (
+          <Button className="w-full" onClick={onNoPanel}>
+            Помочь с электрикой
+          </Button>
+        )}
+      </div>
       </div>
 
       <AnimatePresence>

@@ -122,7 +122,7 @@ export function SafetyExplainSheet({
                 variant={scoreKnown ? "default" : "secondary"}
                 onClick={onCallMaster}
               >
-                🦸 Вызвать мастера
+                🦸 Помочь с электрикой
               </Button>
             )}
             <Button className="w-full" variant="secondary" onClick={onClose}>

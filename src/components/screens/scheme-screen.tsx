@@ -394,7 +394,7 @@ function IdentifyFlowFooter({
         disabled={!onCallMaster}
         className="text-[13px] font-medium text-zinc-700 transition-colors hover:text-zinc-900 disabled:opacity-40"
       >
-        🦸 Вызвать мастера
+        🦸 Помочь с электрикой
       </button>
     </div>
   );
