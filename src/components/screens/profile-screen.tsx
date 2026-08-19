@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, Check, Phone } from "lucide-react";
+import { ArrowLeft, Check, Infinity, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { GlassCard } from "@/components/ui/glass-card";
@@ -41,9 +41,11 @@ function sameDraft(a: ProfileDraft, b: ProfileDraft): boolean {
 export function ProfileScreen({
   onBack,
   onLoggedOut,
+  panelsUnlimited = false,
 }: {
   onBack: () => void;
   onLoggedOut?: () => void;
+  panelsUnlimited?: boolean;
 }) {
   const showLogout = !isTelegramMiniApp();
   const telegram = useMemo(() => getTelegramProfileInfo(), []);
@@ -195,6 +197,22 @@ export function ProfileScreen({
             <p className="text-[13px] text-zinc-400">Укажите имя и фамилию</p>
           )}
         </div>
+
+        {panelsUnlimited && (
+          <GlassCard className="flex gap-3 p-4">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-emerald-500/12 text-emerald-700">
+              <Infinity className="h-5 w-5" />
+            </span>
+            <div>
+              <div className="text-[15px] font-semibold text-zinc-900">
+                Безлимит на щитки
+              </div>
+              <p className="mt-1 text-[13px] leading-relaxed text-zinc-500">
+                Можно добавлять любое количество щитков — ограничение снято.
+              </p>
+            </div>
+          </GlassCard>
+        )}
 
         <GlassCard className="overflow-hidden p-0">
           <label className="block px-4 py-3">

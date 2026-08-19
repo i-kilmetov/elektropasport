@@ -92,6 +92,7 @@ import {
 } from "@/lib/manufacturer-brands";
 import {
   getTelegramStartParam,
+  isMasterReferralParam,
   isPanelShareToken,
 } from "@/lib/panel-share";
 import type {
@@ -207,7 +208,9 @@ export function AppShell() {
 
   useEffect(() => {
     const startParam = getTelegramStartParam();
-    if (readSkipOnboarding() || (startParam && isPanelShareToken(startParam))) {
+    if (isMasterReferralParam(startParam)) {
+      setScreen("become-master");
+    } else if (readSkipOnboarding() || (startParam && isPanelShareToken(startParam))) {
       setScreen("objects");
     }
     setOnboardingReady(true);
@@ -1543,6 +1546,7 @@ export function AppShell() {
           {screen === "profile" && (
             <ProfileScreen
               key="profile"
+              panelsUnlimited={Boolean(quota?.unlimited)}
               onBack={() => go("objects")}
               onLoggedOut={() => {
                 setItems([]);

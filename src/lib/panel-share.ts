@@ -50,6 +50,20 @@ export function buildPanelShareUrl(token: string): string {
 const SHARE_TEXT = "Щиток в Щиттоке";
 export const INVITE_SHARE_TEXT = "Приглашаю в Щитток";
 
+export const MASTER_REFERRAL_PARAM = "master";
+export const MASTER_REFERRAL_SHARE_TEXT =
+  "Вас посоветовали как электрика для Щиттока. Откройте заявку и расскажите о себе — рассмотрим сотрудничество.";
+
+export function isMasterReferralParam(
+  value: string | null | undefined,
+): boolean {
+  return value === MASTER_REFERRAL_PARAM;
+}
+
+export function buildMasterReferralUrl(): string {
+  return buildPanelShareUrl(MASTER_REFERRAL_PARAM);
+}
+
 export async function shareViaNative(
   url: string,
   text = SHARE_TEXT,

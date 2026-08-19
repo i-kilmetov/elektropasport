@@ -13,6 +13,12 @@ import {
 import { BrandLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
+import { hapticNotification } from "@/lib/haptics";
+import {
+  buildMasterReferralUrl,
+  MASTER_REFERRAL_SHARE_TEXT,
+  shareViaTelegram,
+} from "@/lib/panel-share";
 import { cn } from "@/lib/utils";
 
 const workTypes = [
@@ -171,6 +177,21 @@ export function BecomeMasterScreen({
         <Button className="w-full" size="lg" onClick={onConfirm}>
           Отправить заявку
         </Button>
+        <button
+          type="button"
+          onClick={() => {
+            void shareViaTelegram(
+              buildMasterReferralUrl(),
+              MASTER_REFERRAL_SHARE_TEXT,
+            ).catch((error) => {
+              console.error(error);
+              hapticNotification("error");
+            });
+          }}
+          className="w-full text-center text-[15px] font-medium text-zinc-500 underline decoration-zinc-300 underline-offset-4 transition-colors hover:text-zinc-800"
+        >
+          Знаете хорошего электрика? Посоветуйте нам
+        </button>
         <Button className="w-full" variant="secondary" onClick={onBack}>
           Не сейчас
         </Button>
