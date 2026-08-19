@@ -18,8 +18,8 @@ export const metadata: Metadata = {
     title: "Щитток",
   },
   icons: {
-    icon: "/logo.png",
-    apple: "/logo.png",
+    icon: "/logo-icon.png",
+    apple: "/logo-icon.png",
   },
 };
 

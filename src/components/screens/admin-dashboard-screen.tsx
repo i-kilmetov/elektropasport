@@ -14,6 +14,7 @@ import {
   Wrench,
   Zap,
 } from "lucide-react";
+import { BrandLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
 import type { AdminDashboardData } from "@/lib/admin-db";
@@ -150,10 +151,8 @@ export function AdminDashboardScreen({ onBack }: { onBack: () => void }) {
                 <ArrowLeft className="h-5 w-5" />
               </button>
               <div>
-                <div className="text-[11px] uppercase tracking-[0.16em] text-white/45">
-                  Щитток
-                </div>
-                <h1 className="text-[20px] font-semibold">Админка</h1>
+                <BrandLogo className="h-9" onDark />
+                <h1 className="mt-2 text-[20px] font-semibold">Админка</h1>
               </div>
             </div>
             <button

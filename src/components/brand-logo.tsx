@@ -2,21 +2,30 @@ import { cn } from "@/lib/utils";
 
 export function BrandLogo({
   className,
-  imgClassName,
-  alt = "Щитток",
+  onDark = false,
 }: {
   className?: string;
-  imgClassName?: string;
-  alt?: string;
+  onDark?: boolean;
 }) {
   return (
-    <div className={cn("aspect-[111/96] overflow-hidden bg-black", className)}>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src="/logo.png"
-        alt={alt}
-        className={cn("h-full w-full object-contain", imgClassName)}
-      />
-    </div>
+    <span
+      role="img"
+      aria-label="Щитток"
+      className={cn(
+        "inline-block aspect-[111/96] shrink-0 bg-current",
+        onDark ? "text-white" : "text-zinc-950",
+        className,
+      )}
+      style={{
+        WebkitMaskImage: "url(/logo.png)",
+        maskImage: "url(/logo.png)",
+        WebkitMaskRepeat: "no-repeat",
+        maskRepeat: "no-repeat",
+        WebkitMaskPosition: "center",
+        maskPosition: "center",
+        WebkitMaskSize: "contain",
+        maskSize: "contain",
+      }}
+    />
   );
 }

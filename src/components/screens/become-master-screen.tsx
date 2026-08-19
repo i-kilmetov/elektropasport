@@ -84,7 +84,7 @@ export function BecomeMasterScreen({
       <div className="flex-1 space-y-4 overflow-y-auto pb-4">
         <GlassCard className="overflow-hidden p-0">
           <div className="bg-gradient-to-br from-zinc-900 to-zinc-800 px-5 py-6 text-white">
-            <BrandLogo className="mb-4 h-16 rounded-[14px]" />
+            <BrandLogo className="mb-4 h-16" onDark />
             <h2 className="text-[24px] font-bold tracking-tight">
               Присоединяйтесь к команде Щиттока
             </h2>

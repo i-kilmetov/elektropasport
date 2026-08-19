@@ -99,7 +99,7 @@ export function MainMenuSheet({
           className="mx-auto w-full max-w-[430px] rounded-t-[28px] border border-black/8 bg-white p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-2xl lg:max-w-md lg:rounded-[28px]"
         >
           <div className="mb-4 flex items-center justify-between gap-3">
-            <BrandLogo className="h-12 shrink-0 rounded-[12px]" />
+            <BrandLogo className="h-12" />
             <button
               type="button"
               onClick={onClose}
