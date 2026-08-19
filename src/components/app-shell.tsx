@@ -150,7 +150,7 @@ export function AppShell() {
   const [railCount, setRailCount] = useState<number | null>(null);
   const [retakePanelId, setRetakePanelId] = useState<string | null>(null);
   const [pendingAuthAction, setPendingAuthAction] = useState<
-    "add-panel" | "no-panel" | "call-master" | null
+    "add-panel" | "no-panel" | "call-master" | "help-electrical" | null
   >(null);
   const [leadBackScreen, setLeadBackScreen] = useState<AppScreen>(
     "panel-advantages",
@@ -265,6 +265,7 @@ export function AppShell() {
       | "add-panel"
       | "no-panel"
       | "call-master"
+      | "help-electrical"
       | null;
     if (!pending || !canUseServerAuth()) return;
 
@@ -274,7 +275,7 @@ export function AppShell() {
       setScreen("photo");
     } else if (pending === "no-panel") {
       setScreen("no-panel-options");
-    } else if (pending === "call-master") {
+    } else if (pending === "call-master" || pending === "help-electrical") {
       setLeadFlow("install");
       setElectricalDetails(null);
       setRequestNeedId(null);
@@ -282,7 +283,8 @@ export function AppShell() {
       setSelectedCity(null);
       setSelectedAddress(null);
       setSelectedLeadService(null);
-      setLeadBackScreen("scheme");
+      setLeadBackScreen(pending === "help-electrical" ? "objects" : "scheme");
+      if (pending === "help-electrical") setLeadPanelModules(null);
       setScreen("city-select");
     }
   }, []);
@@ -349,6 +351,24 @@ export function AppShell() {
       return;
     }
     setPendingAuthAction(action);
+    go("telegram-auth");
+  }, [go]);
+
+  const startHelpElectrical = useCallback(() => {
+    setLeadFlow("install");
+    setElectricalDetails(null);
+    setSelectedCity(null);
+    setSelectedAddress(null);
+    setSelectedLeadService(null);
+    setRequestNeedId(null);
+    setNoPanelSetupId(null);
+    setLeadPanelModules(null);
+    setLeadBackScreen("objects");
+    if (canUseServerAuth()) {
+      go("city-select");
+      return;
+    }
+    setPendingAuthAction("help-electrical");
     go("telegram-auth");
   }, [go]);
 
@@ -1225,6 +1245,7 @@ export function AppShell() {
               onDeleteItem={deleteHomeItem}
               onRenameItem={renameHomeItem}
               onNoPanel={() => requireTelegramAuth("no-panel")}
+              onHelpElectrical={startHelpElectrical}
               onPanelLimit={openPanelLimit}
               isMaster={isMaster}
               isAdmin={isAdmin}

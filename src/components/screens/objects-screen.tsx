@@ -250,6 +250,7 @@ export function ObjectsScreen({
   onDeleteItem,
   onRenameItem,
   onNoPanel,
+  onHelpElectrical,
   onMenuSelect,
   onPanelLimit,
   menuOpen = false,
@@ -268,6 +269,7 @@ export function ObjectsScreen({
   onDeleteItem: (id: string) => void;
   onRenameItem: (id: string, name: string) => void;
   onNoPanel: () => void;
+  onHelpElectrical: () => void;
   onMenuSelect: (id: MainMenuId) => void;
   onPanelLimit?: () => void;
   menuOpen?: boolean;
@@ -553,7 +555,7 @@ export function ObjectsScreen({
                 </Button>
               </>
             ) : (
-              <Button className="h-11 px-5" onClick={onNoPanel}>
+              <Button className="h-11 px-5" onClick={onHelpElectrical}>
                 Помочь с электрикой
               </Button>
             )}
@@ -639,7 +641,7 @@ export function ObjectsScreen({
             </button>
           </div>
         ) : (
-          <Button className="w-full" onClick={onNoPanel}>
+          <Button className="w-full" onClick={onHelpElectrical}>
             Помочь с электрикой
           </Button>
         )}

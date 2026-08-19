@@ -206,7 +206,7 @@ export function PanelDeviceGuideSection({
                       onClick={onCallMaster}
                       className="mt-2.5 block text-[13px] font-semibold text-amber-950 underline decoration-amber-800/40 underline-offset-2"
                     >
-                      🦸 Помочь с электрикой
+                      ⚡ Помочь с электрикой
                     </button>
                   )}
                 </div>

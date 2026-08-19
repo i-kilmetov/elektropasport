@@ -394,7 +394,7 @@ function IdentifyFlowFooter({
         disabled={!onCallMaster}
         className="text-[13px] font-medium text-zinc-700 transition-colors hover:text-zinc-900 disabled:opacity-40"
       >
-        🦸 Помочь с электрикой
+        ⚡ Помочь с электрикой
       </button>
     </div>
   );
@@ -2124,17 +2124,6 @@ export function SchemeScreen({
                     className="flex w-full items-center gap-2 px-4 py-3 text-left text-[15px] text-zinc-900 hover:bg-zinc-50"
                     onClick={() => {
                       setMenuOpen(false);
-                      openStickers();
-                    }}
-                  >
-                    <StickerBadgeIcon className="h-4 w-4 text-zinc-600" />
-                    Стикеры в щиток
-                  </button>
-                  <button
-                    type="button"
-                    className="flex w-full items-center gap-2 px-4 py-3 text-left text-[15px] text-zinc-900 hover:bg-zinc-50"
-                    onClick={() => {
-                      setMenuOpen(false);
                       void (async () => {
                         const url = await onShare?.();
                         if (url) setShareUrl(url);
@@ -2201,7 +2190,7 @@ export function SchemeScreen({
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto lg:pb-8">
-      <div className="flex flex-col lg:flex-row lg:items-start lg:gap-6 lg:px-10">
+      <div className="flex min-h-full flex-col lg:flex-row lg:items-start lg:gap-6 lg:px-10">
       {tab === "scheme" ? (
         <div className="px-5 pb-4 lg:min-w-0 lg:flex-1 lg:px-0">
           <div className={cn("overflow-x-auto", showTerminals && "overflow-y-visible")}>
@@ -2329,11 +2318,10 @@ export function SchemeScreen({
       <aside className="hidden w-[340px] shrink-0 flex-col gap-3 px-5 pb-4 lg:flex lg:px-0 lg:pb-0">
         {networkSafetyCards}
       </aside>
+      <div className="mt-auto grid grid-cols-2 gap-3 px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-4 lg:hidden">
+        {networkSafetyCards}
       </div>
       </div>
-
-      <div className="border-t border-black/[0.06] bg-white/95 px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-4 backdrop-blur-xl lg:hidden">
-        <div className="grid grid-cols-2 gap-3">{networkSafetyCards}</div>
       </div>
 
       <AnimatePresence>

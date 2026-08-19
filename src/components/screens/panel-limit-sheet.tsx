@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { UserPlus, X } from "lucide-react";
+import { Heart, Infinity, UserPlus, X, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Portal } from "@/components/ui/portal";
 import { ShareSheet } from "@/components/ui/share-sheet";
@@ -18,6 +18,21 @@ function formatEventDate(value: string): string {
     month: "short",
   });
 }
+
+const points = [
+  {
+    icon: Zap,
+    text: "Каждому пользователю доступно добавление одного щитка.",
+  },
+  {
+    icon: Infinity,
+    text: "Чтобы снять ограничения и добавлять любое количество щитков, пригласите хотя бы одного человека.",
+  },
+  {
+    icon: Heart,
+    text: "Этот сервис будет полезен каждому. Смело приглашайте своих родных и близких.",
+  },
+] as const;
 
 export function PanelLimitSheet({
   quota,
@@ -66,14 +81,18 @@ export function PanelLimitSheet({
             </button>
           </div>
 
-          <p className="text-[15px] leading-relaxed text-zinc-600">
-            Один щиток можно добавить сразу. Чтобы хранить сколько угодно,
-            пригласите хотя бы одного человека — лимит снимется полностью.
-          </p>
-          <p className="mt-3 text-[15px] leading-relaxed text-zinc-600">
-            Сервис полезен каждому: по фото понятно, что в щитке и как он
-            работает. Приглашая людей, вы в первую очередь помогаете им.
-          </p>
+          <ul className="space-y-3">
+            {points.map((point) => (
+              <li key={point.text} className="flex gap-3">
+                <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] bg-zinc-100 text-zinc-700">
+                  <point.icon className="h-4 w-4" />
+                </span>
+                <p className="pt-1 text-[15px] leading-relaxed text-zinc-600">
+                  {point.text}
+                </p>
+              </li>
+            ))}
+          </ul>
 
           {canInvite && (
             <Button className="mt-5 w-full" onClick={() => setShareOpen(true)}>
