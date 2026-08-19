@@ -152,7 +152,8 @@ export type AppScreen =
   | "telegram-auth"
   | "master-search"
   | "master-success"
-  | "master-not-found";
+  | "master-not-found"
+  | "admin";
 
 export type LeadFlow = "install" | "master";
 

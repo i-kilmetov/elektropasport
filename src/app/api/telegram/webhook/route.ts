@@ -4,10 +4,9 @@ import {
   getInstallRequestById,
   setUserRole,
   acceptInstallRequest,
-  saveDispatchMessage,
   getDispatchMessages,
-  getRequestAcceptedMaster,
 } from "@/lib/db";
+import { isPlatformAdmin } from "@/lib/admin";
 import {
   answerCallbackQuery,
   editMessageText,
@@ -31,12 +30,6 @@ type TelegramUpdate = {
     };
   };
 };
-
-function isAdmin(userId: number | undefined): boolean {
-  const admin = process.env.TELEGRAM_ADMIN_CHAT_ID?.trim();
-  if (!admin || userId == null) return false;
-  return String(userId) === admin;
-}
 
 function verifySecret(request: Request): boolean {
   const expected = process.env.TELEGRAM_WEBHOOK_SECRET?.trim();
@@ -63,7 +56,7 @@ export async function POST(request: Request) {
     // ── Admin: approve master ──
     const approveMaster = parseApproveMasterCallback(data);
     if (approveMaster) {
-      if (!isAdmin(callback.from?.id)) {
+      if (!(await isPlatformAdmin(callback.from?.id ?? 0))) {
         await answerCallbackQuery(callback.id, "Недостаточно прав");
         return Response.json({ ok: true });
       }
@@ -139,7 +132,7 @@ export async function POST(request: Request) {
     }
 
     // ── Admin: status change ──
-    if (!isAdmin(callback.from?.id)) {
+    if (!(await isPlatformAdmin(callback.from?.id ?? 0))) {
       await answerCallbackQuery(callback.id, "Недостаточно прав");
       return Response.json({ ok: true });
     }

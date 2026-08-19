@@ -552,6 +552,69 @@ export async function persistMasterApplication(payload: {
   }
 }
 
+export async function fetchIsAdmin(): Promise<boolean> {
+  if (!canUseServer()) return false;
+  const res = await fetch("/api/admin/me", {
+    headers: authHeaders(),
+    cache: "no-store",
+  });
+  if (!res.ok) return false;
+  const data = (await res.json()) as { isAdmin?: boolean };
+  return Boolean(data.isAdmin);
+}
+
+export async function fetchAdminDashboard(): Promise<
+  import("@/lib/admin-db").AdminDashboardData
+> {
+  const res = await fetch("/api/admin/dashboard", {
+    headers: authHeaders(),
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return (await res.json()) as import("@/lib/admin-db").AdminDashboardData;
+}
+
+export async function adminAddAdmin(telegramId: number): Promise<void> {
+  const res = await fetch("/api/admin/admins", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ telegramId }),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+}
+
+export async function adminRemoveAdmin(telegramId: number): Promise<void> {
+  const res = await fetch(`/api/admin/admins/${telegramId}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+}
+
+export async function adminSetRole(
+  telegramId: number,
+  role: "user" | "master",
+): Promise<void> {
+  const res = await fetch(`/api/admin/users/${telegramId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ role }),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+}
+
+export async function adminSetRequestStatus(
+  requestId: string,
+  status: "new" | "in_progress" | "done" | "cancelled",
+): Promise<void> {
+  const res = await fetch(`/api/admin/requests/${encodeURIComponent(requestId)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ status }),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+}
+
 /* ───── Master system ───── */
 
 export type MasterProfileData = {

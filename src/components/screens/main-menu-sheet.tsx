@@ -6,6 +6,7 @@ import {
   Gamepad2,
   Info,
   MessageCircle,
+  Shield,
   UserRound,
   Wrench,
   X,
@@ -13,7 +14,7 @@ import {
 import { BrandLogo } from "@/components/brand-logo";
 import { Portal } from "@/components/ui/portal";
 
-export type MainMenuId = "profile" | "game" | "about" | "feedback" | "master";
+export type MainMenuId = "profile" | "game" | "about" | "feedback" | "master" | "admin";
 
 const items: Array<{
   id: MainMenuId;
@@ -51,6 +52,12 @@ const items: Array<{
     description: "Присоединиться к команде",
     icon: Wrench,
   },
+  {
+    id: "admin",
+    title: "Админка",
+    description: "Пользователи, заявки, роли",
+    icon: Shield,
+  },
 ];
 
 export const MAIN_MENU_ITEMS = items;
@@ -60,15 +67,19 @@ export function MainMenuSheet({
   onSelect,
   isMaster = false,
   onMasterMode,
+  isAdmin = false,
 }: {
   onClose: () => void;
   onSelect: (id: MainMenuId) => void;
   isMaster?: boolean;
   onMasterMode?: () => void;
+  isAdmin?: boolean;
 }) {
-  const visibleItems = isMaster
-    ? items.filter((item) => item.id !== "master")
-    : items;
+  const visibleItems = items.filter((item) => {
+    if (item.id === "master" && isMaster) return false;
+    if (item.id === "admin") return isAdmin;
+    return true;
+  });
 
   return (
     <Portal>

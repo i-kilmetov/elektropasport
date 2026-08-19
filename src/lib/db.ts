@@ -240,6 +240,10 @@ export async function ensureSchema(): Promise<void> {
         ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'user'
       `;
       await sql`
+        ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT FALSE
+      `;
+      await sql`
         ALTER TABLE install_requests
         ADD COLUMN IF NOT EXISTS master_telegram_id BIGINT
       `;

@@ -256,6 +256,7 @@ export function ObjectsScreen({
   onMenuOpenChange,
   isMaster = false,
   onMasterMode,
+  isAdmin = false,
 }: {
   items: HomeListItem[];
   loading?: boolean;
@@ -273,6 +274,7 @@ export function ObjectsScreen({
   onMenuOpenChange?: (open: boolean) => void;
   isMaster?: boolean;
   onMasterMode?: () => void;
+  isAdmin?: boolean;
 }) {
   const [page, setPage] = useState(0);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
@@ -477,7 +479,11 @@ export function ObjectsScreen({
           <BrandLogo className="h-12 w-[148px] rounded-[12px]" />
         </div>
         <nav className="space-y-1.5">
-          {MAIN_MENU_ITEMS.map((item) => (
+          {MAIN_MENU_ITEMS.filter((item) => {
+            if (item.id === "master" && isMaster) return false;
+            if (item.id === "admin") return isAdmin;
+            return true;
+          }).map((item) => (
             <button
               key={item.id}
               type="button"
@@ -662,6 +668,7 @@ export function ObjectsScreen({
             }}
             isMaster={isMaster}
             onMasterMode={onMasterMode}
+            isAdmin={isAdmin}
           />
         )}
       </AnimatePresence>

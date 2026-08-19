@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence } from "framer-motion";
+import { AdminDashboardScreen } from "@/components/screens/admin-dashboard-screen";
 import { AboutServiceScreen } from "@/components/screens/about-service-screen";
 import { AnalysisScreen } from "@/components/screens/analysis-screen";
 import { BecomeMasterScreen } from "@/components/screens/become-master-screen";
@@ -69,6 +70,7 @@ import {
 import {
   claimInviteToken,
   fetchHomeItems,
+  fetchIsAdmin,
   fetchMasterProfile,
   fetchMasterRequestPanel,
   fetchPanelQuota,
@@ -170,6 +172,7 @@ export function AppShell() {
   const [leadFlow, setLeadFlow] = useState<LeadFlow>("install");
   const [activeRuleId, setActiveRuleId] = useState<string | null>(null);
   const [isMaster, setIsMaster] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [masterMode, setMasterMode] = useState(false);
   const [searchRequestId, setSearchRequestId] = useState<string | null>(null);
   const [masterViewRequest, setMasterViewRequest] =
@@ -228,13 +231,15 @@ export function AppShell() {
           }
           await syncUserProfileFromServer();
         }
-        const [loaded, masterProfile] = await Promise.all([
+        const [loaded, masterProfile, admin] = await Promise.all([
           fetchHomeItems(),
           canUseServerAuth() ? fetchMasterProfile() : Promise.resolve(null),
+          canUseServerAuth() ? fetchIsAdmin() : Promise.resolve(false),
         ]);
         if (!cancelled) {
           setItems(loaded);
           if (masterProfile?.isMaster) setIsMaster(true);
+          setIsAdmin(Boolean(admin));
         }
         const nextQuota = await fetchPanelQuota();
         if (!cancelled) setQuota(nextQuota);
@@ -1149,12 +1154,14 @@ export function AppShell() {
     screen === "analysis" ||
     screen === "master-search" ||
     screen === "master-success" ||
-    screen === "master-not-found";
+    screen === "master-not-found" ||
+    screen === "admin";
   const wideLayout =
     screen === "objects" ||
     screen === "scheme" ||
     screen === "welcome" ||
-    screen === "photo";
+    screen === "photo" ||
+    screen === "admin";
 
   return (
     <div
@@ -1220,6 +1227,7 @@ export function AppShell() {
               onNoPanel={() => requireTelegramAuth("no-panel")}
               onPanelLimit={openPanelLimit}
               isMaster={isMaster}
+              isAdmin={isAdmin}
               onMasterMode={() => {
                 setMasterMode(true);
                 setMainMenuOpen(false);
@@ -1230,6 +1238,7 @@ export function AppShell() {
                 if (id === "about") go("about-service");
                 if (id === "feedback") go("feedback");
                 if (id === "master") go("become-master");
+                if (id === "admin") go("admin");
               }}
             />
           )}
@@ -1579,6 +1588,12 @@ export function AppShell() {
                 setSearchRequestId(null);
                 go("objects");
               }}
+            />
+          )}
+          {screen === "admin" && (
+            <AdminDashboardScreen
+              key="admin"
+              onBack={() => go("objects")}
             />
           )}
           {screen === "become-master" && (

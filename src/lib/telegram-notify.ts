@@ -1,17 +1,36 @@
 import type { InstallRequest, InstallRequestStatus } from "@/types";
 import { installStatusLabels } from "@/types";
 import { getBotToken } from "@/lib/telegram-auth";
+import { listAdminTelegramIds, ownerAdminTelegramId } from "@/lib/admin";
 
 type InlineKeyboard = {
   inline_keyboard: Array<Array<{ text: string; callback_data: string }>>;
 };
 
 function adminChatId(): string | null {
-  const raw = process.env.TELEGRAM_ADMIN_CHAT_ID?.trim();
-  if (!raw) return null;
-  // Allow pasting values like "Id: 123456789" from @userinfobot
-  const digits = raw.replace(/[^\d-]/g, "");
-  return digits || null;
+  const id = ownerAdminTelegramId();
+  return id != null ? String(id) : null;
+}
+
+async function sendToAdmins(
+  body: Record<string, unknown>,
+): Promise<void> {
+  const ids = await listAdminTelegramIds();
+  if (ids.length === 0) {
+    console.warn("No admin chat ids — skip notification");
+    return;
+  }
+  let lastError: string | null = null;
+  for (const chatId of ids) {
+    const result = await telegramApi("sendMessage", {
+      ...body,
+      chat_id: chatId,
+    });
+    if (!result.ok) lastError = result.error;
+  }
+  if (lastError && ids.length === 1) {
+    throw new Error(lastError);
+  }
 }
 
 type TelegramApiResult<T> =
@@ -129,14 +148,7 @@ async function sendAdminInstallRequestMessage(params: {
   };
   withStatusKeyboard: boolean;
 }): Promise<void> {
-  const chatId = adminChatId();
-  if (!chatId) {
-    console.warn("TELEGRAM_ADMIN_CHAT_ID not set — skip lead notification");
-    return;
-  }
-
-  const result = await telegramApi("sendMessage", {
-    chat_id: Number(chatId),
+  await sendToAdmins({
     text: formatInstallRequestMessage(
       params.request,
       params.customerTelegramId,
@@ -147,9 +159,6 @@ async function sendAdminInstallRequestMessage(params: {
       : undefined,
     disable_web_page_preview: true,
   });
-  if (!result.ok) {
-    throw new Error(result.error);
-  }
 }
 
 export async function sendTelegramUserMessage(
@@ -240,9 +249,6 @@ export async function notifyAdminMasterApplication(payload: {
   name: string;
   customerTelegramId: number;
 }): Promise<void> {
-  const chatId = adminChatId();
-  if (!chatId) return;
-
   const contact =
     payload.contactMethod === "telegram"
       ? `Telegram · ${payload.name}`
@@ -250,8 +256,7 @@ export async function notifyAdminMasterApplication(payload: {
 
   const about = payload.about?.trim();
 
-  const result = await telegramApi("sendMessage", {
-    chat_id: Number(chatId),
+  await sendToAdmins({
     text: [
       "🛠️ Заявка «Стать мастером»",
       "",
@@ -270,9 +275,6 @@ export async function notifyAdminMasterApplication(payload: {
     },
     disable_web_page_preview: true,
   });
-  if (!result.ok) {
-    throw new Error(result.error);
-  }
 }
 
 /** Send a request to all master Telegram chats with Accept button. */
@@ -419,16 +421,14 @@ export async function notifyAdminFeedback(payload: {
   username?: string;
   customerTelegramId: number;
 }): Promise<void> {
-  const chatId = adminChatId();
-  if (!chatId) {
+  if ((await listAdminTelegramIds()).length === 0) {
     throw new Error("TELEGRAM_ADMIN_CHAT_ID не настроен");
   }
 
   const topicLabel =
     FEEDBACK_TOPIC_LABELS[payload.topic] ?? FEEDBACK_TOPIC_LABELS.other;
 
-  const result = await telegramApi("sendMessage", {
-    chat_id: Number(chatId),
+  await sendToAdmins({
     text: [
       "💬 Обратная связь",
       "",
@@ -443,9 +443,6 @@ export async function notifyAdminFeedback(payload: {
       .join("\n"),
     disable_web_page_preview: true,
   });
-  if (!result.ok) {
-    throw new Error(result.error);
-  }
 }
 
 export async function notifyAdminFeedbackAttachment(payload: {
