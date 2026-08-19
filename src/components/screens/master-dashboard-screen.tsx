@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowLeftRight,
@@ -26,11 +26,9 @@ const FEEDBACK_DELAY_MS = 5 * 60 * 1000;
 export function MasterDashboardScreen({
   onSwitchToUser,
   onOpenRequest,
-  onOpenPanel,
-  onAdd,
 }: {
   onSwitchToUser: () => void;
-  onOpenRequest: (id: string) => void;
+  onOpenRequest: (request: InstallRequest) => void;
   onOpenPanel: (panelId: string) => void;
   onAdd: () => void;
 }) {
@@ -144,7 +142,7 @@ export function MasterDashboardScreen({
               <button
                 key={req.id}
                 type="button"
-                onClick={() => onOpenRequest(req.id)}
+                onClick={() => onOpenRequest(req)}
                 className="w-full text-left"
               >
                 <GlassCard className="flex items-center gap-3 p-3">

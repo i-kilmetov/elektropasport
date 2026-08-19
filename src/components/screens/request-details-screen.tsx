@@ -175,6 +175,7 @@ export function RequestDetailsScreen({
   onDelete,
   onUpdate,
   onOpenPanel,
+  readOnly = false,
 }: {
   request: InstallRequest;
   onBack: () => void;
@@ -186,6 +187,7 @@ export function RequestDetailsScreen({
     >,
   ) => void;
   onOpenPanel?: (panelId: string) => void;
+  readOnly?: boolean;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
@@ -258,6 +260,9 @@ export function RequestDetailsScreen({
         <h1 className="flex-1 truncate text-center text-[20px] font-semibold text-zinc-900">
           {request.publicCode ?? "Детали заявки"}
         </h1>
+        {readOnly ? (
+          <div className="h-11 w-11" />
+        ) : (
         <div className="relative">
           <button
             type="button"
@@ -301,6 +306,7 @@ export function RequestDetailsScreen({
             )}
           </AnimatePresence>
         </div>
+        )}
       </header>
 
       <p className="mb-4 text-center text-[13px] leading-relaxed text-zinc-500">
@@ -311,7 +317,7 @@ export function RequestDetailsScreen({
       <div className="flex-1 space-y-3 overflow-y-auto pb-4">
         <GlassCard className="p-4">
           <StatusProgress status={request.status} />
-          {request.status === "cancelled" && (
+          {request.status === "cancelled" && !readOnly && (
             <Button
               className="mt-4 w-full"
               variant="secondary"
@@ -327,7 +333,7 @@ export function RequestDetailsScreen({
           )}
         </GlassCard>
 
-        {request.status === "new" && (
+        {request.status === "new" && !readOnly && (
           <GlassCard className="space-y-3 p-4">
             <div className="flex items-start gap-2">
               <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-zinc-400" />

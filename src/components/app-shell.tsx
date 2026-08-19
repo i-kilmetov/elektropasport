@@ -171,6 +171,8 @@ export function AppShell() {
   const [isMaster, setIsMaster] = useState(false);
   const [masterMode, setMasterMode] = useState(false);
   const [searchRequestId, setSearchRequestId] = useState<string | null>(null);
+  const [masterViewRequest, setMasterViewRequest] =
+    useState<InstallRequest | null>(null);
   const [foundMaster, setFoundMaster] = useState<{
     firstName: string;
     phone: string;
@@ -292,11 +294,13 @@ export function AppShell() {
 
   const activeRequest = useMemo(
     () =>
-      items.find(
-        (item): item is InstallRequest =>
-          item.kind === "install_request" && item.id === activeRequestId,
-      ) ?? null,
-    [items, activeRequestId],
+      masterViewRequest?.id === activeRequestId
+        ? masterViewRequest
+        : items.find(
+            (item): item is InstallRequest =>
+              item.kind === "install_request" && item.id === activeRequestId,
+          ) ?? null,
+    [items, activeRequestId, masterViewRequest],
   );
 
   const installSetupTitle = useMemo(() => {
@@ -1150,8 +1154,9 @@ export function AppShell() {
             <MasterDashboardScreen
               key="master-dashboard"
               onSwitchToUser={() => setMasterMode(false)}
-              onOpenRequest={(id) => {
-                setActiveRequestId(id);
+              onOpenRequest={(request) => {
+                setMasterViewRequest(request);
+                setActiveRequestId(request.id);
                 go("request-details");
               }}
               onOpenPanel={(panelId) => openPanel(panelId)}
@@ -1170,6 +1175,7 @@ export function AppShell() {
               onAdd={() => requireTelegramAuth("add-panel")}
               onOpenPanel={openPanel}
               onOpenRequest={(id) => {
+                setMasterViewRequest(null);
                 setActiveRequestId(id);
                 go("request-details");
               }}
@@ -1433,11 +1439,19 @@ export function AppShell() {
             <RequestDetailsScreen
               key={`request-${activeRequest.id}`}
               request={activeRequest}
-              onBack={() => go("objects")}
+              readOnly={Boolean(masterViewRequest)}
+              onBack={() => {
+                setMasterViewRequest(null);
+                go("objects");
+              }}
               onRename={renameRequest}
               onDelete={deleteRequest}
               onUpdate={updateRequest}
-              onOpenPanel={(panelId) => openPanel(panelId)}
+              onOpenPanel={
+                masterViewRequest
+                  ? undefined
+                  : (panelId) => openPanel(panelId)
+              }
             />
           )}
           {screen === "profile" && (
