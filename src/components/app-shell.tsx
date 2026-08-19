@@ -289,6 +289,11 @@ export function AppShell() {
     }
   }, []);
 
+  const localPanelCount = useMemo(
+    () => items.filter((item) => item.kind === "panel").length,
+    [items],
+  );
+
   const activePanel = useMemo(
     () =>
       sharedPreview?.panel ??
@@ -341,6 +346,10 @@ export function AppShell() {
   }, [go]);
 
   const requireTelegramAuth = useCallback((action: "add-panel" | "no-panel") => {
+    if (action === "add-panel" && isAtPanelLimit(quota, localPanelCount)) {
+      openPanelLimit();
+      return;
+    }
     if (canUseServerAuth()) {
       if (action === "add-panel") {
         setPhotoDataUrl(null);
@@ -352,7 +361,7 @@ export function AppShell() {
     }
     setPendingAuthAction(action);
     go("telegram-auth");
-  }, [go]);
+  }, [go, localPanelCount, openPanelLimit, quota]);
 
   const startHelpElectrical = useCallback(() => {
     setLeadFlow("install");
@@ -429,7 +438,7 @@ export function AppShell() {
         return;
       }
 
-      if (isAtPanelLimit(quota)) {
+      if (isAtPanelLimit(quota, localPanelCount)) {
         setScreen("objects");
         openPanelLimit();
         return;
@@ -479,7 +488,7 @@ export function AppShell() {
       setScreen("scheme");
       void refreshQuota();
     },
-    [items, openPanelLimit, photoDataUrl, quota, refreshQuota, retakePanelId],
+    [items, localPanelCount, openPanelLimit, photoDataUrl, quota, refreshQuota, retakePanelId],
   );
 
   const openPanel = useCallback(
@@ -613,7 +622,7 @@ export function AppShell() {
       go("objects");
       return;
     }
-    if (isAtPanelLimit(quota)) {
+    if (isAtPanelLimit(quota, localPanelCount)) {
       go("objects");
       openPanelLimit();
       return;
@@ -647,7 +656,7 @@ export function AppShell() {
     hapticNotification("success");
     go("objects");
     void refreshQuota();
-  }, [go, openPanelLimit, quota, refreshQuota, sharedPreview]);
+  }, [go, localPanelCount, openPanelLimit, quota, refreshQuota, sharedPreview]);
 
   const shareActivePanel = useCallback(async () => {
     const panelId = activePanelId ?? sharedPreview?.panel.id;

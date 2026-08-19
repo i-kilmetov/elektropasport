@@ -188,10 +188,13 @@ export async function persistPanel(panel: PanelObject): Promise<void> {
   return enqueuePanelOp(panel.id, async () => {
     const already = readLocalItems().some((item) => item.id === panel.id);
     if (!already) {
+      const localCount = readLocalItems().filter(
+        (item) => item.kind === "panel",
+      ).length;
       const quota = canUseServer()
-        ? null
+        ? undefined
         : localPanelQuota(readLocalItems());
-      if (isAtPanelLimit(quota)) {
+      if (isAtPanelLimit(quota, localCount)) {
         const error = new Error(PANEL_LIMIT_MESSAGE);
         error.name = "PanelLimitError";
         throw error;

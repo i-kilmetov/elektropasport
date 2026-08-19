@@ -325,7 +325,7 @@ export function ObjectsScreen({
       ),
     [items],
   );
-  const atPanelLimit = isAtPanelLimit(quota);
+  const atPanelLimit = isAtPanelLimit(quota, panels.length);
 
   const pendingDelete = items.find((item) => item.id === pendingDeleteId);
   const actionsItem = items.find((item) => item.id === actionsItemId);

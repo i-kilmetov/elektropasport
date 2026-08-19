@@ -39,12 +39,15 @@ export function panelLimitForInvites(creditedInvites: number): number {
     : BASE_PANEL_LIMIT;
 }
 
-export function isAtPanelLimit(quota: PanelQuota | null | undefined): boolean {
-  if (!quota) return false;
-  if (quota.unlimited || hasUnlockedPanelLimit(quota.creditedInvites)) {
+export function isAtPanelLimit(
+  quota: PanelQuota | null | undefined,
+  localPanelCount = 0,
+): boolean {
+  if (quota?.unlimited || hasUnlockedPanelLimit(quota?.creditedInvites ?? 0)) {
     return false;
   }
-  return quota.remaining <= 0;
+  const count = Math.max(quota?.panelCount ?? 0, localPanelCount);
+  return count >= BASE_PANEL_LIMIT;
 }
 
 export function inviteeDisplayName(input: {
