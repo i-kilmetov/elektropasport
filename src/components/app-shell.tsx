@@ -64,7 +64,6 @@ import {
   ONLINE_CONSULTATION_PRICE_RUB,
   resolveRequestTypeCodeForService,
   isMoscow,
-  payableAmountRub,
   type LeadServiceType,
 } from "@/lib/lead-services";
 import {
@@ -81,7 +80,6 @@ import {
   persistPanelPatch,
   createPanelShare,
   fetchSharedPanel,
-  fetchSbpPayment,
 } from "@/lib/user-data";
 import { syncRatingFromCharacteristics } from "@/lib/device-spec-guide";
 import { deriveRailCount } from "@/lib/panel-rails";
@@ -1089,24 +1087,6 @@ export function AppShell() {
   useEffect(() => {
     const pending = readPendingInstallLead();
     if (!pending) return;
-    const due = payableAmountRub(pending);
-    if (due && pending.paymentStatus !== "confirmed") {
-      const orderId = pending.paymentOrderId;
-      if (!orderId) return;
-      void fetchSbpPayment(orderId)
-        .then((payment) => {
-          if (payment.status !== "confirmed") return;
-          void submitLeadRef.current({
-            ...pending,
-            paymentStatus: "confirmed",
-            paidAmountRub: payment.amountRub,
-            tbankPaymentId:
-              payment.tbankPaymentId ?? pending.tbankPaymentId,
-          });
-        })
-        .catch(() => undefined);
-      return;
-    }
     void submitLeadRef.current(pending);
   }, []);
 

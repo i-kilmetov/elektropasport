@@ -293,7 +293,7 @@ export async function dispatchRequestToMasters(
     addressNoApt ? `Адрес: ${addressNoApt}` : null,
     request.phases ? `Фаз: ${request.phases}` : null,
     request.powerKw ? `Мощность: ${request.powerKw} кВт` : null,
-    request.paymentStatus === "confirmed" && request.paidAmountRub
+    request.paidAmountRub
       ? `Стоимость: ${request.paidAmountRub.toLocaleString("ru-RU")} ₽`
       : null,
     "",
