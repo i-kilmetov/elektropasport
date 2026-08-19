@@ -22,6 +22,7 @@ export type PendingInstallLead = {
   paidAmountRub?: number;
   paymentOrderId?: string;
   tbankPaymentId?: string;
+  panelId?: string;
 };
 
 export function readPendingInstallLead(): PendingInstallLead | null {

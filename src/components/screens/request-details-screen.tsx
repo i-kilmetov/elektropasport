@@ -395,19 +395,27 @@ export function RequestDetailsScreen({
                 />
               ))}
             </div>
-            {request.panelId && onOpenPanel && (
-              <button
-                type="button"
-                onClick={() => onOpenPanel(request.panelId!)}
-                className="mt-3 flex w-full items-center gap-2.5 rounded-[14px] border border-black/8 bg-zinc-50 px-3 py-2.5 text-left transition-colors hover:bg-zinc-100"
-              >
-                <BreakerIcon className="h-5 w-5 text-zinc-500" />
-                <span className="text-[14px] font-medium text-zinc-700">
-                  Открыть щиток
-                </span>
-              </button>
-            )}
           </GlassCard>
+        )}
+
+        {request.panelId && onOpenPanel && (
+          <button
+            type="button"
+            onClick={() => onOpenPanel(request.panelId!)}
+            className="w-full text-left"
+          >
+            <GlassCard className="flex items-center gap-3 p-4 transition-transform active:scale-[0.99]">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[16px] bg-zinc-100 text-zinc-600">
+                <BreakerIcon className="h-6 w-6" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-[15px] font-semibold text-zinc-900">
+                  Щиток клиента
+                </div>
+                <p className="text-[13px] text-zinc-500">Открыть схему щитка</p>
+              </div>
+            </GlassCard>
+          </button>
         )}
 
         <GlassCard className="p-4">

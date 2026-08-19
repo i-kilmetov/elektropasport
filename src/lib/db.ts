@@ -744,6 +744,28 @@ export async function getPanelByOwner(
   return rows[0] ? rowToPanel(rows[0]) : null;
 }
 
+export async function getPanelForMasterRequest(
+  masterTelegramId: number,
+  requestId: string,
+): Promise<PanelObject | null> {
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT
+      panels.id, panels.type, panels.title, panels.address, panels.last_check,
+      panels.breakers, panels.safety, panels.devices, panels.lines_count,
+      panels.photo_data_url, panels.named, panels.phases, panels.power_kw,
+      panels.has_ground, panels.rail_count, panels.wires,
+      panels.source_share_token, panels.created_at
+    FROM install_requests
+    JOIN panels ON panels.id = install_requests.panel_id
+    WHERE install_requests.id = ${requestId}
+      AND install_requests.master_telegram_id = ${masterTelegramId}
+      AND install_requests.panel_id IS NOT NULL
+    LIMIT 1
+  `) as PanelRow[];
+  return rows[0] ? rowToPanel(rows[0]) : null;
+}
+
 export async function createOrGetPanelShare(
   telegramUserId: number,
   panelId: string,
@@ -865,7 +887,8 @@ export async function insertInstallRequest(
       exact_address = COALESCE(EXCLUDED.exact_address, install_requests.exact_address),
       payment_status = COALESCE(EXCLUDED.payment_status, install_requests.payment_status),
       paid_amount_rub = COALESCE(EXCLUDED.paid_amount_rub, install_requests.paid_amount_rub),
-      tbank_payment_id = COALESCE(EXCLUDED.tbank_payment_id, install_requests.tbank_payment_id)
+      tbank_payment_id = COALESCE(EXCLUDED.tbank_payment_id, install_requests.tbank_payment_id),
+      panel_id = COALESCE(EXCLUDED.panel_id, install_requests.panel_id)
   `;
   return { request, created };
 }

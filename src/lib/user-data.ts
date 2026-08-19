@@ -588,6 +588,20 @@ export async function fetchMasterRequests(): Promise<InstallRequest[]> {
   return data.requests ?? [];
 }
 
+export async function fetchMasterRequestPanel(
+  requestId: string,
+): Promise<PanelObject> {
+  const res = await fetch(
+    `/api/master/requests/${encodeURIComponent(requestId)}/panel`,
+    { headers: authHeaders(), cache: "no-store" },
+  );
+  if (!res.ok) {
+    throw new Error(await parseError(res));
+  }
+  const data = (await res.json()) as { panel: PanelObject };
+  return data.panel;
+}
+
 export async function dispatchToMasters(
   requestId: string,
 ): Promise<{ mastersCount: number }> {

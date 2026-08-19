@@ -60,6 +60,7 @@ export type LeadFinishPayload = {
   paymentStatus?: "pending" | "confirmed";
   paidAmountRub?: number;
   tbankPaymentId?: string;
+  panelId?: string;
 };
 
 function resolveEstimatedPriceRub(
@@ -80,6 +81,7 @@ export function LeadContactScreen({
   serviceType,
   panelModules,
   typeCode = "U",
+  panelId,
 }: {
   onBack: () => void;
   onFinish: (payload: LeadFinishPayload) => void | Promise<void>;
@@ -91,6 +93,7 @@ export function LeadContactScreen({
   serviceType?: LeadServiceType;
   panelModules?: number;
   typeCode?: RequestTypeCode;
+  panelId?: string;
 }) {
   const [step, setStep] = useState<Step>("contact");
   const [digits, setDigits] = useState(
@@ -204,6 +207,7 @@ export function LeadContactScreen({
         setupTitle: resolvedSetupTitle,
         publicCode: code,
         paidAmountRub: estimatedPriceRub ?? undefined,
+        panelId,
       };
       pendingRef.current = draft;
       writePendingInstallLead(draft);

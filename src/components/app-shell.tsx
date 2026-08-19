@@ -70,6 +70,7 @@ import {
   claimInviteToken,
   fetchHomeItems,
   fetchMasterProfile,
+  fetchMasterRequestPanel,
   fetchPanelQuota,
   persistDeleteInstallRequest,
   persistDeletePanel,
@@ -550,6 +551,36 @@ export function AppShell() {
       }
     },
     [items, showPanel],
+  );
+
+  const openMasterLinkedPanel = useCallback(
+    async (requestId: string) => {
+      try {
+        const panel = await fetchMasterRequestPanel(requestId);
+        setSharedPreview({ panel, token: "" });
+        setActivePanelId(null);
+        setAskNameOnBack(false);
+        setPhotoDataUrl(null);
+        setDevices(panel.devices ?? null);
+        setSafetyScore(
+          panel.phases &&
+            panel.powerKw?.trim() &&
+            typeof panel.safety === "number"
+            ? panel.safety
+            : null,
+        );
+        setLinesCount(panel.linesCount ?? null);
+        setRailCount(panelRailCount(panel));
+        go("scheme");
+      } catch (error) {
+        setItemsError(
+          error instanceof Error
+            ? error.message
+            : "Не удалось открыть щиток клиента",
+        );
+      }
+    },
+    [go],
   );
 
   const saveSharedPanel = useCallback(() => {
@@ -1048,7 +1079,9 @@ export function AppShell() {
         paymentStatus: payload.paymentStatus,
         paidAmountRub: payload.paidAmountRub,
         tbankPaymentId: payload.tbankPaymentId,
-        panelId: leadBackScreen === "scheme" ? activePanelId ?? undefined : undefined,
+        panelId:
+          payload.panelId ??
+          (leadBackScreen === "scheme" ? activePanelId ?? undefined : undefined),
       };
 
       setItems((prev) => {
@@ -1159,8 +1192,11 @@ export function AppShell() {
                 setActiveRequestId(request.id);
                 go("request-details");
               }}
-              onOpenPanel={(panelId) => openPanel(panelId)}
-              onAdd={() => requireTelegramAuth("add-panel")}
+              onOpenPanel={(request) => {
+                setMasterViewRequest(request);
+                setActiveRequestId(request.id);
+                void openMasterLinkedPanel(request.id);
+              }}
             />
           )}
           {screen === "objects" && !masterMode && (
@@ -1250,9 +1286,13 @@ export function AppShell() {
               sharedPreview={Boolean(sharedPreview)}
               onBack={() => {
                 setSharedPreview(null);
-                go("objects");
+                go(masterViewRequest ? "request-details" : "objects");
               }}
-              onSaveShared={saveSharedPanel}
+              onSaveShared={
+                sharedPreview && !sharedPreview.token
+                  ? undefined
+                  : saveSharedPanel
+              }
               onShare={shareActivePanel}
               onRename={renamePanel}
               onDelete={deletePanel}
@@ -1411,6 +1451,9 @@ export function AppShell() {
               serviceType={selectedLeadService ?? undefined}
               panelModules={leadPanelModules ?? undefined}
               setupTitle={installSetupTitle}
+              panelId={
+                leadBackScreen === "scheme" ? activePanelId ?? undefined : undefined
+              }
               typeCode={
                 selectedLeadService
                   ? resolveRequestTypeCodeForService(selectedLeadService)
@@ -1449,7 +1492,11 @@ export function AppShell() {
               onUpdate={updateRequest}
               onOpenPanel={
                 masterViewRequest
-                  ? undefined
+                  ? () => {
+                      if (masterViewRequest.panelId) {
+                        void openMasterLinkedPanel(masterViewRequest.id);
+                      }
+                    }
                   : (panelId) => openPanel(panelId)
               }
             />

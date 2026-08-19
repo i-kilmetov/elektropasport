@@ -1877,6 +1877,10 @@ export function SchemeScreen({
 
   const handleBack = () => {
     if (sharedPreview) {
+      if (!onSaveShared) {
+        onBack();
+        return;
+      }
       setSaveSharedOpen(true);
       return;
     }

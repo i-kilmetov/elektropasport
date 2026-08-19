@@ -26,11 +26,11 @@ const FEEDBACK_DELAY_MS = 5 * 60 * 1000;
 export function MasterDashboardScreen({
   onSwitchToUser,
   onOpenRequest,
+  onOpenPanel,
 }: {
   onSwitchToUser: () => void;
   onOpenRequest: (request: InstallRequest) => void;
-  onOpenPanel: (panelId: string) => void;
-  onAdd: () => void;
+  onOpenPanel: (request: InstallRequest) => void;
 }) {
   const [profile, setProfile] = useState<MasterProfileData | null>(null);
   const [requests, setRequests] = useState<InstallRequest[]>([]);
@@ -139,40 +139,44 @@ export function MasterDashboardScreen({
         ) : (
           <div className="space-y-3">
             {requests.map((req) => (
-              <button
-                key={req.id}
-                type="button"
-                onClick={() => onOpenRequest(req)}
-                className="w-full text-left"
-              >
-                <GlassCard className="flex items-center gap-3 p-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] bg-zinc-100 text-zinc-500">
-                    {req.panelId ? (
-                      <BreakerIcon className="h-5 w-5" />
-                    ) : (
-                      <ClipboardList className="h-5 w-5" />
-                    )}
+              <GlassCard key={req.id} className="flex items-center gap-2 p-2 pr-3">
+                {req.panelId ? (
+                  <button
+                    type="button"
+                    onClick={() => onOpenPanel(req)}
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] bg-zinc-100 text-zinc-600"
+                    aria-label="Открыть щиток клиента"
+                  >
+                    <BreakerIcon className="h-6 w-6" />
+                  </button>
+                ) : (
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] bg-zinc-100 text-zinc-500">
+                    <ClipboardList className="h-5 w-5" />
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="mb-0.5 flex items-center justify-between gap-2">
-                      <span className="truncate text-[15px] font-semibold text-zinc-900">
-                        {req.publicCode ?? req.title}
-                      </span>
-                      <span
-                        className={cn(
-                          "shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium",
-                          installStatusTone(req.status).badge,
-                        )}
-                      >
-                        {req.statusLabel}
-                      </span>
-                    </div>
-                    <p className="truncate text-[13px] text-zinc-500">
-                      {req.exactAddress ?? req.city ?? "—"}
-                    </p>
+                )}
+                <button
+                  type="button"
+                  onClick={() => onOpenRequest(req)}
+                  className="min-w-0 flex-1 py-1 text-left"
+                >
+                  <div className="mb-0.5 flex items-center justify-between gap-2">
+                    <span className="truncate text-[15px] font-semibold text-zinc-900">
+                      {req.publicCode ?? req.title}
+                    </span>
+                    <span
+                      className={cn(
+                        "shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium",
+                        installStatusTone(req.status).badge,
+                      )}
+                    >
+                      {req.statusLabel}
+                    </span>
                   </div>
-                </GlassCard>
-              </button>
+                  <p className="truncate text-[13px] text-zinc-500">
+                    {req.exactAddress ?? req.city ?? "—"}
+                  </p>
+                </button>
+              </GlassCard>
             ))}
           </div>
         )}
