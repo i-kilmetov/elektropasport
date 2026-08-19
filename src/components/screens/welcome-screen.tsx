@@ -11,7 +11,7 @@ export const ONBOARDING_SKIP_KEY = "elektropasport:onboarding-skip";
 const cards = [
   {
     image: "/logo.png",
-    title: "Токщиток",
+    title: "Щитток",
     text: "Сервис для цифрового паспорта щитка: схема, линии и история — всё под рукой.",
     fit: "contain" as const,
   },
@@ -71,7 +71,7 @@ export function WelcomeScreen({ onStart }: { onStart: () => void }) {
     >
       <div className="relative z-10 mb-5 flex items-center justify-between gap-3 lg:mx-auto lg:mb-8 lg:w-full lg:max-w-6xl">
         <div className="flex min-w-0 items-center gap-3">
-          <BrandLogo className="h-9 w-[86px] shrink-0 rounded-[8px] lg:h-11 lg:w-[108px]" />
+          <BrandLogo className="h-10 shrink-0 rounded-[8px] lg:h-12" />
           <div className="flex items-center gap-1.5">
           {cards.map((item, i) => (
             <button
@@ -133,7 +133,7 @@ export function WelcomeScreen({ onStart }: { onStart: () => void }) {
                   )}
                 />
                 {card.fit === "cover" ? (
-                  <BrandLogo className="absolute left-4 top-4 h-10 w-[96px] rounded-[10px] ring-1 ring-white/15" />
+                  <BrandLogo className="absolute left-4 top-4 h-11 rounded-[10px] ring-1 ring-white/15" />
                 ) : null}
               </motion.div>
             </button>

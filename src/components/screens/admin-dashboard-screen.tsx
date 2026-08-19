@@ -151,7 +151,7 @@ export function AdminDashboardScreen({ onBack }: { onBack: () => void }) {
               </button>
               <div>
                 <div className="text-[11px] uppercase tracking-[0.16em] text-white/45">
-                  Токщиток
+                  Щитток
                 </div>
                 <h1 className="text-[20px] font-semibold">Админка</h1>
               </div>

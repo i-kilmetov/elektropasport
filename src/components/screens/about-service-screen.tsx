@@ -125,12 +125,12 @@ export function AboutServiceScreen({ onBack }: { onBack: () => void }) {
       <div className="flex-1 space-y-4 overflow-y-auto pb-4">
         <GlassCard className="overflow-hidden p-0">
           <div className="bg-gradient-to-br from-zinc-900 to-zinc-800 px-5 py-6 text-white">
-            <BrandLogo className="mb-4 h-14 w-[176px] rounded-[14px]" />
+            <BrandLogo className="mb-4 h-16 rounded-[14px]" />
             <h2 className="text-[24px] font-bold tracking-tight">
               Главная миссия — чтобы вы разбирались в своём щитке
             </h2>
             <p className="mt-3 text-[14px] leading-relaxed text-zinc-300">
-              Токщиток помогает увидеть схему, состав устройств и уровень
+              Щитток помогает увидеть схему, состав устройств и уровень
               безопасности простым языком. Это напрямую влияет на вашу
               безопасность и пожаробезопасность дома.
             </p>
@@ -307,7 +307,7 @@ export function AboutServiceScreen({ onBack }: { onBack: () => void }) {
               </h3>
               <p className="mt-1 text-[13px] leading-relaxed text-zinc-500">
                 Открытые данные по работе нашего сервиса: сколько людей уже
-                пользуется Токщитком, сколько щитков добавлено и сколько
+                пользуется Щиттоком, сколько щитков добавлено и сколько
                 мастеров подали заявку.
               </p>
             </div>
@@ -347,7 +347,7 @@ export function AboutServiceScreen({ onBack }: { onBack: () => void }) {
         <GlassCard className="space-y-2 p-4">
           <h3 className="text-[16px] font-semibold text-zinc-900">Важно знать</h3>
           <p className="text-[13px] leading-relaxed text-zinc-500">
-            Токщиток не заменяет проектную документацию и очный осмотр
+            Щитток не заменяет проектную документацию и очный осмотр
             электрика. Сервис помогает разобраться в ситуации и быстрее
             связаться со специалистом, но работы с напряжением должен выполнять
             квалифицированный мастер.

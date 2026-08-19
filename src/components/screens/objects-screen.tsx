@@ -476,7 +476,7 @@ export function ObjectsScreen({
     >
       <aside className="hidden w-72 shrink-0 flex-col border-r border-black/[0.06] bg-zinc-50/70 px-6 py-8 lg:flex">
         <div className="mb-8">
-          <BrandLogo className="h-12 w-[148px] rounded-[12px]" />
+          <BrandLogo className="h-14 rounded-[12px]" />
         </div>
         <nav className="space-y-1.5">
           {MAIN_MENU_ITEMS.filter((item) => {

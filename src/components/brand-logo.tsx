@@ -3,14 +3,14 @@ import { cn } from "@/lib/utils";
 export function BrandLogo({
   className,
   imgClassName,
-  alt = "Токщиток",
+  alt = "Щитток",
 }: {
   className?: string;
   imgClassName?: string;
   alt?: string;
 }) {
   return (
-    <div className={cn("overflow-hidden bg-black", className)}>
+    <div className={cn("aspect-[111/96] overflow-hidden bg-black", className)}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src="/logo.png"
