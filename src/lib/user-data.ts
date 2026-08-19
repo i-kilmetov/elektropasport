@@ -552,6 +552,87 @@ export async function persistMasterApplication(payload: {
   }
 }
 
+/* ───── Master system ───── */
+
+export type MasterProfileData = {
+  isMaster: boolean;
+  role: "user" | "master";
+  profile?: {
+    firstName: string;
+    lastName: string;
+    phone: string;
+    username: string;
+    ordersCount: number;
+    rating: number;
+  };
+};
+
+export async function fetchMasterProfile(): Promise<MasterProfileData> {
+  if (!canUseServer()) return { isMaster: false, role: "user" };
+  const res = await fetch("/api/master/profile", {
+    headers: authHeaders(),
+    cache: "no-store",
+  });
+  if (!res.ok) return { isMaster: false, role: "user" };
+  return (await res.json()) as MasterProfileData;
+}
+
+export async function fetchMasterRequests(): Promise<InstallRequest[]> {
+  if (!canUseServer()) return [];
+  const res = await fetch("/api/master/requests", {
+    headers: authHeaders(),
+    cache: "no-store",
+  });
+  if (!res.ok) return [];
+  const data = (await res.json()) as { requests: InstallRequest[] };
+  return data.requests ?? [];
+}
+
+export async function dispatchToMasters(
+  requestId: string,
+): Promise<{ mastersCount: number }> {
+  if (!canUseServer()) return { mastersCount: 0 };
+  const res = await fetch("/api/master/dispatch", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ requestId }),
+  });
+  if (!res.ok) return { mastersCount: 0 };
+  return (await res.json()) as { mastersCount: number };
+}
+
+export async function pollRequestStatus(
+  requestId: string,
+): Promise<{
+  status: "searching" | "accepted";
+  master?: { firstName: string; phone: string; username: string };
+}> {
+  if (!canUseServer()) return { status: "searching" };
+  const res = await fetch(
+    `/api/master/request-status?requestId=${encodeURIComponent(requestId)}`,
+    { headers: authHeaders(), cache: "no-store" },
+  );
+  if (!res.ok) return { status: "searching" };
+  return (await res.json()) as {
+    status: "searching" | "accepted";
+    master?: { firstName: string; phone: string; username: string };
+  };
+}
+
+export async function submitMasterFeedback(payload: {
+  requestId: string;
+  userReached?: boolean;
+  masterReached?: boolean;
+  userScore?: number;
+}): Promise<void> {
+  if (!canUseServer()) return;
+  await fetch("/api/master/feedback", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(payload),
+  });
+}
+
 export async function persistFeedback(payload: {
   message: string;
   topic: "bugs" | "tips" | "other";

@@ -113,6 +113,14 @@ export interface InstallRequest {
   paymentStatus?: "pending" | "confirmed" | "failed";
   paidAmountRub?: number;
   tbankPaymentId?: string;
+  /** Telegram ID of the master who accepted this request */
+  masterTelegramId?: number;
+  /** Panel ID linked to this request (if sent from scheme screen) */
+  panelId?: string;
+  /** When master accepted the request */
+  masterAcceptedAt?: string;
+  /** When the request was dispatched to masters */
+  dispatchedAt?: string;
 }
 
 export type HomeListItem = PanelObject | InstallRequest;
@@ -141,7 +149,10 @@ export type AppScreen =
   | "become-master"
   | "master-about"
   | "feedback"
-  | "telegram-auth";
+  | "telegram-auth"
+  | "master-search"
+  | "master-success"
+  | "master-not-found";
 
 export type LeadFlow = "install" | "master";
 

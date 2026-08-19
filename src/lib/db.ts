@@ -236,6 +236,52 @@ export async function ensureSchema(): Promise<void> {
         ADD COLUMN IF NOT EXISTS tbank_payment_id TEXT
       `;
       await sql`
+        ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'user'
+      `;
+      await sql`
+        ALTER TABLE install_requests
+        ADD COLUMN IF NOT EXISTS master_telegram_id BIGINT
+      `;
+      await sql`
+        ALTER TABLE install_requests
+        ADD COLUMN IF NOT EXISTS panel_id TEXT
+      `;
+      await sql`
+        ALTER TABLE install_requests
+        ADD COLUMN IF NOT EXISTS master_accepted_at TIMESTAMPTZ
+      `;
+      await sql`
+        ALTER TABLE install_requests
+        ADD COLUMN IF NOT EXISTS dispatched_at TIMESTAMPTZ
+      `;
+      await sql`
+        CREATE TABLE IF NOT EXISTS master_feedback (
+          id TEXT PRIMARY KEY,
+          request_id TEXT NOT NULL,
+          master_telegram_id BIGINT NOT NULL REFERENCES users(telegram_id) ON DELETE CASCADE,
+          user_telegram_id BIGINT NOT NULL REFERENCES users(telegram_id) ON DELETE CASCADE,
+          user_reached BOOLEAN,
+          master_reached BOOLEAN,
+          user_score INT,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+      `;
+      await sql`
+        CREATE INDEX IF NOT EXISTS master_feedback_master_idx
+        ON master_feedback (master_telegram_id)
+      `;
+      await sql`
+        CREATE TABLE IF NOT EXISTS master_dispatch_messages (
+          request_id TEXT NOT NULL,
+          master_telegram_id BIGINT NOT NULL,
+          chat_id BIGINT NOT NULL,
+          message_id INT NOT NULL,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          PRIMARY KEY (request_id, master_telegram_id)
+        )
+      `;
+      await sql`
         CREATE TABLE IF NOT EXISTS sbp_payments (
           id TEXT PRIMARY KEY,
           telegram_user_id BIGINT NOT NULL REFERENCES users(telegram_id) ON DELETE CASCADE,
@@ -462,6 +508,10 @@ type RequestRow = {
   paid_amount_rub: number | null;
   tbank_payment_id: string | null;
   created_at: string;
+  master_telegram_id?: string | number | null;
+  panel_id?: string | null;
+  master_accepted_at?: string | null;
+  dispatched_at?: string | null;
 };
 
 function rowToPanel(row: PanelRow): PanelObject {
@@ -538,6 +588,10 @@ function rowToRequest(row: RequestRow): InstallRequest {
         ? row.paid_amount_rub
         : undefined,
     tbankPaymentId: row.tbank_payment_id ?? undefined,
+    masterTelegramId: row.master_telegram_id ? Number(row.master_telegram_id) : undefined,
+    panelId: row.panel_id ?? undefined,
+    masterAcceptedAt: row.master_accepted_at ?? undefined,
+    dispatchedAt: row.dispatched_at ?? undefined,
   };
 }
 
@@ -559,7 +613,8 @@ export async function listHomeItems(
       id, title, subtitle, status, status_label, created_at_label,
       city, contact_method, phone, name, dwelling, phases, power_kw,
       setup_title, exact_address, public_code, payment_status,
-      paid_amount_rub, tbank_payment_id, created_at
+      paid_amount_rub, tbank_payment_id, created_at,
+      master_telegram_id, panel_id, master_accepted_at, dispatched_at
     FROM install_requests
     WHERE telegram_user_id = ${telegramUserId}
   `) as RequestRow[];
@@ -778,7 +833,7 @@ export async function insertInstallRequest(
       id, telegram_user_id, title, subtitle, status, status_label,
       created_at_label, city, contact_method, phone, name,
       dwelling, phases, power_kw, setup_title, exact_address, public_code,
-      payment_status, paid_amount_rub, tbank_payment_id, created_at
+      payment_status, paid_amount_rub, tbank_payment_id, panel_id, created_at
     ) VALUES (
       ${request.id},
       ${telegramUserId},
@@ -800,6 +855,7 @@ export async function insertInstallRequest(
       ${request.paymentStatus ?? null},
       ${request.paidAmountRub ?? null},
       ${request.tbankPaymentId ?? null},
+      ${request.panelId ?? null},
       NOW()
     )
     ON CONFLICT (id) DO UPDATE SET
@@ -958,7 +1014,8 @@ export async function updateInstallRequest(
       id, title, subtitle, status, status_label, created_at_label,
       city, contact_method, phone, name, dwelling, phases, power_kw,
       setup_title, exact_address, public_code, payment_status,
-      paid_amount_rub, tbank_payment_id, created_at
+      paid_amount_rub, tbank_payment_id, created_at,
+      master_telegram_id, panel_id, master_accepted_at, dispatched_at
   `) as RequestRow[];
   return rows[0] ? rowToRequest(rows[0]) : null;
 }
@@ -972,7 +1029,8 @@ export async function getInstallRequestById(
       id, telegram_user_id, title, subtitle, status, status_label, created_at_label,
       city, contact_method, phone, name, dwelling, phases, power_kw,
       setup_title, exact_address, public_code, payment_status,
-      paid_amount_rub, tbank_payment_id, created_at
+      paid_amount_rub, tbank_payment_id, created_at,
+      master_telegram_id, panel_id, master_accepted_at, dispatched_at
     FROM install_requests
     WHERE id = ${id}
     LIMIT 1
@@ -1004,7 +1062,8 @@ export async function adminUpdateInstallRequest(
       id, title, subtitle, status, status_label, created_at_label,
       city, contact_method, phone, name, dwelling, phases, power_kw,
       setup_title, exact_address, public_code, payment_status,
-      paid_amount_rub, tbank_payment_id, created_at
+      paid_amount_rub, tbank_payment_id, created_at,
+      master_telegram_id, panel_id, master_accepted_at, dispatched_at
   `) as RequestRow[];
   return rows[0] ? rowToRequest(rows[0]) : null;
 }
@@ -1228,6 +1287,270 @@ export async function claimInvite(
   }
 
   return getPanelQuota(invitee.telegramId);
+}
+
+/* ───── Master system ───── */
+
+export async function getUserRole(
+  telegramUserId: number,
+): Promise<"user" | "master"> {
+  const sql = getSql();
+  await ensureSchema();
+  const [row] = (await sql`
+    SELECT role FROM users WHERE telegram_id = ${telegramUserId}
+  `) as Array<{ role: string }>;
+  return row?.role === "master" ? "master" : "user";
+}
+
+export async function setUserRole(
+  telegramUserId: number,
+  role: "user" | "master",
+): Promise<void> {
+  const sql = getSql();
+  await ensureSchema();
+  await sql`
+    UPDATE users SET role = ${role}, updated_at = NOW()
+    WHERE telegram_id = ${telegramUserId}
+  `;
+}
+
+export async function listMasterTelegramIds(): Promise<number[]> {
+  const sql = getSql();
+  await ensureSchema();
+  const rows = (await sql`
+    SELECT telegram_id FROM users WHERE role = 'master'
+  `) as Array<{ telegram_id: string | number }>;
+  return rows.map((r) => Number(r.telegram_id));
+}
+
+export async function getMasterProfile(
+  telegramUserId: number,
+): Promise<{
+  firstName: string;
+  lastName: string;
+  phone: string;
+  username: string;
+  ordersCount: number;
+  rating: number;
+} | null> {
+  const sql = getSql();
+  await ensureSchema();
+  const [user] = (await sql`
+    SELECT first_name, last_name, username, phone_digits
+    FROM users WHERE telegram_id = ${telegramUserId} AND role = 'master'
+  `) as Array<{
+    first_name: string | null;
+    last_name: string | null;
+    username: string | null;
+    phone_digits: string | null;
+  }>;
+  if (!user) return null;
+
+  const [ordersRow] = (await sql`
+    SELECT COUNT(*)::int AS count
+    FROM install_requests
+    WHERE master_telegram_id = ${telegramUserId}
+      AND status IN ('in_progress', 'done')
+  `) as Array<{ count: number }>;
+
+  const feedbackRows = (await sql`
+    SELECT user_reached, master_reached, user_score
+    FROM master_feedback
+    WHERE master_telegram_id = ${telegramUserId}
+  `) as Array<{
+    user_reached: boolean | null;
+    master_reached: boolean | null;
+    user_score: number | null;
+  }>;
+
+  let rating = 100;
+  if (feedbackRows.length > 0) {
+    let totalWeight = 0;
+    let totalScore = 0;
+    for (const fb of feedbackRows) {
+      const bothReached = fb.user_reached === true && fb.master_reached === true;
+      const reachScore = bothReached ? 100 : 0;
+      totalScore += reachScore * 0.3;
+      totalWeight += 0.3;
+      if (bothReached && typeof fb.user_score === "number") {
+        totalScore += (fb.user_score / 5) * 100 * 0.7;
+        totalWeight += 0.7;
+      }
+    }
+    rating = totalWeight > 0 ? Math.round(totalScore / totalWeight) : 100;
+  }
+
+  return {
+    firstName: user.first_name ?? "",
+    lastName: user.last_name ?? "",
+    phone: user.phone_digits ?? "",
+    username: user.username ?? "",
+    ordersCount: ordersRow?.count ?? 0,
+    rating,
+  };
+}
+
+export async function acceptInstallRequest(
+  requestId: string,
+  masterTelegramId: number,
+): Promise<"accepted" | "already_taken" | "not_found"> {
+  const sql = getSql();
+  await ensureSchema();
+  const rows = (await sql`
+    UPDATE install_requests
+    SET
+      master_telegram_id = ${masterTelegramId},
+      master_accepted_at = NOW(),
+      status = 'in_progress',
+      status_label = 'В работе'
+    WHERE id = ${requestId}
+      AND master_telegram_id IS NULL
+      AND dispatched_at IS NOT NULL
+    RETURNING id
+  `) as Array<{ id: string }>;
+  if (rows.length > 0) return "accepted";
+
+  const [existing] = (await sql`
+    SELECT master_telegram_id FROM install_requests WHERE id = ${requestId}
+  `) as Array<{ master_telegram_id: string | number | null }>;
+  if (!existing) return "not_found";
+  if (existing.master_telegram_id) return "already_taken";
+  return "not_found";
+}
+
+export async function markRequestDispatched(requestId: string): Promise<void> {
+  const sql = getSql();
+  await sql`
+    UPDATE install_requests
+    SET dispatched_at = NOW()
+    WHERE id = ${requestId} AND dispatched_at IS NULL
+  `;
+}
+
+export async function saveDispatchMessage(
+  requestId: string,
+  masterTelegramId: number,
+  chatId: number,
+  messageId: number,
+): Promise<void> {
+  const sql = getSql();
+  await sql`
+    INSERT INTO master_dispatch_messages (request_id, master_telegram_id, chat_id, message_id)
+    VALUES (${requestId}, ${masterTelegramId}, ${chatId}, ${messageId})
+    ON CONFLICT DO NOTHING
+  `;
+}
+
+export async function getDispatchMessages(
+  requestId: string,
+): Promise<Array<{ masterTelegramId: number; chatId: number; messageId: number }>> {
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT master_telegram_id, chat_id, message_id
+    FROM master_dispatch_messages
+    WHERE request_id = ${requestId}
+  `) as Array<{ master_telegram_id: string | number; chat_id: string | number; message_id: number }>;
+  return rows.map((r) => ({
+    masterTelegramId: Number(r.master_telegram_id),
+    chatId: Number(r.chat_id),
+    messageId: r.message_id,
+  }));
+}
+
+export async function getRequestAcceptedMaster(
+  requestId: string,
+): Promise<{
+  masterTelegramId: number;
+  firstName: string;
+  lastName: string;
+  phone: string;
+  username: string;
+} | null> {
+  const sql = getSql();
+  const [row] = (await sql`
+    SELECT
+      u.telegram_id,
+      u.first_name,
+      u.last_name,
+      u.phone_digits,
+      u.username
+    FROM install_requests ir
+    JOIN users u ON u.telegram_id = ir.master_telegram_id
+    WHERE ir.id = ${requestId}
+      AND ir.master_telegram_id IS NOT NULL
+  `) as Array<{
+    telegram_id: string | number;
+    first_name: string | null;
+    last_name: string | null;
+    phone_digits: string | null;
+    username: string | null;
+  }>;
+  if (!row) return null;
+  return {
+    masterTelegramId: Number(row.telegram_id),
+    firstName: row.first_name ?? "",
+    lastName: row.last_name ?? "",
+    phone: row.phone_digits ?? "",
+    username: row.username ?? "",
+  };
+}
+
+export async function upsertMasterFeedback(
+  requestId: string,
+  masterTelegramId: number,
+  userTelegramId: number,
+  patch: {
+    userReached?: boolean;
+    masterReached?: boolean;
+    userScore?: number;
+  },
+): Promise<void> {
+  const sql = getSql();
+  await ensureSchema();
+  const id = `fb-${requestId}`;
+  await sql`
+    INSERT INTO master_feedback (id, request_id, master_telegram_id, user_telegram_id,
+      user_reached, master_reached, user_score)
+    VALUES (${id}, ${requestId}, ${masterTelegramId}, ${userTelegramId},
+      ${patch.userReached ?? null}, ${patch.masterReached ?? null}, ${patch.userScore ?? null})
+    ON CONFLICT (id) DO UPDATE SET
+      user_reached = COALESCE(${patch.userReached ?? null}, master_feedback.user_reached),
+      master_reached = COALESCE(${patch.masterReached ?? null}, master_feedback.master_reached),
+      user_score = COALESCE(${patch.userScore ?? null}, master_feedback.user_score)
+  `;
+}
+
+export async function listMasterRequests(
+  masterTelegramId: number,
+): Promise<InstallRequest[]> {
+  const sql = getSql();
+  await ensureSchema();
+  const rows = (await sql`
+    SELECT
+      id, title, subtitle, status, status_label, created_at_label,
+      city, contact_method, phone, name, dwelling, phases, power_kw,
+      setup_title, exact_address, public_code, payment_status,
+      paid_amount_rub, tbank_payment_id, created_at, panel_id
+    FROM install_requests
+    WHERE master_telegram_id = ${masterTelegramId}
+    ORDER BY created_at DESC
+  `) as Array<RequestRow & { panel_id: string | null }>;
+  return rows.map((row) => ({
+    ...rowToRequest(row),
+    panelId: row.panel_id ?? undefined,
+  }));
+}
+
+export async function setRequestPanelId(
+  requestId: string,
+  panelId: string,
+): Promise<void> {
+  const sql = getSql();
+  await sql`
+    UPDATE install_requests
+    SET panel_id = ${panelId}
+    WHERE id = ${requestId}
+  `;
 }
 
 export class DbError extends Error {

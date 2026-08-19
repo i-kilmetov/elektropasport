@@ -58,10 +58,18 @@ export const MAIN_MENU_ITEMS = items;
 export function MainMenuSheet({
   onClose,
   onSelect,
+  isMaster = false,
+  onMasterMode,
 }: {
   onClose: () => void;
   onSelect: (id: MainMenuId) => void;
+  isMaster?: boolean;
+  onMasterMode?: () => void;
 }) {
+  const visibleItems = isMaster
+    ? items.filter((item) => item.id !== "master")
+    : items;
+
   return (
     <Portal>
       <motion.div
@@ -91,8 +99,29 @@ export function MainMenuSheet({
             </button>
           </div>
 
+          {isMaster && onMasterMode && (
+            <button
+              type="button"
+              onClick={onMasterMode}
+              className="mb-3 flex w-full items-center gap-3 rounded-[20px] border-2 border-emerald-500/30 bg-emerald-50 px-4 py-3.5 text-left transition-colors hover:bg-emerald-100"
+            >
+              <span className="flex h-11 w-11 items-center justify-center rounded-[16px] bg-emerald-100 text-emerald-600">
+                <Wrench className="h-5 w-5" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[16px] font-semibold text-emerald-800">
+                  Режим мастера
+                </span>
+                <span className="mt-0.5 block text-[13px] text-emerald-600">
+                  Заявки, рейтинг и заказы
+                </span>
+              </span>
+              <ArrowRight className="h-4 w-4 text-emerald-500" />
+            </button>
+          )}
+
           <div className="space-y-2">
-            {items.map((item) => (
+            {visibleItems.map((item) => (
               <button
                 key={item.id}
                 type="button"

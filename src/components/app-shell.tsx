@@ -5,6 +5,10 @@ import { AnimatePresence } from "framer-motion";
 import { AboutServiceScreen } from "@/components/screens/about-service-screen";
 import { AnalysisScreen } from "@/components/screens/analysis-screen";
 import { BecomeMasterScreen } from "@/components/screens/become-master-screen";
+import { MasterDashboardScreen } from "@/components/screens/master-dashboard-screen";
+import { MasterSearchScreen } from "@/components/screens/master-search-screen";
+import { MasterSuccessScreen } from "@/components/screens/master-success-screen";
+import { MasterNotFoundScreen } from "@/components/screens/master-not-found-screen";
 import { CitySelectScreen } from "@/components/screens/city-select-screen";
 import { FeedbackScreen } from "@/components/screens/feedback-screen";
 import { MasterAboutScreen } from "@/components/screens/master-about-screen";
@@ -66,6 +70,7 @@ import {
 import {
   claimInviteToken,
   fetchHomeItems,
+  fetchMasterProfile,
   fetchPanelQuota,
   persistDeleteInstallRequest,
   persistDeletePanel,
@@ -165,6 +170,14 @@ export function AppShell() {
   const [masterAbout, setMasterAbout] = useState("");
   const [leadFlow, setLeadFlow] = useState<LeadFlow>("install");
   const [activeRuleId, setActiveRuleId] = useState<string | null>(null);
+  const [isMaster, setIsMaster] = useState(false);
+  const [masterMode, setMasterMode] = useState(false);
+  const [searchRequestId, setSearchRequestId] = useState<string | null>(null);
+  const [foundMaster, setFoundMaster] = useState<{
+    firstName: string;
+    phone: string;
+    username: string;
+  } | null>(null);
   const submittedLeadIds = useRef(new Set<string>());
   const consumedShareRef = useRef(false);
 
@@ -214,8 +227,14 @@ export function AppShell() {
           }
           await syncUserProfileFromServer();
         }
-        const loaded = await fetchHomeItems();
-        if (!cancelled) setItems(loaded);
+        const [loaded, masterProfile] = await Promise.all([
+          fetchHomeItems(),
+          canUseServerAuth() ? fetchMasterProfile() : Promise.resolve(null),
+        ]);
+        if (!cancelled) {
+          setItems(loaded);
+          if (masterProfile?.isMaster) setIsMaster(true);
+        }
         const nextQuota = await fetchPanelQuota();
         if (!cancelled) setQuota(nextQuota);
       } catch (error) {
@@ -1027,6 +1046,7 @@ export function AppShell() {
         paymentStatus: payload.paymentStatus,
         paidAmountRub: payload.paidAmountRub,
         tbankPaymentId: payload.tbankPaymentId,
+        panelId: leadBackScreen === "scheme" ? activePanelId ?? undefined : undefined,
       };
 
       setItems((prev) => {
@@ -1044,9 +1064,16 @@ export function AppShell() {
             : "Не удалось сохранить заявку",
         );
       });
+
+      // Dispatch to masters and show search screen
+      setSearchRequestId(id);
+      setFoundMaster(null);
+      setScreen("master-search");
     },
     [
+      activePanelId,
       electricalDetails,
+      leadBackScreen,
       leadFlow,
       masterAbout,
       noPanelSetupId,
@@ -1102,7 +1129,10 @@ export function AppShell() {
     screen === "scheme" ||
     screen === "welcome" ||
     screen === "photo" ||
-    screen === "analysis";
+    screen === "analysis" ||
+    screen === "master-search" ||
+    screen === "master-success" ||
+    screen === "master-not-found";
   const wideLayout =
     screen === "objects" ||
     screen === "scheme" ||
@@ -1136,7 +1166,19 @@ export function AppShell() {
           {screen === "welcome" && (
             <WelcomeScreen key="welcome" onStart={() => go("objects")} />
           )}
-          {screen === "objects" && (
+          {screen === "objects" && masterMode && (
+            <MasterDashboardScreen
+              key="master-dashboard"
+              onSwitchToUser={() => setMasterMode(false)}
+              onOpenRequest={(id) => {
+                setActiveRequestId(id);
+                go("request-details");
+              }}
+              onOpenPanel={(panelId) => openPanel(panelId)}
+              onAdd={() => requireTelegramAuth("add-panel")}
+            />
+          )}
+          {screen === "objects" && !masterMode && (
             <ObjectsScreen
               key="objects"
               items={items}
@@ -1155,6 +1197,11 @@ export function AppShell() {
               onRenameItem={renameHomeItem}
               onNoPanel={() => requireTelegramAuth("no-panel")}
               onPanelLimit={openPanelLimit}
+              isMaster={isMaster}
+              onMasterMode={() => {
+                setMasterMode(true);
+                setMainMenuOpen(false);
+              }}
               onMenuSelect={(id) => {
                 if (id === "profile") go("profile");
                 if (id === "game") go("panel-game");
@@ -1410,6 +1457,7 @@ export function AppShell() {
               onRename={renameRequest}
               onDelete={deleteRequest}
               onUpdate={updateRequest}
+              onOpenPanel={(panelId) => openPanel(panelId)}
             />
           )}
           {screen === "profile" && (
@@ -1456,6 +1504,40 @@ export function AppShell() {
               key={`rule-${activeRuleId}`}
               ruleId={activeRuleId}
               onBack={() => go("electrical-rules")}
+            />
+          )}
+          {screen === "master-search" && searchRequestId && (
+            <MasterSearchScreen
+              key={`search-${searchRequestId}`}
+              requestId={searchRequestId}
+              onMasterFound={(master) => {
+                setFoundMaster(master);
+                go("master-success");
+              }}
+              onTimeout={() => {
+                go("master-not-found");
+              }}
+            />
+          )}
+          {screen === "master-success" && searchRequestId && foundMaster && (
+            <MasterSuccessScreen
+              key={`success-${searchRequestId}`}
+              requestId={searchRequestId}
+              master={foundMaster}
+              onClose={() => {
+                setSearchRequestId(null);
+                setFoundMaster(null);
+                go("objects");
+              }}
+            />
+          )}
+          {screen === "master-not-found" && (
+            <MasterNotFoundScreen
+              key="master-not-found"
+              onClose={() => {
+                setSearchRequestId(null);
+                go("objects");
+              }}
             />
           )}
           {screen === "become-master" && (

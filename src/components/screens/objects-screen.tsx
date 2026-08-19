@@ -254,6 +254,8 @@ export function ObjectsScreen({
   onPanelLimit,
   menuOpen = false,
   onMenuOpenChange,
+  isMaster = false,
+  onMasterMode,
 }: {
   items: HomeListItem[];
   loading?: boolean;
@@ -269,6 +271,8 @@ export function ObjectsScreen({
   onPanelLimit?: () => void;
   menuOpen?: boolean;
   onMenuOpenChange?: (open: boolean) => void;
+  isMaster?: boolean;
+  onMasterMode?: () => void;
 }) {
   const [page, setPage] = useState(0);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
@@ -656,6 +660,8 @@ export function ObjectsScreen({
             onSelect={(id) => {
               onMenuSelect(id);
             }}
+            isMaster={isMaster}
+            onMasterMode={onMasterMode}
           />
         )}
       </AnimatePresence>

@@ -12,6 +12,7 @@ import {
   Phone,
   Trash2,
 } from "lucide-react";
+import { BreakerIcon } from "@/components/icons/breaker-icon";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { GlassCard } from "@/components/ui/glass-card";
@@ -173,6 +174,7 @@ export function RequestDetailsScreen({
   onRename,
   onDelete,
   onUpdate,
+  onOpenPanel,
 }: {
   request: InstallRequest;
   onBack: () => void;
@@ -183,6 +185,7 @@ export function RequestDetailsScreen({
       Pick<InstallRequest, "status" | "statusLabel" | "exactAddress">
     >,
   ) => void;
+  onOpenPanel?: (panelId: string) => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
@@ -386,6 +389,18 @@ export function RequestDetailsScreen({
                 />
               ))}
             </div>
+            {request.panelId && onOpenPanel && (
+              <button
+                type="button"
+                onClick={() => onOpenPanel(request.panelId!)}
+                className="mt-3 flex w-full items-center gap-2.5 rounded-[14px] border border-black/8 bg-zinc-50 px-3 py-2.5 text-left transition-colors hover:bg-zinc-100"
+              >
+                <BreakerIcon className="h-5 w-5 text-zinc-500" />
+                <span className="text-[14px] font-medium text-zinc-700">
+                  Открыть щиток
+                </span>
+              </button>
+            )}
           </GlassCard>
         )}
 

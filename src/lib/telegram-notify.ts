@@ -262,11 +262,120 @@ export async function notifyAdminMasterApplication(payload: {
       `ID: ${payload.id}`,
       ...(about ? ["", "О себе:", about] : []),
     ].join("\n"),
+    reply_markup: {
+      inline_keyboard: [[{
+        text: "✅ Сделать мастером",
+        callback_data: `approve_master:${payload.customerTelegramId}`.slice(0, 64),
+      }]],
+    },
     disable_web_page_preview: true,
   });
   if (!result.ok) {
     throw new Error(result.error);
   }
+}
+
+/** Send a request to all master Telegram chats with Accept button. */
+export async function dispatchRequestToMasters(
+  masterChatIds: number[],
+  request: InstallRequest,
+  customerName: string,
+): Promise<Array<{ chatId: number; messageId: number }>> {
+  const addressNoApt = request.exactAddress
+    ?.replace(/,?\s*(кв|квартира|apt)\.?\s*\d+/i, "")
+    ?.trim();
+
+  const text = [
+    "🔌 Новая заявка от клиента",
+    "",
+    request.setupTitle ? `Работа: ${request.setupTitle}` : null,
+    request.city ? `Город: ${request.city}` : null,
+    addressNoApt ? `Адрес: ${addressNoApt}` : null,
+    request.phases ? `Фаз: ${request.phases}` : null,
+    request.powerKw ? `Мощность: ${request.powerKw} кВт` : null,
+    request.paymentStatus === "confirmed" && request.paidAmountRub
+      ? `Стоимость: ${request.paidAmountRub.toLocaleString("ru-RU")} ₽`
+      : null,
+    "",
+    "Нажмите «Принять», чтобы взять заявку.",
+  ].filter((line) => line !== null).join("\n");
+
+  const results: Array<{ chatId: number; messageId: number }> = [];
+
+  for (const chatId of masterChatIds) {
+    const result = await telegramApi<{ message_id: number }>("sendMessage", {
+      chat_id: chatId,
+      text,
+      reply_markup: {
+        inline_keyboard: [[{
+          text: "✅ Принять заявку",
+          callback_data: `accept_request:${request.id}`.slice(0, 64),
+        }]],
+      },
+      disable_web_page_preview: true,
+    });
+    if (result.ok) {
+      results.push({ chatId, messageId: result.data.message_id });
+    }
+  }
+  return results;
+}
+
+/** Notify a master that they won the request — send full details. */
+export async function notifyMasterRequestAccepted(
+  masterChatId: number,
+  request: InstallRequest,
+  customerName: string,
+): Promise<void> {
+  const text = [
+    "🎉 Вы приняли заявку!",
+    "",
+    `Клиент: ${customerName}`,
+    `Телефон: ${request.phone ?? "—"}`,
+    request.exactAddress ? `Адрес: ${request.exactAddress}` : null,
+    request.setupTitle ? `Работа: ${request.setupTitle}` : null,
+    "",
+    "Свяжитесь с клиентом в течение 5 минут.",
+  ].filter((line) => line !== null).join("\n");
+
+  await telegramApi("sendMessage", {
+    chat_id: masterChatId,
+    text,
+    disable_web_page_preview: true,
+  });
+}
+
+/** Tell other masters this request was taken. */
+export async function notifyMasterRequestTaken(
+  chatId: number,
+  messageId: number,
+): Promise<void> {
+  await telegramApi("editMessageText", {
+    chat_id: chatId,
+    message_id: messageId,
+    text: "Заявку уже принял другой мастер.",
+    reply_markup: { inline_keyboard: [] },
+  });
+}
+
+/** Parse approve_master callback. */
+export function parseApproveMasterCallback(
+  data: string,
+): { telegramUserId: number } | null {
+  if (!data.startsWith("approve_master:")) return null;
+  const id = Number(data.slice("approve_master:".length));
+  if (!Number.isFinite(id)) return null;
+  return { telegramUserId: id };
+}
+
+/** Parse accept_request callback. */
+export function parseAcceptRequestCallback(
+  data: string,
+): { requestId: string } | null {
+  if (!data.startsWith("accept_request:")) return null;
+  const requestId = data.slice("accept_request:".length);
+  if (!requestId) return null;
+  return { requestId };
 }
 
 const FEEDBACK_TOPIC_LABELS: Record<string, string> = {
