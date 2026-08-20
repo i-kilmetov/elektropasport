@@ -42,15 +42,26 @@ npm run dev
 
 В [@BotFather](https://t.me/BotFather) → ваш бот → **Login Widget / Web Login** добавьте:
 
-- Allowed URL / domain: `https://elektropasport.vercel.app`
-- Redirect URI: `https://elektropasport.vercel.app/auth/telegram/callback`
+- Allowed URL / domain: `https://tokom.ru`
+- Redirect URI: `https://tokom.ru/auth/telegram/callback`
 
 Рекомендуется также задать в Vercel:
 
+- `NEXT_PUBLIC_APP_URL` = `https://tokom.ru`
 - `TELEGRAM_CLIENT_ID` — Client ID из BotFather (обычно numeric id бота)
 - `TELEGRAM_CLIENT_SECRET` — Client Secret из BotFather (современный OIDC-поток)
 
 Без Client Secret используется legacy-редирект на ту же QR-страницу Telegram.
+
+## Домен tokom.ru
+
+1. В Vercel → проект → **Settings → Domains** добавьте `tokom.ru` и `www.tokom.ru`.
+2. В DNS у регистратора (сейчас ns1/ns2.reg.ru) поставьте записи, которые покажет Vercel. Обычно:
+   - `A` для `@` → `76.76.21.21`
+   - `CNAME` для `www` → `cname.vercel-dns.com`
+3. Дождитесь выпуска SSL (несколько минут после корректного DNS).
+4. В BotFather обновите Allowed URL / Redirect URI на `https://tokom.ru` (см. выше).
+5. Если Mini App открывается через BotFather → Web App URL, укажите там же `https://tokom.ru`.
 
 ## Уведомления о заявках в Telegram
 
@@ -60,12 +71,11 @@ npm run dev
    - `TELEGRAM_SETUP_KEY` = любой секретный ключ (например `setup-abc123`)
    - `TELEGRAM_WEBHOOK_SECRET` = ещё один секрет (опционально, но желательно)
 3. Redeploy.
-4. Откройте в браузере (подставьте свой домен и ключ):
+4. Откройте в браузере (подставьте свой ключ):
 
 ```
-https://ВАШ-ДОМЕН.vercel.app/api/telegram/setup-webhook?key=setup-abc123
+https://tokom.ru/api/telegram/setup-webhook?key=setup-abc123
 ```
-
 5. Напишите своему боту любое сообщение (чтобы чат был открыт) и создайте тестовую заявку в Mini App.
 
 Новая заявка придёт сообщением с кнопками **Новая / В работе / Выполнено / Отменена**. Нажатие меняет статус в базе — клиент увидит его в Mini App.

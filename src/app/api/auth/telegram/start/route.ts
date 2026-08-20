@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { resolveAppOrigin } from "@/lib/app-url";
 import {
   buildLegacyAuthUrl,
   buildOidcAuthUrl,
@@ -9,23 +10,13 @@ import {
   pkceChallenge,
 } from "@/lib/telegram-oauth";
 
-function appOrigin(request: Request): string {
-  const url = new URL(request.url);
-  const proto = request.headers.get("x-forwarded-proto") ?? url.protocol.replace(":", "");
-  const host =
-    request.headers.get("x-forwarded-host") ??
-    request.headers.get("host") ??
-    url.host;
-  return `${proto}://${host}`;
-}
-
 export async function GET(request: Request) {
   const clientId = getTelegramClientId();
   if (!clientId) {
     return NextResponse.redirect(new URL("/?auth_error=config", request.url));
   }
 
-  const origin = appOrigin(request);
+  const origin = resolveAppOrigin(request);
   const redirectUri = `${origin}/auth/telegram/callback`;
 
   if (canUseOidcLogin()) {

@@ -1,9 +1,10 @@
+import { resolveAppOrigin } from "@/lib/app-url";
 import { setTelegramWebhook } from "@/lib/telegram-notify";
 
 /**
  * One-time setup: open this URL after deploy (with secret) to register the webhook.
  * Example:
- * https://your-app.vercel.app/api/telegram/setup-webhook?key=YOUR_SETUP_KEY
+ * https://tokom.ru/api/telegram/setup-webhook?key=YOUR_SETUP_KEY
  */
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -30,10 +31,7 @@ export async function GET(request: Request) {
     );
   }
 
-  const origin = process.env.VERCEL_PROJECT_PRODUCTION_URL
-    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
-    : url.origin;
-
+  const origin = resolveAppOrigin(request);
   const webhookUrl = `${origin}/api/telegram/webhook`;
   const secret = process.env.TELEGRAM_WEBHOOK_SECRET?.trim();
 

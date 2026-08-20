@@ -1,0 +1,10 @@
+{
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "www.tokom.ru" }],
+      "destination": "https://tokom.ru/:path*",
+      "permanent": true
+    }
+  ]
+}

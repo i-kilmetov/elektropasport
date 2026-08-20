@@ -64,7 +64,7 @@ export function yooKassaReturnUrl(): string {
   if (bot && app) return `https://t.me/${bot}/${app}`;
   const host = process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim();
   if (host) return `https://${host}`;
-  return "https://elektropasport.vercel.app";
+  return "https://tokom.ru";
 }
 
 async function yooKassaRequest(
