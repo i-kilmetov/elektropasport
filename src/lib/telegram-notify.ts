@@ -564,7 +564,7 @@ export async function sendAdminTestMessage(): Promise<{
 
   const result = await telegramApi("sendMessage", {
     chat_id: Number(chatId),
-    text: "✅ Тест Щитток: бот может писать вам. Если это сообщение пришло — уведомления о заявках тоже будут.",
+    text: "✅ Тест Током: бот может писать вам. Если это сообщение пришло — уведомления о заявках тоже будут.",
     disable_web_page_preview: true,
   });
 

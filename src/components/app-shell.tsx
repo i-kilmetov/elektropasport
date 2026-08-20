@@ -1220,7 +1220,18 @@ export function AppShell() {
       >
         <AnimatePresence mode="wait">
           {screen === "welcome" && (
-            <WelcomeScreen key="welcome" onStart={() => go("objects")} />
+            <WelcomeScreen
+              key="welcome"
+              onStart={() => go("objects")}
+              onTelegramLogin={() => {
+                try {
+                  localStorage.setItem(ONBOARDING_SKIP_KEY, "1");
+                } catch {
+                  // private mode
+                }
+                go("telegram-auth");
+              }}
+            />
           )}
           {screen === "objects" && masterMode && (
             <MasterDashboardScreen

@@ -1,19 +1,22 @@
 import { cn } from "@/lib/utils";
 
+export const BRAND_YELLOW = "#D3DA00";
+
 export function BrandLogo({
   className,
   onDark = false,
 }: {
   className?: string;
+  /** Black background → brand yellow. Light / brand-yellow background → black. */
   onDark?: boolean;
 }) {
   return (
     <span
       role="img"
-      aria-label="Щитток"
+      aria-label="Током"
       className={cn(
-        "inline-block aspect-[111/96] shrink-0 bg-current",
-        onDark ? "text-white" : "text-zinc-950",
+        "inline-block aspect-[136/34] shrink-0 bg-current",
+        onDark ? "text-[#D3DA00]" : "text-zinc-950",
         className,
       )}
       style={{

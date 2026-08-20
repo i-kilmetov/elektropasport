@@ -10,7 +10,7 @@ import {
   MessageCircle,
   Wrench,
 } from "lucide-react";
-import { BrandLogo } from "@/components/brand-logo";
+import { BrandLogo, BRAND_YELLOW } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
 import { hapticNotification } from "@/lib/haptics";
@@ -89,12 +89,13 @@ export function BecomeMasterScreen({
 
       <div className="flex-1 space-y-4 overflow-y-auto pb-4">
         <GlassCard className="overflow-hidden p-0">
-          <div className="bg-gradient-to-br from-zinc-900 to-zinc-800 px-5 py-6 text-white">
-            <BrandLogo className="mb-4 h-16" onDark />
+          <div className="px-5 py-6 text-zinc-950" style={{ backgroundColor: BRAND_YELLOW }}>
+            <BrandLogo className="mb-4 h-9" />
             <h2 className="text-[24px] font-bold tracking-tight">
-              Присоединяйтесь к команде Щиттока
+              Присоединяйтесь к команде{" "}
+              <strong className="font-bold">Токома</strong>
             </h2>
-            <p className="mt-3 text-[14px] leading-relaxed text-zinc-300">
+            <p className="mt-3 text-[14px] leading-relaxed text-zinc-800">
               Мы ищем сильных специалистов, которые аккуратно работают с
               электрикой, умеют объяснять простым языком и отвечают за результат.
               У нас есть реальные задачи — от консультаций до выезда и монтажа.

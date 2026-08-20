@@ -12,7 +12,7 @@ import {
   Wrench,
   Zap,
 } from "lucide-react";
-import { BrandLogo } from "@/components/brand-logo";
+import { BrandLogo, BRAND_YELLOW } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
 import { cn } from "@/lib/utils";
@@ -124,15 +124,15 @@ export function AboutServiceScreen({ onBack }: { onBack: () => void }) {
 
       <div className="flex-1 space-y-4 overflow-y-auto pb-4">
         <GlassCard className="overflow-hidden p-0">
-          <div className="bg-gradient-to-br from-zinc-900 to-zinc-800 px-5 py-6 text-white">
-            <BrandLogo className="mb-4 h-16" onDark />
+          <div className="px-5 py-6 text-zinc-950" style={{ backgroundColor: BRAND_YELLOW }}>
+            <BrandLogo className="mb-4 h-9" />
             <h2 className="text-[24px] font-bold tracking-tight">
               Главная миссия — чтобы вы разбирались в своём щитке
             </h2>
-            <p className="mt-3 text-[14px] leading-relaxed text-zinc-300">
-              Щитток помогает увидеть схему, состав устройств и уровень
-              безопасности простым языком. Это напрямую влияет на вашу
-              безопасность и пожаробезопасность дома.
+            <p className="mt-3 text-[14px] leading-relaxed text-zinc-800">
+              <strong className="font-semibold">Током</strong> помогает увидеть
+              схему, состав устройств и уровень безопасности простым языком. Это
+              напрямую влияет на вашу безопасность и пожаробезопасность дома.
             </p>
           </div>
         </GlassCard>
@@ -307,8 +307,8 @@ export function AboutServiceScreen({ onBack }: { onBack: () => void }) {
               </h3>
               <p className="mt-1 text-[13px] leading-relaxed text-zinc-500">
                 Открытые данные по работе нашего сервиса: сколько людей уже
-                пользуется Щиттоком, сколько щитков добавлено и сколько
-                мастеров подали заявку.
+                пользуется <strong className="font-semibold text-zinc-700">Токомом</strong>,
+                сколько щитков добавлено и сколько мастеров подали заявку.
               </p>
             </div>
           </div>
@@ -347,10 +347,10 @@ export function AboutServiceScreen({ onBack }: { onBack: () => void }) {
         <GlassCard className="space-y-2 p-4">
           <h3 className="text-[16px] font-semibold text-zinc-900">Важно знать</h3>
           <p className="text-[13px] leading-relaxed text-zinc-500">
-            Щитток не заменяет проектную документацию и очный осмотр
-            электрика. Сервис помогает разобраться в ситуации и быстрее
-            связаться со специалистом, но работы с напряжением должен выполнять
-            квалифицированный мастер.
+            <strong className="font-semibold text-zinc-700">Током</strong> не
+            заменяет проектную документацию и очный осмотр электрика. Сервис
+            помогает разобраться в ситуации и быстрее связаться со специалистом,
+            но работы с напряжением должен выполнять квалифицированный мастер.
           </p>
         </GlassCard>
       </div>

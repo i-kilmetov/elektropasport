@@ -165,7 +165,8 @@ export function FeedbackScreen({ onBack }: { onBack: () => void }) {
             Помогите сделать сервис лучше
           </h2>
           <p className="text-[15px] leading-relaxed text-zinc-500">
-            Щитток только развивается — будем рады любой обратной связи:
+            <strong className="font-semibold text-zinc-800">Током</strong> только
+            развивается — будем рады любой обратной связи:
             баги, советы и поддержка. Напишите, что заметили или что хотели бы
             улучшить.
           </p>

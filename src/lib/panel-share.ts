@@ -47,12 +47,12 @@ export function buildPanelShareUrl(token: string): string {
   return `https://t.me/${bot}?startapp=${encodeURIComponent(token)}`;
 }
 
-const SHARE_TEXT = "Щиток в Щиттоке";
-export const INVITE_SHARE_TEXT = "Приглашаю в Щитток";
+const SHARE_TEXT = "Щиток в Токоме";
+export const INVITE_SHARE_TEXT = "Приглашаю в Током";
 
 export const MASTER_REFERRAL_PARAM = "master";
 export const MASTER_REFERRAL_SHARE_TEXT =
-  "Вас посоветовали как электрика для Щиттока. Откройте заявку и расскажите о себе — рассмотрим сотрудничество.";
+  "Вас посоветовали как электрика для Токома. Откройте заявку и расскажите о себе — рассмотрим сотрудничество.";
 
 export function isMasterReferralParam(
   value: string | null | undefined,

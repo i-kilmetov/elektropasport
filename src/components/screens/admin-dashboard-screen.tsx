@@ -151,7 +151,7 @@ export function AdminDashboardScreen({ onBack }: { onBack: () => void }) {
                 <ArrowLeft className="h-5 w-5" />
               </button>
               <div>
-                <BrandLogo className="h-9" onDark />
+                <BrandLogo className="h-7" onDark />
                 <h1 className="mt-2 text-[20px] font-semibold">Админка</h1>
               </div>
             </div>
