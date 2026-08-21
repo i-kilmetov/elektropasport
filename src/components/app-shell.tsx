@@ -124,12 +124,12 @@ function panelRailCount(
   return derived;
 }
 
-function readSkipOnboarding(): boolean {
-  if (typeof window === "undefined") return false;
+function clearSkipOnboarding() {
+  if (typeof window === "undefined") return;
   try {
-    return localStorage.getItem(ONBOARDING_SKIP_KEY) === "1";
+    localStorage.removeItem(ONBOARDING_SKIP_KEY);
   } catch {
-    return false;
+    // private mode
   }
 }
 
@@ -249,10 +249,11 @@ export function AppShell() {
       } catch {
         // ignore
       }
-      setScreen(readSkipOnboarding() ? "telegram-auth" : "welcome");
-    } else if (readSkipOnboarding()) {
-      setScreen("telegram-auth");
+      // Unauthenticated visitors always start on onboarding cards.
+      clearSkipOnboarding();
+      setScreen("welcome");
     } else {
+      clearSkipOnboarding();
       setScreen("welcome");
     }
     setOnboardingReady(true);
@@ -264,7 +265,7 @@ export function AppShell() {
     if (canUseServerAuth() || isTelegramMiniApp()) return;
     const allowed: AppScreen[] = ["welcome", "telegram-auth"];
     if (!allowed.includes(screen)) {
-      setScreen(readSkipOnboarding() ? "telegram-auth" : "welcome");
+      setScreen("welcome");
     }
   }, [onboardingReady, screen]);
 
@@ -1233,7 +1234,7 @@ export function AppShell() {
 
   if (!onboardingReady) {
     return (
-      <div className="relative h-[var(--app-height,100dvh)] w-full overflow-hidden bg-[var(--bg)] text-zinc-900" />
+      <div className="relative h-[var(--app-height,100dvh)] w-full overflow-hidden bg-black text-white" />
     );
   }
 
