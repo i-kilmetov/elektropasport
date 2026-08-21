@@ -3,6 +3,7 @@ import {
   DEVICE_DETAILS_CONFIDENCE,
   resolveBrandKey,
 } from "@/lib/manufacturer-brands";
+import { prepareAnalyzedDevices } from "@/lib/device-characteristics";
 
 const DEVICE_TYPES: DeviceType[] = [
   "main_breaker",
@@ -98,15 +99,17 @@ export function normalizeAnalyzeResult(raw: unknown): {
   const payload = isRecord(raw) ? raw : {};
   const list = Array.isArray(payload.devices) ? payload.devices : [];
 
-  const devices = list
-    .map((item, i) => normalizeDevice(item, i))
-    .filter((d): d is Device => d !== null)
-    .sort((a, b) => {
-      const railDiff = (a.rail ?? 0) - (b.rail ?? 0);
-      if (railDiff !== 0) return railDiff;
-      return (a.position ?? 0) - (b.position ?? 0);
-    })
-    .map((d, i) => ({ ...d, id: i + 1, position: d.position ?? i }));
+  const devices = prepareAnalyzedDevices(
+    list
+      .map((item, i) => normalizeDevice(item, i))
+      .filter((d): d is Device => d !== null)
+      .sort((a, b) => {
+        const railDiff = (a.rail ?? 0) - (b.rail ?? 0);
+        if (railDiff !== 0) return railDiff;
+        return (a.position ?? 0) - (b.position ?? 0);
+      })
+      .map((d, i) => ({ ...d, id: i + 1, position: d.position ?? i })),
+  );
 
   const breakerLike = devices.filter(
     (d) =>

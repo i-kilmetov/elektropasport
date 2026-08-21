@@ -50,6 +50,14 @@ import { SafetyParamsSheet } from "@/components/ui/safety-params-sheet";
 import { SafetyExplainSheet } from "@/components/ui/safety-explain-sheet";
 import { SafetyAxisMeters } from "@/components/ui/safety-axis-meters";
 import { EditableSpecCard } from "@/components/ui/editable-spec-card";
+import { InputBreakerDiagnosticsSheet } from "@/components/ui/input-breaker-diagnostics-sheet";
+import {
+  deviceCharacteristicRows,
+  displaySpecValue,
+} from "@/lib/device-characteristics";
+import {
+  panelHasConfirmedInputBreaker,
+} from "@/lib/input-breaker-diagnostics";
 import { WireSpecSheet } from "@/components/ui/wire-spec-sheet";
 import { WaitlistSheet } from "@/components/ui/waitlist-sheet";
 import { Portal } from "@/components/ui/portal";
@@ -474,10 +482,10 @@ function DeviceSheet({
   const suggestedProtectiveLabel =
     defaultDeviceCircuitLabel(device, panelDevices) ?? "";
   const confident = isDeviceDetailsConfident(device);
-  const manufacturerValue =
+  const manufacturerValue = displaySpecValue(
     getManufacturerBrand(device.brandKey, device.manufacturer)?.label ??
-    device.manufacturer?.trim() ??
-    "—";
+      device.manufacturer,
+  );
   const typeValue =
     DEVICE_TYPE_OPTIONS.find((item) => item.type === device.type)?.label ??
     typeShort[device.type];
@@ -486,21 +494,14 @@ function DeviceSheet({
       [
         ["Производитель", manufacturerValue],
         ["Тип", typeValue],
-        ["Номинал", device.rating?.trim() || "—"],
+        ["Номинал", displaySpecValue(device.rating)],
       ] as Array<[string, string]>,
     [device.rating, manufacturerValue, typeValue],
   );
-  const specs = useMemo(() => {
-    if (!confident) return [] as Array<[string, string]>;
-    const hidden = new Set(["Производитель", "Модель", "Тип", "Номинал"]);
-    const fromCatalog = Object.entries(device.characteristics ?? {}).filter(
-      ([key]) => !hidden.has(key),
-    );
-    if (fromCatalog.length > 0) return fromCatalog;
-    return [
-      ["Модули", String(deviceModules(device))],
-    ] as Array<[string, string]>;
-  }, [confident, device]);
+  const specs = useMemo(
+    () => deviceCharacteristicRows(device),
+    [device],
+  );
 
   const handleSpecChange = (key: string, next: string) => {
     if (key === "Производитель") {
@@ -813,7 +814,7 @@ function DeviceSheet({
           </button>
         </div>
 
-        {(identitySpecs.length > 0 || (confident && specs.length > 0)) && (
+        {(identitySpecs.length > 0 || specs.length > 0) && (
           <div className="mb-5 grid grid-cols-2 gap-3">
             {identitySpecs.map(([key, value]) => (
               <EditableSpecCard
@@ -831,27 +832,28 @@ function DeviceSheet({
                 }
               />
             ))}
-            {confident &&
-              specs.slice(0, 6).map(([key, value]) => (
-                <EditableSpecCard
-                  key={key}
-                  deviceType={device.type}
-                  label={key}
-                  value={value}
-                  editable={specEditable}
-                  onChange={
-                    specEditable && onUpdateCharacteristic
-                      ? (next) => handleSpecChange(key, next)
-                      : undefined
-                  }
-                />
-              ))}
+            {specs.slice(0, 8).map(([key, value]) => (
+              <EditableSpecCard
+                key={key}
+                deviceType={device.type}
+                label={key}
+                value={value}
+                editable={Boolean(specEditable && onUpdateCharacteristic)}
+                onChange={
+                  specEditable && onUpdateCharacteristic
+                    ? (next) => handleSpecChange(key, next)
+                    : undefined
+                }
+              />
+            ))}
           </div>
         )}
 
-        {specEditable && onUpdateCharacteristic && confident && (
+        {specEditable && onUpdateCharacteristic && (
           <p className="mb-5 text-[12px] leading-relaxed text-amber-800/90">
-            {manualSpecEditDisclaimer}
+            {confident
+              ? manualSpecEditDisclaimer
+              : "Если характеристика не определена (—), укажите её сами, если знаете. Вводной автомат подтверждается отдельной диагностикой, а не по фото."}
           </p>
         )}
 
@@ -1565,6 +1567,7 @@ export function SchemeScreen({
   const [safetyExplainOpen, setSafetyExplainOpen] = useState(false);
   const [safetyAssessing, setSafetyAssessing] = useState(false);
   const [safetyProgress, setSafetyProgress] = useState(0);
+  const [inputDiagOpen, setInputDiagOpen] = useState(false);
   const [stickerOpen, setStickerOpen] = useState(false);
   const [stickerBlockedOpen, setStickerBlockedOpen] = useState(false);
   const [terminalsWaitlistOpen, setTerminalsWaitlistOpen] = useState(false);
@@ -1641,6 +1644,10 @@ export function SchemeScreen({
   );
   const allLoadsIdentified = useMemo(
     () => allPanelLoadsIdentified(allRailDevices),
+    [allRailDevices],
+  );
+  const hasInputBreaker = useMemo(
+    () => panelHasConfirmedInputBreaker(allRailDevices),
     [allRailDevices],
   );
   const safetyAnalysis = useMemo(() => {
@@ -2244,6 +2251,39 @@ export function SchemeScreen({
       <div className="flex min-h-full flex-col lg:flex-row lg:items-start lg:gap-6 lg:px-10">
       {tab === "scheme" ? (
         <div className="px-5 pb-4 lg:min-w-0 lg:flex-1 lg:px-0">
+          {!sharedPreview && !hasInputBreaker && (
+            <GlassCard className="mb-4 space-y-3 p-4">
+              <div>
+                <p className="text-[15px] font-semibold text-zinc-900">
+                  Найдите вводной автомат
+                </p>
+                <p className="mt-1 text-[13px] leading-relaxed text-zinc-500">
+                  После оцифровки тип «вводной» не ставится автоматически —
+                  подтвердите его диагностикой. Характеристики приборов можно
+                  поправить в карточке (пустые поля — «—»).
+                </p>
+              </div>
+              <Button
+                className="w-full"
+                size="lg"
+                onClick={() => {
+                  setSelectedId(null);
+                  setSheetAnchorY(null);
+                  setInputDiagOpen(true);
+                }}
+              >
+                Запустить диагностику
+              </Button>
+            </GlassCard>
+          )}
+          {!sharedPreview && hasInputBreaker && (
+            <GlassCard className="mb-4 p-4">
+              <p className="text-[13px] leading-relaxed text-zinc-600">
+                Вводной автомат подписан. Остальные линии определите в карточке
+                каждого прибора на схеме.
+              </p>
+            </GlassCard>
+          )}
           <div className={cn("overflow-x-auto", showTerminals && isMaster && "overflow-y-visible")}>
             <GlassCard
               className={cn(
@@ -2476,7 +2516,26 @@ export function SchemeScreen({
       </AnimatePresence>
 
       <AnimatePresence>
-        {selected && tab === "scheme" && (
+        {inputDiagOpen && (
+          <InputBreakerDiagnosticsSheet
+            devices={allRailDevices}
+            onClose={() => {
+              setInputDiagOpen(false);
+              setSelectedId(null);
+            }}
+            onHighlightDevice={(deviceId) => {
+              setSelectedId(deviceId);
+            }}
+            onConfirmInputBreaker={(deviceId) => {
+              onUpdateDeviceIdentity?.(deviceId, { type: "main_breaker" });
+              onAssignCircuit?.(deviceId, "Ввод");
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {selected && tab === "scheme" && !inputDiagOpen && (
           <DeviceSheet
             device={selected}
             anchorY={sheetAnchorY}
