@@ -159,18 +159,19 @@ async function fetchServerHomeItems(): Promise<HomeListItem[]> {
 /**
  * After domain moves (vercel.app → tokom.ru) or late login, panels may exist
  * only in this origin's localStorage. Push orphans to the server once.
+ * Returns how many panels were accepted by the server.
  */
 async function uploadLocalOnlyPanels(
   serverItems: HomeListItem[],
-): Promise<boolean> {
+): Promise<number> {
   const serverIds = new Set(serverItems.map((item) => item.id));
   const orphans = readLocalItems().filter(
     (item): item is PanelObject =>
       item.kind === "panel" && !serverIds.has(item.id),
   );
-  if (orphans.length === 0) return false;
+  if (orphans.length === 0) return 0;
 
-  let uploaded = false;
+  let uploaded = 0;
   for (const panel of orphans) {
     try {
       const res = await fetch("/api/panels", {
@@ -181,30 +182,24 @@ async function uploadLocalOnlyPanels(
         },
         body: JSON.stringify({ panel: panelForApi(panel) }),
       });
-      if (res.ok || res.status === 403) uploaded = true;
+      if (res.ok) uploaded += 1;
     } catch {
-      // keep trying the rest
+      // keep local copy — do not wipe
     }
   }
   return uploaded;
 }
 
-export async function fetchHomeItems(): Promise<HomeListItem[]> {
-  if (!canUseServer()) {
-    return readLocalItems();
-  }
-
-  let serverItems = await fetchServerHomeItems();
-  if (await uploadLocalOnlyPanels(serverItems)) {
-    serverItems = await fetchServerHomeItems();
-  }
-
+function mergeServerWithLocal(serverItems: HomeListItem[]): HomeListItem[] {
+  const localItems = readLocalItems();
   const localById = new Map(
-    readLocalItems()
+    localItems
       .filter((i): i is PanelObject => i.kind === "panel")
       .map((i) => [i.id, i]),
   );
-  const merged = serverItems.map((item) => {
+  const serverIds = new Set(serverItems.map((item) => item.id));
+
+  const mergedServer = serverItems.map((item) => {
     if (item.kind !== "panel") return item;
     const local = localById.get(item.id);
     if (!local) return item;
@@ -213,17 +208,105 @@ export async function fetchHomeItems(): Promise<HomeListItem[]> {
     return {
       ...item,
       photoDataUrl: item.photoDataUrl || local.photoDataUrl,
-      devices:
-        serverDevices.length > 0 ? serverDevices : localDevices,
+      devices: serverDevices.length > 0 ? serverDevices : localDevices,
       railCount: item.railCount ?? local.railCount,
       wires:
-        item.wires && item.wires.length > 0
-          ? item.wires
-          : local.wires,
+        item.wires && item.wires.length > 0 ? item.wires : local.wires,
     };
   });
+
+  // Never drop local-only panels if the server does not have them yet.
+  const orphans = localItems.filter((item) => !serverIds.has(item.id));
+  return [...mergedServer, ...orphans];
+}
+
+export async function fetchHomeItems(): Promise<HomeListItem[]> {
+  if (!canUseServer()) {
+    return readLocalItems();
+  }
+
+  let serverItems = await fetchServerHomeItems();
+  const uploaded = await uploadLocalOnlyPanels(serverItems);
+  if (uploaded > 0) {
+    serverItems = await fetchServerHomeItems();
+  }
+
+  const merged = mergeServerWithLocal(serverItems);
   writeLocalItems(merged);
   return merged;
+}
+
+/** Force-upload every local-only panel, then return the refreshed list. */
+export async function syncLocalPanelsToServer(): Promise<{
+  uploaded: number;
+  items: HomeListItem[];
+}> {
+  if (!canUseServer()) {
+    return { uploaded: 0, items: readLocalItems() };
+  }
+  const before = await fetchServerHomeItems();
+  const uploaded = await uploadLocalOnlyPanels(before);
+  const items = await fetchHomeItems();
+  return { uploaded, items };
+}
+
+export type HomeBackupPayload = {
+  version: 1;
+  exportedAt: string;
+  items: HomeListItem[];
+  profile?: {
+    firstName?: string;
+    lastName?: string;
+    birthDate?: string;
+    phoneDigits?: string;
+    avatarId?: string;
+  };
+};
+
+export function exportHomeBackup(): HomeBackupPayload {
+  let profile: HomeBackupPayload["profile"];
+  try {
+    const raw = localStorage.getItem("elektropasport:user-profile");
+    if (raw) profile = JSON.parse(raw) as HomeBackupPayload["profile"];
+  } catch {
+    // ignore
+  }
+  return {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    items: readLocalItems(),
+    profile,
+  };
+}
+
+/** Merge a backup into local storage and push panels to the server when authed. */
+export async function importHomeBackup(
+  payload: HomeBackupPayload,
+): Promise<HomeListItem[]> {
+  if (!payload || payload.version !== 1 || !Array.isArray(payload.items)) {
+    throw new Error("Некорректный файл резервной копии");
+  }
+
+  const existing = readLocalItems();
+  const byId = new Map(existing.map((item) => [item.id, item]));
+  for (const item of payload.items) {
+    if (!item || typeof item !== "object" || !("id" in item)) continue;
+    byId.set(item.id, item as HomeListItem);
+  }
+  writeLocalItems(Array.from(byId.values()));
+
+  if (payload.profile) {
+    try {
+      localStorage.setItem(
+        "elektropasport:user-profile",
+        JSON.stringify(payload.profile),
+      );
+    } catch {
+      // ignore
+    }
+  }
+
+  return fetchHomeItems();
 }
 
 export async function persistPanel(panel: PanelObject): Promise<void> {

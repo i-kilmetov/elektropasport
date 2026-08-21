@@ -8,6 +8,11 @@ export function productionAppHost(): string {
   return "tokom.ru";
 }
 
+export function isLegacyVercelHost(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.location.hostname === LEGACY_VERCEL_HOST;
+}
+
 /**
  * Prefer an explicit env override, then the current request / Vercel URL,
  * then the public tokom.ru domain.
@@ -40,20 +45,4 @@ export function resolveAppOrigin(request?: Request): string {
   }
 
   return PRODUCTION_APP_URL;
-}
-
-/**
- * Browser-only: after local→server sync on the legacy Vercel host, send the
- * user to tokom.ru so they do not keep a split localStorage.
- */
-export function redirectLegacyHostToCanonical(): boolean {
-  if (typeof window === "undefined") return false;
-  const host = window.location.hostname;
-  if (host !== LEGACY_VERCEL_HOST) return false;
-  const next = new URL(PRODUCTION_APP_URL);
-  next.pathname = window.location.pathname;
-  next.search = window.location.search;
-  next.hash = window.location.hash;
-  window.location.replace(next.toString());
-  return true;
 }

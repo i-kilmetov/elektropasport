@@ -21,6 +21,12 @@ import {
   profileInitials,
   syncUserProfileFromServer,
 } from "@/lib/user-profile";
+import {
+  exportHomeBackup,
+  importHomeBackup,
+} from "@/lib/user-data";
+import type { HomeListItem } from "@/types";
+import { parseHomeBackupFile } from "@/components/domain-migration-banner";
 
 type ProfileDraft = {
   firstName: string;
@@ -41,10 +47,12 @@ function sameDraft(a: ProfileDraft, b: ProfileDraft): boolean {
 export function ProfileScreen({
   onBack,
   onLoggedOut,
+  onItemsImported,
   panelsUnlimited = false,
 }: {
   onBack: () => void;
   onLoggedOut?: () => void;
+  onItemsImported?: (items: HomeListItem[]) => void;
   panelsUnlimited?: boolean;
 }) {
   const showLogout = !isTelegramMiniApp();
@@ -75,6 +83,7 @@ export function ProfileScreen({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [backupBusy, setBackupBusy] = useState(false);
 
   const phoneDisplay = useMemo(
     () => formatPhoneDigits(draft.digits),
@@ -296,6 +305,78 @@ export function ProfileScreen({
                 заявок.
               </span>
             </label>
+          </GlassCard>
+        </div>
+
+        <div>
+          <h3 className="mb-2 text-[14px] font-medium text-zinc-600">
+            Перенос данных
+          </h3>
+          <GlassCard className="space-y-3 overflow-hidden p-4">
+            <p className="text-[13px] leading-relaxed text-zinc-500">
+              Если щитки остались на старом адресе vercel.app, скачайте копию
+              там и загрузите её здесь после входа через Telegram.
+            </p>
+            {telegram.id ? (
+              <p className="text-[12px] text-zinc-400">
+                Telegram ID: {telegram.id}
+              </p>
+            ) : null}
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button
+                className="flex-1"
+                variant="secondary"
+                disabled={backupBusy}
+                onClick={() => {
+                  const backup = exportHomeBackup();
+                  const blob = new Blob([JSON.stringify(backup, null, 2)], {
+                    type: "application/json",
+                  });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = `tokom-backup-${new Date().toISOString().slice(0, 10)}.json`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }}
+              >
+                Скачать копию
+              </Button>
+              <label className="flex-1">
+                <input
+                  type="file"
+                  accept="application/json,.json"
+                  className="hidden"
+                  disabled={backupBusy}
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    event.target.value = "";
+                    if (!file) return;
+                    setBackupBusy(true);
+                    setError(null);
+                    void parseHomeBackupFile(file)
+                      .then((payload) => importHomeBackup(payload))
+                      .then((items) => {
+                        onItemsImported?.(items);
+                        hapticNotification("success");
+                        setSaveFlash(true);
+                        window.setTimeout(() => setSaveFlash(false), 1600);
+                      })
+                      .catch((err) => {
+                        setError(
+                          err instanceof Error
+                            ? err.message
+                            : "Не удалось импортировать файл",
+                        );
+                      })
+                      .finally(() => setBackupBusy(false));
+                  }}
+                />
+                <span className="inline-flex h-12 w-full cursor-pointer items-center justify-center rounded-full border border-black/8 bg-zinc-100 px-4 text-[15px] font-semibold text-zinc-900">
+                  {backupBusy ? "Загрузка…" : "Загрузить копию"}
+                </span>
+              </label>
+            </div>
           </GlassCard>
         </div>
       </div>
