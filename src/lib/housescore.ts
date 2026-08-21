@@ -22,13 +22,23 @@ type HouseScoreFindItem = {
   house?: string | null;
 };
 
+type HouseScoreManagementCompany = {
+  inn?: string | null;
+  ogrn?: string | null;
+  name?: string | null;
+};
+
 type HouseScoreManagement = {
   management_type?: string | null;
-  management_company?: Array<{
-    inn?: string | null;
-    ogrn?: string | null;
-    name?: string | null;
-  }> | null;
+  management_company?:
+    | HouseScoreManagementCompany
+    | HouseScoreManagementCompany[]
+    | null;
+  management_companies?:
+    | HouseScoreManagementCompany
+    | HouseScoreManagementCompany[]
+    | null;
+  data?: HouseScoreManagement | null;
 };
 
 type HouseScoreCompany = {
@@ -37,6 +47,44 @@ type HouseScoreCompany = {
   phone?: string | null;
 };
 
+function asCompanyList(
+  raw: HouseScoreManagementCompany | HouseScoreManagementCompany[] | null | undefined,
+): HouseScoreManagementCompany[] {
+  if (!raw) return [];
+  if (Array.isArray(raw)) {
+    return raw.filter((item) => item && typeof item === "object");
+  }
+  if (typeof raw === "object") return [raw];
+  return [];
+}
+
+function parseManagementPayload(payload: HouseScoreManagement | null): {
+  managementType: string | null;
+  companies: HouseScoreManagementCompany[];
+} {
+  if (!payload || typeof payload !== "object") {
+    return { managementType: null, companies: [] };
+  }
+  const root = payload.data && typeof payload.data === "object" ? payload.data : payload;
+  const companies = [
+    ...asCompanyList(root.management_company),
+    ...asCompanyList(root.management_companies),
+  ];
+  // Deduplicate by ogrn/name
+  const seen = new Set<string>();
+  const unique = companies.filter((company) => {
+    const key = `${company.ogrn ?? ""}|${company.name ?? ""}`.toLowerCase();
+    if (!key || key === "|") return false;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return Boolean(company.name?.trim() || company.ogrn?.trim());
+  });
+  return {
+    managementType: root.management_type?.trim() || null,
+    companies: unique,
+  };
+}
+
 function getToken(): string | null {
   return process.env.HOUSESCORE_API_TOKEN?.trim() || null;
 }
@@ -44,6 +92,7 @@ function getToken(): string | null {
 async function housescoreGet<T>(
   path: string,
   searchParams?: Record<string, string>,
+  options?: { optional?: boolean },
 ): Promise<T | null> {
   const token = getToken();
   if (!token) return null;
@@ -69,6 +118,7 @@ async function housescoreGet<T>(
   if (!res.ok) {
     const body = await res.text().catch(() => "");
     console.error("HouseScore request failed", path, res.status, body);
+    if (options?.optional) return null;
     throw new Error("HouseScore unavailable");
   }
 
@@ -126,6 +176,8 @@ export async function fetchHouseManagement(
 ): Promise<HouseScoreManagement | null> {
   return housescoreGet<HouseScoreManagement>(
     `/api/houses/${encodeURIComponent(fiasId)}/management`,
+    undefined,
+    { optional: true },
   );
 }
 
@@ -138,38 +190,54 @@ export async function fetchCompanyByOgrn(
 }
 
 async function resolveManagementCompany(
-  fiasId: string,
+  fiasIds: string[],
 ): Promise<{
   management: HouseManagementCompany | null;
   managementType: string | null;
 }> {
-  const managementPayload = await fetchHouseManagement(fiasId);
-  const first = managementPayload?.management_company?.[0];
-  if (!first?.name) {
+  const tried = new Set<string>();
+  for (const fiasId of fiasIds) {
+    const id = fiasId.trim();
+    if (!id || tried.has(id)) continue;
+    tried.add(id);
+
+    const managementPayload = await fetchHouseManagement(id);
+    const parsed = parseManagementPayload(managementPayload);
+    const first =
+      parsed.companies.find((c) => c.name?.trim()) ?? parsed.companies[0];
+
+    if (!first) {
+      if (managementPayload) {
+        console.warn(
+          "HouseScore management empty",
+          id,
+          JSON.stringify(managementPayload).slice(0, 500),
+        );
+      }
+      continue;
+    }
+
+    let phone: string | null = null;
+    const ogrn = first.ogrn?.trim() || null;
+    if (ogrn) {
+      try {
+        const company = await fetchCompanyByOgrn(ogrn);
+        phone = company?.phone?.trim() || null;
+      } catch {
+        phone = null;
+      }
+    }
+
+    const name = first.name?.trim() || (ogrn ? `УК ОГРН ${ogrn}` : null);
+    if (!name) continue;
+
     return {
-      management: null,
-      managementType: managementPayload?.management_type ?? null,
+      managementType: parsed.managementType,
+      management: { name, phone, ogrn },
     };
   }
 
-  let phone: string | null = null;
-  if (first.ogrn) {
-    try {
-      const company = await fetchCompanyByOgrn(first.ogrn);
-      phone = company?.phone?.trim() || null;
-    } catch {
-      phone = null;
-    }
-  }
-
-  return {
-    managementType: managementPayload?.management_type ?? null,
-    management: {
-      name: first.name.trim(),
-      phone,
-      ogrn: first.ogrn?.trim() || null,
-    },
-  };
+  return { management: null, managementType: null };
 }
 
 export async function lookupHouseInsight(input: {
@@ -179,20 +247,25 @@ export async function lookupHouseInsight(input: {
 }): Promise<HouseInsight> {
   const city = input.city.trim();
   const address = input.address.trim();
-  let fiasId = input.fiasId?.trim() || null;
+  const clientFiasId = input.fiasId?.trim() || null;
+  let fiasId = clientFiasId;
   let foundAddress = address;
   let foundCity: string | null = city || null;
+  const fiasCandidates: string[] = [];
 
-  if (!fiasId) {
-    const found = await findHouseFiasByAddress(
-      normalizeQueryAddress(city, address),
-    );
-    if (found?.fias_id) {
-      fiasId = found.fias_id;
-      foundAddress = found.address?.trim() || address;
-      foundCity = found.city?.trim() || foundCity;
-    }
+  // Prefer HouseScore's own house GUID for management — DaData flat/house ids
+  // can differ from the GUID their /management index uses.
+  const found = await findHouseFiasByAddress(
+    normalizeQueryAddress(city, address),
+  );
+  if (found?.fias_id) {
+    fiasId = found.fias_id;
+    foundAddress = found.address?.trim() || address;
+    foundCity = found.city?.trim() || foundCity;
+    fiasCandidates.push(found.fias_id);
   }
+  if (clientFiasId) fiasCandidates.push(clientFiasId);
+  if (fiasId) fiasCandidates.push(fiasId);
 
   if (!fiasId) {
     return {
@@ -208,6 +281,8 @@ export async function lookupHouseInsight(input: {
   }
 
   const house = await fetchHouseByFias(fiasId);
+  if (house?.fias_guid) fiasCandidates.unshift(house.fias_guid);
+
   const buildingYear =
     typeof house?.building_year === "number" ? house.building_year : null;
   const operationYear =
@@ -216,7 +291,7 @@ export async function lookupHouseInsight(input: {
   let management: HouseManagementCompany | null = null;
   let managementType: string | null = null;
   try {
-    const resolved = await resolveManagementCompany(fiasId);
+    const resolved = await resolveManagementCompany(fiasCandidates);
     management = resolved.management;
     managementType = resolved.managementType;
   } catch (error) {
