@@ -1578,7 +1578,11 @@ export function AppShell() {
           {screen === "panel-game" && (
             <PanelGameScreen
               key="panel-game"
+              panels={items.filter(
+                (item): item is PanelObject => item.kind === "panel",
+              )}
               onBack={() => go("objects")}
+              onAddPanel={() => requireTelegramAuth("add-panel")}
             />
           )}
           {screen === "feedback" && (

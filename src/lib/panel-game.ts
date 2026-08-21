@@ -1,297 +1,270 @@
-export const PANEL_GAME_SIZE = 4;
-export const PANEL_GAME_WIN = 1024;
-export const PANEL_GAME_STORAGE_KEY = "elektropasport:panel-game";
+import type { Device, DeviceType } from "@/types";
 
-export type PanelGameTile = {
-  value: number;
-  title: string;
-  caption: string;
-  fact: string;
-  className: string;
+export const SNAKE_COLS = 14;
+export const SNAKE_ROWS = 14;
+export const SNAKE_TICK_MS = 140;
+export const SNAKE_STORAGE_KEY = "elektropasport:panel-snake";
+
+export type SnakeDir = "up" | "down" | "left" | "right";
+
+export type SnakeCell = { x: number; y: number };
+
+export type SnakeTarget = {
+  /** Stable id for progress UI (device id) */
+  deviceId: number;
+  type: DeviceType;
+  name: string;
+  rating: string;
+  cell: SnakeCell;
 };
 
-/** Each merge is the next step from a load to a protected panel. */
-export const PANEL_GAME_TILES: PanelGameTile[] = [
-  {
-    value: 2,
-    title: "Лампа",
-    caption: "0,5 А",
-    fact: "Лампочка почти не грузит линию — это самая слабая нагрузка в квартире.",
-    className: "bg-[#f3efe6] text-zinc-800",
-  },
-  {
-    value: 4,
-    title: "Свет",
-    caption: "группа",
-    fact: "Несколько светильников собирают в одну линию освещения.",
-    className: "bg-amber-100 text-amber-950",
-  },
-  {
-    value: 8,
-    title: "C10",
-    caption: "автомат",
-    fact: "Линию света обычно защищают автоматом C6 или C10 — не ставьте сюда C32.",
-    className: "bg-orange-400 text-white",
-  },
-  {
-    value: 16,
-    title: "Розетки",
-    caption: "линия",
-    fact: "Розеточная линия кормит чайник, зарядки и пылесос. Ей нужна своя защита.",
-    className: "bg-sky-400 text-white",
-  },
-  {
-    value: 32,
-    title: "C16",
-    caption: "автомат",
-    fact: "Автомат C16 — типичная защита розеток. Он отключит линию при перегрузе или КЗ.",
-    className: "bg-blue-600 text-white",
-  },
-  {
-    value: 64,
-    title: "Ванная",
-    caption: "влажно",
-    fact: "Во влажной зоне одной защиты по току мало: нужна ещё защита человека.",
-    className: "bg-cyan-500 text-white",
-  },
-  {
-    value: 128,
-    title: "УЗО",
-    caption: "30 мА",
-    fact: "УЗО 30 мА ловит утечку на человека или мокрый пол и отключает питание за доли секунды.",
-    className: "bg-teal-600 text-white",
-  },
-  {
-    value: 256,
-    title: "Диф.",
-    caption: "автомат+УЗО",
-    fact: "Дифавтомат — это автомат и УЗО в одном корпусе. Удобно, если мало места в щитке.",
-    className: "bg-emerald-600 text-white",
-  },
-  {
-    value: 512,
-    title: "Ввод",
-    caption: "C40",
-    fact: "Вводной автомат стоит первым и защищает весь щиток, а не одну розетку.",
-    className: "bg-violet-600 text-white",
-  },
-  {
-    value: 1024,
-    title: "Щиток",
-    caption: "собран",
-    fact: "Схема собрана: нагрузки → линии → автоматы → УЗО → ввод. Так устроен нормальный щиток.",
-    className: "bg-zinc-900 text-white",
-  },
-  {
-    value: 2048,
-    title: "Дом",
-    caption: "в сети",
-    fact: "Дом подключён. Вы прошли путь от лампочки до ввода — это и есть логика щитка.",
-    className: "bg-black text-amber-200",
-  },
-];
-
-const TILE_BY_VALUE = new Map(PANEL_GAME_TILES.map((tile) => [tile.value, tile]));
-
-export function panelGameTile(value: number): PanelGameTile | undefined {
-  return TILE_BY_VALUE.get(value);
-}
-
-export type PanelGameState = {
-  board: number[];
-  score: number;
-  best: number;
+export type SnakeGameState = {
+  snake: SnakeCell[];
+  dir: SnakeDir;
+  pendingDir: SnakeDir | null;
+  targets: SnakeTarget[];
+  collectedIds: number[];
+  /** Device ids still waiting to appear on the board */
+  queue: number[];
+  alive: boolean;
   won: boolean;
-  continued: boolean;
+  tick: number;
 };
 
-export function emptyBoard(): number[] {
-  return Array.from({ length: PANEL_GAME_SIZE * PANEL_GAME_SIZE }, () => 0);
+export const DEVICE_SHORT: Record<DeviceType, string> = {
+  main_breaker: "Ввод",
+  rcd: "УЗО",
+  diff_breaker: "Диф",
+  voltage_relay: "РН",
+  breaker: "Авт",
+  spd: "УЗИП",
+  afdd: "ДПН",
+  pe_bus: "PE",
+  n_bus: "N",
+};
+
+export function deviceShortLabel(device: Device): string {
+  const short = DEVICE_SHORT[device.type] ?? "Приб";
+  const rating = device.rating?.trim();
+  if (!rating) return short;
+  return rating.length <= 6 ? `${short} ${rating}` : short;
 }
 
-function emptyIndexes(board: number[]): number[] {
-  return board.flatMap((value, index) => (value === 0 ? [index] : []));
+function cellKey(cell: SnakeCell): string {
+  return `${cell.x},${cell.y}`;
 }
 
-export function spawnTile(board: number[]): number[] {
-  const spots = emptyIndexes(board);
-  if (spots.length === 0) return board;
-  const index = spots[Math.floor(Math.random() * spots.length)]!;
-  const next = board.slice();
-  next[index] = Math.random() < 0.9 ? 2 : 4;
+function occupiedSet(
+  snake: SnakeCell[],
+  targets: SnakeTarget[],
+): Set<string> {
+  const set = new Set<string>();
+  for (const part of snake) set.add(cellKey(part));
+  for (const target of targets) set.add(cellKey(target.cell));
+  return set;
+}
+
+function randomEmptyCell(
+  occupied: Set<string>,
+  rnd: () => number = Math.random,
+): SnakeCell | null {
+  const free: SnakeCell[] = [];
+  for (let y = 0; y < SNAKE_ROWS; y += 1) {
+    for (let x = 0; x < SNAKE_COLS; x += 1) {
+      if (!occupied.has(`${x},${y}`)) free.push({ x, y });
+    }
+  }
+  if (free.length === 0) return null;
+  return free[Math.floor(rnd() * free.length)]!;
+}
+
+function opposite(a: SnakeDir, b: SnakeDir): boolean {
+  return (
+    (a === "up" && b === "down") ||
+    (a === "down" && b === "up") ||
+    (a === "left" && b === "right") ||
+    (a === "right" && b === "left")
+  );
+}
+
+export function queueDevices(devices: Device[]): Device[] {
+  return devices
+    .slice()
+    .sort((a, b) => (a.position ?? a.id) - (b.position ?? b.id));
+}
+
+/** How many targets to keep on the board at once. */
+function spawnBudget(totalDevices: number): number {
+  const capacity = Math.floor((SNAKE_COLS * SNAKE_ROWS) / 5);
+  return Math.min(Math.max(3, Math.ceil(totalDevices / 2)), capacity, totalDevices);
+}
+
+export function createSnakeGame(devices: Device[]): SnakeGameState {
+  const ordered = queueDevices(devices);
+  const start: SnakeCell = {
+    x: Math.floor(SNAKE_COLS / 2),
+    y: Math.floor(SNAKE_ROWS / 2),
+  };
+  const snake: SnakeCell[] = [
+    start,
+    { x: start.x - 1, y: start.y },
+    { x: start.x - 2, y: start.y },
+  ];
+  const queueIds = ordered.map((device) => device.id);
+  const budget = spawnBudget(ordered.length);
+  const targets: SnakeTarget[] = [];
+  const occupied = occupiedSet(snake, targets);
+
+  while (targets.length < budget && queueIds.length > 0) {
+    const id = queueIds.shift()!;
+    const device = ordered.find((item) => item.id === id);
+    if (!device) continue;
+    const cell = randomEmptyCell(occupied);
+    if (!cell) {
+      queueIds.unshift(id);
+      break;
+    }
+    occupied.add(cellKey(cell));
+    targets.push({
+      deviceId: device.id,
+      type: device.type,
+      name: device.name,
+      rating: device.rating,
+      cell,
+    });
+  }
+
+  return {
+    snake,
+    dir: "right",
+    pendingDir: null,
+    targets,
+    collectedIds: [],
+    queue: queueIds,
+    alive: true,
+    won: false,
+    tick: 0,
+  };
+}
+
+export function setSnakeDirection(
+  state: SnakeGameState,
+  next: SnakeDir,
+): SnakeGameState {
+  if (!state.alive || state.won) return state;
+  const current = state.pendingDir ?? state.dir;
+  if (opposite(current, next)) return state;
+  return { ...state, pendingDir: next };
+}
+
+function spawnNextTarget(
+  state: SnakeGameState,
+  devicesById: Map<number, Device>,
+): SnakeGameState {
+  if (state.queue.length === 0) return state;
+  const occupied = occupiedSet(state.snake, state.targets);
+  const cell = randomEmptyCell(occupied);
+  if (!cell) return state;
+  const id = state.queue[0]!;
+  const device = devicesById.get(id);
+  if (!device) {
+    return { ...state, queue: state.queue.slice(1) };
+  }
+  return {
+    ...state,
+    queue: state.queue.slice(1),
+    targets: [
+      ...state.targets,
+      {
+        deviceId: device.id,
+        type: device.type,
+        name: device.name,
+        rating: device.rating,
+        cell,
+      },
+    ],
+  };
+}
+
+export function stepSnakeGame(
+  state: SnakeGameState,
+  devices: Device[],
+): SnakeGameState {
+  if (!state.alive || state.won) return state;
+
+  const dir = state.pendingDir ?? state.dir;
+  const head = state.snake[0]!;
+  const nextHead: SnakeCell = {
+    x: head.x + (dir === "left" ? -1 : dir === "right" ? 1 : 0),
+    y: head.y + (dir === "up" ? -1 : dir === "down" ? 1 : 0),
+  };
+
+  if (
+    nextHead.x < 0 ||
+    nextHead.y < 0 ||
+    nextHead.x >= SNAKE_COLS ||
+    nextHead.y >= SNAKE_ROWS
+  ) {
+    return { ...state, dir, pendingDir: null, alive: false };
+  }
+
+  const hitSelf = state.snake.some(
+    (part, index) =>
+      index < state.snake.length - 1 &&
+      part.x === nextHead.x &&
+      part.y === nextHead.y,
+  );
+  if (hitSelf) {
+    return { ...state, dir, pendingDir: null, alive: false };
+  }
+
+  const targetIndex = state.targets.findIndex(
+    (target) => target.cell.x === nextHead.x && target.cell.y === nextHead.y,
+  );
+  const growing = targetIndex >= 0;
+  const nextSnake = [nextHead, ...state.snake];
+  if (!growing) nextSnake.pop();
+
+  let targets = state.targets;
+  let collectedIds = state.collectedIds;
+  let queue = state.queue;
+
+  if (growing) {
+    const eaten = targets[targetIndex]!;
+    targets = targets.filter((_, index) => index !== targetIndex);
+    collectedIds = [...collectedIds, eaten.deviceId];
+  }
+
+  let next: SnakeGameState = {
+    ...state,
+    snake: nextSnake,
+    dir,
+    pendingDir: null,
+    targets,
+    collectedIds,
+    queue,
+    tick: state.tick + 1,
+  };
+
+  const total = devices.length;
+  if (collectedIds.length >= total && total > 0) {
+    return { ...next, won: true, alive: true };
+  }
+
+  const devicesById = new Map(devices.map((device) => [device.id, device]));
+  const budget = spawnBudget(total);
+  while (next.targets.length < budget && next.queue.length > 0) {
+    const spawned = spawnNextTarget(next, devicesById);
+    if (spawned.targets.length === next.targets.length) break;
+    next = spawned;
+  }
+
   return next;
 }
 
-export function createPanelGame(best = 0): PanelGameState {
-  return {
-    board: spawnTile(spawnTile(emptyBoard())),
-    score: 0,
-    best,
-    won: false,
-    continued: false,
-  };
-}
-
-function slideLine(line: number[]): {
-  line: number[];
-  score: number;
-  merged: number[];
+export function snakeProgress(state: SnakeGameState, total: number): {
+  collected: number;
+  total: number;
 } {
-  const compact = line.filter((value) => value !== 0);
-  const next: number[] = [];
-  const merged: number[] = [];
-  let score = 0;
-  let i = 0;
-  while (i < compact.length) {
-    const current = compact[i]!;
-    const ahead = compact[i + 1];
-    if (ahead === current) {
-      const value = current * 2;
-      next.push(value);
-      merged.push(value);
-      score += value;
-      i += 2;
-    } else {
-      next.push(current);
-      i += 1;
-    }
-  }
-  while (next.length < PANEL_GAME_SIZE) next.push(0);
-  return { line: next, score, merged };
-}
-
-function rowsOf(board: number[]): number[][] {
-  const rows: number[][] = [];
-  for (let y = 0; y < PANEL_GAME_SIZE; y += 1) {
-    rows.push(
-      board.slice(y * PANEL_GAME_SIZE, y * PANEL_GAME_SIZE + PANEL_GAME_SIZE),
-    );
-  }
-  return rows;
-}
-
-function fromRows(rows: number[][]): number[] {
-  return rows.flat();
-}
-
-function colsOf(board: number[]): number[][] {
-  const cols: number[][] = [];
-  for (let x = 0; x < PANEL_GAME_SIZE; x += 1) {
-    const col: number[] = [];
-    for (let y = 0; y < PANEL_GAME_SIZE; y += 1) {
-      col.push(board[y * PANEL_GAME_SIZE + x]!);
-    }
-    cols.push(col);
-  }
-  return cols;
-}
-
-function fromCols(cols: number[][]): number[] {
-  const board = emptyBoard();
-  for (let x = 0; x < PANEL_GAME_SIZE; x += 1) {
-    for (let y = 0; y < PANEL_GAME_SIZE; y += 1) {
-      board[y * PANEL_GAME_SIZE + x] = cols[x]![y]!;
-    }
-  }
-  return board;
-}
-
-export type PanelGameDir = "left" | "right" | "up" | "down";
-
-export function movePanelGame(
-  state: PanelGameState,
-  dir: PanelGameDir,
-): { state: PanelGameState; moved: boolean; merged: number[] } {
-  let score = 0;
-  const merged: number[] = [];
-  let nextBoard: number[];
-
-  if (dir === "left" || dir === "right") {
-    const rows = rowsOf(state.board).map((row) => {
-      const source = dir === "left" ? row : [...row].reverse();
-      const slid = slideLine(source);
-      score += slid.score;
-      merged.push(...slid.merged);
-      return dir === "left" ? slid.line : [...slid.line].reverse();
-    });
-    nextBoard = fromRows(rows);
-  } else {
-    const cols = colsOf(state.board).map((col) => {
-      const source = dir === "up" ? col : [...col].reverse();
-      const slid = slideLine(source);
-      score += slid.score;
-      merged.push(...slid.merged);
-      return dir === "up" ? slid.line : [...slid.line].reverse();
-    });
-    nextBoard = fromCols(cols);
-  }
-
-  const moved = nextBoard.some((value, index) => value !== state.board[index]);
-  if (!moved) return { state, moved: false, merged: [] };
-
-  const board = spawnTile(nextBoard);
-  const nextScore = state.score + score;
-  const reachedWin = board.some((value) => value >= PANEL_GAME_WIN);
-  return {
-    moved: true,
-    merged,
-    state: {
-      board,
-      score: nextScore,
-      best: Math.max(state.best, nextScore),
-      won: state.won || reachedWin,
-      continued: state.continued,
-    },
-  };
-}
-
-export function canMovePanelGame(board: number[]): boolean {
-  if (emptyIndexes(board).length > 0) return true;
-  for (let y = 0; y < PANEL_GAME_SIZE; y += 1) {
-    for (let x = 0; x < PANEL_GAME_SIZE; x += 1) {
-      const value = board[y * PANEL_GAME_SIZE + x]!;
-      if (x + 1 < PANEL_GAME_SIZE && board[y * PANEL_GAME_SIZE + x + 1] === value) {
-        return true;
-      }
-      if (
-        y + 1 < PANEL_GAME_SIZE &&
-        board[(y + 1) * PANEL_GAME_SIZE + x] === value
-      ) {
-        return true;
-      }
-    }
-  }
-  return false;
-}
-
-export function readPanelGame(): PanelGameState | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = localStorage.getItem(PANEL_GAME_STORAGE_KEY);
-    if (!raw) return null;
-    const data = JSON.parse(raw) as Partial<PanelGameState>;
-    if (!Array.isArray(data.board) || data.board.length !== 16) return null;
-    return {
-      board: data.board.map((value) => (typeof value === "number" ? value : 0)),
-      score: Number(data.score) || 0,
-      best: Number(data.best) || 0,
-      won: Boolean(data.won),
-      continued: Boolean(data.continued),
-    };
-  } catch {
-    return null;
-  }
-}
-
-export function writePanelGame(state: PanelGameState): void {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(PANEL_GAME_STORAGE_KEY, JSON.stringify(state));
-  } catch {
-    // private mode
-  }
-}
-
-export function readPanelGameBest(): number {
-  return readPanelGame()?.best ?? 0;
+  return { collected: state.collectedIds.length, total };
 }

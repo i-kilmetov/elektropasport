@@ -31,7 +31,7 @@ const items: Array<{
   {
     id: "game",
     title: "Игра",
-    description: "Собери щиток — как 2048",
+    description: "Змейка: собери приборы щитка",
     icon: Gamepad2,
   },
   {
