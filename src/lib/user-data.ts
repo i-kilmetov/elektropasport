@@ -313,14 +313,14 @@ export async function importHomeBackup(
 export async function persistPanel(panel: PanelObject): Promise<void> {
   return enqueuePanelOp(panel.id, async () => {
     const already = readLocalItems().some((item) => item.id === panel.id);
-    if (!already) {
+    // Server auth: the API enforces quota. Offline/local-only: check free tier here.
+    // Never pass `undefined` quota into isAtPanelLimit — that treats any existing
+    // local panel as "at limit" even when the account is unlimited.
+    if (!already && !canUseServer()) {
       const localCount = readLocalItems().filter(
         (item) => item.kind === "panel",
       ).length;
-      const quota = canUseServer()
-        ? undefined
-        : localPanelQuota(readLocalItems());
-      if (isAtPanelLimit(quota, localCount)) {
+      if (isAtPanelLimit(localPanelQuota(readLocalItems()), localCount)) {
         const error = new Error(PANEL_LIMIT_MESSAGE);
         error.name = "PanelLimitError";
         throw error;

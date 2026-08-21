@@ -43,10 +43,14 @@ export function isAtPanelLimit(
   quota: PanelQuota | null | undefined,
   localPanelCount = 0,
 ): boolean {
-  if (quota?.unlimited || hasUnlockedPanelLimit(quota?.creditedInvites ?? 0)) {
+  // No quota loaded yet / caller forgot to pass it — do not invent a limit.
+  // Authenticated creates are enforced by the API; local-only callers pass
+  // an explicit localPanelQuota(...).
+  if (!quota) return false;
+  if (quota.unlimited || hasUnlockedPanelLimit(quota.creditedInvites)) {
     return false;
   }
-  const count = Math.max(quota?.panelCount ?? 0, localPanelCount);
+  const count = Math.max(quota.panelCount, localPanelCount);
   return count >= BASE_PANEL_LIMIT;
 }
 
