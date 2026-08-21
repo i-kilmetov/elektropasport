@@ -49,7 +49,7 @@ import {
   ONBOARDING_SKIP_KEY,
   WelcomeScreen,
 } from "@/components/screens/welcome-screen";
-import { canUseServerAuth } from "@/lib/client-auth";
+import { canUseServerAuth, isTelegramMiniApp } from "@/lib/client-auth";
 import {
   clearPendingInstallLead,
   readPendingInstallLead,
@@ -213,13 +213,55 @@ export function AppShell() {
 
   useEffect(() => {
     const startParam = getTelegramStartParam();
-    if (isMasterReferralParam(startParam)) {
-      setScreen("become-master");
-    } else if (readSkipOnboarding() || (startParam && isPanelShareToken(startParam))) {
-      setScreen("objects");
+    const intent =
+      typeof window !== "undefined"
+        ? (() => {
+            try {
+              return (
+                sessionStorage.getItem("ep_intent") ||
+                new URLSearchParams(window.location.search).get("intent")
+              );
+            } catch {
+              return null;
+            }
+          })()
+        : null;
+
+    if (canUseServerAuth()) {
+      try {
+        sessionStorage.removeItem("ep_intent");
+      } catch {
+        // ignore
+      }
+      if (intent === "become-master" || isMasterReferralParam(startParam)) {
+        setScreen("become-master");
+      } else {
+        setScreen("objects");
+      }
+    } else if (isMasterReferralParam(startParam) || intent === "become-master") {
+      try {
+        sessionStorage.setItem("ep_intent", "become-master");
+      } catch {
+        // ignore
+      }
+      setScreen(readSkipOnboarding() ? "telegram-auth" : "welcome");
+    } else if (readSkipOnboarding()) {
+      setScreen("telegram-auth");
+    } else {
+      setScreen("welcome");
     }
     setOnboardingReady(true);
   }, []);
+
+  /** App UI (home, scheme, …) only after Telegram auth. */
+  useEffect(() => {
+    if (!onboardingReady) return;
+    if (canUseServerAuth() || isTelegramMiniApp()) return;
+    const allowed: AppScreen[] = ["welcome", "telegram-auth"];
+    if (!allowed.includes(screen)) {
+      setScreen(readSkipOnboarding() ? "telegram-auth" : "welcome");
+    }
+  }, [onboardingReady, screen]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1227,7 +1269,7 @@ export function AppShell() {
           {screen === "welcome" && (
             <WelcomeScreen
               key="welcome"
-              onStart={() => go("objects")}
+              onContinue={() => go("objects")}
               onTelegramLogin={() => {
                 try {
                   localStorage.setItem(ONBOARDING_SKIP_KEY, "1");
@@ -1308,7 +1350,7 @@ export function AppShell() {
               onBack={() => {
                 setPendingAuthAction(null);
                 sessionStorage.removeItem("ep_pending_auth_action");
-                go("objects");
+                go(canUseServerAuth() ? "objects" : "welcome");
               }}
             />
           )}

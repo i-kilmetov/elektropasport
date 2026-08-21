@@ -48,11 +48,13 @@ const cards: Card[] = [
 ];
 
 export function WelcomeScreen({
-  onStart,
+  onContinue,
   onTelegramLogin,
 }: {
-  onStart: () => void;
-  onTelegramLogin?: () => void;
+  /** Called when onboarding is done and the user is already authenticated. */
+  onContinue: () => void;
+  /** Start Telegram login (unauthenticated users). */
+  onTelegramLogin: () => void;
 }) {
   const [index, setIndex] = useState(0);
   const [direction, setDirection] = useState(1);
@@ -61,37 +63,27 @@ export function WelcomeScreen({
   const card = cards[index]!;
   const alreadyAuthed = canUseServerAuth() || isTelegramMiniApp();
 
-  const finish = (skipForever: boolean) => {
-    if (skipForever) {
-      try {
-        localStorage.setItem(ONBOARDING_SKIP_KEY, "1");
-      } catch {
-        // private mode
-      }
+  const rememberOnboardingSeen = () => {
+    try {
+      localStorage.setItem(ONBOARDING_SKIP_KEY, "1");
+    } catch {
+      // private mode
     }
-    onStart();
   };
 
   const startTelegramLogin = () => {
+    rememberOnboardingSeen();
     if (alreadyAuthed) {
-      finish(false);
+      onContinue();
       return;
     }
     setStartingLogin(true);
-    if (onTelegramLogin) {
-      onTelegramLogin();
-      return;
-    }
-    window.location.assign("/api/auth/telegram/start");
+    onTelegramLogin();
   };
 
   const goNext = () => {
     if (isLast) {
-      if (card.kind === "auth") {
-        startTelegramLogin();
-        return;
-      }
-      finish(false);
+      startTelegramLogin();
       return;
     }
     setDirection(1);
@@ -135,10 +127,14 @@ export function WelcomeScreen({
         </div>
         <button
           type="button"
-          onClick={() => finish(true)}
+          onClick={() => {
+            rememberOnboardingSeen();
+            if (alreadyAuthed) onContinue();
+            else startTelegramLogin();
+          }}
           className="rounded-full px-2 py-1 text-[12px] font-medium tracking-wide text-white/45 transition-colors hover:text-white/70"
         >
-          Не показывать больше
+          Войти
         </button>
       </div>
 
