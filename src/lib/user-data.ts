@@ -38,6 +38,12 @@ function readLocalItems(): HomeListItem[] {
   }
 }
 
+/** Instant cache for stale-while-revalidate on the home screen. */
+export function getCachedHomeItems(): HomeListItem[] {
+  if (typeof window === "undefined") return [];
+  return readLocalItems();
+}
+
 function writeLocalItems(items: HomeListItem[]): void {
   try {
     localStorage.setItem(LOCAL_KEY, JSON.stringify(items));
@@ -226,14 +232,25 @@ export async function fetchHomeItems(): Promise<HomeListItem[]> {
     return readLocalItems();
   }
 
-  let serverItems = await fetchServerHomeItems();
-  const uploaded = await uploadLocalOnlyPanels(serverItems);
-  if (uploaded > 0) {
-    serverItems = await fetchServerHomeItems();
-  }
-
+  const serverItems = await fetchServerHomeItems();
   const merged = mergeServerWithLocal(serverItems);
   writeLocalItems(merged);
+
+  // Push local-only panels in the background — do not block the home screen.
+  const serverIds = new Set(serverItems.map((item) => item.id));
+  const hasOrphans = readLocalItems().some(
+    (item) => item.kind === "panel" && !serverIds.has(item.id),
+  );
+  if (hasOrphans) {
+    void uploadLocalOnlyPanels(serverItems)
+      .then(async (uploaded) => {
+        if (uploaded <= 0) return;
+        const fresh = await fetchServerHomeItems();
+        writeLocalItems(mergeServerWithLocal(fresh));
+      })
+      .catch((error) => console.error(error));
+  }
+
   return merged;
 }
 

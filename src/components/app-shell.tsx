@@ -79,6 +79,7 @@ import {
   fetchMasterProfile,
   fetchMasterRequestPanel,
   fetchPanelQuota,
+  getCachedHomeItems,
   persistDeleteInstallRequest,
   persistDeletePanel,
   persistInstallRequest,
@@ -136,8 +137,10 @@ function clearSkipOnboarding() {
 export function AppShell() {
   const [screen, setScreen] = useState<AppScreen>("welcome");
   const [onboardingReady, setOnboardingReady] = useState(false);
-  const [items, setItems] = useState<HomeListItem[]>([]);
-  const [itemsLoading, setItemsLoading] = useState(true);
+  const [items, setItems] = useState<HomeListItem[]>(() => getCachedHomeItems());
+  const [itemsLoading, setItemsLoading] = useState(
+    () => getCachedHomeItems().length === 0,
+  );
   const [itemsError, setItemsError] = useState<string | null>(null);
   const [quota, setQuota] = useState<PanelQuota | null>(null);
   const [mainMenuOpen, setMainMenuOpen] = useState(false);
@@ -272,33 +275,52 @@ export function AppShell() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      setItemsLoading(true);
+      const cached = getCachedHomeItems();
+      if (cached.length > 0) {
+        setItems(cached);
+        setItemsLoading(false);
+      } else {
+        setItemsLoading(true);
+      }
       setItemsError(null);
+
       try {
-        if (canUseServerAuth()) {
-          const invite = getTelegramStartParam();
-          if (isInviteToken(invite)) {
-            try {
-              const claimed = await claimInviteToken(invite);
-              if (!cancelled && claimed) setQuota(claimed);
-            } catch (error) {
-              console.error(error);
-            }
+        const authed = canUseServerAuth();
+        if (!authed) {
+          if (!cancelled) {
+            setItems(cached);
+            setItemsLoading(false);
           }
-          await syncUserProfileFromServer();
+          return;
         }
-        const [loaded, masterProfile, admin] = await Promise.all([
-          fetchHomeItems(),
-          canUseServerAuth() ? fetchMasterProfile() : Promise.resolve(null),
-          canUseServerAuth() ? fetchIsAdmin() : Promise.resolve(false),
-        ]);
-        if (!cancelled) {
-          setItems(loaded);
-          if (masterProfile?.isMaster) setIsMaster(true);
-          setIsAdmin(Boolean(admin));
-        }
-        const nextQuota = await fetchPanelQuota();
-        if (!cancelled) setQuota(nextQuota);
+
+        const invite = getTelegramStartParam();
+        const claimPromise = isInviteToken(invite)
+          ? claimInviteToken(invite).catch((error) => {
+              console.error(error);
+              return null;
+            })
+          : Promise.resolve(null);
+
+        const [loaded, masterProfile, admin, nextQuota, claimed] =
+          await Promise.all([
+            fetchHomeItems(),
+            fetchMasterProfile().catch(() => null),
+            fetchIsAdmin().catch(() => false),
+            fetchPanelQuota().catch(() => null),
+            claimPromise,
+            syncUserProfileFromServer().catch((error) => {
+              console.error(error);
+            }),
+          ]);
+
+        if (cancelled) return;
+
+        setItems(loaded);
+        if (masterProfile?.isMaster) setIsMaster(true);
+        setIsAdmin(Boolean(admin));
+        if (claimed) setQuota(claimed);
+        else if (nextQuota) setQuota(nextQuota);
       } catch (error) {
         if (!cancelled) {
           setItemsError(

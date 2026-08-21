@@ -28,6 +28,9 @@ import { buildPanelShareUrl } from "@/lib/panel-share";
 
 let schemaReady: Promise<void> | null = null;
 
+/** Bump when DDL below changes so cold starts re-run migrations once. */
+const SCHEMA_VERSION = "2026-08-22-a";
+
 export function getSql(): NeonQueryFunction<false, false> {
   const url = process.env.DATABASE_URL?.trim();
   if (!url) {
@@ -40,6 +43,26 @@ export async function ensureSchema(): Promise<void> {
   if (!schemaReady) {
     schemaReady = (async () => {
       const sql = getSql();
+
+      // Fast path: skip dozens of DDL round-trips on warm / already-migrated DB.
+      try {
+        const [meta] = (await sql`
+          SELECT value
+          FROM schema_meta
+          WHERE key = 'version'
+          LIMIT 1
+        `) as Array<{ value: string }>;
+        if (meta?.value === SCHEMA_VERSION) return;
+      } catch {
+        // schema_meta missing — fall through to full migrate
+      }
+
+      await sql`
+        CREATE TABLE IF NOT EXISTS schema_meta (
+          key TEXT PRIMARY KEY,
+          value TEXT NOT NULL
+        )
+      `;
       await sql`
         CREATE TABLE IF NOT EXISTS users (
           telegram_id BIGINT PRIMARY KEY,
@@ -319,6 +342,11 @@ export async function ensureSchema(): Promise<void> {
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
           UNIQUE (list, email)
         )
+      `;
+      await sql`
+        INSERT INTO schema_meta (key, value)
+        VALUES ('version', ${SCHEMA_VERSION})
+        ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
       `;
     })().catch((error) => {
       schemaReady = null;
