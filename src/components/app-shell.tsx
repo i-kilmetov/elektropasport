@@ -5,6 +5,7 @@ import { AnimatePresence } from "framer-motion";
 import { AdminDashboardScreen } from "@/components/screens/admin-dashboard-screen";
 import { AboutServiceScreen } from "@/components/screens/about-service-screen";
 import { AnalysisScreen } from "@/components/screens/analysis-screen";
+import { ApplianceDetailScreen } from "@/components/screens/appliance-detail-screen";
 import { BecomeMasterScreen } from "@/components/screens/become-master-screen";
 import { MasterDashboardScreen } from "@/components/screens/master-dashboard-screen";
 import { MasterSearchScreen } from "@/components/screens/master-search-screen";
@@ -148,6 +149,9 @@ export function AppShell() {
   const [waitlistKind, setWaitlistKind] = useState<WaitlistKind | null>(null);
   const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
   const [activePanelId, setActivePanelId] = useState<string | null>(null);
+  const [activeApplianceId, setActiveApplianceId] = useState<string | null>(
+    null,
+  );
   const [activeRequestId, setActiveRequestId] = useState<string | null>(null);
   const [askNameOnBack, setAskNameOnBack] = useState(false);
   const [sharedPreview, setSharedPreview] = useState<{
@@ -1349,9 +1353,30 @@ export function AppShell() {
               }}
               onDeleteItem={deleteHomeItem}
               onRenameItem={renameHomeItem}
-              onNoPanel={() => requireTelegramAuth("no-panel")}
               onHelpElectrical={startHelpElectrical}
               onPanelLimit={openPanelLimit}
+              onAddAppliance={(panelId, appliance) => {
+                setItems((prev) => {
+                  const next = prev.map((item) => {
+                    if (item.kind !== "panel" || item.id !== panelId) return item;
+                    const updated: PanelObject = {
+                      ...item,
+                      appliances: [...(item.appliances ?? []), appliance],
+                      lastCheck: "сегодня",
+                    };
+                    void persistPanel(updated).catch((error) =>
+                      console.error(error),
+                    );
+                    return updated;
+                  });
+                  return next;
+                });
+              }}
+              onOpenAppliance={(panelId, applianceId) => {
+                setActivePanelId(panelId);
+                setActiveApplianceId(applianceId);
+                go("appliance-detail");
+              }}
               isMaster={isMaster}
               isAdmin={isAdmin}
               masterMode={false}
@@ -1400,8 +1425,31 @@ export function AppShell() {
                 go("objects");
               }}
               onCapture={handlePhoto}
+              onNoPanel={() => requireTelegramAuth("no-panel")}
             />
           )}
+          {screen === "appliance-detail" &&
+            (() => {
+              const panel = items.find(
+                (item): item is PanelObject =>
+                  item.kind === "panel" && item.id === activePanelId,
+              );
+              const appliance = panel?.appliances?.find(
+                (a) => a.id === activeApplianceId,
+              );
+              if (!appliance) return null;
+              return (
+                <ApplianceDetailScreen
+                  key={`appliance-${appliance.id}`}
+                  homeTitle={panel?.title}
+                  appliance={appliance}
+                  onBack={() => {
+                    setActiveApplianceId(null);
+                    go("objects");
+                  }}
+                />
+              );
+            })()}
           {screen === "analysis" && (
             <AnalysisScreen
               key={

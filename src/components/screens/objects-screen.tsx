@@ -16,8 +16,9 @@ import {
   useTransform,
   type PanInfo,
 } from "framer-motion";
-import { ClipboardList, Menu, Plus, Wrench } from "lucide-react";
+import { ChevronDown, ClipboardList, Menu, Plus, Wrench, Zap } from "lucide-react";
 import { BreakerIcon } from "@/components/icons/breaker-icon";
+import { AddApplianceSheet } from "@/components/screens/add-appliance-sheet";
 import {
   MainMenuSheet,
   MAIN_MENU_ITEMS,
@@ -30,9 +31,15 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { GlassCard } from "@/components/ui/glass-card";
 import { ItemActionsSheet } from "@/components/ui/item-actions-sheet";
 import { NameDialog } from "@/components/ui/name-dialog";
+import { formatAppliancePower } from "@/lib/home-appliances";
 import { hapticContextMenu } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
-import type { HomeListItem, InstallRequest, PanelObject } from "@/types";
+import type {
+  HomeAppliance,
+  HomeListItem,
+  InstallRequest,
+  PanelObject,
+} from "@/types";
 import { installStatusTone } from "@/types";
 import { isAtPanelLimit, type PanelQuota } from "@/lib/invites";
 
@@ -46,7 +53,7 @@ const SWIPE_DISTANCE = 80;
 const SWIPE_VELOCITY = 700;
 const SWIPE_MIN_OFFSET = 28;
 
-function HomeListCard({
+function RequestListCard({
   item,
   lifted,
   pressing,
@@ -54,14 +61,13 @@ function HomeListCard({
   onContextMenu,
   onPressingChange,
 }: {
-  item: HomeListItem;
+  item: InstallRequest;
   lifted: boolean;
   pressing: boolean;
   onOpen: () => void;
   onContextMenu: () => void;
   onPressingChange: (pressing: boolean) => void;
 }) {
-  const isRequest = item.kind === "install_request";
   const longPressedRef = useRef(false);
   const timerRef = useRef<number | null>(null);
   const liftTimerRef = useRef<number | null>(null);
@@ -157,53 +163,249 @@ function HomeListCard({
         className="w-full text-left select-none lg:cursor-pointer"
       >
         <GlassCard className="flex items-center gap-4 rounded-[24px] border p-4 transition-colors hover:bg-zinc-50 lg:p-5">
-          <div
-            className={cn(
-              "flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[18px] bg-zinc-100",
-              isRequest ? "text-zinc-500" : "text-zinc-600",
-            )}
-          >
-            {isRequest ? (
-              <ClipboardList className="h-6 w-6" />
-            ) : (
-              <BreakerIcon className="h-7 w-7" />
-            )}
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[18px] bg-zinc-100 text-zinc-500">
+            <ClipboardList className="h-6 w-6" />
           </div>
           <div className="min-w-0 flex-1">
             <div className="mb-0.5 flex items-center justify-between gap-2">
               <h2 className="truncate text-[17px] font-semibold text-zinc-900">
-                {isRequest && item.publicCode ? item.publicCode : item.title}
+                {item.publicCode ? item.publicCode : item.title}
               </h2>
-              {isRequest ? (
-                <span
-                  className={cn(
-                    "shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium",
-                    installStatusTone(item.status).badge,
-                  )}
-                >
-                  {item.statusLabel}
-                </span>
-              ) : (
-                <span className="shrink-0 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
-                  {item.phases &&
-                  item.powerKw?.trim() &&
-                  typeof item.safety === "number"
-                    ? `${item.safety}%`
-                    : "—"}
-                </span>
-              )}
+              <span
+                className={cn(
+                  "shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium",
+                  installStatusTone(item.status).badge,
+                )}
+              >
+                {item.statusLabel}
+              </span>
             </div>
-            <p className="truncate text-[13px] text-zinc-500">
-              {isRequest ? item.subtitle : item.address}
-            </p>
-            <p className="mt-1 text-[12px] text-zinc-400">
-              {isRequest
-                ? item.createdAt
-                : `${item.breakers} устройств · ${item.lastCheck}`}
-            </p>
+            <p className="truncate text-[13px] text-zinc-500">{item.subtitle}</p>
+            <p className="mt-1 text-[12px] text-zinc-400">{item.createdAt}</p>
           </div>
         </GlassCard>
       </button>
+    </motion.div>
+  );
+}
+
+function ExpandableHomeCard({
+  panel,
+  expanded,
+  lifted,
+  pressing,
+  onToggle,
+  onOpenPanel,
+  onOpenAppliance,
+  onContextMenu,
+  onPressingChange,
+}: {
+  panel: PanelObject;
+  expanded: boolean;
+  lifted: boolean;
+  pressing: boolean;
+  onToggle: () => void;
+  onOpenPanel: () => void;
+  onOpenAppliance: (applianceId: string) => void;
+  onContextMenu: () => void;
+  onPressingChange: (pressing: boolean) => void;
+}) {
+  const longPressedRef = useRef(false);
+  const timerRef = useRef<number | null>(null);
+  const liftTimerRef = useRef<number | null>(null);
+  const startPointRef = useRef<{ x: number; y: number } | null>(null);
+  const appliances = panel.appliances ?? [];
+
+  const clearTimers = () => {
+    if (timerRef.current != null) {
+      window.clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    if (liftTimerRef.current != null) {
+      window.clearTimeout(liftTimerRef.current);
+      liftTimerRef.current = null;
+    }
+  };
+
+  const endPress = () => {
+    clearTimers();
+    startPointRef.current = null;
+    onPressingChange(false);
+  };
+
+  const startPress = (clientX: number, clientY: number) => {
+    longPressedRef.current = false;
+    clearTimers();
+    startPointRef.current = { x: clientX, y: clientY };
+    onPressingChange(false);
+
+    liftTimerRef.current = window.setTimeout(() => {
+      onPressingChange(true);
+    }, LIFT_DELAY_MS);
+
+    timerRef.current = window.setTimeout(() => {
+      longPressedRef.current = true;
+      onPressingChange(true);
+      hapticContextMenu();
+      onContextMenu();
+    }, LONG_PRESS_MS);
+  };
+
+  const onPointerMove = (clientX: number, clientY: number) => {
+    const start = startPointRef.current;
+    if (!start) return;
+    const dx = Math.abs(clientX - start.x);
+    const dy = Math.abs(clientY - start.y);
+    if (dx > MOVE_CANCEL_PX || dy > MOVE_CANCEL_PX) {
+      endPress();
+    }
+  };
+
+  const active = pressing || lifted;
+
+  return (
+    <motion.div
+      animate={{
+        scale: active ? 1.02 : 1,
+        y: active ? -1 : 0,
+      }}
+      transition={{
+        type: "spring",
+        stiffness: 420,
+        damping: 28,
+        mass: 0.7,
+      }}
+      className={cn(
+        "origin-center will-change-transform",
+        active && "relative z-20",
+      )}
+      style={{
+        filter: active
+          ? "drop-shadow(0 14px 28px rgba(17,17,19,0.18))"
+          : "drop-shadow(0 0 0 rgba(0,0,0,0))",
+      }}
+    >
+      <GlassCard className="overflow-hidden rounded-[24px] border p-0">
+        <button
+          type="button"
+          onClick={() => {
+            if (longPressedRef.current) {
+              longPressedRef.current = false;
+              return;
+            }
+            onToggle();
+          }}
+          onPointerDown={(e) => {
+            if (e.button !== 0) return;
+            startPress(e.clientX, e.clientY);
+          }}
+          onPointerMove={(e) => onPointerMove(e.clientX, e.clientY)}
+          onPointerUp={endPress}
+          onPointerLeave={endPress}
+          onPointerCancel={endPress}
+          onContextMenu={(e) => e.preventDefault()}
+          className="flex w-full items-center gap-4 p-4 text-left select-none transition-colors hover:bg-zinc-50 lg:p-5"
+        >
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[18px] bg-zinc-100 text-zinc-600">
+            <BreakerIcon className="h-7 w-7" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="mb-0.5 flex items-center justify-between gap-2">
+              <h2 className="truncate text-[17px] font-semibold text-zinc-900">
+                {panel.title}
+              </h2>
+              <span className="shrink-0 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
+                {panel.phases &&
+                panel.powerKw?.trim() &&
+                typeof panel.safety === "number"
+                  ? `${panel.safety}%`
+                  : "—"}
+              </span>
+            </div>
+            <p className="truncate text-[13px] text-zinc-500">{panel.address}</p>
+            <p className="mt-1 text-[12px] text-zinc-400">
+              {appliances.length > 0
+                ? `${appliances.length} приборов · ${panel.lastCheck}`
+                : `Щиток · ${panel.lastCheck}`}
+            </p>
+          </div>
+          <ChevronDown
+            className={cn(
+              "h-5 w-5 shrink-0 text-zinc-400 transition-transform",
+              expanded && "rotate-180",
+            )}
+          />
+        </button>
+
+        <AnimatePresence initial={false}>
+          {expanded && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+              className="overflow-hidden"
+            >
+              <div className="space-y-2 border-t border-black/[0.06] bg-zinc-50/80 px-3 py-3">
+                <button
+                  type="button"
+                  onClick={onOpenPanel}
+                  className="flex w-full items-center gap-3 rounded-[16px] bg-white px-3 py-2.5 text-left shadow-sm transition-colors hover:bg-zinc-100"
+                >
+                  <span className="flex h-10 w-10 items-center justify-center rounded-[12px] bg-amber-50 text-amber-700">
+                    <BreakerIcon className="h-5 w-5" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[14px] font-semibold text-zinc-900">
+                      Электрическое сердце
+                    </span>
+                    <span className="block text-[12px] text-zinc-500">
+                      {panel.breakers} устройств в щитке · открыть схему
+                    </span>
+                  </span>
+                </button>
+
+                {appliances.map((appliance) => (
+                  <button
+                    key={appliance.id}
+                    type="button"
+                    onClick={() => onOpenAppliance(appliance.id)}
+                    className="flex w-full items-center gap-3 rounded-[16px] bg-white px-3 py-2.5 text-left shadow-sm transition-colors hover:bg-zinc-100"
+                  >
+                    <span className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-[12px] bg-zinc-100 text-zinc-600">
+                      {appliance.photoDataUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={appliance.photoDataUrl}
+                          alt=""
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <Zap className="h-5 w-5" />
+                      )}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[14px] font-semibold text-zinc-900">
+                        {appliance.title}
+                      </span>
+                      <span className="block text-[12px] text-zinc-500">
+                        {formatAppliancePower(appliance.powerW)}
+                      </span>
+                    </span>
+                  </button>
+                ))}
+
+                {appliances.length === 0 && (
+                  <p className="px-1 py-1 text-[12px] leading-relaxed text-zinc-400">
+                    Добавьте бытовые приборы — холодильник, стиралку, плиту и
+                    другое.
+                  </p>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </GlassCard>
     </motion.div>
   );
 }
@@ -249,7 +451,6 @@ export function ObjectsScreen({
   onOpenRequest,
   onDeleteItem,
   onRenameItem,
-  onNoPanel,
   onHelpElectrical,
   onMenuSelect,
   onPanelLimit,
@@ -260,6 +461,8 @@ export function ObjectsScreen({
   isAdmin = false,
   masterMode = false,
   onMasterModeChange,
+  onAddAppliance,
+  onOpenAppliance,
 }: {
   items: HomeListItem[];
   loading?: boolean;
@@ -270,7 +473,6 @@ export function ObjectsScreen({
   onOpenRequest: (id: string) => void;
   onDeleteItem: (id: string) => void;
   onRenameItem: (id: string, name: string) => void;
-  onNoPanel: () => void;
   onHelpElectrical: () => void;
   onMenuSelect: (id: MainMenuId) => void;
   onPanelLimit?: () => void;
@@ -281,12 +483,16 @@ export function ObjectsScreen({
   isAdmin?: boolean;
   masterMode?: boolean;
   onMasterModeChange?: (next: boolean) => void;
+  onAddAppliance: (panelId: string, appliance: HomeAppliance) => void;
+  onOpenAppliance: (panelId: string, applianceId: string) => void;
 }) {
   const [page, setPage] = useState(0);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [actionsItemId, setActionsItemId] = useState<string | null>(null);
   const [renameItemId, setRenameItemId] = useState<string | null>(null);
   const [pressingId, setPressingId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [addApplianceOpen, setAddApplianceOpen] = useState(false);
   const [pagerWidth, setPagerWidth] = useState(0);
   const [tabMetrics, setTabMetrics] = useState({
     left0: 4,
@@ -433,25 +639,56 @@ export function ObjectsScreen({
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.04 * i }}
           >
-            <HomeListCard
-              item={obj}
-              pressing={pressingId === obj.id}
-              lifted={actionsItemId === obj.id}
-              onOpen={() =>
-                obj.kind === "install_request"
-                  ? onOpenRequest(obj.id)
-                  : onOpenPanel(obj.id)
-              }
-              onContextMenu={() => setActionsItemId(obj.id)}
-              onPressingChange={(next) => setPressingId(next ? obj.id : null)}
-            />
+            {obj.kind === "install_request" ? (
+              <RequestListCard
+                item={obj}
+                pressing={pressingId === obj.id}
+                lifted={actionsItemId === obj.id}
+                onOpen={() => onOpenRequest(obj.id)}
+                onContextMenu={() => setActionsItemId(obj.id)}
+                onPressingChange={(next) =>
+                  setPressingId(next ? obj.id : null)
+                }
+              />
+            ) : (
+              <ExpandableHomeCard
+                panel={obj}
+                expanded={expandedId === obj.id}
+                pressing={pressingId === obj.id}
+                lifted={actionsItemId === obj.id}
+                onToggle={() =>
+                  setExpandedId((prev) => (prev === obj.id ? null : obj.id))
+                }
+                onOpenPanel={() => onOpenPanel(obj.id)}
+                onOpenAppliance={(applianceId) =>
+                  onOpenAppliance(obj.id, applianceId)
+                }
+                onContextMenu={() => setActionsItemId(obj.id)}
+                onPressingChange={(next) =>
+                  setPressingId(next ? obj.id : null)
+                }
+              />
+            )}
           </motion.div>
         ))}
       </div>
     );
   };
 
-  const addPanel = () => {
+  const handlePrimaryAdd = () => {
+    if (panels.length === 0) {
+      if (atPanelLimit) {
+        onPanelLimit?.();
+        return;
+      }
+      onAdd();
+      return;
+    }
+    setAddApplianceOpen(true);
+  };
+
+  const addAnotherPanel = () => {
+    setAddApplianceOpen(false);
     if (atPanelLimit) {
       onPanelLimit?.();
       return;
@@ -563,19 +800,10 @@ export function ObjectsScreen({
           </div>
           <div className="hidden items-center gap-3 lg:flex">
             {page === 0 ? (
-              <>
-                <button
-                  type="button"
-                  onClick={onNoPanel}
-                  className="text-[14px] font-medium text-zinc-500 underline decoration-zinc-300 underline-offset-4 transition-colors hover:text-zinc-800"
-                >
-                  У меня нет щитка
-                </button>
-                <Button className="h-11 px-5" onClick={addPanel}>
-                  <Plus className="h-5 w-5" />
-                  Добавить щиток
-                </Button>
-              </>
+              <Button className="h-11 px-5" onClick={handlePrimaryAdd}>
+                <Plus className="h-5 w-5" />
+                Добавить
+              </Button>
             ) : (
               <Button className="h-11 px-5" onClick={onHelpElectrical}>
                 Помочь с электрикой
@@ -595,7 +823,7 @@ export function ObjectsScreen({
         {page === 0
           ? renderList(panels, {
               icon: <BreakerIcon className="h-10 w-10" />,
-              text: "Просто сфотографируй щиток. Дальше мы все расскажем и покажем, что в нём и как это работает.",
+              text: "Современный дом начинается с электрического сердца — сфотографируйте щиток.",
               framed: true,
             })
           : renderList(requests, {
@@ -628,7 +856,7 @@ export function ObjectsScreen({
             <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
               {renderList(panels, {
                 icon: <BreakerIcon className="h-10 w-10" />,
-                text: "Просто сфотографируй щиток. Дальше мы все расскажем и покажем, что в нём и как это работает.",
+                text: "Современный дом начинается с электрического сердца — сфотографируйте щиток.",
                 framed: true,
               })}
             </div>
@@ -649,19 +877,10 @@ export function ObjectsScreen({
 
       <div className="shrink-0 border-t border-black/[0.06] bg-[var(--bg)] px-5 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))] lg:hidden">
         {page === 0 ? (
-          <div className="space-y-3">
-            <Button className="w-full" onClick={addPanel}>
-              <Plus className="h-5 w-5" />
-              Добавить щиток
-            </Button>
-            <button
-              type="button"
-              onClick={onNoPanel}
-              className="w-full text-center text-[15px] font-medium text-zinc-500 underline decoration-zinc-300 underline-offset-4 transition-colors hover:text-zinc-800"
-            >
-              У меня нет щитка
-            </button>
-          </div>
+          <Button className="w-full" onClick={handlePrimaryAdd}>
+            <Plus className="h-5 w-5" />
+            Добавить
+          </Button>
         ) : (
           <Button className="w-full" onClick={onHelpElectrical}>
             Помочь с электрикой
@@ -687,6 +906,22 @@ export function ObjectsScreen({
                   }
                 : undefined)
             }
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {addApplianceOpen && (
+          <AddApplianceSheet
+            panels={panels}
+            preferredPanelId={expandedId}
+            onClose={() => setAddApplianceOpen(false)}
+            onAddPanel={addAnotherPanel}
+            onSave={(panelId, appliance) => {
+              onAddAppliance(panelId, appliance);
+              setExpandedId(panelId);
+              setAddApplianceOpen(false);
+            }}
           />
         )}
       </AnimatePresence>

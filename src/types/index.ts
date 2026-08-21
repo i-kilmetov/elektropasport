@@ -58,6 +58,39 @@ export type PanelWire = {
 
 export type ObjectType = "apartment" | "house" | "garage" | "dacha";
 
+/** Major household electrical appliance attached to a home (panel object). */
+export type HomeApplianceKind =
+  | "fridge"
+  | "washer"
+  | "dishwasher"
+  | "oven"
+  | "hob"
+  | "ac"
+  | "boiler"
+  | "microwave"
+  | "tv"
+  | "heater"
+  | "other";
+
+export type ApplianceManual = {
+  title: string;
+  /** Absolute or site-relative URL to a PDF */
+  url: string;
+};
+
+export interface HomeAppliance {
+  id: string;
+  kind: HomeApplianceKind;
+  title: string;
+  /** Rated power in watts */
+  powerW?: number;
+  brand?: string;
+  model?: string;
+  photoDataUrl?: string;
+  manuals?: ApplianceManual[];
+  createdAt: string;
+}
+
 export interface PanelObject {
   kind: "panel";
   id: string;
@@ -84,6 +117,8 @@ export interface PanelObject {
   hasGround?: boolean;
   /** Share token this copy was saved from, if any */
   sourceShareToken?: string;
+  /** Major appliances in this home / apartment */
+  appliances?: HomeAppliance[];
 }
 
 export type InstallRequestStatus =
@@ -154,7 +189,8 @@ export type AppScreen =
   | "master-search"
   | "master-success"
   | "master-not-found"
-  | "admin";
+  | "admin"
+  | "appliance-detail";
 
 export type LeadFlow = "install" | "master";
 

@@ -65,6 +65,10 @@ function panelForApi(panel: PanelObject): PanelObject {
   return {
     ...panel,
     photoDataUrl: undefined,
+    appliances: panel.appliances?.map((item) => ({
+      ...item,
+      photoDataUrl: undefined,
+    })),
   };
 }
 
@@ -212,10 +216,23 @@ function mergeServerWithLocal(serverItems: HomeListItem[]): HomeListItem[] {
     if (!local) return item;
     const serverDevices = item.devices ?? [];
     const localDevices = local.devices ?? [];
+    const serverAppliances = item.appliances ?? [];
+    const localAppliances = local.appliances ?? [];
     return {
       ...item,
       photoDataUrl: item.photoDataUrl || local.photoDataUrl,
       devices: serverDevices.length > 0 ? serverDevices : localDevices,
+      appliances:
+        serverAppliances.length > 0
+          ? serverAppliances.map((remote) => {
+              const localMatch = localAppliances.find((a) => a.id === remote.id);
+              if (!localMatch) return remote;
+              return {
+                ...remote,
+                photoDataUrl: remote.photoDataUrl || localMatch.photoDataUrl,
+              };
+            })
+          : localAppliances,
       railCount: item.railCount ?? local.railCount,
       wires:
         item.wires && item.wires.length > 0 ? item.wires : local.wires,

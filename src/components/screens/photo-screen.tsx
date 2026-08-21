@@ -63,9 +63,11 @@ function pickImageFile(options: {
 export function PhotoScreen({
   onBack,
   onCapture,
+  onNoPanel,
 }: {
   onBack: () => void;
   onCapture: (photoDataUrl: string) => void;
+  onNoPanel?: () => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -212,6 +214,16 @@ export function PhotoScreen({
         >
           Загрузить фотографию
         </button>
+        {onNoPanel && (
+          <button
+            type="button"
+            onClick={onNoPanel}
+            disabled={busy}
+            className="w-full text-center text-[15px] font-medium text-zinc-500 underline decoration-zinc-300 underline-offset-4 transition-colors hover:text-zinc-800 disabled:opacity-40"
+          >
+            У меня нет щитка
+          </button>
+        )}
       </div>
     </motion.section>
   );

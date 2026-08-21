@@ -1,6 +1,7 @@
 import { neon, type NeonQueryFunction } from "@neondatabase/serverless";
 import type {
   Device,
+  HomeAppliance,
   HomeListItem,
   InstallRequest,
   InstallRequestStatus,
@@ -29,7 +30,7 @@ import { buildPanelShareUrl } from "@/lib/panel-share";
 let schemaReady: Promise<void> | null = null;
 
 /** Bump when DDL below changes so cold starts re-run migrations once. */
-const SCHEMA_VERSION = "2026-08-22-a";
+const SCHEMA_VERSION = "2026-08-22-b";
 
 export function getSql(): NeonQueryFunction<false, false> {
   const url = process.env.DATABASE_URL?.trim();
@@ -204,6 +205,10 @@ export async function ensureSchema(): Promise<void> {
       await sql`
         ALTER TABLE panels
         ADD COLUMN IF NOT EXISTS wires JSONB
+      `;
+      await sql`
+        ALTER TABLE panels
+        ADD COLUMN IF NOT EXISTS appliances JSONB
       `;
       await sql`
         CREATE TABLE IF NOT EXISTS panel_shares (
@@ -547,6 +552,7 @@ type PanelRow = {
   has_ground: boolean | null;
   rail_count: number | null;
   wires: PanelWire[] | null;
+  appliances: HomeAppliance[] | null;
   source_share_token: string | null;
   created_at: string;
 };
@@ -606,6 +612,7 @@ function rowToPanel(row: PanelRow): PanelObject {
         ? row.rail_count
         : undefined,
     wires: Array.isArray(row.wires) ? row.wires : undefined,
+    appliances: Array.isArray(row.appliances) ? row.appliances : undefined,
     sourceShareToken: row.source_share_token ?? undefined,
   };
 }
@@ -667,7 +674,7 @@ export async function listHomeItems(
     SELECT
       id, type, title, address, last_check, breakers, safety,
       devices, lines_count, photo_data_url, named, phases, power_kw,
-      has_ground, rail_count, wires, source_share_token, created_at
+      has_ground, rail_count, wires, appliances, source_share_token, created_at
     FROM panels
     WHERE telegram_user_id = ${telegramUserId}
   `) as PanelRow[];
@@ -710,11 +717,17 @@ export async function insertPanel(
   // Do not persist huge photo data URLs — they break serverless body/DB limits.
   const devicesJson = JSON.stringify(panel.devices ?? []);
   const wiresJson = JSON.stringify(panel.wires ?? []);
+  const appliancesJson = JSON.stringify(
+    (panel.appliances ?? []).map((item) => ({
+      ...item,
+      photoDataUrl: undefined,
+    })),
+  );
   await sql`
     INSERT INTO panels (
       id, telegram_user_id, type, title, address, last_check, breakers, safety,
       devices, lines_count, photo_data_url, named, phases, power_kw,
-      has_ground, rail_count, wires, source_share_token, created_at, updated_at
+      has_ground, rail_count, wires, appliances, source_share_token, created_at, updated_at
     ) VALUES (
       ${panel.id},
       ${telegramUserId},
@@ -733,6 +746,7 @@ export async function insertPanel(
       ${panel.hasGround ?? null},
       ${panel.railCount ?? null},
       ${wiresJson}::jsonb,
+      ${appliancesJson}::jsonb,
       ${panel.sourceShareToken ?? null},
       NOW(),
       NOW()
@@ -751,6 +765,7 @@ export async function insertPanel(
       has_ground = EXCLUDED.has_ground,
       rail_count = EXCLUDED.rail_count,
       wires = EXCLUDED.wires,
+      appliances = EXCLUDED.appliances,
       source_share_token = EXCLUDED.source_share_token,
       updated_at = NOW()
     WHERE panels.telegram_user_id = ${telegramUserId}
@@ -786,7 +801,7 @@ export async function updatePanel(
     RETURNING
       id, type, title, address, last_check, breakers, safety,
       devices, lines_count, photo_data_url, named, phases, power_kw,
-      has_ground, rail_count, wires, source_share_token, created_at
+      has_ground, rail_count, wires, appliances, source_share_token, created_at
   `) as PanelRow[];
   return rows[0] ? rowToPanel(rows[0]) : null;
 }
@@ -800,7 +815,7 @@ export async function getPanelByOwner(
     SELECT
       id, type, title, address, last_check, breakers, safety,
       devices, lines_count, photo_data_url, named, phases, power_kw,
-      has_ground, rail_count, wires, source_share_token, created_at
+      has_ground, rail_count, wires, appliances, source_share_token, created_at
     FROM panels
     WHERE id = ${id} AND telegram_user_id = ${telegramUserId}
     LIMIT 1
@@ -818,7 +833,7 @@ export async function getPanelForMasterRequest(
       panels.id, panels.type, panels.title, panels.address, panels.last_check,
       panels.breakers, panels.safety, panels.devices, panels.lines_count,
       panels.photo_data_url, panels.named, panels.phases, panels.power_kw,
-      panels.has_ground, panels.rail_count, panels.wires,
+      panels.has_ground, panels.rail_count, panels.wires, panels.appliances,
       panels.source_share_token, panels.created_at
     FROM install_requests
     JOIN panels ON panels.id = install_requests.panel_id
@@ -860,7 +875,8 @@ export async function getSharedPanel(token: string): Promise<{
       panels.id, panels.type, panels.title, panels.address, panels.last_check,
       panels.breakers, panels.safety, panels.devices, panels.lines_count,
       panels.photo_data_url, panels.named, panels.phases, panels.power_kw,
-      panels.has_ground, panels.rail_count, panels.wires, panels.source_share_token, panels.created_at,
+      panels.has_ground, panels.rail_count, panels.wires, panels.appliances,
+      panels.source_share_token, panels.created_at,
       panel_shares.owner_telegram_id
     FROM panel_shares
     JOIN panels ON panels.id = panel_shares.panel_id
