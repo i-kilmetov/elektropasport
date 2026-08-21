@@ -42,6 +42,10 @@ import {
 import { SchemeScreen } from "@/components/screens/scheme-screen";
 import { TelegramAuthScreen } from "@/components/screens/telegram-auth-screen";
 import {
+  WaitlistSheet,
+  type WaitlistKind,
+} from "@/components/ui/waitlist-sheet";
+import {
   ONBOARDING_SKIP_KEY,
   WelcomeScreen,
 } from "@/components/screens/welcome-screen";
@@ -137,6 +141,7 @@ export function AppShell() {
   const [quota, setQuota] = useState<PanelQuota | null>(null);
   const [mainMenuOpen, setMainMenuOpen] = useState(false);
   const [limitOpen, setLimitOpen] = useState(false);
+  const [waitlistKind, setWaitlistKind] = useState<WaitlistKind | null>(null);
   const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
   const [activePanelId, setActivePanelId] = useState<string | null>(null);
   const [activeRequestId, setActiveRequestId] = useState<string | null>(null);
@@ -1279,6 +1284,11 @@ export function AppShell() {
               onMenuSelect={(id) => {
                 if (id === "profile") go("profile");
                 if (id === "game") go("panel-game");
+                if (id === "school") {
+                  setMainMenuOpen(false);
+                  setWaitlistKind("school");
+                  return;
+                }
                 if (id === "about") go("about-service");
                 if (id === "feedback") go("feedback");
                 if (id === "master") go("become-master");
@@ -1364,6 +1374,7 @@ export function AppShell() {
               powerKw={activePanel?.powerKw}
               hasGround={activePanel?.hasGround}
               railCount={railCount ?? undefined}
+              isMaster={isMaster || Boolean(masterViewRequest)}
             />
           )}
           {screen === "no-panel-options" && (
@@ -1675,6 +1686,14 @@ export function AppShell() {
             <PanelLimitSheet
               quota={quota}
               onClose={() => setLimitOpen(false)}
+            />
+          )}
+        </AnimatePresence>
+        <AnimatePresence>
+          {waitlistKind && (
+            <WaitlistSheet
+              kind={waitlistKind}
+              onClose={() => setWaitlistKind(null)}
             />
           )}
         </AnimatePresence>

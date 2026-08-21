@@ -13,8 +13,8 @@ type AnchoredPoint = Point & { side: "top" | "bottom" };
 
 /** Minimal vertical stub length after leaving the device edge. */
 const STUB_PX = 12;
-/** Extra arc bulge beyond the stubs. */
-const ARC_BULGE_PX = 28;
+/** Fixed arc height for every cable — same visual bulge. */
+const ARC_BULGE_PX = 36;
 
 /**
  * Wire attaches at the outer edge of the device face (top/bottom),
@@ -53,13 +53,12 @@ function outward(point: AnchoredPoint, distance = STUB_PX): Point {
 }
 
 /**
- * Vertical stub out of each terminal, then a bulging cubic arc between stubs.
+ * Vertical stub out of each terminal, then a cubic arc of fixed height.
  */
 export function wirePath(from: AnchoredPoint, to: AnchoredPoint): string {
   const fromOut = outward(from);
   const toOut = outward(to);
-  const dx = Math.abs(toOut.x - fromOut.x);
-  const bulge = Math.max(ARC_BULGE_PX, dx * 0.28 + 18);
+  const bulge = ARC_BULGE_PX;
 
   let c1: Point;
   let c2: Point;
@@ -73,15 +72,15 @@ export function wirePath(from: AnchoredPoint, to: AnchoredPoint): string {
     c1 = { x: fromOut.x, y: apex };
     c2 = { x: toOut.x, y: apex };
   } else {
-    // Opposite sides: keep stubs outward, then S-curve between them.
+    // Opposite sides: keep stubs outward, then S-curve of the same bulge.
     const midX = (fromOut.x + toOut.x) / 2;
     c1 = {
       x: midX,
-      y: fromOut.y + (from.side === "top" ? -bulge * 0.55 : bulge * 0.55),
+      y: fromOut.y + (from.side === "top" ? -bulge : bulge),
     };
     c2 = {
       x: midX,
-      y: toOut.y + (to.side === "top" ? -bulge * 0.55 : bulge * 0.55),
+      y: toOut.y + (to.side === "top" ? -bulge : bulge),
     };
   }
 

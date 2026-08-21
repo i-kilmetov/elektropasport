@@ -306,6 +306,20 @@ export async function ensureSchema(): Promise<void> {
         CREATE INDEX IF NOT EXISTS sbp_payments_tbank_id_idx
         ON sbp_payments (tbank_payment_id)
       `;
+      await sql`
+        ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS email TEXT
+      `;
+      await sql`
+        CREATE TABLE IF NOT EXISTS waitlist (
+          id TEXT PRIMARY KEY,
+          list TEXT NOT NULL,
+          email TEXT NOT NULL,
+          telegram_user_id BIGINT,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          UNIQUE (list, email)
+        )
+      `;
     })().catch((error) => {
       schemaReady = null;
       throw error;
@@ -375,6 +389,7 @@ export type StoredUserProfile = {
   lastName?: string;
   birthDate?: string;
   phoneDigits?: string;
+  email?: string;
   avatarId?: string;
 };
 
@@ -406,6 +421,7 @@ export async function getStoredUserProfile(
       last_name,
       birth_date,
       phone_digits,
+      email,
       avatar_id
     FROM users
     WHERE telegram_id = ${telegramUserId}
@@ -417,6 +433,7 @@ export async function getStoredUserProfile(
     last_name: string | null;
     birth_date: string | null;
     phone_digits: string | null;
+    email: string | null;
     avatar_id: string | null;
   }>;
 
@@ -439,6 +456,7 @@ export async function getStoredUserProfile(
     lastName,
     birthDate: row.birth_date ?? undefined,
     phoneDigits: row.phone_digits ?? undefined,
+    email: row.email?.trim() || undefined,
     avatarId: row.avatar_id ?? undefined,
   };
 }
@@ -457,6 +475,7 @@ export async function updateStoredUserProfile(
   const birthDate = profile.birthDate?.trim() || null;
   const phoneDigits =
     profile.phoneDigits?.replace(/\D/g, "").slice(0, 10) || null;
+  const email = profile.email?.trim().toLowerCase() || null;
   const avatarId = profile.avatarId?.trim() || null;
 
   await sql`
@@ -467,6 +486,7 @@ export async function updateStoredUserProfile(
       display_name = ${displayName},
       birth_date = ${birthDate},
       phone_digits = ${phoneDigits},
+      email = ${email},
       avatar_id = ${avatarId},
       updated_at = NOW()
     WHERE telegram_id = ${telegramUserId}
@@ -477,6 +497,7 @@ export async function updateStoredUserProfile(
     lastName: lastName ?? undefined,
     birthDate: birthDate ?? undefined,
     phoneDigits: phoneDigits ?? undefined,
+    email: email ?? undefined,
     avatarId: avatarId ?? undefined,
   };
 }

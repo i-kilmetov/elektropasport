@@ -51,6 +51,7 @@ import { SafetyExplainSheet } from "@/components/ui/safety-explain-sheet";
 import { SafetyAxisMeters } from "@/components/ui/safety-axis-meters";
 import { EditableSpecCard } from "@/components/ui/editable-spec-card";
 import { WireSpecSheet } from "@/components/ui/wire-spec-sheet";
+import { WaitlistSheet } from "@/components/ui/waitlist-sheet";
 import { Portal } from "@/components/ui/portal";
 import { deviceTypeGuide } from "@/lib/panel-device-guide";
 import {
@@ -1491,6 +1492,7 @@ export function SchemeScreen({
   powerKw,
   hasGround,
   railCount,
+  isMaster = false,
 }: {
   title?: string;
   panelId?: string | null;
@@ -1538,6 +1540,8 @@ export function SchemeScreen({
   powerKw?: string;
   hasGround?: boolean;
   railCount?: number;
+  /** Masters can edit terminal wiring; others see a waitlist. */
+  isMaster?: boolean;
 }) {
   const devices = devicesProp ?? [];
   const wires = wiresProp ?? [];
@@ -1563,6 +1567,7 @@ export function SchemeScreen({
   const [safetyProgress, setSafetyProgress] = useState(0);
   const [stickerOpen, setStickerOpen] = useState(false);
   const [stickerBlockedOpen, setStickerBlockedOpen] = useState(false);
+  const [terminalsWaitlistOpen, setTerminalsWaitlistOpen] = useState(false);
   const [wireDraft, setWireDraft] = useState<{
     from: TerminalRef;
     x: number;
@@ -1729,11 +1734,12 @@ export function SchemeScreen({
     terminal: TerminalRef,
     event: PointerEvent<HTMLButtonElement>,
   ) => {
-    if (sharedPreview || !onUpdateWires || !showTerminals) return;
+    if (sharedPreview || !onUpdateWires || !showTerminals || !isMaster) return;
     if (event.button !== 0) return;
     event.preventDefault();
     clearWiringHold();
     setHoverTerminalKey(null);
+    hapticImpact("medium");
     const pointerId = event.pointerId;
     const target = event.currentTarget;
     target.setPointerCapture(pointerId);
@@ -2187,17 +2193,48 @@ export function SchemeScreen({
         >
           Фото
         </button>
+        <div className="ml-auto">
+          <button
+            type="button"
+            onClick={() => {
+              if (!isMaster) {
+                setShowTerminals(false);
+                setTerminalsWaitlistOpen(true);
+                return;
+              }
+              setTab("scheme");
+              setShowTerminals((prev) => {
+                const next = !prev;
+                if (!next) {
+                  setWireDraft(null);
+                  setPendingWire(null);
+                  setEditingWire(null);
+                  setHoverTerminalKey(null);
+                }
+                return next;
+              });
+            }}
+            className={cn(
+              "rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors",
+              showTerminals && isMaster
+                ? "bg-zinc-900 text-white"
+                : "bg-zinc-100 text-zinc-900",
+            )}
+          >
+            Клеммы
+          </button>
+        </div>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto lg:pb-8">
       <div className="flex min-h-full flex-col lg:flex-row lg:items-start lg:gap-6 lg:px-10">
       {tab === "scheme" ? (
         <div className="px-5 pb-4 lg:min-w-0 lg:flex-1 lg:px-0">
-          <div className={cn("overflow-x-auto", showTerminals && "overflow-y-visible")}>
+          <div className={cn("overflow-x-auto", showTerminals && isMaster && "overflow-y-visible")}>
             <GlassCard
               className={cn(
                 "w-max max-w-none overflow-visible p-4",
-                showTerminals && "overflow-visible",
+                showTerminals && isMaster && "overflow-visible",
               )}
               style={{ minWidth: railMinWidth }}
             >
@@ -2212,8 +2249,8 @@ export function SchemeScreen({
 
             <div
               ref={setSchemeCanvasRef}
-              className={cn("relative", showTerminals && "py-11")}
-            >              {showTerminals && (
+              className={cn("relative", showTerminals && isMaster && "py-11")}
+            >              {showTerminals && isMaster && (
                 <PanelWiresSvg
                   key={wiresLayoutTick}
                   container={schemeCanvasEl}
@@ -2250,7 +2287,7 @@ export function SchemeScreen({
                           key={`${device.id}-${deviceIdx}`}
                           device={device}
                           selected={selectedId === device.id}
-                          showTerminals={showTerminals}
+                          showTerminals={showTerminals && isMaster}
                           highlightTerminalKey={
                             hoverTerminalKey ??
                             (wireDraft ? terminalKey(wireDraft.from) : null)
@@ -2261,7 +2298,9 @@ export function SchemeScreen({
                             setSelectedId(device.id);
                           }}
                           onTerminalPointerDown={
-                            sharedPreview ? undefined : handleTerminalPointerDown
+                            sharedPreview || !isMaster
+                              ? undefined
+                              : handleTerminalPointerDown
                           }
                           caption={
                             defaultDeviceCircuitLabel(device, allRailDevices) ??
@@ -2409,6 +2448,15 @@ export function SchemeScreen({
               setPendingWire(null);
               setEditingWire(null);
             }}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {terminalsWaitlistOpen && (
+          <WaitlistSheet
+            kind="terminals"
+            onClose={() => setTerminalsWaitlistOpen(false)}
           />
         )}
       </AnimatePresence>

@@ -17,6 +17,7 @@ function normalizeProfile(body: {
   displayName?: unknown;
   birthDate?: unknown;
   phoneDigits?: unknown;
+  email?: unknown;
   avatarId?: unknown;
 }): StoredUserProfile {
   let firstName =
@@ -42,6 +43,13 @@ function normalizeProfile(body: {
     }
   }
 
+  const emailRaw =
+    typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+  const email =
+    emailRaw && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailRaw)
+      ? emailRaw
+      : undefined;
+
   return {
     firstName,
     lastName,
@@ -53,6 +61,7 @@ function normalizeProfile(body: {
       typeof body.phoneDigits === "string"
         ? body.phoneDigits.replace(/\D/g, "").slice(0, 10) || undefined
         : undefined,
+    email,
     avatarId:
       typeof body.avatarId === "string"
         ? body.avatarId.trim() || undefined

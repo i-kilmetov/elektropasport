@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, Check, Infinity, Phone } from "lucide-react";
+import { ArrowLeft, Check, Infinity, Mail, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { GlassCard } from "@/components/ui/glass-card";
@@ -27,6 +27,7 @@ type ProfileDraft = {
   lastName: string;
   birthDate: string;
   digits: string;
+  email: string;
 };
 
 function sameDraft(a: ProfileDraft, b: ProfileDraft): boolean {
@@ -34,7 +35,8 @@ function sameDraft(a: ProfileDraft, b: ProfileDraft): boolean {
     a.firstName.trim() === b.firstName.trim() &&
     a.lastName.trim() === b.lastName.trim() &&
     a.birthDate === b.birthDate &&
-    a.digits === b.digits
+    a.digits === b.digits &&
+    a.email.trim().toLowerCase() === b.email.trim().toLowerCase()
   );
 }
 
@@ -64,6 +66,7 @@ export function ProfileScreen({
       lastName: initial.lastName ?? telegramDefaults.lastName,
       birthDate: initial.birthDate ?? "",
       digits: initial.phoneDigits ?? "",
+      email: initial.email ?? "",
     }),
     [initial, telegramDefaults],
   );
@@ -93,6 +96,7 @@ export function ProfileScreen({
           lastName: profile.lastName ?? telegramDefaults.lastName,
           birthDate: profile.birthDate ?? "",
           digits: profile.phoneDigits ?? "",
+          email: profile.email ?? "",
         };
         setDraft(next);
         setBaseline(next);
@@ -116,12 +120,14 @@ export function ProfileScreen({
         lastName: draft.lastName.trim() || undefined,
         birthDate: draft.birthDate || undefined,
         phoneDigits: draft.digits || undefined,
+        email: draft.email.trim().toLowerCase() || undefined,
       });
       const next: ProfileDraft = {
         firstName: saved.firstName ?? telegramDefaults.firstName,
         lastName: saved.lastName ?? telegramDefaults.lastName,
         birthDate: saved.birthDate ?? "",
         digits: saved.phoneDigits ?? "",
+        email: saved.email ?? "",
       };
       setDraft(next);
       setBaseline(next);
@@ -294,6 +300,32 @@ export function ProfileScreen({
               <span className="mt-1.5 block text-[12px] leading-relaxed text-zinc-400">
                 Номер может понадобиться при запросе консультации или оформлении
                 заявок.
+              </span>
+            </label>
+
+            <label className="block min-w-0">
+              <span className="mb-1.5 block text-[13px] text-zinc-500">
+                Электронная почта
+              </span>
+              <span className="flex h-12 min-w-0 items-center gap-2 rounded-[16px] border border-black/8 bg-zinc-50 px-3 focus-within:border-zinc-300">
+                <Mail className="h-4 w-4 shrink-0 text-zinc-500" />
+                <input
+                  type="email"
+                  inputMode="email"
+                  autoComplete="email"
+                  value={draft.email}
+                  onChange={(e) =>
+                    setDraft((prev) => ({
+                      ...prev,
+                      email: e.target.value.slice(0, 120),
+                    }))
+                  }
+                  placeholder="name@example.com"
+                  className="h-full min-w-0 flex-1 bg-transparent text-[15px] text-zinc-900 outline-none placeholder:text-zinc-400"
+                />
+              </span>
+              <span className="mt-1.5 block text-[12px] leading-relaxed text-zinc-400">
+                Подставляется в подписки на школу и уведомления о новых функциях.
               </span>
             </label>
           </GlassCard>

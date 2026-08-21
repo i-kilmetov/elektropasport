@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import {
   ArrowRight,
   Gamepad2,
+  GraduationCap,
   Info,
   MessageCircle,
   Shield,
@@ -14,7 +15,14 @@ import {
 import { BrandLogo } from "@/components/brand-logo";
 import { Portal } from "@/components/ui/portal";
 
-export type MainMenuId = "profile" | "game" | "about" | "feedback" | "master" | "admin";
+export type MainMenuId =
+  | "profile"
+  | "game"
+  | "school"
+  | "about"
+  | "feedback"
+  | "master"
+  | "admin";
 
 const items: Array<{
   id: MainMenuId;
@@ -33,6 +41,12 @@ const items: Array<{
     title: "Игра",
     description: "Змейка: собери приборы щитка",
     icon: Gamepad2,
+  },
+  {
+    id: "school",
+    title: "Школа",
+    description: "Курсы по электрике с нуля",
+    icon: GraduationCap,
   },
   {
     id: "about",

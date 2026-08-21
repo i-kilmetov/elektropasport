@@ -8,6 +8,7 @@ export type UserProfile = {
   birthDate?: string;
   /** 10 digits without country code */
   phoneDigits?: string;
+  email?: string;
   /** Schematic avatar id */
   avatarId?: string;
 };
@@ -35,6 +36,7 @@ function profileHasData(profile: UserProfile): boolean {
       profile.lastName ||
       profile.birthDate ||
       profile.phoneDigits ||
+      profile.email ||
       profile.avatarId,
   );
 }
@@ -56,6 +58,12 @@ function sanitizeProfile(parsed: Partial<UserProfile> & { displayName?: string }
   if (typeof parsed.phoneDigits === "string") {
     const digits = parsed.phoneDigits.replace(/\D/g, "").slice(0, 10);
     if (digits) next.phoneDigits = digits;
+  }
+  if (typeof parsed.email === "string") {
+    const email = parsed.email.trim().toLowerCase();
+    if (email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      next.email = email.slice(0, 120);
+    }
   }
   if (typeof parsed.avatarId === "string" && parsed.avatarId.trim()) {
     next.avatarId = parsed.avatarId.trim();
