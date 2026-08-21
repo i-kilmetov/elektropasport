@@ -16,7 +16,7 @@ import {
   useTransform,
   type PanInfo,
 } from "framer-motion";
-import { ClipboardList, Menu, Plus } from "lucide-react";
+import { ClipboardList, Menu, Plus, Wrench } from "lucide-react";
 import { BreakerIcon } from "@/components/icons/breaker-icon";
 import {
   MainMenuSheet,
@@ -471,43 +471,9 @@ export function ObjectsScreen({
         <div className="mb-8">
           <BrandLogo className="h-8" />
         </div>
-        <nav className="space-y-1.5">
-          {(isMaster || isAdmin) && onMasterModeChange && (
-            <div className="mb-4 rounded-[16px] border border-black/8 bg-white p-2">
-              <div className="mb-1.5 px-2 text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
-                Режим
-              </div>
-              <div className="grid grid-cols-2 gap-1 rounded-[12px] bg-zinc-100 p-1">
-                <button
-                  type="button"
-                  onClick={() => onMasterModeChange(false)}
-                  className={cn(
-                    "rounded-[10px] px-2 py-2 text-[12px] font-semibold",
-                    !masterMode
-                      ? "bg-white text-zinc-900 shadow-sm"
-                      : "text-zinc-500",
-                  )}
-                >
-                  Пользователь
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onMasterModeChange(true)}
-                  className={cn(
-                    "rounded-[10px] px-2 py-2 text-[12px] font-semibold",
-                    masterMode
-                      ? "bg-white text-emerald-800 shadow-sm"
-                      : "text-zinc-500",
-                  )}
-                >
-                  Мастер
-                </button>
-              </div>
-            </div>
-          )}
+        <nav className="flex flex-1 flex-col space-y-1.5">
           {MAIN_MENU_ITEMS.filter((item) => {
             if (item.id === "master" && isMaster) return false;
-            if (item.id === "admin") return isAdmin;
             return true;
           }).map((item) => (
             <button
@@ -529,6 +495,25 @@ export function ObjectsScreen({
               </span>
             </button>
           ))}
+          {(isMaster || isAdmin) && onMasterModeChange && (
+            <button
+              type="button"
+              onClick={() => onMasterModeChange(true)}
+              className="mt-auto flex w-full items-center gap-3 rounded-[16px] bg-emerald-50 px-3 py-2.5 text-left transition-colors hover:bg-emerald-100/80"
+            >
+              <span className="flex h-9 w-9 items-center justify-center rounded-[12px] bg-emerald-100 text-emerald-700 shadow-sm">
+                <Wrench className="h-4 w-4" />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-[14px] font-semibold text-emerald-900">
+                  Режим мастера
+                </span>
+                <span className="block text-[12px] text-emerald-700/80">
+                  Заявки и заказы клиентов
+                </span>
+              </span>
+            </button>
+          )}
         </nav>
       </aside>
 
@@ -576,17 +561,6 @@ export function ObjectsScreen({
               </span>
             </motion.button>
           </div>
-          {(isMaster || isAdmin) && onMasterModeChange && (
-            <button
-              type="button"
-              onClick={() => onMasterModeChange(true)}
-              className="absolute right-0 flex items-center gap-1.5 rounded-full border border-emerald-500/25 bg-emerald-50 px-2.5 py-1.5 text-[11px] font-semibold text-emerald-700 lg:hidden"
-              aria-label="Сейчас режим пользователя. Перейти в режим мастера"
-            >
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-              Пользователь
-            </button>
-          )}
           <div className="hidden items-center gap-3 lg:flex">
             {page === 0 ? (
               <>
@@ -705,7 +679,6 @@ export function ObjectsScreen({
             }}
             isMaster={isMaster}
             isAdmin={isAdmin}
-            masterMode={masterMode}
             onMasterModeChange={
               onMasterModeChange ??
               (onMasterMode

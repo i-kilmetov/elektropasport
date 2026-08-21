@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, Check, Infinity, Mail, Phone } from "lucide-react";
+import { ArrowLeft, Check, Infinity, Mail, Phone, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { GlassCard } from "@/components/ui/glass-card";
@@ -44,10 +44,14 @@ export function ProfileScreen({
   onBack,
   onLoggedOut,
   panelsUnlimited = false,
+  isAdmin = false,
+  onOpenAdmin,
 }: {
   onBack: () => void;
   onLoggedOut?: () => void;
   panelsUnlimited?: boolean;
+  isAdmin?: boolean;
+  onOpenAdmin?: () => void;
 }) {
   const showLogout = !isTelegramMiniApp();
   const telegram = useMemo(() => getTelegramProfileInfo(), []);
@@ -346,6 +350,26 @@ export function ProfileScreen({
           >
             {saving ? "Сохраняем…" : "Сохранить"}
           </Button>
+        )}
+        {isAdmin && onOpenAdmin && (
+          <button
+            type="button"
+            disabled={saving}
+            onClick={onOpenAdmin}
+            className="flex w-full items-center gap-3 rounded-[20px] border border-black/8 bg-zinc-50 px-4 py-3.5 text-left transition-colors hover:bg-zinc-100 disabled:opacity-40"
+          >
+            <span className="flex h-11 w-11 items-center justify-center rounded-[16px] bg-zinc-100 text-zinc-600">
+              <Shield className="h-5 w-5" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[16px] font-semibold text-zinc-900">
+                Админка
+              </span>
+              <span className="mt-0.5 block text-[13px] text-zinc-500">
+                Пользователи, заявки, роли
+              </span>
+            </span>
+          </button>
         )}
         {showLogout && (
           <Button

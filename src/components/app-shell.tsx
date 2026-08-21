@@ -1374,7 +1374,6 @@ export function AppShell() {
                 if (id === "about") go("about-service");
                 if (id === "feedback") go("feedback");
                 if (id === "master") go("become-master");
-                if (id === "admin") go("admin");
               }}
             />
           )}
@@ -1690,6 +1689,8 @@ export function AppShell() {
             <ProfileScreen
               key="profile"
               panelsUnlimited={Boolean(quota?.unlimited)}
+              isAdmin={isAdmin}
+              onOpenAdmin={() => go("admin")}
               onBack={() => go("objects")}
               onLoggedOut={() => {
                 setItems([]);
@@ -1774,7 +1775,7 @@ export function AppShell() {
           {screen === "admin" && (
             <AdminDashboardScreen
               key="admin"
-              onBack={() => go("objects")}
+              onBack={() => go("profile")}
             />
           )}
           {screen === "become-master" && (
