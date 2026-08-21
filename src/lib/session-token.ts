@@ -11,6 +11,11 @@ export type SessionPayload = {
   exp: number;
 };
 
+/** Reject OIDC opaque `sub` values that were mistakenly stored as telegramId. */
+export function isPlausibleTelegramUserId(id: number): boolean {
+  return Number.isSafeInteger(id) && id > 0 && id < 10_000_000_000_000;
+}
+
 function getSecret(): string {
   const secret =
     process.env.AUTH_SECRET?.trim() || process.env.BOT_TOKEN?.trim() || "";
@@ -54,7 +59,10 @@ export function verifySessionToken(token: string): SessionPayload {
     throw new AuthError("Некорректный токен сессии");
   }
 
-  if (!payload.telegramId || payload.exp < Math.floor(Date.now() / 1000)) {
+  if (
+    !isPlausibleTelegramUserId(payload.telegramId) ||
+    payload.exp < Math.floor(Date.now() / 1000)
+  ) {
     throw new AuthError("Сессия истекла — войдите снова");
   }
 

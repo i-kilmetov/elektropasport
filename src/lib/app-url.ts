@@ -1,21 +1,33 @@
 /** Canonical production site URL (custom domain). */
 export const PRODUCTION_APP_URL = "https://tokom.ru";
 
-/** Old production host that still has users' localStorage. */
+/** Old production host — same Vercel project / same DB as tokom.ru. */
 export const LEGACY_VERCEL_HOST = "elektropasport.vercel.app";
 
 export function productionAppHost(): string {
   return "tokom.ru";
 }
 
-export function isLegacyVercelHost(): boolean {
-  if (typeof window === "undefined") return false;
-  return window.location.hostname === LEGACY_VERCEL_HOST;
+/**
+ * Origin of the HTTP request the browser actually hit.
+ * Must be used for OAuth redirect_uri + PKCE cookies (host must match).
+ */
+export function resolveRequestOrigin(request: Request): string {
+  const url = new URL(request.url);
+  const proto =
+    request.headers.get("x-forwarded-proto") ??
+    url.protocol.replace(":", "");
+  const host =
+    request.headers.get("x-forwarded-host") ??
+    request.headers.get("host") ??
+    url.host;
+  return `${proto}://${host}`;
 }
 
 /**
  * Prefer an explicit env override, then the current request / Vercel URL,
  * then the public tokom.ru domain.
+ * Use for links, webhooks, payments — not for OAuth cookie/redirect host.
  */
 export function resolveAppOrigin(request?: Request): string {
   const fromEnv =
@@ -26,17 +38,7 @@ export function resolveAppOrigin(request?: Request): string {
   }
 
   if (request) {
-    const url = new URL(request.url);
-    const proto =
-      request.headers.get("x-forwarded-proto") ??
-      url.protocol.replace(":", "");
-    const host =
-      request.headers.get("x-forwarded-host") ??
-      request.headers.get("host") ??
-      url.host;
-    if (host && !host.includes("localhost") && !host.startsWith("127.")) {
-      return `${proto}://${host}`;
-    }
+    return resolveRequestOrigin(request);
   }
 
   const vercel = process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim();

@@ -25,6 +25,8 @@ export function isTelegramMiniApp(): boolean {
 export function getBrowserSessionToken(): string | null {
   if (typeof window === "undefined") return null;
   try {
+    // Drop paired bad sessions (OIDC opaque `sub` stored as telegramId).
+    if (!getBrowserAuthUser()) return null;
     return localStorage.getItem(SESSION_KEY)?.trim() || null;
   } catch {
     return null;
@@ -36,7 +38,17 @@ export function getBrowserAuthUser(): BrowserAuthUser | null {
   try {
     const raw = localStorage.getItem(SESSION_USER_KEY);
     if (!raw) return null;
-    return JSON.parse(raw) as BrowserAuthUser;
+    const user = JSON.parse(raw) as BrowserAuthUser;
+    // Drop sessions created from OIDC opaque `sub` (wrong empty accounts).
+    if (
+      !user?.telegramId ||
+      !Number.isSafeInteger(user.telegramId) ||
+      user.telegramId >= 10_000_000_000_000
+    ) {
+      clearBrowserSession();
+      return null;
+    }
+    return user;
   } catch {
     return null;
   }

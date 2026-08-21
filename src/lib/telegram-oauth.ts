@@ -155,9 +155,20 @@ export async function validateTelegramIdToken(
     audience: clientId,
   });
 
-  const telegramId = Number(payload.id ?? payload.sub);
+  // Telegram OIDC: `sub` is an opaque subject, NOT the Telegram user id.
+  // The numeric Telegram user id is only in the `id` claim (scope: profile).
+  // Using `sub` here creates a different empty account and hides panels in DB.
+  const rawId = payload.id;
+  const telegramId =
+    typeof rawId === "number"
+      ? rawId
+      : typeof rawId === "string"
+        ? Number(rawId)
+        : NaN;
   if (!Number.isFinite(telegramId) || telegramId <= 0) {
-    throw new AuthError("В токене Telegram нет user id");
+    throw new AuthError(
+      "В токене Telegram нет user id (нужен scope profile / claim id)",
+    );
   }
 
   const given =

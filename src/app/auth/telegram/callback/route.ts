@@ -21,6 +21,7 @@ import {
   readOAuthCookie,
   validateTelegramIdToken,
 } from "@/lib/telegram-oauth";
+import { resolveRequestOrigin } from "@/lib/app-url";
 
 function parseLoginParams(url: URL): TelegramLoginWidgetData | null {
   const id = url.searchParams.get("id");
@@ -44,16 +45,6 @@ function escapeJsString(value: string): string {
     .replace(/\\/g, "\\\\")
     .replace(/'/g, "\\'")
     .replace(/</g, "\\u003c");
-}
-
-function appOrigin(request: Request): string {
-  const url = new URL(request.url);
-  const proto = request.headers.get("x-forwarded-proto") ?? url.protocol.replace(":", "");
-  const host =
-    request.headers.get("x-forwarded-host") ??
-    request.headers.get("host") ??
-    url.host;
-  return `${proto}://${host}`;
 }
 
 function sessionHtml(user: ValidatedTelegramUser, token: string): string {
@@ -125,7 +116,7 @@ export async function GET(request: Request) {
 
       const clientId = getTelegramClientId();
       const clientSecret = getTelegramClientSecret();
-      const redirectUri = `${appOrigin(request)}/auth/telegram/callback`;
+      const redirectUri = `${resolveRequestOrigin(request)}/auth/telegram/callback`;
       const idToken = await exchangeAuthorizationCode({
         code,
         redirectUri,

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { resolveAppOrigin } from "@/lib/app-url";
+import { resolveRequestOrigin } from "@/lib/app-url";
 import {
   buildLegacyAuthUrl,
   buildOidcAuthUrl,
@@ -16,7 +16,8 @@ export async function GET(request: Request) {
     return NextResponse.redirect(new URL("/?auth_error=config", request.url));
   }
 
-  const origin = resolveAppOrigin(request);
+  // Must match the host that sets the PKCE cookie (not NEXT_PUBLIC_APP_URL).
+  const origin = resolveRequestOrigin(request);
   const redirectUri = `${origin}/auth/telegram/callback`;
 
   if (canUseOidcLogin()) {

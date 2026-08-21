@@ -46,13 +46,11 @@ import {
   WelcomeScreen,
 } from "@/components/screens/welcome-screen";
 import { canUseServerAuth } from "@/lib/client-auth";
-import { isLegacyVercelHost } from "@/lib/app-url";
 import {
   clearPendingInstallLead,
   readPendingInstallLead,
 } from "@/lib/pending-lead";
 import { syncUserProfileFromServer } from "@/lib/user-profile";
-import { DomainMigrationBanner } from "@/components/domain-migration-banner";
 import {
   hapticDelete,
   hapticNav,
@@ -185,7 +183,6 @@ export function AppShell() {
     phone: string;
     username: string;
   } | null>(null);
-  const [showLegacyMigration, setShowLegacyMigration] = useState(false);
   const submittedLeadIds = useRef(new Set<string>());
   const consumedShareRef = useRef(false);
 
@@ -208,10 +205,6 @@ export function AppShell() {
     setLimitOpen(true);
     void refreshQuota();
   }, [refreshQuota]);
-
-  useEffect(() => {
-    setShowLegacyMigration(isLegacyVercelHost());
-  }, []);
 
   useEffect(() => {
     const startParam = getTelegramStartParam();
@@ -1566,7 +1559,6 @@ export function AppShell() {
               key="profile"
               panelsUnlimited={Boolean(quota?.unlimited)}
               onBack={() => go("objects")}
-              onItemsImported={(next) => setItems(next)}
               onLoggedOut={() => {
                 setItems([]);
                 setActivePanelId(null);
@@ -1687,12 +1679,6 @@ export function AppShell() {
           )}
         </AnimatePresence>
       </div>
-      {showLegacyMigration && (
-        <DomainMigrationBanner
-          localPanelCount={items.filter((item) => item.kind === "panel").length}
-          onSynced={(next) => setItems(next)}
-        />
-      )}
     </div>
   );
 }
