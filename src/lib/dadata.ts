@@ -6,6 +6,8 @@ export type AddressSuggestion = {
   value: string;
   unrestrictedValue: string;
   fiasId?: string;
+  houseFiasId?: string;
+  streetFiasId?: string;
   fiasLevel: number;
   house?: string;
   street?: string;
@@ -17,6 +19,8 @@ type DaDataSuggestion = {
   unrestricted_value?: string;
   data?: {
     fias_id?: string | null;
+    house_fias_id?: string | null;
+    street_fias_id?: string | null;
     fias_level?: string | number | null;
     house?: string | null;
     street_with_type?: string | null;
@@ -50,10 +54,14 @@ export function parseDaDataSuggestions(raw: unknown): AddressSuggestion[] {
     const value = item.value?.trim();
     if (!value) continue;
     const fiasLevel = Number(item.data?.fias_level ?? 0);
+    const houseFiasId = item.data?.house_fias_id ?? undefined;
+    const fiasId = item.data?.fias_id ?? undefined;
     parsed.push({
       value,
       unrestrictedValue: item.unrestricted_value?.trim() || value,
-      fiasId: item.data?.fias_id ?? undefined,
+      fiasId,
+      houseFiasId: houseFiasId || (fiasLevel >= 8 ? fiasId : undefined),
+      streetFiasId: item.data?.street_fias_id ?? undefined,
       fiasLevel: Number.isFinite(fiasLevel) ? fiasLevel : 0,
       house: item.data?.house ?? undefined,
       street: item.data?.street_with_type ?? undefined,

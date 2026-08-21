@@ -25,6 +25,7 @@ import {
 } from "@/components/screens/lead-contact-screen";
 import { LeadServiceScreen } from "@/components/screens/lead-service-screen";
 import { LeadAddressScreen } from "@/components/screens/lead-address-screen";
+import { HouseInsightScreen } from "@/components/screens/house-insight-screen";
 import { NoPanelDetailScreen } from "@/components/screens/no-panel-detail-screen";
 import { NoPanelOptionsScreen } from "@/components/screens/no-panel-options-screen";
 import { ObjectsScreen } from "@/components/screens/objects-screen";
@@ -171,6 +172,10 @@ export function AppShell() {
     useState<ElectricalDetails | null>(null);
   const [selectedCity, setSelectedCity] = useState<string | null>(null);
   const [selectedAddress, setSelectedAddress] = useState<string | null>(null);
+  const [selectedAddressFiasId, setSelectedAddressFiasId] = useState<
+    string | null
+  >(null);
+  const [helpElectricalFlow, setHelpElectricalFlow] = useState(false);
   const [selectedLeadService, setSelectedLeadService] =
     useState<LeadServiceType | null>(null);
   const [leadPanelModules, setLeadPanelModules] = useState<number | null>(null);
@@ -332,6 +337,8 @@ export function AppShell() {
       setNoPanelSetupId(null);
       setSelectedCity(null);
       setSelectedAddress(null);
+      setSelectedAddressFiasId(null);
+      setHelpElectricalFlow(pending === "help-electrical");
       setSelectedLeadService(null);
       setLeadBackScreen(pending === "help-electrical" ? "objects" : "scheme");
       if (pending === "help-electrical") setLeadPanelModules(null);
@@ -418,6 +425,8 @@ export function AppShell() {
     setElectricalDetails(null);
     setSelectedCity(null);
     setSelectedAddress(null);
+    setSelectedAddressFiasId(null);
+    setHelpElectricalFlow(true);
     setSelectedLeadService(null);
     setRequestNeedId(null);
     setNoPanelSetupId(null);
@@ -436,6 +445,8 @@ export function AppShell() {
     setElectricalDetails(null);
     setSelectedCity(null);
     setSelectedAddress(null);
+    setSelectedAddressFiasId(null);
+    setHelpElectricalFlow(false);
     setSelectedLeadService(null);
     setRequestNeedId(null);
     setNoPanelSetupId(null);
@@ -1454,6 +1465,8 @@ export function AppShell() {
                 setElectricalDetails(null);
                 setSelectedCity(null);
                 setSelectedAddress(null);
+                setSelectedAddressFiasId(null);
+                setHelpElectricalFlow(false);
                 setSelectedLeadService(null);
                 setLeadPanelModules(null);
                 setLeadBackScreen("panel-advantages");
@@ -1470,6 +1483,8 @@ export function AppShell() {
                 setLeadFlow("install");
                 setSelectedCity(null);
                 setSelectedAddress(null);
+                setSelectedAddressFiasId(null);
+                setHelpElectricalFlow(false);
                 setSelectedLeadService(null);
                 setLeadPanelModules(null);
                 setLeadBackScreen("electrical-details");
@@ -1479,7 +1494,7 @@ export function AppShell() {
           )}
           {screen === "city-select" && (
             <CitySelectScreen
-              key={`city-${leadFlow}`}
+              key={`city-${leadFlow}-${helpElectricalFlow ? "help" : "std"}`}
               title={
                 leadFlow === "master"
                   ? "В каком городе работаете?"
@@ -1488,12 +1503,16 @@ export function AppShell() {
               description={
                 leadFlow === "master"
                   ? "Укажите город — так мы поймём, где вы можете брать заявки."
-                  : "Укажите город, мы подскажем, как сможем вам помочь."
+                  : helpElectricalFlow
+                    ? "Сначала город, затем точный адрес — подскажем год дома, типичную электрику и контакты УК."
+                    : "Укажите город, мы подскажем, как сможем вам помочь."
               }
               moscowHint={
                 leadFlow === "master"
                   ? undefined
-                  : "В этом городе у нас есть квалифицированные мастера-электрики. Укажите точный адрес, чтобы сориентировать вас по времени и цене."
+                  : helpElectricalFlow
+                    ? "Укажите точный адрес дома — покажем год постройки, как обычно устроена электрика, и контакты управляющей компании."
+                    : "В этом городе у нас есть квалифицированные мастера-электрики. Укажите точный адрес, чтобы сориентировать вас по времени и цене."
               }
               onBack={() =>
                 go(leadFlow === "master" ? "become-master" : leadBackScreen)
@@ -1501,11 +1520,12 @@ export function AppShell() {
               onConfirm={(city) => {
                 setSelectedCity(city);
                 setSelectedAddress(null);
+                setSelectedAddressFiasId(null);
                 if (leadFlow === "master") {
                   go("master-about");
                   return;
                 }
-                if (isMoscow(city)) {
+                if (helpElectricalFlow || isMoscow(city)) {
                   go("address-select");
                   return;
                 }
@@ -1520,8 +1540,10 @@ export function AppShell() {
               onSelect={(id) => {
                 setRequestNeedId(id);
                 setLeadFlow("install");
+                setHelpElectricalFlow(false);
                 setSelectedCity(null);
                 setSelectedAddress(null);
+                setSelectedAddressFiasId(null);
                 setSelectedLeadService(null);
                 setLeadPanelModules(null);
                 setLeadBackScreen("request-type");
@@ -1531,14 +1553,44 @@ export function AppShell() {
           )}
           {screen === "address-select" && selectedCity && (
             <LeadAddressScreen
-              key={`address-${selectedCity}`}
+              key={`address-${selectedCity}-${helpElectricalFlow ? "help" : "std"}`}
               city={selectedCity}
               initialAddress={selectedAddress ?? undefined}
+              requireApartment={!helpElectricalFlow}
+              heading={
+                helpElectricalFlow
+                  ? "Точный адрес дома"
+                  : isMoscow(selectedCity)
+                    ? "Адрес в Москве"
+                    : undefined
+              }
+              description={
+                helpElectricalFlow
+                  ? "Улица и номер дома — по ним определим год постройки, типичную электрику и управляющую компанию."
+                  : undefined
+              }
               onBack={() => go("city-select")}
               onConfirm={(address) => {
-                setSelectedAddress(address);
+                setSelectedAddress(address.value);
+                setSelectedAddressFiasId(
+                  address.houseFiasId ?? address.fiasId ?? null,
+                );
+                if (helpElectricalFlow) {
+                  go("house-insight");
+                  return;
+                }
                 go("lead-service");
               }}
+            />
+          )}
+          {screen === "house-insight" && selectedCity && selectedAddress && (
+            <HouseInsightScreen
+              key={`house-${selectedCity}-${selectedAddress}`}
+              city={selectedCity}
+              address={selectedAddress}
+              fiasId={selectedAddressFiasId}
+              onBack={() => go("address-select")}
+              onCallMaster={() => go("lead-service")}
             />
           )}
           {screen === "lead-service" && selectedCity && (
@@ -1546,9 +1598,13 @@ export function AppShell() {
               key={`lead-service-${selectedCity}-${leadPanelModules ?? 0}`}
               city={selectedCity}
               panelModules={leadPanelModules}
-              onBack={() =>
-                go(isMoscow(selectedCity) ? "address-select" : "city-select")
-              }
+              onBack={() => {
+                if (helpElectricalFlow) {
+                  go("house-insight");
+                  return;
+                }
+                go(isMoscow(selectedCity) ? "address-select" : "city-select");
+              }}
               onSelect={(serviceType) => {
                 setSelectedLeadService(serviceType);
                 go("lead-contact");
@@ -1586,6 +1642,8 @@ export function AppShell() {
                 setSelectedLeadService(null);
                 setSelectedCity(null);
                 setSelectedAddress(null);
+                setSelectedAddressFiasId(null);
+                setHelpElectricalFlow(false);
                 setLeadPanelModules(null);
                 go("objects");
               }}
@@ -1711,8 +1769,10 @@ export function AppShell() {
               onBack={() => go("objects")}
               onConfirm={() => {
                 setLeadFlow("master");
+                setHelpElectricalFlow(false);
                 setSelectedCity(null);
                 setSelectedAddress(null);
+                setSelectedAddressFiasId(null);
                 setMasterAbout("");
                 go("city-select");
               }}

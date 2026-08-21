@@ -1,4 +1,5 @@
 import type { AddressSuggestion } from "@/lib/dadata";
+import type { HouseInsight } from "@/lib/house-insight";
 import type { HomeListItem, InstallRequest, PanelObject } from "@/types";
 import {
   authHeaders,
@@ -518,6 +519,39 @@ export async function suggestAddresses(
 
   const data = (await res.json()) as { suggestions?: AddressSuggestion[] };
   return Array.isArray(data.suggestions) ? data.suggestions : [];
+}
+
+export async function lookupHouseInsight(input: {
+  city: string;
+  address: string;
+  fiasId?: string | null;
+}): Promise<HouseInsight> {
+  if (!canUseServer()) {
+    throw new Error("Справка по дому доступна после входа через Telegram");
+  }
+
+  const res = await fetch("/api/house-lookup", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders(),
+    },
+    body: JSON.stringify({
+      city: input.city,
+      address: input.address,
+      fiasId: input.fiasId ?? undefined,
+    }),
+  });
+
+  if (!res.ok) {
+    throw new Error(await parseError(res));
+  }
+
+  const data = (await res.json()) as { insight?: HouseInsight };
+  if (!data.insight) {
+    throw new Error("Не удалось получить данные о доме");
+  }
+  return data.insight;
 }
 
 export type SbpPaymentClient = {

@@ -31,12 +31,13 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
-    if (!isMoscow(city)) {
-      return Response.json(
-        { error: "Подсказки адресов доступны только для Москвы" },
-        { status: 400 },
-      );
+    if (!city) {
+      return Response.json({ error: "Укажите город" }, { status: 400 });
     }
+
+    const locations = isMoscow(city)
+      ? [{ kladr_id: MOSCOW_KLADR_ID }]
+      : [{ city }];
 
     const res = await fetch(DADATA_URL, {
       method: "POST",
@@ -48,7 +49,7 @@ export async function POST(request: Request) {
       body: JSON.stringify({
         query,
         count: 20,
-        locations: [{ kladr_id: MOSCOW_KLADR_ID }],
+        locations,
         restrict_value: true,
         from_bound: { value: "street" },
         to_bound: { value: "flat" },

@@ -137,6 +137,7 @@ export type AppScreen =
   | "electrical-details"
   | "city-select"
   | "address-select"
+  | "house-insight"
   | "lead-service"
   | "lead-contact"
   | "request-type"

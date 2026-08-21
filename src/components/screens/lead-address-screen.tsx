@@ -8,16 +8,31 @@ import { Button } from "@/components/ui/button";
 import { hasFlat, hasHouse, type AddressSuggestion } from "@/lib/dadata";
 import { normalizeCityName } from "@/lib/lead-services";
 
+export type ConfirmedAddress = {
+  value: string;
+  fiasId?: string;
+  houseFiasId?: string;
+};
+
 export function LeadAddressScreen({
   city,
   initialAddress,
   onBack,
   onConfirm,
+  title = "Адрес",
+  heading,
+  description,
+  requireApartment = true,
 }: {
   city: string;
   initialAddress?: string;
   onBack: () => void;
-  onConfirm: (address: string) => void;
+  onConfirm: (address: ConfirmedAddress) => void;
+  title?: string;
+  heading?: string;
+  description?: string;
+  /** When false, house-level address is enough (no flat required). */
+  requireApartment?: boolean;
 }) {
   const [query, setQuery] = useState(initialAddress ?? "");
   const [selected, setSelected] = useState<AddressSuggestion | null>(
@@ -35,6 +50,7 @@ export function LeadAddressScreen({
   const cityLabel = normalizeCityName(city);
   const trimmed = query.trim();
   const needsApartment =
+    requireApartment &&
     selected != null &&
     hasHouse(selected) &&
     !hasFlat(selected) &&
@@ -62,15 +78,15 @@ export function LeadAddressScreen({
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <h1 className="text-[20px] font-semibold text-zinc-900">Адрес</h1>
+        <h1 className="text-[20px] font-semibold text-zinc-900">{title}</h1>
       </header>
 
       <h2 className="mb-2 text-[26px] font-bold tracking-tight text-zinc-900">
-        Адрес в Москве
+        {heading ?? `Адрес в ${cityLabel}`}
       </h2>
       <p className="mb-5 text-[15px] leading-relaxed text-zinc-600">
-        В этом городе у нас есть квалифицированные мастера-электрики. Укажите
-        точный адрес, чтобы сориентировать вас по времени и цене.
+        {description ??
+          "Укажите точный адрес: улица и дом. Так мы точнее подскажем по электрике и времени выезда."}
       </p>
 
       <AddressSuggestField
@@ -89,7 +105,7 @@ export function LeadAddressScreen({
           setLookupFailed(false);
         }}
         onLookupError={(message) => setLookupFailed(Boolean(message))}
-        placeholder="Улица, дом, квартира"
+        placeholder="Улица, дом"
       />
 
       {needsApartment && (
@@ -105,7 +121,13 @@ export function LeadAddressScreen({
           size="lg"
           disabled={!ready}
           onClick={() => {
-            if (ready) onConfirm(selected?.value ?? trimmed);
+            if (!ready) return;
+            const item = selected;
+            onConfirm({
+              value: item?.value ?? trimmed,
+              fiasId: item?.fiasId,
+              houseFiasId: item?.houseFiasId ?? item?.fiasId,
+            });
           }}
         >
           Продолжить
