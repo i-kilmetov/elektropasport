@@ -356,12 +356,13 @@ export async function upsertUser(
     return { isNew: true };
   }
 
+  // OIDC / Login Widget sometimes omit name fields — never wipe existing ones.
   await sql`
     UPDATE users
     SET
-      first_name = ${user.firstName ?? null},
-      last_name = ${user.lastName ?? null},
-      username = ${user.username ?? null},
+      first_name = COALESCE(${user.firstName ?? null}, first_name),
+      last_name = COALESCE(${user.lastName ?? null}, last_name),
+      username = COALESCE(${user.username ?? null}, username),
       invite_token = COALESCE(invite_token, ${token}),
       updated_at = NOW()
     WHERE telegram_id = ${user.telegramId}
@@ -401,6 +402,8 @@ export async function getStoredUserProfile(
       profile_first_name,
       profile_last_name,
       display_name,
+      first_name,
+      last_name,
       birth_date,
       phone_digits,
       avatar_id
@@ -410,6 +413,8 @@ export async function getStoredUserProfile(
     profile_first_name: string | null;
     profile_last_name: string | null;
     display_name: string | null;
+    first_name: string | null;
+    last_name: string | null;
     birth_date: string | null;
     phone_digits: string | null;
     avatar_id: string | null;
@@ -419,9 +424,15 @@ export async function getStoredUserProfile(
 
   const legacy = splitLegacyDisplayName(row.display_name);
   const firstName =
-    row.profile_first_name?.trim() || legacy.firstName || undefined;
+    row.profile_first_name?.trim() ||
+    legacy.firstName ||
+    row.first_name?.trim() ||
+    undefined;
   const lastName =
-    row.profile_last_name?.trim() || legacy.lastName || undefined;
+    row.profile_last_name?.trim() ||
+    legacy.lastName ||
+    row.last_name?.trim() ||
+    undefined;
 
   return {
     firstName,

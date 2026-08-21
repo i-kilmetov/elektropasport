@@ -141,11 +141,7 @@ function enqueuePanelOp<T>(id: string, op: () => Promise<T>): Promise<T> {
   return next;
 }
 
-export async function fetchHomeItems(): Promise<HomeListItem[]> {
-  if (!canUseServer()) {
-    return readLocalItems();
-  }
-
+async function fetchServerHomeItems(): Promise<HomeListItem[]> {
   const res = await fetch("/api/items", {
     headers: authHeaders(),
     cache: "no-store",
@@ -157,12 +153,58 @@ export async function fetchHomeItems(): Promise<HomeListItem[]> {
   }
 
   const data = (await res.json()) as { items: HomeListItem[] };
+  return Array.isArray(data.items) ? data.items : [];
+}
+
+/**
+ * After domain moves (vercel.app → tokom.ru) or late login, panels may exist
+ * only in this origin's localStorage. Push orphans to the server once.
+ */
+async function uploadLocalOnlyPanels(
+  serverItems: HomeListItem[],
+): Promise<boolean> {
+  const serverIds = new Set(serverItems.map((item) => item.id));
+  const orphans = readLocalItems().filter(
+    (item): item is PanelObject =>
+      item.kind === "panel" && !serverIds.has(item.id),
+  );
+  if (orphans.length === 0) return false;
+
+  let uploaded = false;
+  for (const panel of orphans) {
+    try {
+      const res = await fetch("/api/panels", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeaders(),
+        },
+        body: JSON.stringify({ panel: panelForApi(panel) }),
+      });
+      if (res.ok || res.status === 403) uploaded = true;
+    } catch {
+      // keep trying the rest
+    }
+  }
+  return uploaded;
+}
+
+export async function fetchHomeItems(): Promise<HomeListItem[]> {
+  if (!canUseServer()) {
+    return readLocalItems();
+  }
+
+  let serverItems = await fetchServerHomeItems();
+  if (await uploadLocalOnlyPanels(serverItems)) {
+    serverItems = await fetchServerHomeItems();
+  }
+
   const localById = new Map(
     readLocalItems()
       .filter((i): i is PanelObject => i.kind === "panel")
       .map((i) => [i.id, i]),
   );
-  const merged = data.items.map((item) => {
+  const merged = serverItems.map((item) => {
     if (item.kind !== "panel") return item;
     const local = localById.get(item.id);
     if (!local) return item;

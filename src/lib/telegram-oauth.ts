@@ -172,8 +172,12 @@ export async function validateTelegramIdToken(
 
   return {
     telegramId,
-    firstName: given ?? name?.split(" ")[0],
-    lastName: family,
+    firstName: given ?? name?.split(/\s+/)[0],
+    lastName:
+      family ??
+      (name && name.trim().includes(" ")
+        ? name.trim().split(/\s+/).slice(1).join(" ")
+        : undefined),
     username: preferred,
   };
 }

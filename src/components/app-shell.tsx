@@ -46,6 +46,7 @@ import {
   WelcomeScreen,
 } from "@/components/screens/welcome-screen";
 import { canUseServerAuth } from "@/lib/client-auth";
+import { redirectLegacyHostToCanonical } from "@/lib/app-url";
 import {
   clearPendingInstallLead,
   readPendingInstallLead,
@@ -239,6 +240,10 @@ export function AppShell() {
           canUseServerAuth() ? fetchMasterProfile() : Promise.resolve(null),
           canUseServerAuth() ? fetchIsAdmin() : Promise.resolve(false),
         ]);
+        // After auth, push local-only panels then leave the old Vercel host.
+        if (!cancelled && canUseServerAuth() && redirectLegacyHostToCanonical()) {
+          return;
+        }
         if (!cancelled) {
           setItems(loaded);
           if (masterProfile?.isMaster) setIsMaster(true);

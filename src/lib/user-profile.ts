@@ -147,6 +147,26 @@ export async function syncUserProfileFromServer(): Promise<UserProfile> {
       return writeLocalProfile(remote);
     }
 
+    // Seed empty profile from Telegram session names (common after domain move).
+    try {
+      const raw = localStorage.getItem("elektropasport:auth-user");
+      if (raw) {
+        const auth = JSON.parse(raw) as {
+          firstName?: string;
+          lastName?: string;
+        };
+        const seeded = sanitizeProfile({
+          firstName: auth.firstName,
+          lastName: auth.lastName,
+        });
+        if (profileHasData(seeded)) {
+          return persistUserProfile(seeded);
+        }
+      }
+    } catch {
+      // ignore
+    }
+
     return local;
   } catch (error) {
     console.error(error);

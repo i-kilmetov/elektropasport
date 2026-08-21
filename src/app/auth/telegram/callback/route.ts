@@ -6,7 +6,12 @@ import {
   type ValidatedTelegramUser,
 } from "@/lib/telegram-auth";
 import { signSessionToken } from "@/lib/session-token";
-import { ensureSchema, upsertUser } from "@/lib/db";
+import {
+  ensureSchema,
+  getStoredUserProfile,
+  updateStoredUserProfile,
+  upsertUser,
+} from "@/lib/db";
 import {
   canUseOidcLogin,
   exchangeAuthorizationCode,
@@ -81,6 +86,17 @@ function sessionHtml(user: ValidatedTelegramUser, token: string): string {
 async function finishLogin(user: ValidatedTelegramUser): Promise<NextResponse> {
   await ensureSchema();
   await upsertUser(user);
+
+  // Keep profile display name in sync when Telegram provides one and profile is empty.
+  const existing = await getStoredUserProfile(user.telegramId);
+  if (!existing.firstName && !existing.lastName && (user.firstName || user.lastName)) {
+    await updateStoredUserProfile(user.telegramId, {
+      ...existing,
+      firstName: user.firstName,
+      lastName: user.lastName,
+    });
+  }
+
   const token = signSessionToken({
     telegramId: user.telegramId,
     firstName: user.firstName,
