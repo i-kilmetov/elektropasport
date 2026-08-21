@@ -23,6 +23,7 @@ export function LeadAddressScreen({
   heading,
   description,
   requireApartment = true,
+  suggestSource = "dadata",
 }: {
   city: string;
   initialAddress?: string;
@@ -33,6 +34,8 @@ export function LeadAddressScreen({
   description?: string;
   /** When false, house-level address is enough (no flat required). */
   requireApartment?: boolean;
+  /** Prefer HouseScore so year/UK lookup uses the same house GUID. */
+  suggestSource?: "dadata" | "housescore";
 }) {
   const [query, setQuery] = useState(initialAddress ?? "");
   const [selected, setSelected] = useState<AddressSuggestion | null>(
@@ -49,18 +52,23 @@ export function LeadAddressScreen({
 
   const cityLabel = normalizeCityName(city);
   const trimmed = query.trim();
+  const fromHouseScore = suggestSource === "housescore";
   const needsApartment =
+    !fromHouseScore &&
     requireApartment &&
     selected != null &&
     hasHouse(selected) &&
     !hasFlat(selected) &&
     apartments.length > 0;
-  const ready =
-    (selected != null &&
+  const ready = fromHouseScore
+    ? selected != null &&
       selected.value === trimmed &&
-      hasHouse(selected) &&
-      !needsApartment) ||
-    (lookupFailed && trimmed.length >= 8);
+      Boolean(selected.houseFiasId ?? selected.fiasId)
+    : (selected != null &&
+        selected.value === trimmed &&
+        hasHouse(selected) &&
+        !needsApartment) ||
+      (lookupFailed && trimmed.length >= 8);
 
   return (
     <motion.section
@@ -86,12 +94,16 @@ export function LeadAddressScreen({
       </h2>
       <p className="mb-5 text-[15px] leading-relaxed text-zinc-600">
         {description ??
-          "Укажите точный адрес: улица и дом. Так мы точнее подскажем по электрике и времени выезда."}
+          (fromHouseScore
+            ? "Выберите дом из базы HouseScore — так год постройки и УК подтянутся по тому же идентификатору."
+            : "Укажите точный адрес: улица и дом. Так мы точнее подскажем по электрике и времени выезда.")}
       </p>
 
       <AddressSuggestField
         city={cityLabel}
         value={query}
+        source={suggestSource}
+        houseOnly={fromHouseScore || !requireApartment}
         onChange={(next) => {
           setQuery(next);
           if (selected && next.trim() !== selected.value) {
@@ -105,13 +117,20 @@ export function LeadAddressScreen({
           setLookupFailed(false);
         }}
         onLookupError={(message) => setLookupFailed(Boolean(message))}
-        placeholder="Улица, дом"
+        placeholder={fromHouseScore ? "Улица и номер дома" : "Улица, дом"}
       />
 
       {needsApartment && (
         <p className="mt-3 text-[13px] leading-relaxed text-amber-800">
           В этом доме есть квартиры в адресном реестре — выберите квартиру из
           списка.
+        </p>
+      )}
+
+      {fromHouseScore && !ready && trimmed.length >= 3 && (
+        <p className="mt-3 text-[13px] leading-relaxed text-zinc-500">
+          Выберите дом из списка подсказок — так данные о доме и УК совпадут с
+          базой HouseScore.
         </p>
       )}
 

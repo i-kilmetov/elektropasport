@@ -1,29 +1,105 @@
 import { authErrorResponse, requireTelegramUser } from "@/lib/telegram-auth";
 import { isMoscow, normalizeCityName } from "@/lib/lead-services";
 import { MOSCOW_KLADR_ID, parseDaDataSuggestions } from "@/lib/dadata";
+import {
+  isHouseScoreConfigured,
+  mapHouseScoreFindsToSuggestions,
+  normalizeQueryAddress,
+  searchHousesByAddress,
+} from "@/lib/housescore";
 
 const DADATA_URL =
   "https://suggestions.dadata.ru/suggestions/api/4_1/rs/suggest/address";
 const MAX_QUERY_LENGTH = 120;
 
+async function suggestFromDaData(query: string, city: string) {
+  const token = process.env.DADATA_API_KEY?.trim();
+  if (!token) {
+    return Response.json(
+      { error: "Подсказки адресов не настроены" },
+      { status: 503 },
+    );
+  }
+
+  const locations = isMoscow(city)
+    ? [{ kladr_id: MOSCOW_KLADR_ID }]
+    : [{ city }];
+
+  const res = await fetch(DADATA_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      Authorization: `Token ${token}`,
+    },
+    body: JSON.stringify({
+      query,
+      count: 20,
+      locations,
+      restrict_value: true,
+      from_bound: { value: "street" },
+      to_bound: { value: "flat" },
+    }),
+  });
+
+  if (!res.ok) {
+    console.error("DaData suggest failed", res.status, await res.text());
+    return Response.json(
+      { error: "Не удалось получить адреса" },
+      { status: 502 },
+    );
+  }
+
+  const payload: unknown = await res.json();
+  return Response.json({
+    suggestions: parseDaDataSuggestions(payload),
+    source: "dadata",
+  });
+}
+
+async function suggestFromHouseScore(query: string, city: string) {
+  if (!isHouseScoreConfigured()) {
+    return Response.json(
+      { error: "Подсказки домов HouseScore не настроены" },
+      { status: 503 },
+    );
+  }
+
+  const q = normalizeQueryAddress(city, query);
+  if (q.length < 10) {
+    return Response.json({ suggestions: [], source: "housescore" });
+  }
+
+  try {
+    const items = await searchHousesByAddress(q);
+    return Response.json({
+      suggestions: mapHouseScoreFindsToSuggestions(items, city),
+      source: "housescore",
+    });
+  } catch (error) {
+    console.error("HouseScore address suggest failed", error);
+    return Response.json(
+      { error: "Не удалось получить адреса домов" },
+      { status: 502 },
+    );
+  }
+}
+
 export async function POST(request: Request) {
   try {
     requireTelegramUser(request);
 
-    const token = process.env.DADATA_API_KEY?.trim();
-    if (!token) {
-      return Response.json(
-        { error: "Подсказки адресов не настроены" },
-        { status: 503 },
-      );
-    }
-
-    const body = (await request.json()) as { query?: string; city?: string };
+    const body = (await request.json()) as {
+      query?: string;
+      city?: string;
+      source?: "dadata" | "housescore";
+    };
     const query = body.query?.trim() ?? "";
     const city = normalizeCityName(body.city ?? "");
+    const source = body.source === "housescore" ? "housescore" : "dadata";
 
     if (query.length < 2) {
-      return Response.json({ suggestions: [] });
+      return Response.json({ suggestions: [], source });
     }
     if (query.length > MAX_QUERY_LENGTH) {
       return Response.json(
@@ -35,37 +111,10 @@ export async function POST(request: Request) {
       return Response.json({ error: "Укажите город" }, { status: 400 });
     }
 
-    const locations = isMoscow(city)
-      ? [{ kladr_id: MOSCOW_KLADR_ID }]
-      : [{ city }];
-
-    const res = await fetch(DADATA_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-        Authorization: `Token ${token}`,
-      },
-      body: JSON.stringify({
-        query,
-        count: 20,
-        locations,
-        restrict_value: true,
-        from_bound: { value: "street" },
-        to_bound: { value: "flat" },
-      }),
-    });
-
-    if (!res.ok) {
-      console.error("DaData suggest failed", res.status, await res.text());
-      return Response.json(
-        { error: "Не удалось получить адреса" },
-        { status: 502 },
-      );
+    if (source === "housescore") {
+      return suggestFromHouseScore(query, city);
     }
-
-    const payload: unknown = await res.json();
-    return Response.json({ suggestions: parseDaDataSuggestions(payload) });
+    return suggestFromDaData(query, city);
   } catch (error) {
     return authErrorResponse(error);
   }

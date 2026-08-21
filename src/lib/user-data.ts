@@ -499,6 +499,7 @@ export async function allocateRequestPublicCode(
 export async function suggestAddresses(
   query: string,
   city: string,
+  options?: { source?: "dadata" | "housescore" },
 ): Promise<AddressSuggestion[]> {
   if (!canUseServer()) {
     throw new Error("Подсказки адресов доступны после входа через Telegram");
@@ -510,7 +511,11 @@ export async function suggestAddresses(
       "Content-Type": "application/json",
       ...authHeaders(),
     },
-    body: JSON.stringify({ query, city }),
+    body: JSON.stringify({
+      query,
+      city,
+      source: options?.source ?? "dadata",
+    }),
   });
 
   if (!res.ok) {

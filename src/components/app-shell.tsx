@@ -1555,13 +1555,14 @@ export function AppShell() {
               city={selectedCity}
               initialAddress={selectedAddress ?? undefined}
               requireApartment={false}
+              suggestSource="housescore"
               heading={
                 helpElectricalFlow || isMoscow(selectedCity)
                   ? "Точный адрес дома"
                   : undefined
               }
               description={
-                "Улица и номер дома — по ним определим год постройки, типичную электрику и управляющую компанию."
+                "Выберите дом из базы HouseScore — подтянем год постройки, типичную электрику и УК по тому же дому."
               }
               onBack={() => go("city-select")}
               onConfirm={(address) => {

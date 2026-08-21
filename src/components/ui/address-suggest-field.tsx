@@ -19,6 +19,8 @@ export function AddressSuggestField({
   onSelect,
   onLookupError,
   placeholder = "Улица, дом, квартира",
+  source = "dadata",
+  houseOnly = false,
 }: {
   city: string;
   value: string;
@@ -29,6 +31,10 @@ export function AddressSuggestField({
   ) => void;
   onLookupError?: (message: string | null) => void;
   placeholder?: string;
+  /** HouseScore returns MKD houses with stable fias_id for later year/UK lookup. */
+  source?: "dadata" | "housescore";
+  /** Skip apartment drill-down (HouseScore is house-level only). */
+  houseOnly?: boolean;
 }) {
   const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([]);
   const [apartments, setApartments] = useState<AddressSuggestion[]>([]);
@@ -44,7 +50,8 @@ export function AddressSuggestField({
       return;
     }
     const query = value.trim();
-    if (query.length < 2) {
+    const minLen = source === "housescore" ? 3 : 2;
+    if (query.length < minLen) {
       setSuggestions([]);
       setApartments([]);
       setLoading(false);
@@ -56,7 +63,7 @@ export function AddressSuggestField({
     const id = ++requestId.current;
     const timer = window.setTimeout(() => {
       setLoading(true);
-      void suggestAddresses(query, city)
+      void suggestAddresses(query, city, { source })
         .then((next) => {
           if (requestId.current !== id) return;
           setSuggestions(next);
@@ -76,10 +83,10 @@ export function AddressSuggestField({
         .finally(() => {
           if (requestId.current === id) setLoading(false);
         });
-    }, 280);
+    }, 320);
 
     return () => window.clearTimeout(timer);
-  }, [value, city]);
+  }, [value, city, source]);
 
   const pickSuggestion = (
     event: PointerEvent<HTMLButtonElement>,
@@ -91,7 +98,7 @@ export function AddressSuggestField({
     pickingRef.current = true;
     onChange(item.value);
 
-    if (hasFlat(item) || !hasHouse(item)) {
+    if (houseOnly || source === "housescore" || hasFlat(item) || !hasHouse(item)) {
       setApartments([]);
       setOpen(false);
       onSelect(item, { apartments: [] });
@@ -100,7 +107,7 @@ export function AddressSuggestField({
 
     setLoading(true);
     const id = ++requestId.current;
-    void suggestAddresses(`${item.value} кв`, city)
+    void suggestAddresses(`${item.value} кв`, city, { source: "dadata" })
       .then((next) => {
         if (requestId.current !== id) return;
         const flats = next.filter(hasFlat);
@@ -126,6 +133,12 @@ export function AddressSuggestField({
   };
 
   const list = apartments.length > 0 ? apartments : suggestions;
+  const hint =
+    source === "housescore" && value.trim().length >= 3 && !loading && !error
+      ? list.length === 0
+        ? "Ищем дом в базе МКД HouseScore — уточните улицу и номер"
+        : null
+      : null;
 
   return (
     <div>
@@ -151,13 +164,18 @@ export function AddressSuggestField({
 
       {loading && (
         <p className="mt-2 text-[13px] text-zinc-400">
-          {apartments.length > 0 || value.includes("кв")
-            ? "Ищем квартиры…"
-            : "Ищем адрес…"}
+          {source === "housescore"
+            ? "Ищем дом в базе HouseScore…"
+            : apartments.length > 0 || value.includes("кв")
+              ? "Ищем квартиры…"
+              : "Ищем адрес…"}
         </p>
       )}
       {error && !loading && (
         <p className="mt-2 text-[13px] text-rose-600">{error}</p>
+      )}
+      {hint && (
+        <p className="mt-2 text-[13px] text-zinc-400">{hint}</p>
       )}
 
       {open && list.length > 0 && (
@@ -165,6 +183,11 @@ export function AddressSuggestField({
           {apartments.length > 0 && (
             <p className="border-b border-black/6 px-4 py-2 text-[12px] font-medium text-zinc-500">
               Выберите квартиру в этом доме
+            </p>
+          )}
+          {source === "housescore" && (
+            <p className="border-b border-black/6 px-4 py-2 text-[12px] font-medium text-zinc-500">
+              Дома из базы HouseScore — выберите свой
             </p>
           )}
           <ul className="max-h-[40vh] overflow-y-auto">
@@ -181,18 +204,22 @@ export function AddressSuggestField({
                   <span
                     className={cn(
                       "mt-0.5 text-[12px]",
-                      hasFlat(item)
+                      source === "housescore"
                         ? "text-emerald-700"
-                        : hasHouse(item)
-                          ? "text-zinc-400"
-                          : "text-amber-700",
+                        : hasFlat(item)
+                          ? "text-emerald-700"
+                          : hasHouse(item)
+                            ? "text-zinc-400"
+                            : "text-amber-700",
                     )}
                   >
-                    {hasFlat(item)
-                      ? "Квартира найдена в адресном реестре"
-                      : hasHouse(item)
-                        ? "Дом найден — уточните квартиру, если она есть"
-                        : "Уточните номер дома"}
+                    {source === "housescore"
+                      ? "Дом в базе МКД"
+                      : hasFlat(item)
+                        ? "Квартира найдена в адресном реестре"
+                        : hasHouse(item)
+                          ? "Дом найден — уточните квартиру, если она есть"
+                          : "Уточните номер дома"}
                   </span>
                 </button>
               </li>

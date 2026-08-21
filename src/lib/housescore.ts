@@ -3,6 +3,7 @@ import {
   type HouseInsight,
   type HouseManagementCompany,
 } from "@/lib/house-insight";
+import type { AddressSuggestion } from "@/lib/dadata";
 
 const HOUSESCORE_BASE = "https://housescore.ru";
 
@@ -149,18 +150,74 @@ export function isHouseScoreConfigured(): boolean {
   return Boolean(getToken());
 }
 
-export async function findHouseFiasByAddress(
+export { normalizeQueryAddress };
+
+export async function searchHousesByAddress(
   query: string,
-): Promise<HouseScoreFindItem | null> {
+): Promise<HouseScoreFindItem[]> {
   const q = query.trim();
-  if (q.length < 10) return null;
+  // HouseScore requires at least 10 characters in `q`.
+  if (q.length < 10) return [];
 
   const payload = await housescoreGet<{ data?: HouseScoreFindItem[] }>(
     "/api/houses/find-by-address",
     { q },
   );
-  const first = payload?.data?.[0];
-  return first?.fias_id ? first : null;
+  const list = payload?.data;
+  if (!Array.isArray(list)) return [];
+  return list.filter((item) => Boolean(item.fias_id?.trim()));
+}
+
+export async function findHouseFiasByAddress(
+  query: string,
+): Promise<HouseScoreFindItem | null> {
+  const list = await searchHousesByAddress(query);
+  return list[0] ?? null;
+}
+
+/** Map HouseScore find-by-address hits into the shared suggestion shape. */
+export function mapHouseScoreFindsToSuggestions(
+  items: HouseScoreFindItem[],
+  cityFilter?: string,
+): AddressSuggestion[] {
+  const cityNorm = cityFilter?.trim().toLowerCase() ?? "";
+  const seen = new Set<string>();
+  const suggestions: AddressSuggestion[] = [];
+
+  for (const item of items) {
+    const fiasId = item.fias_id?.trim();
+    if (!fiasId || seen.has(fiasId)) continue;
+
+    const itemCity = item.city?.trim() ?? "";
+    if (
+      cityNorm &&
+      itemCity &&
+      !itemCity.toLowerCase().includes(cityNorm) &&
+      !cityNorm.includes(itemCity.toLowerCase())
+    ) {
+      continue;
+    }
+
+    const full = item.address?.trim() || "";
+    const short = [item.street?.trim(), item.house ? `д. ${item.house.trim()}` : ""]
+      .filter(Boolean)
+      .join(", ");
+    const value = full || short;
+    if (!value) continue;
+
+    seen.add(fiasId);
+    suggestions.push({
+      value,
+      unrestrictedValue: full || value,
+      fiasId,
+      houseFiasId: fiasId,
+      fiasLevel: 8,
+      house: item.house?.trim() || undefined,
+      street: item.street?.trim() || undefined,
+    });
+  }
+
+  return suggestions;
 }
 
 export async function fetchHouseByFias(
@@ -252,20 +309,19 @@ export async function lookupHouseInsight(input: {
   let foundAddress = address;
   let foundCity: string | null = city || null;
   const fiasCandidates: string[] = [];
+  if (clientFiasId) fiasCandidates.push(clientFiasId);
 
-  // Prefer HouseScore's own house GUID for management — DaData flat/house ids
-  // can differ from the GUID their /management index uses.
+  // Also resolve via HouseScore search — fills gaps when the client had no fias,
+  // and adds an alternate GUID if DaData/HS ids diverge.
   const found = await findHouseFiasByAddress(
     normalizeQueryAddress(city, address),
   );
   if (found?.fias_id) {
-    fiasId = found.fias_id;
     foundAddress = found.address?.trim() || address;
     foundCity = found.city?.trim() || foundCity;
     fiasCandidates.push(found.fias_id);
+    if (!fiasId) fiasId = found.fias_id;
   }
-  if (clientFiasId) fiasCandidates.push(clientFiasId);
-  if (fiasId) fiasCandidates.push(fiasId);
 
   if (!fiasId) {
     return {
