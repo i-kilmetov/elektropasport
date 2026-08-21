@@ -338,7 +338,7 @@ export function AppShell() {
       setSelectedCity(null);
       setSelectedAddress(null);
       setSelectedAddressFiasId(null);
-      setHelpElectricalFlow(pending === "help-electrical");
+      setHelpElectricalFlow(true);
       setSelectedLeadService(null);
       setLeadBackScreen(pending === "help-electrical" ? "objects" : "scheme");
       if (pending === "help-electrical") setLeadPanelModules(null);
@@ -446,7 +446,8 @@ export function AppShell() {
     setSelectedCity(null);
     setSelectedAddress(null);
     setSelectedAddressFiasId(null);
-    setHelpElectricalFlow(false);
+    // Same house-insight path as «Помочь с электрикой» (scheme CTA uses this).
+    setHelpElectricalFlow(true);
     setSelectedLeadService(null);
     setRequestNeedId(null);
     setNoPanelSetupId(null);
@@ -1525,11 +1526,8 @@ export function AppShell() {
                   go("master-about");
                   return;
                 }
-                if (helpElectricalFlow || isMoscow(city)) {
-                  go("address-select");
-                  return;
-                }
-                go("lead-service");
+                // Install / help-electrical: always collect address for house insight.
+                go("address-select");
               }}
             />
           )}
@@ -1540,7 +1538,7 @@ export function AppShell() {
               onSelect={(id) => {
                 setRequestNeedId(id);
                 setLeadFlow("install");
-                setHelpElectricalFlow(false);
+                setHelpElectricalFlow(true);
                 setSelectedCity(null);
                 setSelectedAddress(null);
                 setSelectedAddressFiasId(null);
@@ -1556,18 +1554,14 @@ export function AppShell() {
               key={`address-${selectedCity}-${helpElectricalFlow ? "help" : "std"}`}
               city={selectedCity}
               initialAddress={selectedAddress ?? undefined}
-              requireApartment={!helpElectricalFlow}
+              requireApartment={false}
               heading={
-                helpElectricalFlow
+                helpElectricalFlow || isMoscow(selectedCity)
                   ? "Точный адрес дома"
-                  : isMoscow(selectedCity)
-                    ? "Адрес в Москве"
-                    : undefined
+                  : undefined
               }
               description={
-                helpElectricalFlow
-                  ? "Улица и номер дома — по ним определим год постройки, типичную электрику и управляющую компанию."
-                  : undefined
+                "Улица и номер дома — по ним определим год постройки, типичную электрику и управляющую компанию."
               }
               onBack={() => go("city-select")}
               onConfirm={(address) => {
@@ -1575,11 +1569,7 @@ export function AppShell() {
                 setSelectedAddressFiasId(
                   address.houseFiasId ?? address.fiasId ?? null,
                 );
-                if (helpElectricalFlow) {
-                  go("house-insight");
-                  return;
-                }
-                go("lead-service");
+                go("house-insight");
               }}
             />
           )}
@@ -1599,11 +1589,11 @@ export function AppShell() {
               city={selectedCity}
               panelModules={leadPanelModules}
               onBack={() => {
-                if (helpElectricalFlow) {
+                if (selectedAddress) {
                   go("house-insight");
                   return;
                 }
-                go(isMoscow(selectedCity) ? "address-select" : "city-select");
+                go("city-select");
               }}
               onSelect={(serviceType) => {
                 setSelectedLeadService(serviceType);

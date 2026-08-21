@@ -77,7 +77,17 @@ async function housescoreGet<T>(
 
 function normalizeQueryAddress(city: string, address: string): string {
   const cityPart = city.trim();
-  const addressPart = address.trim();
+  let addressPart = address.trim();
+  // HouseScore indexes buildings, not flats — drop apartment/office suffixes.
+  addressPart = addressPart
+    .replace(
+      /(?:,?\s*)(?:кв\.?|квартира|офис|оф\.?)\s*\d+[а-яa-z]?/gi,
+      "",
+    )
+    .replace(/\s+,/g, ",")
+    .replace(/,\s*$/g, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
   if (!cityPart) return addressPart;
   if (addressPart.toLowerCase().includes(cityPart.toLowerCase())) {
     return addressPart;
