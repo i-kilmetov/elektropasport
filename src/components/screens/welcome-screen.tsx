@@ -10,52 +10,46 @@ import { cn } from "@/lib/utils";
 
 export const ONBOARDING_SKIP_KEY = "elektropasport:onboarding-skip";
 
-type Card = {
+type ContentCard = {
   id: string;
+  kind: "content";
   eyebrow: string;
   title: string;
   text: string;
-  image?: string;
-  imageAlt: string;
-  cta: "next" | "telegram";
 };
 
-/** Copy and layout follow Figma «Током» onboarding frames (auto-layout cards). */
+type AuthCard = {
+  id: string;
+  kind: "auth";
+};
+
+type Card = ContentCard | AuthCard;
+
 const cards: Card[] = [
   {
     id: "diag",
+    kind: "content",
     eyebrow: "Проверь себя",
     title: "Самодиагностика электрики",
     text: "Сфотографируйте щиток или ответьте на вопросы — Током покажет риски и что сделать дальше: своими руками или с мастером.",
-    image: "/onboarding/safety.jpg",
-    imageAlt: "Диагностика электрики",
-    cta: "next",
   },
   {
     id: "everyone",
+    kind: "content",
     eyebrow: "Проверь себя",
     title: "Справится каждый",
     text: "Никаких сложных формул и формулировок. Понятные иллюстрированные инструкции помогут любому человеку — от школьника до домохозяйки — легко пройти тест и оценить риски.",
-    image: "/onboarding/future.jpg",
-    imageAlt: "Простая самопроверка",
-    cta: "next",
   },
   {
     id: "master",
+    kind: "content",
     eyebrow: "Проверь себя",
     title: "Консультация и мастер",
     text: "Если тест обнаружит критические проблемы, вы сможете моментально проконсультироваться со специалистом или вызвать проверенного электрика в один клик.",
-    image: "/onboarding/passport.jpg",
-    imageAlt: "Мастер-электрик",
-    cta: "next",
   },
   {
     id: "auth",
-    eyebrow: "Проверь себя",
-    title: "Авторизация через Telegram",
-    text: "Войдите через Telegram, чтобы сохранить щитки, заявки и данные профиля — и продолжить с любого устройства.",
-    imageAlt: "Вход через Telegram",
-    cta: "telegram",
+    kind: "auth",
   },
 ];
 
@@ -108,6 +102,38 @@ export function WelcomeScreen({
     setIndex((i) => i - 1);
   };
 
+  const dots = (
+    <div className="flex items-center justify-center gap-2">
+      {cards.map((item, i) => (
+        <button
+          key={item.id}
+          type="button"
+          aria-label={`Карточка ${i + 1}`}
+          onClick={() => {
+            setDirection(i > index ? 1 : -1);
+            setIndex(i);
+          }}
+          className={cn(
+            "h-2 rounded-full transition-all duration-300",
+            i === index ? "w-6" : "w-2",
+            card.kind === "auth"
+              ? i === index
+                ? "bg-zinc-950"
+                : "bg-zinc-950/25 hover:bg-zinc-950/40"
+              : i === index
+                ? ""
+                : "bg-white/20 hover:bg-white/35",
+          )}
+          style={
+            card.kind === "content" && i === index
+              ? { backgroundColor: BRAND_YELLOW }
+              : undefined
+          }
+        />
+      ))}
+    </div>
+  );
+
   return (
     <motion.section
       initial={{ opacity: 0 }}
@@ -137,108 +163,101 @@ export function WelcomeScreen({
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: direction * -48 }}
             transition={{ type: "spring", stiffness: 320, damping: 32 }}
-            className="flex min-h-[min(720px,calc(100dvh-2rem))] flex-col rounded-[28px] bg-[#111] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.45)] sm:min-h-[640px] sm:p-6"
+            className={cn(
+              "flex min-h-[min(720px,calc(100dvh-2rem))] flex-col rounded-[28px] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.45)] sm:min-h-[640px] sm:p-6",
+              card.kind === "auth" ? "text-zinc-950" : "bg-[#111] text-white",
+            )}
+            style={
+              card.kind === "auth" ? { backgroundColor: BRAND_YELLOW } : undefined
+            }
           >
-            <header className="mb-4 shrink-0 text-center">
-              <p
-                className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.22em]"
-                style={{ color: BRAND_YELLOW }}
-              >
-                {card.eyebrow}
-              </p>
-              <BrandLogo className="mx-auto h-8 sm:h-9" onDark />
-            </header>
+            {card.kind === "auth" ? (
+              <>
+                <header className="shrink-0 pt-2 text-center">
+                  <p className="text-[12px] font-bold uppercase tracking-[0.22em] text-zinc-950">
+                    Проверь себя
+                  </p>
+                </header>
 
-            <div className="relative mb-5 min-h-0 flex-1 overflow-hidden rounded-[22px] bg-zinc-900">
-              {card.image ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={card.image}
-                  alt={card.imageAlt}
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <div
-                  className="flex h-full min-h-[220px] flex-col items-center justify-center gap-5 px-6"
-                  style={{ backgroundColor: BRAND_YELLOW }}
-                >
-                  <BrandLogo className="h-10 w-[min(70%,240px)]" />
-                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#2AABEE] text-white shadow-[0_8px_24px_rgba(42,171,238,0.28)]">
-                    <TelegramAppIcon className="h-8 w-8" />
-                  </div>
+                <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-2">
+                  <BrandLogo className="h-14 w-[min(88%,320px)] sm:h-16" />
                 </div>
-              )}
-            </div>
 
-            <div className="shrink-0">
-              <h1 className="mb-2.5 text-[26px] font-bold leading-[1.15] tracking-tight text-white sm:text-[28px]">
-                {card.title}
-              </h1>
-              <p className="mb-6 text-[14px] leading-relaxed text-white/55 sm:text-[15px]">
-                {card.text}
-              </p>
+                <div className="shrink-0 space-y-5">
+                  {dots}
+                  <Button
+                    className="w-full bg-zinc-950 text-white shadow-none hover:bg-zinc-800"
+                    size="lg"
+                    disabled={startingLogin}
+                    onClick={startTelegramLogin}
+                  >
+                    <TelegramAppIcon className="h-5 w-5" />
+                    {startingLogin
+                      ? "Открываем Telegram…"
+                      : alreadyAuthed
+                        ? "Начать"
+                        : "Войти через Telegram"}
+                  </Button>
+                  {index > 0 ? (
+                    <button
+                      type="button"
+                      onClick={goPrev}
+                      className="w-full py-2.5 text-center text-[14px] font-medium text-zinc-950/45 transition-colors hover:text-zinc-950/70"
+                    >
+                      Назад
+                    </button>
+                  ) : (
+                    <div className="h-[42px]" />
+                  )}
+                </div>
+              </>
+            ) : (
+              <>
+                <header className="mb-4 shrink-0 text-center">
+                  <p
+                    className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.22em]"
+                    style={{ color: BRAND_YELLOW }}
+                  >
+                    {card.eyebrow}
+                  </p>
+                  <BrandLogo className="mx-auto h-8 sm:h-9" onDark />
+                </header>
 
-              <div className="mb-5 flex items-center justify-center gap-2">
-                {cards.map((item, i) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    aria-label={`Карточка ${i + 1}`}
-                    onClick={() => {
-                      setDirection(i > index ? 1 : -1);
-                      setIndex(i);
-                    }}
-                    className={cn(
-                      "h-2 rounded-full transition-all duration-300",
-                      i === index
-                        ? "w-6"
-                        : "w-2 bg-white/20 hover:bg-white/35",
-                    )}
-                    style={
-                      i === index ? { backgroundColor: BRAND_YELLOW } : undefined
-                    }
-                  />
-                ))}
-              </div>
+                <div className="relative mb-5 min-h-0 flex-1 overflow-hidden rounded-[22px] bg-black" />
 
-              {card.cta === "telegram" ? (
-                <Button
-                  className="w-full text-zinc-950 shadow-none hover:brightness-95"
-                  style={{ backgroundColor: BRAND_YELLOW }}
-                  size="lg"
-                  disabled={startingLogin}
-                  onClick={startTelegramLogin}
-                >
-                  <TelegramAppIcon className="h-5 w-5" />
-                  {startingLogin
-                    ? "Открываем Telegram…"
-                    : alreadyAuthed
-                      ? "Начать"
-                      : "Войти через Telegram"}
-                </Button>
-              ) : (
-                <Button
-                  className="w-full text-zinc-950 shadow-none hover:brightness-95"
-                  style={{ backgroundColor: BRAND_YELLOW }}
-                  size="lg"
-                  onClick={goNext}
-                >
-                  Далее
-                </Button>
-              )}
+                <div className="shrink-0">
+                  <h1 className="mb-2.5 text-[26px] font-bold leading-[1.15] tracking-tight text-white sm:text-[28px]">
+                    {card.title}
+                  </h1>
+                  <p className="mb-6 text-[14px] leading-relaxed text-white/55 sm:text-[15px]">
+                    {card.text}
+                  </p>
 
-              {index > 0 ? (
-                <button
-                  type="button"
-                  onClick={goPrev}
-                  className="mt-2 w-full py-2.5 text-center text-[14px] font-medium text-white/40 transition-colors hover:text-white/65"
-                >
-                  Назад
-                </button>
-              ) : (
-                <div className="mt-2 h-[42px]" />
-              )}
-            </div>
+                  <div className="mb-5">{dots}</div>
+
+                  <Button
+                    className="w-full text-zinc-950 shadow-none hover:brightness-95"
+                    style={{ backgroundColor: BRAND_YELLOW }}
+                    size="lg"
+                    onClick={goNext}
+                  >
+                    Далее
+                  </Button>
+
+                  {index > 0 ? (
+                    <button
+                      type="button"
+                      onClick={goPrev}
+                      className="mt-2 w-full py-2.5 text-center text-[14px] font-medium text-white/40 transition-colors hover:text-white/65"
+                    >
+                      Назад
+                    </button>
+                  ) : (
+                    <div className="mt-2 h-[42px]" />
+                  )}
+                </div>
+              </>
+            )}
           </motion.article>
         </AnimatePresence>
       </div>
