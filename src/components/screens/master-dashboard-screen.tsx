@@ -83,15 +83,20 @@ export function MasterDashboardScreen({
       exit={{ opacity: 0 }}
       className="flex min-h-0 flex-1 flex-col pt-[max(1.25rem,env(safe-area-inset-top))]"
     >
-      <header className="mb-4 flex items-center justify-between px-5">
-        <h1 className="text-[22px] font-bold text-zinc-900">Режим мастера</h1>
+      <header className="mb-4 flex items-center justify-between gap-3 px-5">
+        <div className="min-w-0">
+          <h1 className="text-[22px] font-bold text-zinc-900">Режим мастера</h1>
+          <p className="mt-0.5 text-[13px] text-emerald-700">
+            Сейчас включён кабинет мастера
+          </p>
+        </div>
         <button
           type="button"
           onClick={onSwitchToUser}
-          className="flex items-center gap-1.5 rounded-full border border-black/8 bg-white px-3 py-1.5 text-[13px] font-medium text-zinc-600 shadow-sm"
+          className="flex shrink-0 items-center gap-1.5 rounded-full border border-black/8 bg-white px-3 py-1.5 text-[13px] font-medium text-zinc-600 shadow-sm"
         >
           <ArrowLeftRight className="h-3.5 w-3.5" />
-          Клиент
+          Пользователь
         </button>
       </header>
 

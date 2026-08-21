@@ -1277,6 +1277,11 @@ export function AppShell() {
               onPanelLimit={openPanelLimit}
               isMaster={isMaster}
               isAdmin={isAdmin}
+              masterMode={false}
+              onMasterModeChange={(next) => {
+                setMasterMode(next);
+                setMainMenuOpen(false);
+              }}
               onMasterMode={() => {
                 setMasterMode(true);
                 setMainMenuOpen(false);
@@ -1374,7 +1379,9 @@ export function AppShell() {
               powerKw={activePanel?.powerKw}
               hasGround={activePanel?.hasGround}
               railCount={railCount ?? undefined}
-              isMaster={isMaster || Boolean(masterViewRequest)}
+              isMaster={
+                isMaster || isAdmin || Boolean(masterViewRequest)
+              }
             />
           )}
           {screen === "no-panel-options" && (

@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import { Portal } from "@/components/ui/portal";
+import { cn } from "@/lib/utils";
 
 export type MainMenuId =
   | "profile"
@@ -80,15 +81,20 @@ export function MainMenuSheet({
   onClose,
   onSelect,
   isMaster = false,
-  onMasterMode,
   isAdmin = false,
+  masterMode = false,
+  onMasterModeChange,
 }: {
   onClose: () => void;
   onSelect: (id: MainMenuId) => void;
   isMaster?: boolean;
-  onMasterMode?: () => void;
   isAdmin?: boolean;
+  /** Current app role mode (user home vs master dashboard). */
+  masterMode?: boolean;
+  onMasterModeChange?: (next: boolean) => void;
 }) {
+  const canSwitchRole = (isMaster || isAdmin) && Boolean(onMasterModeChange);
+
   const visibleItems = items.filter((item) => {
     if (item.id === "master" && isMaster) return false;
     if (item.id === "admin") return isAdmin;
@@ -124,25 +130,61 @@ export function MainMenuSheet({
             </button>
           </div>
 
-          {isMaster && onMasterMode && (
-            <button
-              type="button"
-              onClick={onMasterMode}
-              className="mb-3 flex w-full items-center gap-3 rounded-[20px] border-2 border-emerald-500/30 bg-emerald-50 px-4 py-3.5 text-left transition-colors hover:bg-emerald-100"
-            >
-              <span className="flex h-11 w-11 items-center justify-center rounded-[16px] bg-emerald-100 text-emerald-600">
-                <Wrench className="h-5 w-5" />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-[16px] font-semibold text-emerald-800">
-                  Режим мастера
+          {canSwitchRole && (
+            <div className="mb-3 rounded-[20px] border border-black/8 bg-zinc-50 p-3">
+              <div className="mb-2 flex items-center justify-between gap-2 px-1">
+                <span className="text-[13px] font-medium text-zinc-500">
+                  Режим работы
                 </span>
-                <span className="mt-0.5 block text-[13px] text-emerald-600">
-                  Заявки, рейтинг и заказы
+                <span
+                  className={cn(
+                    "rounded-full px-2 py-0.5 text-[11px] font-semibold",
+                    masterMode
+                      ? "bg-emerald-100 text-emerald-700"
+                      : "bg-zinc-200 text-zinc-600",
+                  )}
+                >
+                  {masterMode ? "Мастер" : "Пользователь"}
                 </span>
-              </span>
-              <ArrowRight className="h-4 w-4 text-emerald-500" />
-            </button>
+              </div>
+              <div className="grid grid-cols-2 gap-1 rounded-[16px] bg-zinc-200/80 p-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    onMasterModeChange?.(false);
+                    onClose();
+                  }}
+                  className={cn(
+                    "rounded-[12px] px-3 py-2.5 text-[14px] font-semibold transition-colors",
+                    !masterMode
+                      ? "bg-white text-zinc-900 shadow-sm"
+                      : "text-zinc-500",
+                  )}
+                >
+                  Пользователь
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onMasterModeChange?.(true);
+                    onClose();
+                  }}
+                  className={cn(
+                    "rounded-[12px] px-3 py-2.5 text-[14px] font-semibold transition-colors",
+                    masterMode
+                      ? "bg-white text-emerald-800 shadow-sm"
+                      : "text-zinc-500",
+                  )}
+                >
+                  Мастер
+                </button>
+              </div>
+              <p className="mt-2 px-1 text-[12px] leading-relaxed text-zinc-400">
+                {masterMode
+                  ? "Сейчас открыт кабинет мастера: заявки и заказы."
+                  : "Сейчас открыт обычный кабинет: щитки и заявки."}
+              </p>
+            </div>
           )}
 
           <div className="space-y-2">

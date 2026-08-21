@@ -258,6 +258,8 @@ export function ObjectsScreen({
   isMaster = false,
   onMasterMode,
   isAdmin = false,
+  masterMode = false,
+  onMasterModeChange,
 }: {
   items: HomeListItem[];
   loading?: boolean;
@@ -277,6 +279,8 @@ export function ObjectsScreen({
   isMaster?: boolean;
   onMasterMode?: () => void;
   isAdmin?: boolean;
+  masterMode?: boolean;
+  onMasterModeChange?: (next: boolean) => void;
 }) {
   const [page, setPage] = useState(0);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
@@ -468,6 +472,39 @@ export function ObjectsScreen({
           <BrandLogo className="h-8" />
         </div>
         <nav className="space-y-1.5">
+          {(isMaster || isAdmin) && onMasterModeChange && (
+            <div className="mb-4 rounded-[16px] border border-black/8 bg-white p-2">
+              <div className="mb-1.5 px-2 text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
+                Режим
+              </div>
+              <div className="grid grid-cols-2 gap-1 rounded-[12px] bg-zinc-100 p-1">
+                <button
+                  type="button"
+                  onClick={() => onMasterModeChange(false)}
+                  className={cn(
+                    "rounded-[10px] px-2 py-2 text-[12px] font-semibold",
+                    !masterMode
+                      ? "bg-white text-zinc-900 shadow-sm"
+                      : "text-zinc-500",
+                  )}
+                >
+                  Пользователь
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onMasterModeChange(true)}
+                  className={cn(
+                    "rounded-[10px] px-2 py-2 text-[12px] font-semibold",
+                    masterMode
+                      ? "bg-white text-emerald-800 shadow-sm"
+                      : "text-zinc-500",
+                  )}
+                >
+                  Мастер
+                </button>
+              </div>
+            </div>
+          )}
           {MAIN_MENU_ITEMS.filter((item) => {
             if (item.id === "master" && isMaster) return false;
             if (item.id === "admin") return isAdmin;
@@ -539,6 +576,17 @@ export function ObjectsScreen({
               </span>
             </motion.button>
           </div>
+          {(isMaster || isAdmin) && onMasterModeChange && (
+            <button
+              type="button"
+              onClick={() => onMasterModeChange(true)}
+              className="absolute right-0 flex items-center gap-1.5 rounded-full border border-emerald-500/25 bg-emerald-50 px-2.5 py-1.5 text-[11px] font-semibold text-emerald-700 lg:hidden"
+              aria-label="Сейчас режим пользователя. Перейти в режим мастера"
+            >
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+              Пользователь
+            </button>
+          )}
           <div className="hidden items-center gap-3 lg:flex">
             {page === 0 ? (
               <>
@@ -656,8 +704,16 @@ export function ObjectsScreen({
               onMenuSelect(id);
             }}
             isMaster={isMaster}
-            onMasterMode={onMasterMode}
             isAdmin={isAdmin}
+            masterMode={masterMode}
+            onMasterModeChange={
+              onMasterModeChange ??
+              (onMasterMode
+                ? (next) => {
+                    if (next) onMasterMode();
+                  }
+                : undefined)
+            }
           />
         )}
       </AnimatePresence>

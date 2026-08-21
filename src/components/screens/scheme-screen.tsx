@@ -2193,9 +2193,20 @@ export function SchemeScreen({
         >
           Фото
         </button>
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
+          <span
+            className={cn(
+              "text-[13px] font-medium transition-colors",
+              showTerminals && isMaster ? "text-zinc-900" : "text-zinc-500",
+            )}
+          >
+            Клеммы
+          </span>
           <button
             type="button"
+            role="switch"
+            aria-checked={showTerminals && isMaster}
+            aria-label="Клеммы"
             onClick={() => {
               if (!isMaster) {
                 setShowTerminals(false);
@@ -2215,13 +2226,16 @@ export function SchemeScreen({
               });
             }}
             className={cn(
-              "rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors",
-              showTerminals && isMaster
-                ? "bg-zinc-900 text-white"
-                : "bg-zinc-100 text-zinc-900",
+              "relative h-7 w-12 shrink-0 rounded-full transition-colors duration-200",
+              showTerminals && isMaster ? "bg-zinc-900" : "bg-zinc-200",
             )}
           >
-            Клеммы
+            <span
+              className={cn(
+                "absolute top-0.5 left-0.5 h-6 w-6 rounded-full bg-white shadow-sm transition-transform duration-200",
+                showTerminals && isMaster && "translate-x-5",
+              )}
+            />
           </button>
         </div>
       </div>
