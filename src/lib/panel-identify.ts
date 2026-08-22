@@ -99,7 +99,7 @@ export function deviceHasLineIdentification(circuitLabel?: string): boolean {
 
 const PROTECTIVE_LABEL_BASE: Record<string, string> = {
   main_breaker: "Ввод",
-  rcd: "УЗО",
+  // RCD captions come from protected groups (panel-protection), not «УЗО N».
   voltage_relay: "Реле напряжения",
   spd: "УЗИП",
 };
@@ -109,7 +109,7 @@ export function protectiveLabelHint(type: string): string {
     case "main_breaker":
       return "Вводной автомат отключает весь щиток, а не одну комнату. На стикере пишем «Ввод».";
     case "rcd":
-      return "УЗО следит за утечкой сразу на нескольких линиях. На стикере — «УЗО» и номер, если их несколько.";
+      return "УЗО защищает группу линий. Подпись на схеме и стикере строится по автоматам после него (какие линии через него идут). При желании можно задать свою подпись.";
     case "voltage_relay":
       return "Реле напряжения защищает щиток от скачков сети. На стикере — «Реле напряжения».";
     case "spd":
@@ -129,6 +129,7 @@ export function defaultDeviceCircuitLabel(
     position?: number;
   }>,
 ): string | null {
+  if (device.type === "rcd") return null;
   const base = PROTECTIVE_LABEL_BASE[device.type];
   if (!base) return null;
   const sameType = panelDevices

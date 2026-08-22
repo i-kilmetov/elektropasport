@@ -106,6 +106,10 @@ import {
   type IdentifyContext,
   type IdentifyObjectType,
 } from "@/lib/panel-identify";
+import {
+  isAutoRoleCircuitLabel,
+  rcdSchemeCaption,
+} from "@/lib/panel-protection";
 import { assessDeviceLineLoadSafety, assessLineLoadSafety } from "@/lib/line-load-safety";
 import { cn } from "@/lib/utils";
 import type { Device, DeviceType, PanelWire, TerminalRef } from "@/types";
@@ -172,6 +176,12 @@ function DeviceBlock({
     : deviceHasSpecifiedLineLoads(device)
       ? "ok"
       : null;
+  const storedLabel = device.circuitLabel?.trim();
+  const bottomCaption =
+    caption?.trim() ||
+    (storedLabel && !isAutoRoleCircuitLabel(device.type, storedLabel)
+      ? storedLabel
+      : undefined);
 
   return (
     <div className="flex flex-col items-stretch" style={{ width, flex: "none" }}>
@@ -214,11 +224,9 @@ function DeviceBlock({
         )}
       </div>
       <DeviceStatusBar tone={loadTone} />
-      {(device.circuitLabel?.trim() || caption?.trim()) && (
-        <span
-          className="mt-1 line-clamp-2 text-left text-[10px] font-medium leading-tight text-zinc-600"
-        >
-          {device.circuitLabel?.trim() || caption?.trim()}
+      {bottomCaption && (
+        <span className="mt-1 line-clamp-3 text-left text-[10px] font-medium leading-tight text-zinc-600">
+          {bottomCaption}
         </span>
       )}
     </div>
@@ -410,6 +418,14 @@ function IdentifyFlowFooter({
   );
 }
 
+function meaningfulCircuitLabel(
+  device: Pick<Device, "type" | "circuitLabel">,
+): string {
+  const stored = device.circuitLabel?.trim() ?? "";
+  if (!stored || isAutoRoleCircuitLabel(device.type, stored)) return "";
+  return stored;
+}
+
 function DeviceSheet({
   device,
   anchorY,
@@ -422,6 +438,7 @@ function DeviceSheet({
   knownCatalogRooms = [],
   knownCatalogEquipment = [],
   panelDevices = [],
+  wires = [],
   onPersistIdentifyContext,
   onCallMaster,
 }: {
@@ -447,6 +464,7 @@ function DeviceSheet({
   knownCatalogRooms?: string[];
   knownCatalogEquipment?: string[];
   panelDevices?: Device[];
+  wires?: PanelWire[];
   onPersistIdentifyContext?: (context: IdentifyContext) => void;
   onCallMaster?: () => void;
 }) {
@@ -479,46 +497,82 @@ function DeviceSheet({
     owner: string;
   } | null>(null);
   const [protectiveDraft, setProtectiveDraft] = useState("");
+  const [draftType, setDraftType] = useState<DeviceType>(device.type);
+  const [draftManufacturer, setDraftManufacturer] = useState(
+    device.manufacturer ?? "",
+  );
+  const [draftBrandKey, setDraftBrandKey] = useState(device.brandKey);
+  const [draftRating, setDraftRating] = useState(device.rating ?? "");
+  const [draftCharacteristics, setDraftCharacteristics] = useState<
+    Record<string, string>
+  >(device.characteristics ?? {});
   const needsLineWalkthrough = deviceNeedsLineIdentification(device.type);
   const suggestedProtectiveLabel =
-    defaultDeviceCircuitLabel(device, panelDevices) ?? "";
-  const confident = isDeviceDetailsConfident(device);
+    device.type === "rcd"
+      ? (rcdSchemeCaption(device, panelDevices, wires) ?? "")
+      : (defaultDeviceCircuitLabel(device, panelDevices) ?? "");
+  const draftDevice = useMemo(
+    () => ({
+      ...device,
+      type: draftType,
+      manufacturer: draftManufacturer,
+      brandKey: draftBrandKey,
+      rating: draftRating,
+      characteristics: draftCharacteristics,
+    }),
+    [
+      device,
+      draftType,
+      draftManufacturer,
+      draftBrandKey,
+      draftRating,
+      draftCharacteristics,
+    ],
+  );
+  const confident = isDeviceDetailsConfident(draftDevice);
   const manufacturerValue = displaySpecValue(
-    getManufacturerBrand(device.brandKey, device.manufacturer)?.label ??
-      device.manufacturer,
+    getManufacturerBrand(draftBrandKey, draftManufacturer)?.label ??
+      draftManufacturer,
   );
   const typeValue =
-    DEVICE_TYPE_OPTIONS.find((item) => item.type === device.type)?.label ??
-    typeShort[device.type];
+    DEVICE_TYPE_OPTIONS.find((item) => item.type === draftType)?.label ??
+    typeShort[draftType];
   const identitySpecs = useMemo(
     () =>
       [
         ["Производитель", manufacturerValue],
         ["Тип", typeValue],
-        ["Номинал", displaySpecValue(device.rating)],
+        ["Номинал", displaySpecValue(draftRating)],
       ] as Array<[string, string]>,
-    [device.rating, manufacturerValue, typeValue],
+    [draftRating, manufacturerValue, typeValue],
   );
   const specs = useMemo(
-    () => deviceCharacteristicRows(device),
-    [device],
+    () => deviceCharacteristicRows(draftDevice),
+    [draftDevice],
   );
 
   const handleSpecChange = (key: string, next: string) => {
     if (key === "Производитель") {
       const brand = MANUFACTURER_BRANDS.find((item) => item.label === next);
-      onUpdateIdentity?.(device.id, {
-        manufacturer: brand?.label ?? next,
-        brandKey: brand?.key,
-      });
+      setDraftManufacturer(brand?.label ?? next);
+      setDraftBrandKey(brand?.key);
       return;
     }
     if (key === "Тип") {
       const option = DEVICE_TYPE_OPTIONS.find((item) => item.label === next);
-      if (option) onUpdateIdentity?.(device.id, { type: option.type });
+      if (option) setDraftType(option.type);
       return;
     }
-    onUpdateCharacteristic?.(device.id, key, next);
+    if (key === "Номинал") {
+      setDraftRating(next);
+      setDraftCharacteristics((prev) => ({
+        ...prev,
+        Номинал: next,
+        ...(!prev["Номинальный ток"] ? { "Номинальный ток": next } : {}),
+      }));
+      return;
+    }
+    setDraftCharacteristics((prev) => ({ ...prev, [key]: next }));
   };
 
   useEffect(() => {
@@ -531,7 +585,8 @@ function DeviceSheet({
   useEffect(() => {
     const inferredType =
       knownObjectType ?? inferObjectTypeFromLabel(device.circuitLabel);
-    const parsedLoads = parseLineLoads(device.circuitLabel);
+    const meaningful = meaningfulCircuitLabel(device);
+    const parsedLoads = parseLineLoads(meaningful || undefined);
     setFlowStep(0);
     setObjectType(inferredType);
     setShowMoreCatalogRooms(false);
@@ -545,8 +600,16 @@ function DeviceSheet({
     setActiveLineRoom(Object.keys(parsedLoads)[0] ?? null);
     setLineLoadsByRoom(parsedLoads);
     setOccupiedNotice(null);
+    setDraftType(device.type);
+    setDraftManufacturer(device.manufacturer ?? "");
+    setDraftBrandKey(device.brandKey);
+    setDraftRating(device.rating ?? "");
+    setDraftCharacteristics(device.characteristics ?? {});
     setProtectiveDraft(
-      device.circuitLabel?.trim() ||
+      meaningful ||
+        (device.type === "rcd"
+          ? (rcdSchemeCaption(device, panelDevices, wires) ?? "")
+          : "") ||
         defaultDeviceCircuitLabel(device, panelDevices) ||
         "",
     );
@@ -599,9 +662,27 @@ function DeviceSheet({
     () => formatLineLoads(lineLoadsByRoom),
     [lineLoadsByRoom],
   );
-  const hasExistingLine = Boolean(device.circuitLabel?.trim());
+  const persistedLineLabel = meaningfulCircuitLabel(device);
+  const hasExistingLine = Boolean(persistedLineLabel);
   const skipObjectStep = Boolean(objectType ?? knownObjectType);
-  const canSaveSelection = flowStep === 5 && selectedLineLabel.length > 0;
+  const specsDirty =
+    draftType !== device.type ||
+    (draftManufacturer || "") !== (device.manufacturer || "") ||
+    (draftBrandKey || "") !== (device.brandKey || "") ||
+    (draftRating || "") !== (device.rating || "") ||
+    JSON.stringify(draftCharacteristics ?? {}) !==
+      JSON.stringify(device.characteristics ?? {});
+  const lineSelectionDirty =
+    flowStep === 5 &&
+    selectedLineLabel.length > 0 &&
+    selectedLineLabel !== persistedLineLabel;
+  const protectiveDirty =
+    flowStep === 7 &&
+    protectiveDraft.trim().length > 0 &&
+    protectiveDraft.trim() !==
+      (persistedLineLabel || suggestedProtectiveLabel);
+  const sheetDirty = specsDirty || lineSelectionDirty || protectiveDirty;
+  const canSaveSheet = sheetDirty;
   const occupiedLoads = useMemo(
     () =>
       collectOccupiedLoads(
@@ -668,11 +749,53 @@ function DeviceSheet({
     });
   };
 
+  const persistDraftSpecs = () => {
+    if (!specsDirty) return;
+    const identityPatch: {
+      type?: DeviceType;
+      manufacturer?: string;
+      brandKey?: string;
+    } = {};
+    if (draftType !== device.type) identityPatch.type = draftType;
+    if ((draftManufacturer || "") !== (device.manufacturer || "")) {
+      identityPatch.manufacturer = draftManufacturer;
+    }
+    if ((draftBrandKey || "") !== (device.brandKey || "")) {
+      identityPatch.brandKey = draftBrandKey;
+    }
+    if (Object.keys(identityPatch).length > 0) {
+      onUpdateIdentity?.(device.id, identityPatch);
+    }
+    if ((draftRating || "") !== (device.rating || "")) {
+      onUpdateCharacteristic?.(device.id, "Номинал", draftRating);
+    }
+    const original = device.characteristics ?? {};
+    for (const [key, value] of Object.entries(draftCharacteristics)) {
+      if (key === "Номинал") continue;
+      if ((original[key] ?? "") !== (value ?? "")) {
+        onUpdateCharacteristic?.(device.id, key, value);
+      }
+    }
+  };
+
+  const handleSaveSheet = () => {
+    if (!canSaveSheet) return;
+    persistDraftSpecs();
+    if (lineSelectionDirty) {
+      if (objectType) persistCurrentContext(objectType);
+      onAssignCircuit(device.id, selectedLineLabel);
+      setFlowStep(6);
+      return;
+    }
+    if (protectiveDirty) {
+      onAssignCircuit(device.id, protectiveDraft.trim());
+      setFlowStep(6);
+    }
+  };
+
   const startIdentifyFlow = () => {
     if (!needsLineWalkthrough) {
-      setProtectiveDraft(
-        device.circuitLabel?.trim() || suggestedProtectiveLabel,
-      );
+      setProtectiveDraft(persistedLineLabel || suggestedProtectiveLabel);
       setFlowStep(7);
       return;
     }
@@ -686,11 +809,11 @@ function DeviceSheet({
       startIdentifyFlow();
       return;
     }
-    const parsed = parseLineLoads(device.circuitLabel);
+    const parsed = parseLineLoads(persistedLineLabel || undefined);
     const nextType =
       objectType ??
       knownObjectType ??
-      inferObjectTypeFromLabel(device.circuitLabel) ??
+      inferObjectTypeFromLabel(persistedLineLabel || undefined) ??
       "apartment";
     const wholeLabel = OBJECT_TYPE_CONFIG[nextType].wholeLabel;
     const parsedRooms = Object.keys(parsed).filter(
@@ -799,9 +922,9 @@ function DeviceSheet({
                 меняется цветовой полоской под прибором.
               </p>
             )}
-            {device.circuitLabel?.trim() && (
+            {persistedLineLabel && (
               <p className="mt-1 text-[13px] text-zinc-600">
-                Линия: {device.circuitLabel.trim()}
+                Линия: {persistedLineLabel}
               </p>
             )}
           </div>
@@ -820,7 +943,7 @@ function DeviceSheet({
             {identitySpecs.map(([key, value]) => (
               <EditableSpecCard
                 key={key}
-                deviceType={device.type}
+                deviceType={draftType}
                 label={key}
                 value={value}
                 editable={Boolean(
@@ -836,7 +959,7 @@ function DeviceSheet({
             {specs.slice(0, 8).map(([key, value]) => (
               <EditableSpecCard
                 key={key}
-                deviceType={device.type}
+                deviceType={draftType}
                 label={key}
                 value={value}
                 editable={Boolean(specEditable && onUpdateCharacteristic)}
@@ -1312,17 +1435,6 @@ function DeviceSheet({
                   </div>
                 </div>
               )}
-              <Button
-                className="w-full"
-                disabled={!canSaveSelection}
-                onClick={() => {
-                  if (objectType) persistCurrentContext(objectType);
-                  onAssignCircuit(device.id, selectedLineLabel);
-                  setFlowStep(6);
-                }}
-              >
-                Сохранить
-              </Button>
               <IdentifyFlowFooter
                 onCancel={cancelIdentifyFlow}
                 onCallMaster={onCallMaster ? handleCallMaster : undefined}
@@ -1348,18 +1460,6 @@ function DeviceSheet({
                   className="h-12 w-full rounded-[16px] border border-black/8 bg-white px-3 text-[15px] text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-zinc-300"
                 />
               </div>
-              <Button
-                className="w-full"
-                disabled={!protectiveDraft.trim()}
-                onClick={() => {
-                  const next = protectiveDraft.trim();
-                  if (!next) return;
-                  onAssignCircuit(device.id, next);
-                  setFlowStep(6);
-                }}
-              >
-                Сохранить
-              </Button>
               <IdentifyFlowFooter
                 onCancel={cancelIdentifyFlow}
                 onCallMaster={onCallMaster ? handleCallMaster : undefined}
@@ -1367,6 +1467,14 @@ function DeviceSheet({
             </div>
           )}
         </GlassCard>
+
+        {canSaveSheet && (
+          <div className="mt-4">
+            <Button className="w-full" onClick={handleSaveSheet}>
+              Сохранить
+            </Button>
+          </div>
+        )}
           </>
         )}
       </motion.div>
@@ -1626,7 +1734,8 @@ export function SchemeScreen({
   const unlabeledProtectiveUpdates = useMemo(
     () =>
       allRailDevices.flatMap((device) => {
-        if (deviceHasLineIdentification(device.circuitLabel)) return [];
+        if (device.type === "rcd") return [];
+        if (meaningfulCircuitLabel(device)) return [];
         const label = defaultDeviceCircuitLabel(device, allRailDevices);
         return label ? [{ deviceId: device.id, label }] : [];
       }),
@@ -1635,10 +1744,13 @@ export function SchemeScreen({
   const labeledDeviceCount = useMemo(
     () =>
       allRailDevices.filter((device) => {
-        if (deviceHasLineIdentification(device.circuitLabel)) return true;
+        if (meaningfulCircuitLabel(device)) return true;
+        if (device.type === "rcd") {
+          return Boolean(rcdSchemeCaption(device, allRailDevices, wires));
+        }
         return Boolean(defaultDeviceCircuitLabel(device, allRailDevices));
       }).length,
-    [allRailDevices],
+    [allRailDevices, wires],
   );
   const unlabeledDeviceCount = Math.max(
     0,
@@ -1694,7 +1806,9 @@ export function SchemeScreen({
   const openStickers = () => {
     applyProtectiveLabels();
     const stillUnlabeled = allRailDevices.filter((device) => {
-      if (deviceHasLineIdentification(device.circuitLabel)) return false;
+      if (device.type === "rcd") return false;
+      const stored = device.circuitLabel?.trim();
+      if (stored && !isAutoRoleCircuitLabel(device.type, stored)) return false;
       return !defaultDeviceCircuitLabel(device, allRailDevices);
     });
     if (stillUnlabeled.length > 0) {
@@ -2365,8 +2479,16 @@ export function SchemeScreen({
                               : handleTerminalPointerDown
                           }
                           caption={
-                            defaultDeviceCircuitLabel(device, allRailDevices) ??
-                            undefined
+                            device.type === "rcd"
+                              ? (rcdSchemeCaption(
+                                  device,
+                                  allRailDevices,
+                                  wires,
+                                ) ?? undefined)
+                              : (defaultDeviceCircuitLabel(
+                                  device,
+                                  allRailDevices,
+                                ) ?? undefined)
                           }
                           loadMismatch={loadMismatchIds.has(device.id)}
                         />
@@ -2430,6 +2552,8 @@ export function SchemeScreen({
           <StickerDesigner
             rails={rails}
             panelTitle={title}
+            panelDevices={allRailDevices}
+            wires={wires}
             editable={!sharedPreview}
             onClose={() => setStickerOpen(false)}
             onUpdate={sharedPreview ? undefined : onUpdateDeviceSticker}
@@ -2474,9 +2598,9 @@ export function SchemeScreen({
                   работать техника.
                 </p>
                 <p className="mt-3 text-[14px] leading-relaxed text-zinc-500">
-                  Ввод, УЗО, реле напряжения и УЗИП не кормят одну комнату —
-                  на стикере будет их роль в щитке, например «Ввод» или
-                  «УЗО 1». Подпись можно поправить, нажав на прибор.
+                  Ввод, реле напряжения и УЗИП получают рольную подпись. УЗО на
+                  схеме и наклейке показывает, какие линии/автоматы идут через
+                  него. Подпись можно поправить, нажав на прибор.
                 </p>
                 <Button
                   className="mt-5 w-full"
@@ -2552,6 +2676,7 @@ export function SchemeScreen({
             knownCatalogRooms={identifyContext?.rooms ?? []}
             knownCatalogEquipment={identifyContext?.equipment ?? []}
             panelDevices={devices}
+            wires={wires}
             onPersistIdentifyContext={persistIdentifyContext}
             onClose={() => {
               setSelectedId(null);

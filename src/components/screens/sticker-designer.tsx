@@ -33,7 +33,7 @@ import {
   stickerPrintNeedsExport,
 } from "@/lib/sticker-export";
 import { cn } from "@/lib/utils";
-import type { Device } from "@/types";
+import type { Device, PanelWire } from "@/types";
 
 function a4OverflowsViewport(): boolean {
   const mmToPx = 96 / 25.4;
@@ -50,17 +50,21 @@ function cellIconId(device: Device): StickerIconId {
 
 function StickerCell({
   device,
+  panelDevices,
+  wires,
   selected,
   onSelect,
 }: {
   device: Device;
+  panelDevices?: Device[];
+  wires?: PanelWire[] | null;
   selected?: boolean;
   onSelect?: () => void;
 }) {
   const modules = stickerDeviceModules(device);
   const icon = getStickerIcon(cellIconId(device));
   const Icon = icon?.Icon;
-  const caption = stickerCaption(device);
+  const caption = stickerCaption(device, panelDevices, wires);
   const style = { width: `${modules * STICKER_MODULE_MM}mm` };
   const card = (
     <div
@@ -115,10 +119,14 @@ function StickerCell({
 
 function StickerStripView({
   strip,
+  panelDevices,
+  wires,
   selectedId,
   onSelect,
 }: {
   strip: StickerStrip;
+  panelDevices?: Device[];
+  wires?: PanelWire[] | null;
   selectedId?: number | null;
   onSelect?: (deviceId: number) => void;
 }) {
@@ -148,6 +156,8 @@ function StickerStripView({
           <StickerCell
             key={device.id}
             device={device}
+            panelDevices={panelDevices}
+            wires={wires}
             selected={selectedId === device.id}
             onSelect={onSelect ? () => onSelect(device.id) : undefined}
           />
@@ -162,6 +172,8 @@ function A4Page({
   panelTitle,
   pageIndex,
   pageCount,
+  panelDevices,
+  wires,
   selectedId,
   onSelect,
 }: {
@@ -169,6 +181,8 @@ function A4Page({
   panelTitle: string;
   pageIndex: number;
   pageCount: number;
+  panelDevices?: Device[];
+  wires?: PanelWire[] | null;
   selectedId?: number | null;
   onSelect?: (deviceId: number) => void;
 }) {
@@ -194,6 +208,8 @@ function A4Page({
           <StickerStripView
             key={`${strip.railIndex}-${strip.partIndex}`}
             strip={strip}
+            panelDevices={panelDevices}
+            wires={wires}
             selectedId={selectedId}
             onSelect={onSelect}
           />
@@ -285,12 +301,16 @@ function FittedA4({
 export function StickerDesigner({
   rails,
   panelTitle,
+  panelDevices,
+  wires,
   editable = true,
   onClose,
   onUpdate,
 }: {
   rails: Device[][];
   panelTitle: string;
+  panelDevices?: Device[];
+  wires?: PanelWire[] | null;
   editable?: boolean;
   onClose: () => void;
   onUpdate?: (
@@ -307,6 +327,7 @@ export function StickerDesigner({
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
   const needsExport = stickerPrintNeedsExport();
+  const captionDevices = panelDevices ?? draftRails.flat();
 
   useEffect(() => {
     const overflows = a4OverflowsViewport();
@@ -445,6 +466,8 @@ export function StickerDesigner({
                       panelTitle={panelTitle}
                       pageIndex={pageIndex}
                       pageCount={pages.length}
+                      panelDevices={captionDevices}
+                      wires={wires}
                     />
                   </FittedA4>
                 ))}
@@ -465,6 +488,8 @@ export function StickerDesigner({
                           panelTitle={panelTitle}
                           pageIndex={pageIndex}
                           pageCount={pages.length}
+                          panelDevices={captionDevices}
+                          wires={wires}
                           selectedId={selectedId}
                           onSelect={editable ? setSelectedId : undefined}
                         />
@@ -499,7 +524,10 @@ export function StickerDesigner({
                           circuitLabel: e.target.value,
                         })
                       }
-                      placeholder="Например: Кухня розетки"
+                      placeholder={
+                        stickerCaption(selected, captionDevices, wires) ||
+                        "Например: Кухня розетки"
+                      }
                       className="mb-4 h-12 w-full rounded-[16px] border border-black/8 bg-zinc-50 px-4 text-[16px] text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-zinc-300"
                     />
                     <div className="mb-3 flex gap-1.5 overflow-x-auto pb-1">
@@ -562,6 +590,8 @@ export function StickerDesigner({
             panelTitle={panelTitle}
             pageIndex={pageIndex}
             pageCount={pages.length}
+            panelDevices={captionDevices}
+            wires={wires}
           />
         ))}
       </div>

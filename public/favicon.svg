@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#D3DA00"/>
+  <g fill="#111113">
+    <!-- top stripe (short) -->
+    <rect x="236" y="92" width="40" height="34" rx="4"/>
+    <!-- bottom stripe (wider) -->
+    <rect x="186" y="140" width="140" height="34" rx="4"/>
+    <!-- Letter Т (geometric) -->
+    <path d="M148 210h216v48H308v162h-104V258H148z"/>
+  </g>
+</svg>

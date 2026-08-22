@@ -102,7 +102,11 @@ import {
   Zap,
   ZapOff,
 } from "lucide-react";
-import type { Device, DeviceType } from "@/types";
+import type { Device, DeviceType, PanelWire } from "@/types";
+import {
+  isAutoRoleCircuitLabel,
+  rcdSchemeCaption,
+} from "@/lib/panel-protection";
 
 export type StickerIconCategory =
   | "rooms"
@@ -314,9 +318,21 @@ export function suggestedStickerIcon(device: Device): StickerIconId {
   return TYPE_DEFAULT[device.type] ?? "socket";
 }
 
-export function stickerCaption(device: Device): string {
+export function stickerCaption(
+  device: Device,
+  panelDevices?: Device[],
+  wires?: PanelWire[] | null,
+): string {
   const label = device.circuitLabel?.trim();
-  if (label) return label;
+  if (label && !isAutoRoleCircuitLabel(device.type, label)) {
+    return label;
+  }
+
+  if (device.type === "rcd" && panelDevices) {
+    const protection = rcdSchemeCaption(device, panelDevices, wires);
+    if (protection) return protection;
+  }
+
   switch (device.type) {
     case "main_breaker":
       return "Ввод";
