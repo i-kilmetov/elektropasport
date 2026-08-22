@@ -1,15 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { BRAND_YELLOW } from "@/components/brand-logo";
 
-const SPLASH_MS = 3200;
+const SPLASH_MS = 4000;
 const REST = "ОКОМ";
 const LOGO_INK = "#111113";
-const REVEAL_AT_MS = 900;
-/** OKOM width (0.9s) finishes ~1800ms; show tagline right after full wordmark. */
-const TAGLINE_AT_MS = 1900;
+/** Hold inverted T while boot fetch runs, then reveal OKOM. */
+const REVEAL_AT_MS = 1750;
+/** OKOM width (0.9s) finishes ~2650ms; show tagline after full wordmark. */
+const TAGLINE_AT_MS = 2750;
+/** T stays upside-down for ~62% of the flip timeline. */
+const T_ROTATE_DURATION_S = 2;
+const T_INVERTED_HOLD_FRACTION = 0.62;
 
 const logoType = {
   fontFamily: "var(--font-geologica)",
@@ -27,8 +31,8 @@ const STRIPE_ABOVE_CROSSBAR = "0.016em";
 /** Geologica empty space above the T crossbar inside the glyph box */
 const T_CAP_BEARING = "0.11em";
 const STRIPE_HEIGHT = "0.08em";
-/** Stripe widths relative to the T glyph (top stripe narrower). */
-const STRIPE_TOP_WIDTH = "0.22em";
+/** Top stripe — nearly square (length slightly greater than height). */
+const STRIPE_TOP_WIDTH = "0.095em";
 const STRIPE_BOTTOM_WIDTH = "0.30em";
 /** Room above the letter for stripes when rotating the mark */
 const STRIPE_PAD_TOP = `calc(${STRIPE_HEIGHT} + ${STRIPE_STRIPE_GAP} + ${STRIPE_HEIGHT} + ${STRIPE_ABOVE_CROSSBAR} - ${T_CAP_BEARING})`;
@@ -65,8 +69,8 @@ function AnimatedT({ pulsing }: { pulsing: boolean }) {
       }}
       transition={{
         rotate: {
-          duration: 1.35,
-          times: [0, 0.42, 1],
+          duration: T_ROTATE_DURATION_S,
+          times: [0, T_INVERTED_HOLD_FRACTION, 1],
           ease: [0.22, 1, 0.36, 1],
         },
         opacity: { duration: 0.35, ease: [0.22, 1, 0.36, 1] },
@@ -84,9 +88,10 @@ function AnimatedT({ pulsing }: { pulsing: boolean }) {
           }}
         >
           <motion.span
-            className="block h-[0.08em] min-h-[3px] max-w-[34px]"
+            className="block min-h-[3px] max-w-[14px]"
             style={{
               width: STRIPE_TOP_WIDTH,
+              height: STRIPE_HEIGHT,
               backgroundColor: LOGO_INK,
               transformOrigin: "center",
             }}
@@ -110,33 +115,56 @@ function AnimatedT({ pulsing }: { pulsing: boolean }) {
   );
 }
 
-export function BrandSplash({ onComplete }: { onComplete: () => void }) {
+export function BrandSplash({
+  onComplete,
+  bootReady = true,
+}: {
+  onComplete: () => void;
+  bootReady?: boolean;
+}) {
   const [stripesPulsing, setStripesPulsing] = useState(true);
   const [restRevealed, setRestRevealed] = useState(false);
   const [taglineVisible, setTaglineVisible] = useState(false);
+  const [fadeOut, setFadeOut] = useState(false);
+  const startedAtRef = useRef(Date.now());
+  const completedRef = useRef(false);
 
   useEffect(() => {
-    const pulseStop = window.setTimeout(() => setStripesPulsing(false), 1350);
+    const pulseStop = window.setTimeout(() => setStripesPulsing(false), REVEAL_AT_MS);
     const reveal = window.setTimeout(() => setRestRevealed(true), REVEAL_AT_MS);
     const tagline = window.setTimeout(() => setTaglineVisible(true), TAGLINE_AT_MS);
-    const timer = window.setTimeout(onComplete, SPLASH_MS);
     return () => {
       window.clearTimeout(pulseStop);
       window.clearTimeout(reveal);
       window.clearTimeout(tagline);
-      window.clearTimeout(timer);
     };
-  }, [onComplete]);
+  }, []);
+
+  useEffect(() => {
+    if (!bootReady || fadeOut || completedRef.current) return;
+
+    const tryDismiss = () => {
+      if (!bootReady || completedRef.current) return;
+      if (Date.now() - startedAtRef.current < SPLASH_MS) return;
+
+      completedRef.current = true;
+      setFadeOut(true);
+      window.setTimeout(onComplete, 450);
+    };
+
+    tryDismiss();
+    const interval = window.setInterval(tryDismiss, 80);
+    return () => window.clearInterval(interval);
+  }, [bootReady, fadeOut, onComplete]);
 
   return (
     <motion.div
       className="fixed inset-0 z-[200]"
       style={{ backgroundColor: BRAND_YELLOW }}
       initial={{ opacity: 1 }}
-      animate={{ opacity: [1, 1, 0] }}
+      animate={{ opacity: fadeOut ? 0 : 1 }}
       transition={{
         duration: 0.45,
-        delay: SPLASH_MS / 1000 - 0.45,
         ease: "easeOut",
       }}
       aria-label="Током"

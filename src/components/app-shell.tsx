@@ -1280,7 +1280,12 @@ export function AppShell() {
   }, [itemsLoading, onboardingReady, openSharedPanel]);
 
   if (!splashDone) {
-    return <BrandSplash onComplete={() => setSplashDone(true)} />;
+    return (
+      <BrandSplash
+        bootReady={onboardingReady && !itemsLoading}
+        onComplete={() => setSplashDone(true)}
+      />
+    );
   }
 
   if (!onboardingReady) {
