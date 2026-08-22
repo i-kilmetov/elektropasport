@@ -216,10 +216,7 @@ function DeviceBlock({
       <DeviceStatusBar tone={loadTone} />
       {(device.circuitLabel?.trim() || caption?.trim()) && (
         <span
-          className={cn(
-            "mt-1 line-clamp-2 text-left text-[10px] font-medium leading-tight",
-            loadMismatch ? "text-rose-700" : "text-zinc-600",
-          )}
+          className="mt-1 line-clamp-2 text-left text-[10px] font-medium leading-tight text-zinc-600"
         >
           {device.circuitLabel?.trim() || caption?.trim()}
         </span>
@@ -2306,10 +2303,7 @@ export function SchemeScreen({
               )}
               style={{ minWidth: railMinWidth }}
             >
-            <div className="mb-3 flex items-center justify-between">
-              <span className="text-[13px] font-medium text-zinc-500">
-                {numRails > 1 ? `${numRails} DIN-рейки` : "DIN-рейка"}
-              </span>
+            <div className="mb-3 flex items-center justify-end">
               <span className="text-[12px] text-zinc-400">
                 {allRailDevices.length} приборов
               </span>

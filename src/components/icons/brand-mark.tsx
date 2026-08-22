@@ -254,8 +254,8 @@ type FaceTypeStyle = {
 };
 
 /**
- * Per-brand face typography: manufacturer ≈ logo, series ≈ secondary mark
- * (size ratio ~0.55–0.7 like on real DIN modules).
+ * Per-brand face typography sized for a single DIN module (~32px wide).
+ * Manufacturer ≈ logo; series ≈ secondary mark (~0.6×).
  */
 function brandFaceStyles(
   brandKey: ManufacturerBrandKey | null,
@@ -272,17 +272,17 @@ function brandFaceStyles(
     case "abb":
       return {
         manufacturer: {
-          fontSize: "9px",
+          fontSize: "7px",
           fontWeight: 800,
-          letterSpacing: "0.06em",
+          letterSpacing: "0.04em",
           fontFamily: sans,
           textTransform: "uppercase",
           color: accent,
         },
         series: {
-          fontSize: "5.5px",
+          fontSize: "4.5px",
           fontWeight: 700,
-          letterSpacing: "0.02em",
+          letterSpacing: "0",
           fontFamily: sans,
           color: seriesInk,
         },
@@ -291,17 +291,17 @@ function brandFaceStyles(
     case "hager":
       return {
         manufacturer: {
-          fontSize: "9px",
+          fontSize: "7px",
           fontWeight: 800,
-          letterSpacing: "0.08em",
+          letterSpacing: "0.05em",
           fontFamily: sans,
           textTransform: "uppercase",
           color: accent,
         },
         series: {
-          fontSize: "5.5px",
+          fontSize: "4.5px",
           fontWeight: 700,
-          letterSpacing: "0.01em",
+          letterSpacing: "0",
           fontFamily: sans,
           color: seriesInk,
         },
@@ -310,14 +310,14 @@ function brandFaceStyles(
     case "systeme":
       return {
         manufacturer: {
-          fontSize: "7px",
+          fontSize: "5.5px",
           fontWeight: 700,
-          letterSpacing: "0.01em",
+          letterSpacing: "-0.01em",
           fontFamily: sans,
           color: accent,
         },
         series: {
-          fontSize: "5.5px",
+          fontSize: "4.5px",
           fontWeight: 600,
           letterSpacing: "0",
           fontFamily: sans,
@@ -327,16 +327,16 @@ function brandFaceStyles(
     case "legrand":
       return {
         manufacturer: {
-          fontSize: "8px",
+          fontSize: "6px",
           fontWeight: 700,
-          letterSpacing: "0.04em",
+          letterSpacing: "0.02em",
           fontFamily: serif,
           color: accent,
         },
         series: {
-          fontSize: "5.5px",
+          fontSize: "4.5px",
           fontWeight: 600,
-          letterSpacing: "0.02em",
+          letterSpacing: "0",
           fontFamily: sans,
           color: seriesInk,
         },
@@ -346,17 +346,17 @@ function brandFaceStyles(
     case "dekraft":
       return {
         manufacturer: {
-          fontSize: "8px",
+          fontSize: "6.5px",
           fontWeight: 800,
-          letterSpacing: "0.05em",
+          letterSpacing: "0.03em",
           fontFamily: sans,
           textTransform: "uppercase",
           color: accent,
         },
         series: {
-          fontSize: "5px",
+          fontSize: "4px",
           fontWeight: 700,
-          letterSpacing: "0.01em",
+          letterSpacing: "0",
           fontFamily: sans,
           color: seriesInk,
         },
@@ -366,17 +366,17 @@ function brandFaceStyles(
     case "zubr":
       return {
         manufacturer: {
-          fontSize: "8.5px",
+          fontSize: "7px",
           fontWeight: 800,
-          letterSpacing: "0.07em",
+          letterSpacing: "0.04em",
           fontFamily: narrow,
           textTransform: "uppercase",
           color: accent,
         },
         series: {
-          fontSize: "5.5px",
+          fontSize: "4.5px",
           fontWeight: 700,
-          letterSpacing: "0.02em",
+          letterSpacing: "0",
           fontFamily: narrow,
           color: seriesInk,
         },
@@ -388,14 +388,14 @@ function brandFaceStyles(
     case "kontaktor":
       return {
         manufacturer: {
-          fontSize: "7.5px",
+          fontSize: "5.5px",
           fontWeight: 700,
-          letterSpacing: "0.02em",
+          letterSpacing: "0",
           fontFamily: sans,
           color: accent,
         },
         series: {
-          fontSize: "5px",
+          fontSize: "4px",
           fontWeight: 600,
           letterSpacing: "0",
           fontFamily: sans,
@@ -405,17 +405,17 @@ function brandFaceStyles(
     default:
       return {
         manufacturer: {
-          fontSize: "8px",
+          fontSize: "6.5px",
           fontWeight: 800,
-          letterSpacing: "0.04em",
+          letterSpacing: "0.02em",
           fontFamily: sans,
           textTransform: "uppercase",
           color: accent,
         },
         series: {
-          fontSize: "5.5px",
+          fontSize: "4.5px",
           fontWeight: 700,
-          letterSpacing: "0.01em",
+          letterSpacing: "0",
           fontFamily: sans,
           color: seriesInk,
         },
@@ -472,13 +472,13 @@ export function DeviceFaceIdentityMark({
     <span
       title={title}
       className={cn(
-        "flex max-w-full flex-col items-start gap-[1px] overflow-hidden",
+        "flex w-full max-w-full flex-col items-start gap-px overflow-hidden",
         className,
       )}
     >
       {manufacturerLabel && (
         <span
-          className="max-w-full truncate leading-none"
+          className="w-full max-w-full truncate leading-none"
           style={typeStyleToCss(styles.manufacturer)}
         >
           {manufacturerLabel}
@@ -486,7 +486,7 @@ export function DeviceFaceIdentityMark({
       )}
       {seriesLabel && (
         <span
-          className="max-w-full truncate leading-none"
+          className="w-full max-w-full truncate leading-none"
           style={typeStyleToCss(styles.series)}
         >
           {seriesLabel}

@@ -385,11 +385,9 @@ function DeviceFunction({
 
 function RatingBlock({
   rating,
-  poles,
   powered,
 }: {
   rating: string;
-  poles?: string;
   powered: boolean;
 }) {
   const lines = splitRatingLines(rating);
@@ -409,16 +407,6 @@ function RatingBlock({
           {line}
         </div>
       ))}
-      {poles && (
-        <div
-          className={cn(
-            "text-left text-[8px] leading-tight",
-            powered ? "text-zinc-500" : "text-zinc-300",
-          )}
-        >
-          {poles}
-        </div>
-      )}
     </div>
   );
 }
@@ -501,7 +489,7 @@ export function DeviceFaceStatic({
         {showDetails && brand && (
           <div
             className="mb-1 min-h-[16px] overflow-hidden"
-            style={{ maxWidth: width - 6 }}
+            style={{ maxWidth: MODULE_PX - 4, width: MODULE_PX - 4 }}
           >
             {brand}
           </div>
@@ -517,7 +505,6 @@ export function DeviceFaceStatic({
         {showDetails ? (
           <RatingBlock
             rating={device.rating}
-            poles={device.poles}
             powered={powered}
           />
         ) : (
