@@ -36,8 +36,9 @@ const TAGLINE_AT_MS = 2750;
 const LOGIN_BUTTON_DELAY_MS = 420;
 /** After tagline — shift logo up and reveal value props layout. */
 const AUTH_LAYOUT_EXPAND_DELAY_MS = 520;
-const AUTH_POINT_REVEAL_INTERVAL_MS = 480;
-const AUTH_POINT_REVEAL_START_MS = 180;
+/** Equal step between each card and before the login button. */
+const AUTH_REVEAL_STEP_MS = 480;
+const AUTH_REVEAL_START_MS = 180;
 /** Equal gap: logo ↔ points ↔ login button. */
 const AUTH_SECTION_GAP = "gap-6";
 /** T stays upside-down for ~62% of the flip timeline. */
@@ -286,17 +287,14 @@ function AuthValuePoints({ revealedCount }: { revealedCount: number }) {
         return (
           <motion.li
             key={point.id}
-            className="flex items-start gap-3 rounded-[18px] border border-[#111113]/10 bg-[#111113]/[0.05] px-3.5 py-3 text-left shadow-[0_10px_30px_rgba(17,17,19,0.06)]"
-            initial={{ opacity: 0, y: 28, filter: "blur(8px)" }}
-            animate={
-              visible
-                ? { opacity: 1, y: 0, filter: "blur(0px)" }
-                : { opacity: 0, y: 28, filter: "blur(8px)" }
-            }
+            className="flex min-h-[4.75rem] items-start gap-3 rounded-[18px] border border-[#111113]/10 bg-[#111113]/[0.05] px-3.5 py-3 text-left shadow-[0_10px_30px_rgba(17,17,19,0.06)]"
+            initial={false}
+            animate={{ opacity: visible ? 1 : 0 }}
             transition={{
-              duration: 0.52,
+              duration: 0.42,
               ease: [0.22, 1, 0.36, 1],
             }}
+            aria-hidden={!visible}
           >
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#111113] text-[#D3DA00]">
               <Icon className="h-5 w-5" strokeWidth={2.1} />
@@ -381,7 +379,7 @@ export function BrandAuthIntro({
 }) {
   const animation = useLogoAnimation(bootReady);
   const [layoutExpanded, setLayoutExpanded] = useState(false);
-  const [revealedPoints, setRevealedPoints] = useState(0);
+  const [revealStep, setRevealStep] = useState(0);
   const [starting, setStarting] = useState(false);
 
   useEffect(() => {
@@ -399,14 +397,15 @@ export function BrandAuthIntro({
 
   useEffect(() => {
     if (!layoutExpanded) {
-      setRevealedPoints(0);
+      setRevealStep(0);
       return;
     }
 
-    const timers = AUTH_VALUE_POINTS.map((_, index) =>
+    const totalSteps = AUTH_VALUE_POINTS.length + 1;
+    const timers = Array.from({ length: totalSteps }, (_, index) =>
       window.setTimeout(
-        () => setRevealedPoints(index + 1),
-        AUTH_POINT_REVEAL_START_MS + index * AUTH_POINT_REVEAL_INTERVAL_MS,
+        () => setRevealStep(index + 1),
+        AUTH_REVEAL_START_MS + index * AUTH_REVEAL_STEP_MS,
       ),
     );
 
@@ -418,9 +417,8 @@ export function BrandAuthIntro({
     onLogin();
   };
 
-  const allPointsVisible = revealedPoints >= AUTH_VALUE_POINTS.length;
-  const showFooter =
-    layoutExpanded && animation.loginVisible && allPointsVisible;
+  const revealedPoints = Math.min(revealStep, AUTH_VALUE_POINTS.length);
+  const showFooter = revealStep >= AUTH_VALUE_POINTS.length + 1;
 
   return (
     <div
@@ -444,7 +442,6 @@ export function BrandAuthIntro({
       >
         <div className={layoutExpanded ? "pt-6" : undefined}>
           <BrandMark
-            variant={layoutExpanded ? "header" : "splash"}
             tagline={BOOT_TAGLINE}
             taglineVisible={animation.taglineVisible}
             stripesPulsing={animation.stripesPulsing}
@@ -456,23 +453,18 @@ export function BrandAuthIntro({
       {layoutExpanded && (
         <>
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch]">
-            <div className="flex min-h-full flex-col justify-center">
-              <AuthValuePoints revealedCount={revealedPoints} />
-            </div>
+            <AuthValuePoints revealedCount={revealedPoints} />
           </div>
 
-          <motion.div
-            className={cn(
-              "w-full shrink-0 overflow-hidden pb-[max(1.25rem,env(safe-area-inset-bottom))]",
-              !showFooter && "h-0 pb-0",
-            )}
-            initial={false}
-            animate={{
-              opacity: showFooter ? 1 : 0,
-              y: showFooter ? 0 : 12,
-            }}
-            transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
-          >
+          <div className="w-full shrink-0 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+            <motion.div
+              initial={false}
+              animate={{ opacity: showFooter ? 1 : 0 }}
+              transition={{
+                duration: 0.42,
+                ease: [0.22, 1, 0.36, 1],
+              }}
+            >
             <Button
               asChild
               className="mx-auto h-14 min-h-[3.5rem] w-full max-w-sm gap-2.5 rounded-full bg-[#111113] px-6 text-[16px] text-white hover:bg-zinc-800"
@@ -492,7 +484,8 @@ export function BrandAuthIntro({
                 {starting ? "Открываем Telegram…" : "Войти через Telegram"}
               </a>
             </Button>
-          </motion.div>
+            </motion.div>
+          </div>
         </>
       )}
     </div>
