@@ -1,5 +1,7 @@
 "use client";
 
+import { POST_AUTH_SKIP_SPLASH_KEY } from "@/lib/auth-flow";
+
 const SESSION_KEY = "elektropasport:auth-token";
 const SESSION_USER_KEY = "elektropasport:auth-user";
 
@@ -75,6 +77,20 @@ export function clearBrowserSession(): void {
 /** Whether API calls can be authenticated (Mini App or browser session). */
 export function canUseServerAuth(): boolean {
   return Boolean(getInitData() || getBrowserSessionToken());
+}
+
+/** True once after Telegram OAuth — skip boot splash and open home immediately. */
+export function consumePostAuthSkipSplash(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    if (sessionStorage.getItem(POST_AUTH_SKIP_SPLASH_KEY) === "1") {
+      sessionStorage.removeItem(POST_AUTH_SKIP_SPLASH_KEY);
+      return true;
+    }
+  } catch {
+    // private mode
+  }
+  return false;
 }
 
 export function authHeaders(): HeadersInit {

@@ -357,7 +357,7 @@ export function BrandAuthIntro({
         >
           <Button
             asChild
-            className="h-12 w-full gap-2 rounded-full bg-[#111113] px-5 text-[15px] text-white hover:bg-zinc-800"
+            className="h-14 min-h-[3.5rem] w-full gap-2.5 rounded-full bg-[#111113] px-6 text-[16px] text-white hover:bg-zinc-800"
             disabled={!animation.loginVisible || starting}
           >
             <a
@@ -370,7 +370,7 @@ export function BrandAuthIntro({
                 handleLogin();
               }}
             >
-              <TelegramAppIcon className="h-5 w-5 shrink-0 text-current" />
+              <TelegramAppIcon className="h-6 w-6 shrink-0 text-current" />
               {starting ? "Открываем Telegram…" : "Войти через Telegram"}
             </a>
           </Button>

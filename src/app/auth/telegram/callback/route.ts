@@ -22,6 +22,7 @@ import {
   validateTelegramIdToken,
 } from "@/lib/telegram-oauth";
 import { resolveRequestOrigin } from "@/lib/app-url";
+import { POST_AUTH_SKIP_SPLASH_KEY } from "@/lib/auth-flow";
 
 function parseLoginParams(url: URL): TelegramLoginWidgetData | null {
   const id = url.searchParams.get("id");
@@ -67,6 +68,7 @@ function sessionHtml(user: ValidatedTelegramUser, token: string): string {
     try {
       localStorage.setItem('elektropasport:auth-token', '${escapeJsString(token)}');
       localStorage.setItem('elektropasport:auth-user', '${escapeJsString(userJson)}');
+      sessionStorage.setItem('${POST_AUTH_SKIP_SPLASH_KEY}', '1');
     } catch (e) {}
     window.location.replace('/');
   </script>

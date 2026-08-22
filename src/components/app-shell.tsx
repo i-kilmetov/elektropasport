@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { AnimatePresence } from "framer-motion";
 import { AdminDashboardScreen } from "@/components/screens/admin-dashboard-screen";
 import { AboutServiceScreen } from "@/components/screens/about-service-screen";
@@ -50,7 +57,11 @@ import {
 import {
   ONBOARDING_SKIP_KEY,
 } from "@/components/screens/welcome-screen";
-import { canUseServerAuth, isTelegramMiniApp } from "@/lib/client-auth";
+import {
+  canUseServerAuth,
+  consumePostAuthSkipSplash,
+  isTelegramMiniApp,
+} from "@/lib/client-auth";
 import {
   clearPendingInstallLead,
   readPendingInstallLead,
@@ -212,6 +223,17 @@ export function AppShell() {
   const go = useCallback((next: AppScreen) => {
     hapticNav();
     setScreen(next);
+  }, []);
+
+  /** After Telegram OAuth return — home with skeletons, not boot splash. */
+  useLayoutEffect(() => {
+    if (isTestAppClientHost() || !consumePostAuthSkipSplash()) return;
+    setSplashDone(true);
+    setShowAuthIntro(false);
+    setOnboardingReady(true);
+    if (canUseServerAuth()) {
+      setScreen("objects");
+    }
   }, []);
 
   const refreshQuota = useCallback(async () => {
