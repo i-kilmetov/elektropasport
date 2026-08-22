@@ -3,6 +3,7 @@ import {
   DEVICE_DETAILS_CONFIDENCE,
   resolveBrandKey,
 } from "@/lib/manufacturer-brands";
+import { resolveDeviceSeriesLabel } from "@/lib/device-catalog";
 import { prepareAnalyzedDevices } from "@/lib/device-characteristics";
 
 const DEVICE_TYPES: DeviceType[] = [
@@ -56,16 +57,30 @@ function normalizeDevice(raw: unknown, index: number): Device | null {
     resolveBrandKey(undefined, asString(raw.manufacturer)) ||
     undefined;
 
+  const manufacturer =
+    confidence >= DEVICE_DETAILS_CONFIDENCE
+      ? asString(raw.manufacturer) || undefined
+      : undefined;
+
+  const series =
+    confidence >= DEVICE_DETAILS_CONFIDENCE
+      ? asString(raw.series) ||
+        resolveDeviceSeriesLabel({
+          series: undefined,
+          brandKey,
+          manufacturer,
+          type,
+        }) ||
+        undefined
+      : undefined;
+
   return {
     id: asNumber(raw.id, index + 1),
     type,
     name: asString(raw.name, `Устройство ${index + 1}`),
     rating: asString(raw.rating, "—"),
     status,
-    manufacturer:
-      confidence >= DEVICE_DETAILS_CONFIDENCE
-        ? asString(raw.manufacturer) || undefined
-        : undefined,
+    manufacturer,
     confidence,
     position: asNumber(raw.position, index),
     modules: Math.min(4, Math.max(1, Math.round(asNumber(raw.modules, 1)))),
@@ -75,10 +90,7 @@ function normalizeDevice(raw: unknown, index: number): Device | null {
       confidence >= DEVICE_DETAILS_CONFIDENCE
         ? asString(raw.poles) || undefined
         : undefined,
-    series:
-      confidence >= DEVICE_DETAILS_CONFIDENCE
-        ? asString(raw.series) || undefined
-        : undefined,
+    series,
     model:
       confidence >= DEVICE_DETAILS_CONFIDENCE
         ? asString(raw.model) || undefined

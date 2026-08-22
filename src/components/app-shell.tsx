@@ -112,6 +112,7 @@ import { isAtPanelLimit, isInviteToken, type PanelQuota } from "@/lib/invites";
 import {
   DEVICE_TYPE_OPTIONS,
 } from "@/lib/manufacturer-brands";
+import { resolveDeviceSeriesLabel } from "@/lib/device-catalog";
 import {
   getPanelShareTokenFromLocation,
   getTelegramStartParam,
@@ -1062,6 +1063,7 @@ export function AppShell() {
         type?: Device["type"];
         manufacturer?: string;
         brandKey?: string;
+        series?: string;
       },
     ) => {
       if (!activePanelId) return;
@@ -1072,6 +1074,9 @@ export function AppShell() {
           ? (DEVICE_TYPE_OPTIONS.find((item) => item.type === patch.type)
               ?.label ?? device.name)
           : undefined;
+        const nextType = patch.type ?? device.type;
+        const nextManufacturer = patch.manufacturer ?? device.manufacturer;
+        const nextBrandKey = patch.brandKey ?? device.brandKey;
         const characteristics = {
           ...(device.characteristics ?? {}),
           ...(patch.manufacturer
@@ -1079,11 +1084,21 @@ export function AppShell() {
             : {}),
           ...(typeLabel ? { Тип: typeLabel } : {}),
         };
+        const series =
+          patch.series?.trim() ||
+          device.series ||
+          resolveDeviceSeriesLabel({
+            series: undefined,
+            brandKey: nextBrandKey,
+            manufacturer: nextManufacturer,
+            type: nextType,
+          });
         return {
           ...device,
           ...patch,
           name: typeLabel ?? device.name,
           characteristics,
+          series: series || undefined,
           // User confirmed identity — show logo/type/specs on the scheme.
           status: "verified",
           confidence: 100,

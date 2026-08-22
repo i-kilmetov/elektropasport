@@ -1,4 +1,5 @@
 import type { Device, DeviceStatus, DeviceType } from "@/types";
+import { resolveBrandKey } from "@/lib/manufacturer-brands";
 import { MAX_MODULES_PER_RAIL } from "@/lib/panel-rails";
 
 export type CatalogCategory =
@@ -36,6 +37,51 @@ const BRANDS = [
   { key: "systeme", brand: "Systeme Electric", seriesBreaker: "City9", seriesRcd: "City9", seriesDiff: "City9 Diff", seriesSpd: "City9 SPD", seriesAfdd: "City9 AFDD" },
   { key: "hager", brand: "Hager", seriesBreaker: "MBN", seriesRcd: "CDNxxx", seriesDiff: "ADNxxx", seriesSpd: "SPN", seriesAfdd: "ARC" },
 ] as const;
+
+const RELAY_SERIES_BY_BRAND: Record<string, string> = {
+  zubr: "D2",
+  meander: "УЗМ-51М",
+  novatek: "РН-104",
+  digitop: "V-protector",
+  iek: "РН",
+};
+
+/**
+ * Series label for the scheme face: stored series, else typical series
+ * for this brand + device type (so existing panels without `series` still show a name).
+ */
+export function resolveDeviceSeriesLabel(
+  device: Pick<Device, "series" | "brandKey" | "manufacturer" | "type">,
+): string | undefined {
+  const stored = device.series?.trim();
+  if (stored) return stored;
+
+  const key = resolveBrandKey(device.brandKey, device.manufacturer);
+  if (!key) return undefined;
+
+  if (device.type === "voltage_relay") {
+    return RELAY_SERIES_BY_BRAND[key];
+  }
+
+  const brand = BRANDS.find((item) => item.key === key);
+  if (!brand) return undefined;
+
+  switch (device.type) {
+    case "breaker":
+    case "main_breaker":
+      return brand.seriesBreaker;
+    case "rcd":
+      return brand.seriesRcd;
+    case "diff_breaker":
+      return brand.seriesDiff;
+    case "spd":
+      return brand.seriesSpd;
+    case "afdd":
+      return brand.seriesAfdd;
+    default:
+      return undefined;
+  }
+}
 
 function polesToModules(poles: string, category: CatalogCategory): number {
   if (category === "voltage_relay") return 1;

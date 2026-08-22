@@ -3,7 +3,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Check, ChevronDown } from "lucide-react";
-import { SeriesMark } from "@/components/icons/brand-mark";
+import { BrandMark, SeriesMark } from "@/components/icons/brand-mark";
 import { DeviceMiniPreview } from "@/components/icons/device-face";
 import { GlassCard } from "@/components/ui/glass-card";
 import { DeviceSpecGuideSheet } from "@/components/screens/device-spec-guide-sheet";
@@ -11,6 +11,7 @@ import {
   panelGuideDisclaimer,
   summarizePanelDevices,
 } from "@/lib/panel-device-guide";
+import { resolveDeviceSeriesLabel } from "@/lib/device-catalog";
 import { isDeviceDetailsConfident } from "@/lib/manufacturer-brands";
 import { cn } from "@/lib/utils";
 import type { Device, DeviceType } from "@/types";
@@ -30,13 +31,26 @@ function PreviewWithCount({
         scale={0.36}
         showDetails={confident}
         brand={
-          confident && device.series ? (
-            <SeriesMark
-              series={device.series}
-              brandKey={device.brandKey}
-              brand={device.manufacturer}
-            />
-          ) : undefined
+          confident
+            ? (() => {
+                const series = resolveDeviceSeriesLabel(device);
+                if (series) {
+                  return (
+                    <SeriesMark
+                      series={series}
+                      brandKey={device.brandKey}
+                      brand={device.manufacturer}
+                    />
+                  );
+                }
+                return device.manufacturer ? (
+                  <BrandMark
+                    brandKey={device.brandKey}
+                    brand={device.manufacturer}
+                  />
+                ) : undefined;
+              })()
+            : undefined
         }
       />
       {count > 1 && (
