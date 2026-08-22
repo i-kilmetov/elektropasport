@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import {
   LOGO_FONT_WEIGHT,
   LOGO_INK,
+  authIntroWordmarkTypeStyle,
   headerWordmarkTypeStyle,
   splashWordmarkTypeStyle,
   STRIPE_ABOVE_CROSSBAR,
@@ -44,11 +45,12 @@ const AUTH_ITEM_MOTION = {
   duration: 0.42,
   ease: [0.22, 1, 0.36, 1] as const,
 };
-/** Equal gap: logo ↔ points ↔ login button (scales down on short screens). */
-const AUTH_SECTION_GAP =
-  "gap-[clamp(0.625rem,min(1.75vh,2vw),1.5rem)]";
-/** Top slot under lifted logo — keep close to real logo height so cards get room. */
-const AUTH_TOP_SLOT_HEIGHT = "clamp(8.75rem, min(24vh, 28vw), 11.5rem)";
+const AUTH_LAYOUT_MOTION = {
+  duration: AUTH_LIFT_DURATION_S,
+  ease: AUTH_ITEM_MOTION.ease,
+};
+/** Short viewport — compact logo at top while keeping card typography readable. */
+const AUTH_SHORT_VIEWPORT_PX = 700;
 /** T stays upside-down for ~62% of the flip timeline. */
 const T_ROTATE_DURATION_S = 2;
 const T_INVERTED_HOLD_FRACTION = 0.62;
@@ -149,14 +151,20 @@ function BrandMark({
   taglineVisible: boolean;
   stripesPulsing: boolean;
   restRevealed: boolean;
-  variant?: "splash" | "header";
+  variant?: "splash" | "header" | "authIntro";
 }) {
   const wordmarkStyle =
-    variant === "header" ? headerWordmarkTypeStyle : splashWordmarkTypeStyle;
+    variant === "header"
+      ? headerWordmarkTypeStyle
+      : variant === "authIntro"
+        ? authIntroWordmarkTypeStyle
+        : splashWordmarkTypeStyle;
   const taglineFontSize =
     variant === "header"
       ? "clamp(0.65rem, min(2.8vw, 4vh), 0.85rem)"
-      : "clamp(0.93rem, min(3.68vw, 5vh), 1.32rem)";
+      : variant === "authIntro"
+        ? "clamp(0.75rem, min(3vw, 3.8vh), 1rem)"
+        : "clamp(0.93rem, min(3.68vw, 5vh), 1.32rem)";
 
   return (
     <div className="relative inline-block">
@@ -285,9 +293,22 @@ const AUTH_VALUE_POINTS = [
   },
 ] as const;
 
+function useShortViewport(threshold = AUTH_SHORT_VIEWPORT_PX) {
+  const [short, setShort] = useState(false);
+
+  useEffect(() => {
+    const update = () => setShort(window.innerHeight < threshold);
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, [threshold]);
+
+  return short;
+}
+
 function AuthValuePoints({ revealedCount }: { revealedCount: number }) {
   return (
-    <ul className="mx-auto w-full max-w-md space-y-[clamp(0.375rem,min(1.1vh,1.5vw),0.625rem)]">
+    <ul className="flex w-full flex-col gap-2.5">
       {AUTH_VALUE_POINTS.map((point, index) => {
         const Icon = point.icon;
         const visible = index < revealedCount;
@@ -295,7 +316,7 @@ function AuthValuePoints({ revealedCount }: { revealedCount: number }) {
         return (
           <motion.li
             key={point.id}
-            className="flex min-h-[clamp(3.5rem,11vh,4.5rem)] items-start gap-[clamp(0.625rem,1.5vw,0.75rem)] rounded-[clamp(14px,3vw,18px)] border border-[#111113]/10 bg-[#111113]/[0.05] px-[clamp(0.75rem,2vw,0.875rem)] py-[clamp(0.5rem,min(1.2vh,1.5vw),0.75rem)] text-left shadow-[0_10px_30px_rgba(17,17,19,0.06)]"
+            className="flex min-h-[4.75rem] w-full items-start gap-3 rounded-[18px] border border-[#111113]/10 bg-[#111113]/[0.05] px-3.5 py-3 text-left shadow-[0_10px_30px_rgba(17,17,19,0.06)]"
             initial={false}
             animate={{
               opacity: visible ? 1 : 0,
@@ -304,14 +325,14 @@ function AuthValuePoints({ revealedCount }: { revealedCount: number }) {
             transition={AUTH_ITEM_MOTION}
             aria-hidden={!visible}
           >
-            <span className="flex h-[clamp(2.25rem,6.5vh,2.5rem)] w-[clamp(2.25rem,6.5vh,2.5rem)] shrink-0 items-center justify-center rounded-full bg-[#111113] text-[#D3DA00]">
-              <Icon className="h-[clamp(1.125rem,3vh,1.25rem)] w-[clamp(1.125rem,3vh,1.25rem)]" strokeWidth={2.1} />
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#111113] text-[#D3DA00]">
+              <Icon className="h-5 w-5" strokeWidth={2.1} />
             </span>
-            <span className="min-w-0 pt-0.5">
-              <span className="block text-[clamp(14px,min(3.6vw,3.8vh),16px)] leading-snug font-semibold text-[#111113]">
+            <span className="min-w-0 flex-1 pt-0.5">
+              <span className="block text-[16px] leading-snug font-semibold text-[#111113]">
                 {point.title}
               </span>
-              <span className="mt-0.5 block text-[clamp(12px,min(3.2vw,3.4vh),14px)] leading-snug text-[#111113]/72 max-h-[720px]:leading-tight">
+              <span className="mt-1 block text-[14px] leading-relaxed text-[#111113]/72">
                 {point.text}
               </span>
             </span>
@@ -389,6 +410,9 @@ export function BrandAuthIntro({
   const [layoutExpanded, setLayoutExpanded] = useState(false);
   const [revealStep, setRevealStep] = useState(0);
   const [starting, setStarting] = useState(false);
+  const shortViewport = useShortViewport();
+  const logoVariant =
+    layoutExpanded && shortViewport ? "authIntro" : "splash";
 
   useEffect(() => {
     if (!animation.taglineVisible) {
@@ -430,40 +454,27 @@ export function BrandAuthIntro({
 
   return (
     <div
-      className={cn(
-        "fixed inset-0 z-[200] flex flex-col px-5",
-        layoutExpanded
-          ? cn("grid min-h-0 grid-rows-[auto_minmax(0,1fr)_auto]", AUTH_SECTION_GAP)
-          : "overflow-hidden",
-      )}
+      className="fixed inset-0 z-[200] flex flex-col overflow-hidden px-5"
       style={{
         backgroundColor: BRAND_YELLOW,
         height: "var(--app-height, 100dvh)",
+        paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))",
       }}
       aria-label="Током — вход"
     >
       <motion.div
-        className="pointer-events-none absolute left-1/2 z-20 w-max max-w-[calc(100%-2.5rem)] -translate-x-1/2"
-        initial={false}
-        animate={{
-          top: layoutExpanded
-            ? "max(1.5rem, calc(env(safe-area-inset-top) + 0.75rem))"
-            : "50%",
-          y: layoutExpanded ? "0%" : "-50%",
-        }}
-        transition={{
-          duration: AUTH_LIFT_DURATION_S,
-          ease: AUTH_ITEM_MOTION.ease,
-        }}
+        layout
+        className={cn(
+          "flex w-full justify-center",
+          layoutExpanded
+            ? "shrink-0 pt-[max(1rem,calc(env(safe-area-inset-top)+0.5rem))]"
+            : "min-h-0 flex-1 items-center",
+        )}
+        transition={{ layout: AUTH_LAYOUT_MOTION }}
       >
-        <div
-          className={
-            layoutExpanded
-              ? "pt-[clamp(0.75rem,min(2vh,2vw),1.5rem)]"
-              : undefined
-          }
-        >
+        <div className={layoutExpanded ? "pt-4" : undefined}>
           <BrandMark
+            variant={logoVariant}
             tagline={BOOT_TAGLINE}
             taglineVisible={animation.taglineVisible}
             stripesPulsing={animation.stripesPulsing}
@@ -472,30 +483,23 @@ export function BrandAuthIntro({
         </div>
       </motion.div>
 
-      <motion.div
-        className="shrink-0"
-        initial={false}
-        animate={{
-          height: layoutExpanded ? AUTH_TOP_SLOT_HEIGHT : "100%",
-        }}
-        transition={{
-          duration: AUTH_LIFT_DURATION_S,
-          ease: AUTH_ITEM_MOTION.ease,
-        }}
-        aria-hidden
-      />
-
       {layoutExpanded && (
         <>
-          <div className="flex min-h-0 flex-col overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch]">
-            <div className="my-auto flex w-full min-h-min flex-col justify-center py-1">
-              <AuthValuePoints revealedCount={revealedPoints} />
-            </div>
-          </div>
+          <motion.div
+            layout
+            className="flex min-h-0 flex-1 flex-col justify-center overflow-y-auto overscroll-contain py-[min(1rem,2vh)] [-webkit-overflow-scrolling:touch]"
+            transition={{ layout: AUTH_LAYOUT_MOTION }}
+          >
+            <AuthValuePoints revealedCount={revealedPoints} />
+          </motion.div>
 
-          <div className="w-full shrink-0 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+          <motion.div
+            layout
+            className="w-full shrink-0 pt-[min(1rem,2vh)]"
+            transition={{ layout: AUTH_LAYOUT_MOTION }}
+          >
             <motion.div
-              className="min-h-[clamp(3rem,8vh,3.5rem)]"
+              className="min-h-14"
               initial={false}
               animate={{
                 opacity: showFooter ? 1 : 0,
@@ -505,7 +509,7 @@ export function BrandAuthIntro({
             >
               <Button
                 asChild
-                className="mx-auto h-[clamp(3rem,8vh,3.5rem)] min-h-[clamp(3rem,8vh,3.5rem)] w-full max-w-sm gap-2.5 rounded-full bg-[#111113] px-6 text-[clamp(15px,3.8vw,16px)] text-white hover:bg-zinc-800"
+                className="mx-auto h-14 min-h-14 w-full max-w-sm gap-2.5 rounded-full bg-[#111113] px-6 text-[16px] text-white hover:bg-zinc-800"
                 disabled={!showFooter || starting}
               >
                 <a
@@ -518,12 +522,12 @@ export function BrandAuthIntro({
                     handleLogin();
                   }}
                 >
-                  <TelegramAppIcon className="h-[clamp(1.375rem,3.5vh,1.5rem)] w-[clamp(1.375rem,3.5vh,1.5rem)] shrink-0 text-current" />
+                  <TelegramAppIcon className="h-6 w-6 shrink-0 text-current" />
                   {starting ? "Открываем Telegram…" : "Войти через Telegram"}
                 </a>
               </Button>
             </motion.div>
-          </div>
+          </motion.div>
         </>
       )}
     </div>

@@ -36,3 +36,9 @@ export const headerWordmarkTypeStyle = wordmarkTypeStyle(
   "clamp(2rem, min(7.5vw, 11vh), 2.75rem)",
   LOGO_INK,
 );
+
+/** Auth intro top slot — between header and splash, scales with viewport. */
+export const authIntroWordmarkTypeStyle = wordmarkTypeStyle(
+  "clamp(2.5rem, min(14vw, 15vh), 4.5rem)",
+  LOGO_INK,
+);
