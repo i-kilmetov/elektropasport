@@ -207,11 +207,9 @@ function useLogoAnimation(bootReady = true) {
   const [restRevealed, setRestRevealed] = useState(false);
   const [taglineVisible, setTaglineVisible] = useState(false);
   const [loginVisible, setLoginVisible] = useState(false);
-  const [started, setStarted] = useState(false);
 
   useEffect(() => {
-    if (!bootReady || started) return;
-    setStarted(true);
+    if (!bootReady) return;
 
     const pulseStop = window.setTimeout(() => setStripesPulsing(false), REVEAL_AT_MS);
     const reveal = window.setTimeout(() => setRestRevealed(true), REVEAL_AT_MS);
@@ -226,7 +224,7 @@ function useLogoAnimation(bootReady = true) {
       window.clearTimeout(tagline);
       window.clearTimeout(login);
     };
-  }, [bootReady, started]);
+  }, [bootReady]);
 
   return {
     stripesPulsing,
@@ -359,7 +357,7 @@ export function BrandAuthIntro({
         >
           <Button
             className="h-12 w-full gap-2 rounded-full bg-[#111113] px-5 text-[15px] text-white hover:bg-zinc-800"
-            disabled={!animation.loginVisible || starting || !logoWidth}
+            disabled={!animation.loginVisible || starting}
             onClick={handleLogin}
           >
             <TelegramAppIcon className="h-5 w-5 shrink-0 text-current" />
