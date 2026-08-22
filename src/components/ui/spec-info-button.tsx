@@ -3,8 +3,12 @@
 import { useState } from "react";
 import { Info } from "lucide-react";
 import { GlassCard } from "@/components/ui/glass-card";
-import { getCharacteristicHint } from "@/lib/characteristic-hints";
+import {
+  getCharacteristicValueExplain,
+  type CharacteristicValueExplain,
+} from "@/lib/characteristic-hints";
 import { cn } from "@/lib/utils";
+import type { DeviceType } from "@/types";
 
 export function HintInfoButton({
   label,
@@ -33,15 +37,46 @@ export function HintInfoButton({
   );
 }
 
+function CharacteristicExplainBody({
+  explain,
+}: {
+  explain: CharacteristicValueExplain;
+}) {
+  return (
+    <div className="mt-2.5 space-y-3 border-t border-black/[0.06] pt-2.5">
+      <p className="text-[12px] leading-relaxed text-zinc-600">
+        {explain.aboutValue}
+      </p>
+      {explain.otherValues.length > 0 && (
+        <div>
+          <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
+            Какие ещё бывают значения
+          </p>
+          <ul className="space-y-2">
+            {explain.otherValues.map((item) => (
+              <li key={item.value} className="text-[12px] leading-relaxed">
+                <span className="font-semibold text-zinc-800">{item.value}</span>
+                <span className="text-zinc-500"> — {item.meaning}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function SpecCharacteristicCard({
   label,
   value,
+  deviceType,
 }: {
   label: string;
   value: string;
+  deviceType?: DeviceType;
 }) {
   const [open, setOpen] = useState(false);
-  const hint = getCharacteristicHint(label);
+  const explain = getCharacteristicValueExplain(label, value, deviceType);
 
   return (
     <GlassCard className="p-3">
@@ -58,11 +93,9 @@ export function SpecCharacteristicCard({
           onToggle={() => setOpen((v) => !v)}
         />
       </div>
-      {open && (
-        <p className="mt-2.5 border-t border-black/[0.06] pt-2.5 text-[12px] leading-relaxed text-zinc-500">
-          {hint}
-        </p>
-      )}
+      {open && <CharacteristicExplainBody explain={explain} />}
     </GlassCard>
   );
 }
+
+export { CharacteristicExplainBody };

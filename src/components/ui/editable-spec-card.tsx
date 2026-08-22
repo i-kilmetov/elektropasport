@@ -4,10 +4,11 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { GlassCard } from "@/components/ui/glass-card";
 import {
+  CharacteristicExplainBody,
   HintInfoButton,
   SpecCharacteristicCard,
 } from "@/components/ui/spec-info-button";
-import { getCharacteristicHint } from "@/lib/characteristic-hints";
+import { getCharacteristicValueExplain } from "@/lib/characteristic-hints";
 import { getSpecFieldOptions } from "@/lib/device-spec-guide";
 import { hapticContextMenu } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
@@ -29,12 +30,18 @@ export function EditableSpecCard({
   const [hintOpen, setHintOpen] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
 
-  const hint = getCharacteristicHint(label);
+  const explain = getCharacteristicValueExplain(label, value, deviceType);
   const options = getSpecFieldOptions(deviceType, label);
   const canEdit = editable && options.length > 0 && Boolean(onChange);
 
   if (!canEdit) {
-    return <SpecCharacteristicCard label={label} value={value} />;
+    return (
+      <SpecCharacteristicCard
+        label={label}
+        value={value}
+        deviceType={deviceType}
+      />
+    );
   }
 
   return (
@@ -68,12 +75,9 @@ export function EditableSpecCard({
           </div>
         </div>
         {hintOpen && (
-          <p
-            className="mt-2.5 border-t border-black/[0.06] pt-2.5 text-[12px] leading-relaxed text-zinc-500"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {hint}
-          </p>
+          <div onClick={(e) => e.stopPropagation()}>
+            <CharacteristicExplainBody explain={explain} />
+          </div>
         )}
       </GlassCard>
 
