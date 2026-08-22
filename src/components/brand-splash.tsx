@@ -27,6 +27,9 @@ const STRIPE_ABOVE_CROSSBAR = "0.016em";
 /** Geologica empty space above the T crossbar inside the glyph box */
 const T_CAP_BEARING = "0.11em";
 const STRIPE_HEIGHT = "0.08em";
+/** Stripe widths relative to the T glyph (top stripe narrower). */
+const STRIPE_TOP_WIDTH = "0.22em";
+const STRIPE_BOTTOM_WIDTH = "0.30em";
 /** Room above the letter for stripes when rotating the mark */
 const STRIPE_PAD_TOP = `calc(${STRIPE_HEIGHT} + ${STRIPE_STRIPE_GAP} + ${STRIPE_HEIGHT} + ${STRIPE_ABOVE_CROSSBAR} - ${T_CAP_BEARING})`;
 
@@ -81,14 +84,22 @@ function AnimatedT({ pulsing }: { pulsing: boolean }) {
           }}
         >
           <motion.span
-            className="block h-[0.08em] min-h-[3px] w-[0.28em] max-w-[44px]"
-            style={{ backgroundColor: LOGO_INK, transformOrigin: "center" }}
+            className="block h-[0.08em] min-h-[3px] max-w-[34px]"
+            style={{
+              width: STRIPE_TOP_WIDTH,
+              backgroundColor: LOGO_INK,
+              transformOrigin: "center",
+            }}
             animate={pulse}
             transition={transition}
           />
           <motion.span
-            className="block h-[0.08em] min-h-[3px] w-[0.38em] max-w-[60px]"
-            style={{ backgroundColor: LOGO_INK, transformOrigin: "center" }}
+            className="block h-[0.08em] min-h-[3px] max-w-[46px]"
+            style={{
+              width: STRIPE_BOTTOM_WIDTH,
+              backgroundColor: LOGO_INK,
+              transformOrigin: "center",
+            }}
             animate={pulse}
             transition={{ ...transition, delay: pulsing ? 0.08 : 0 }}
           />
