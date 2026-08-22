@@ -3,7 +3,6 @@ import {
   DEVICE_DETAILS_CONFIDENCE,
   resolveBrandKey,
 } from "@/lib/manufacturer-brands";
-import { resolveDeviceSeriesLabel } from "@/lib/device-catalog";
 import { prepareAnalyzedDevices } from "@/lib/device-characteristics";
 
 const DEVICE_TYPES: DeviceType[] = [
@@ -64,14 +63,7 @@ function normalizeDevice(raw: unknown, index: number): Device | null {
 
   const series =
     confidence >= DEVICE_DETAILS_CONFIDENCE
-      ? asString(raw.series) ||
-        resolveDeviceSeriesLabel({
-          series: undefined,
-          brandKey,
-          manufacturer,
-          type,
-        }) ||
-        undefined
+      ? asString(raw.series) || undefined
       : undefined;
 
   return {

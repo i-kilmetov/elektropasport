@@ -500,7 +500,7 @@ export function DeviceFaceStatic({
       >
         {showDetails && brand && (
           <div
-            className="mb-1 min-h-[10px] overflow-hidden"
+            className="mb-1 min-h-[16px] overflow-hidden"
             style={{ maxWidth: width - 6 }}
           >
             {brand}

@@ -24,8 +24,7 @@ import {
   Zap,
   X,
 } from "lucide-react";
-import { BrandMark, SeriesMark } from "@/components/icons/brand-mark";
-import { resolveDeviceSeriesLabel } from "@/lib/device-catalog";
+import { DeviceFaceIdentityMark } from "@/components/icons/brand-mark";
 import { IosShareIcon } from "@/components/icons/ios-share-icon";
 import { StickerBadgeIcon } from "@/components/icons/sticker-badge";
 import {
@@ -196,26 +195,13 @@ function DeviceBlock({
           onSelect={(event) => onSelect(event.clientY)}
           onTerminalPointerDown={onTerminalPointerDown}
           brand={
-            confident
-              ? (() => {
-                  const series = resolveDeviceSeriesLabel(device);
-                  if (series) {
-                    return (
-                      <SeriesMark
-                        series={series}
-                        brandKey={device.brandKey}
-                        brand={device.manufacturer}
-                      />
-                    );
-                  }
-                  return (
-                    <BrandMark
-                      brandKey={device.brandKey}
-                      brand={device.manufacturer}
-                    />
-                  );
-                })()
-              : undefined
+            confident && (device.manufacturer || device.brandKey) ? (
+              <DeviceFaceIdentityMark
+                brandKey={device.brandKey}
+                brand={device.manufacturer}
+                series={device.series}
+              />
+            ) : undefined
           }
         />
         {loadMismatch && (

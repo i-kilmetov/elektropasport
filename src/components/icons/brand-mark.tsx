@@ -223,83 +223,163 @@ function BrandLogo({ brandKey }: { brandKey: ManufacturerBrandKey }) {
   }
 }
 
-const UPPERCASE_SERIES_KEYS = new Set<ManufacturerBrandKey>([
-  "abb",
-  "iek",
-  "ekf",
-  "keaz",
-  "tdm",
-  "zubr",
-  "dekraft",
-  "chint",
-  "hager",
-]);
+/** Short manufacturer word as printed near the DIN face logo. */
+const FACE_MANUFACTURER_LABEL: Record<ManufacturerBrandKey, string> = {
+  abb: "ABB",
+  schneider: "Schneider",
+  systeme: "Systeme",
+  legrand: "Legrand",
+  hager: "Hager",
+  chint: "CHINT",
+  iek: "IEK",
+  ekf: "EKF",
+  dekraft: "DEKraft",
+  keaz: "KEAZ",
+  tdm: "TDM",
+  zubr: "ZUBR",
+  meander: "Меандр",
+  novatek: "Новатек",
+  digitop: "DigiTOP",
+  navigator: "Navigator",
+  kontaktor: "Контактор",
+};
 
-function seriesTypographyStyle(
+type FaceTypeStyle = {
+  fontSize: string;
+  fontWeight: number;
+  letterSpacing: string;
+  fontFamily: string;
+  textTransform?: "uppercase" | "none";
+  color: string;
+};
+
+/**
+ * Per-brand face typography: manufacturer ≈ logo, series ≈ secondary mark
+ * (size ratio ~0.55–0.7 like on real DIN modules).
+ */
+function brandFaceStyles(
   brandKey: ManufacturerBrandKey | null,
   accent: string,
-): CSSProperties {
-  const uppercase = brandKey && UPPERCASE_SERIES_KEYS.has(brandKey);
+): { manufacturer: FaceTypeStyle; series: FaceTypeStyle } {
+  const sans =
+    'ui-sans-serif, system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif';
+  const narrow =
+    'ui-sans-serif, system-ui, -apple-system, "Arial Narrow", Arial, sans-serif';
+  const serif = 'Georgia, "Times New Roman", Times, serif';
+  const seriesInk = "#27272A";
 
   switch (brandKey) {
     case "abb":
-    case "hager":
-    case "iek":
       return {
-        color: accent,
-        fontSize: "8px",
-        fontWeight: 800,
-        letterSpacing: "0.05em",
-        lineHeight: 1.05,
-        textTransform: "uppercase",
-        fontFamily:
-          'ui-sans-serif, system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif',
+        manufacturer: {
+          fontSize: "9px",
+          fontWeight: 800,
+          letterSpacing: "0.06em",
+          fontFamily: sans,
+          textTransform: "uppercase",
+          color: accent,
+        },
+        series: {
+          fontSize: "5.5px",
+          fontWeight: 700,
+          letterSpacing: "0.02em",
+          fontFamily: sans,
+          color: seriesInk,
+        },
+      };
+    case "iek":
+    case "hager":
+      return {
+        manufacturer: {
+          fontSize: "9px",
+          fontWeight: 800,
+          letterSpacing: "0.08em",
+          fontFamily: sans,
+          textTransform: "uppercase",
+          color: accent,
+        },
+        series: {
+          fontSize: "5.5px",
+          fontWeight: 700,
+          letterSpacing: "0.01em",
+          fontFamily: sans,
+          color: seriesInk,
+        },
       };
     case "schneider":
     case "systeme":
       return {
-        color: accent,
-        fontSize: "7.5px",
-        fontWeight: 700,
-        letterSpacing: "0.01em",
-        lineHeight: 1.05,
-        fontFamily:
-          'ui-sans-serif, system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif',
+        manufacturer: {
+          fontSize: "7px",
+          fontWeight: 700,
+          letterSpacing: "0.01em",
+          fontFamily: sans,
+          color: accent,
+        },
+        series: {
+          fontSize: "5.5px",
+          fontWeight: 600,
+          letterSpacing: "0",
+          fontFamily: sans,
+          color: seriesInk,
+        },
       };
     case "legrand":
       return {
-        color: accent,
-        fontSize: "8px",
-        fontWeight: 700,
-        letterSpacing: "0.03em",
-        lineHeight: 1.05,
-        fontFamily: 'Georgia, "Times New Roman", serif',
+        manufacturer: {
+          fontSize: "8px",
+          fontWeight: 700,
+          letterSpacing: "0.04em",
+          fontFamily: serif,
+          color: accent,
+        },
+        series: {
+          fontSize: "5.5px",
+          fontWeight: 600,
+          letterSpacing: "0.02em",
+          fontFamily: sans,
+          color: seriesInk,
+        },
       };
     case "chint":
     case "keaz":
     case "dekraft":
       return {
-        color: accent,
-        fontSize: "7.5px",
-        fontWeight: 800,
-        letterSpacing: "0.04em",
-        lineHeight: 1.05,
-        textTransform: "uppercase",
-        fontFamily:
-          'ui-sans-serif, system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif',
+        manufacturer: {
+          fontSize: "8px",
+          fontWeight: 800,
+          letterSpacing: "0.05em",
+          fontFamily: sans,
+          textTransform: "uppercase",
+          color: accent,
+        },
+        series: {
+          fontSize: "5px",
+          fontWeight: 700,
+          letterSpacing: "0.01em",
+          fontFamily: sans,
+          color: seriesInk,
+        },
       };
     case "ekf":
     case "tdm":
     case "zubr":
       return {
-        color: accent,
-        fontSize: "8px",
-        fontWeight: 800,
-        letterSpacing: "0.06em",
-        lineHeight: 1.05,
-        textTransform: "uppercase",
-        fontFamily:
-          'ui-sans-serif, system-ui, -apple-system, "Arial Narrow", Arial, sans-serif',
+        manufacturer: {
+          fontSize: "8.5px",
+          fontWeight: 800,
+          letterSpacing: "0.07em",
+          fontFamily: narrow,
+          textTransform: "uppercase",
+          color: accent,
+        },
+        series: {
+          fontSize: "5.5px",
+          fontWeight: 700,
+          letterSpacing: "0.02em",
+          fontFamily: narrow,
+          color: seriesInk,
+        },
       };
     case "meander":
     case "novatek":
@@ -307,29 +387,116 @@ function seriesTypographyStyle(
     case "navigator":
     case "kontaktor":
       return {
-        color: accent,
-        fontSize: "7.5px",
-        fontWeight: 700,
-        letterSpacing: "0.02em",
-        lineHeight: 1.05,
-        fontFamily:
-          'ui-sans-serif, system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif',
+        manufacturer: {
+          fontSize: "7.5px",
+          fontWeight: 700,
+          letterSpacing: "0.02em",
+          fontFamily: sans,
+          color: accent,
+        },
+        series: {
+          fontSize: "5px",
+          fontWeight: 600,
+          letterSpacing: "0",
+          fontFamily: sans,
+          color: seriesInk,
+        },
       };
     default:
       return {
-        color: accent,
-        fontSize: "7.5px",
-        fontWeight: 800,
-        letterSpacing: uppercase ? "0.04em" : "0.01em",
-        lineHeight: 1.05,
-        textTransform: uppercase ? "uppercase" : undefined,
-        fontFamily:
-          'ui-sans-serif, system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif',
+        manufacturer: {
+          fontSize: "8px",
+          fontWeight: 800,
+          letterSpacing: "0.04em",
+          fontFamily: sans,
+          textTransform: "uppercase",
+          color: accent,
+        },
+        series: {
+          fontSize: "5.5px",
+          fontWeight: 700,
+          letterSpacing: "0.01em",
+          fontFamily: sans,
+          color: seriesInk,
+        },
       };
   }
 }
 
-/** Series name styled in the manufacturer accent, mimicking logo typography. */
+function typeStyleToCss(style: FaceTypeStyle): CSSProperties {
+  return {
+    color: style.color,
+    fontSize: style.fontSize,
+    fontWeight: style.fontWeight,
+    letterSpacing: style.letterSpacing,
+    fontFamily: style.fontFamily,
+    textTransform: style.textTransform,
+    lineHeight: 1.05,
+  };
+}
+
+/**
+ * Face identity for the scheme:
+ * - manufacturer logo on the real device → manufacturer name (brand color / logo-like type)
+ * - manufacturer + series on the real device → both lines, series smaller (~0.6×)
+ * Series is shown only when it was actually read/saved (`device.series`), not catalog guess.
+ */
+export function DeviceFaceIdentityMark({
+  brandKey,
+  brand,
+  series,
+  className,
+}: {
+  brandKey?: string;
+  brand?: string;
+  /** Series only when present on the device / in saved data. */
+  series?: string;
+  className?: string;
+}) {
+  const key = resolveBrandKey(brandKey, brand);
+  const meta = getManufacturerBrand(brandKey, brand);
+  const palette = getManufacturerPalette(brandKey, brand);
+  const manufacturerLabel =
+    (key ? FACE_MANUFACTURER_LABEL[key] : null) ||
+    meta?.label ||
+    brand?.trim() ||
+    null;
+  const seriesLabel = series?.trim() || null;
+
+  if (!manufacturerLabel && !seriesLabel) return null;
+
+  const styles = brandFaceStyles(key ?? null, palette.accent);
+  const title = [manufacturerLabel, seriesLabel].filter(Boolean).join(" · ");
+
+  return (
+    <span
+      title={title}
+      className={cn(
+        "flex max-w-full flex-col items-start gap-[1px] overflow-hidden",
+        className,
+      )}
+    >
+      {manufacturerLabel && (
+        <span
+          className="max-w-full truncate leading-none"
+          style={typeStyleToCss(styles.manufacturer)}
+        >
+          {manufacturerLabel}
+        </span>
+      )}
+      {seriesLabel && (
+        <span
+          className="max-w-full truncate leading-none"
+          style={typeStyleToCss(styles.series)}
+        >
+          {seriesLabel}
+        </span>
+      )}
+    </span>
+  );
+}
+
+/** @deprecated Prefer DeviceFaceIdentityMark — kept for catalog/list chips. */
 export function SeriesMark({
   series,
   brandKey,
@@ -341,21 +508,13 @@ export function SeriesMark({
   brand?: string;
   className?: string;
 }) {
-  const label = series?.trim();
-  if (!label) return null;
-
-  const key = resolveBrandKey(brandKey, brand);
-  const palette = getManufacturerPalette(brandKey, brand);
-  const meta = getManufacturerBrand(brandKey, brand);
-
   return (
-    <span
-      title={meta ? `${meta.label} · ${label}` : label}
-      className={cn("block max-w-full truncate leading-none", className)}
-      style={seriesTypographyStyle(key ?? null, palette.accent)}
-    >
-      {label}
-    </span>
+    <DeviceFaceIdentityMark
+      series={series}
+      brandKey={brandKey}
+      brand={brand}
+      className={className}
+    />
   );
 }
 
