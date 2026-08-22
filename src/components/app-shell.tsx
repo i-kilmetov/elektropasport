@@ -1631,8 +1631,9 @@ export function AppShell() {
               powerKw={activePanel?.powerKw}
               hasGround={activePanel?.hasGround}
               railCount={railCount ?? undefined}
-              isMaster={
-                isMaster || isAdmin || Boolean(masterViewRequest)
+              canUseTerminals={
+                Boolean(masterViewRequest) ||
+                ((isMaster || isAdmin) && masterMode)
               }
             />
           )}

@@ -1494,7 +1494,7 @@ export function SchemeScreen({
   powerKw,
   hasGround,
   railCount,
-  isMaster = false,
+  canUseTerminals = false,
 }: {
   title?: string;
   panelId?: string | null;
@@ -1542,8 +1542,8 @@ export function SchemeScreen({
   powerKw?: string;
   hasGround?: boolean;
   railCount?: number;
-  /** Masters can edit terminal wiring; others see a waitlist. */
-  isMaster?: boolean;
+  /** Masters can edit terminal wiring; user mode shows a waitlist sheet. */
+  canUseTerminals?: boolean;
 }) {
   const devices = devicesProp ?? [];
   const wires = wiresProp ?? [];
@@ -1709,6 +1709,15 @@ export function SchemeScreen({
   const numRails = rails.length;
 
   useEffect(() => {
+    if (canUseTerminals) return;
+    setShowTerminals(false);
+    setWireDraft(null);
+    setPendingWire(null);
+    setEditingWire(null);
+    setHoverTerminalKey(null);
+  }, [canUseTerminals]);
+
+  useEffect(() => {
     if (!showTerminals) return;
     const id = window.requestAnimationFrame(() => {
       setWiresLayoutTick((v) => v + 1);
@@ -1741,7 +1750,7 @@ export function SchemeScreen({
     terminal: TerminalRef,
     event: PointerEvent<HTMLButtonElement>,
   ) => {
-    if (sharedPreview || !onUpdateWires || !showTerminals || !isMaster) return;
+    if (sharedPreview || !onUpdateWires || !showTerminals || !canUseTerminals) return;
     if (event.button !== 0) return;
     event.preventDefault();
     clearWiringHold();
@@ -2204,7 +2213,7 @@ export function SchemeScreen({
           <span
             className={cn(
               "text-[13px] font-medium transition-colors",
-              showTerminals && isMaster ? "text-zinc-900" : "text-zinc-500",
+              showTerminals && canUseTerminals ? "text-zinc-900" : "text-zinc-500",
             )}
           >
             Клеммы
@@ -2212,10 +2221,10 @@ export function SchemeScreen({
           <button
             type="button"
             role="switch"
-            aria-checked={showTerminals && isMaster}
+            aria-checked={showTerminals && canUseTerminals}
             aria-label="Клеммы"
             onClick={() => {
-              if (!isMaster) {
+              if (!canUseTerminals) {
                 setShowTerminals(false);
                 setTerminalsWaitlistOpen(true);
                 return;
@@ -2234,13 +2243,13 @@ export function SchemeScreen({
             }}
             className={cn(
               "relative h-7 w-12 shrink-0 rounded-full transition-colors duration-200",
-              showTerminals && isMaster ? "bg-zinc-900" : "bg-zinc-200",
+              showTerminals && canUseTerminals ? "bg-zinc-900" : "bg-zinc-200",
             )}
           >
             <span
               className={cn(
                 "absolute top-0.5 left-0.5 h-6 w-6 rounded-full bg-white shadow-sm transition-transform duration-200",
-                showTerminals && isMaster && "translate-x-5",
+                showTerminals && canUseTerminals && "translate-x-5",
               )}
             />
           </button>
@@ -2284,11 +2293,11 @@ export function SchemeScreen({
               </p>
             </GlassCard>
           )}
-          <div className={cn("overflow-x-auto", showTerminals && isMaster && "overflow-y-visible")}>
+          <div className={cn("overflow-x-auto", showTerminals && canUseTerminals && "overflow-y-visible")}>
             <GlassCard
               className={cn(
                 "w-max max-w-none overflow-visible p-4",
-                showTerminals && isMaster && "overflow-visible",
+                showTerminals && canUseTerminals && "overflow-visible",
               )}
               style={{ minWidth: railMinWidth }}
             >
@@ -2303,8 +2312,8 @@ export function SchemeScreen({
 
             <div
               ref={setSchemeCanvasRef}
-              className={cn("relative", showTerminals && isMaster && "py-11")}
-            >              {showTerminals && isMaster && (
+              className={cn("relative", showTerminals && canUseTerminals && "py-11")}
+            >              {showTerminals && canUseTerminals && (
                 <PanelWiresSvg
                   key={wiresLayoutTick}
                   container={schemeCanvasEl}
@@ -2341,7 +2350,7 @@ export function SchemeScreen({
                           key={`${device.id}-${deviceIdx}`}
                           device={device}
                           selected={selectedId === device.id}
-                          showTerminals={showTerminals && isMaster}
+                          showTerminals={showTerminals && canUseTerminals}
                           highlightTerminalKey={
                             hoverTerminalKey ??
                             (wireDraft ? terminalKey(wireDraft.from) : null)
@@ -2352,7 +2361,7 @@ export function SchemeScreen({
                             setSelectedId(device.id);
                           }}
                           onTerminalPointerDown={
-                            sharedPreview || !isMaster
+                            sharedPreview || !canUseTerminals
                               ? undefined
                               : handleTerminalPointerDown
                           }
