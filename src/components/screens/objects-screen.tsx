@@ -998,7 +998,7 @@ export function ObjectsScreen({
                   >
                     У меня нет щитка
                   </button>
-                  <Button className="h-11 px-5" onClick={addPanel}>
+                  <Button className="h-11 rounded-full px-5" onClick={addPanel}>
                     <Plus className="h-5 w-5" />
                     Добавить щиток
                   </Button>
@@ -1084,7 +1084,7 @@ export function ObjectsScreen({
             </Button>
           ) : (
             <div className="space-y-3">
-              <Button className="w-full" onClick={addPanel}>
+              <Button className="w-full rounded-full" onClick={addPanel}>
                 <Plus className="h-5 w-5" />
                 Добавить щиток
               </Button>

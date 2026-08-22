@@ -10,7 +10,11 @@ const SPLASH_MS = 4000;
 const REST = "ОКОМ";
 const LOGO_INK = "#111113";
 const BOOT_TAGLINE = "ПРОВЕРЬ ЩИТОК";
-const AUTH_TAGLINE = "ПРОВЕРЬ СЕБЯ";
+/** lub-dub pulse: two quick beats, then rest (~52 bpm). */
+const HEARTBEAT_OPACITY = [0.3, 1, 0.42, 0.9, 0.3] as const;
+const HEARTBEAT_SCALE = [0.86, 1.05, 0.88, 1.02, 0.86] as const;
+const HEARTBEAT_TIMES = [0, 0.09, 0.17, 0.26, 1] as const;
+const HEARTBEAT_DURATION_S = 1.2;
 /** Hold inverted T while boot fetch runs, then reveal OKOM. */
 const REVEAL_AT_MS = 1750;
 /** OKOM width (0.9s) finishes ~2650ms; show tagline after full wordmark. */
@@ -45,14 +49,15 @@ const STRIPE_PAD_TOP = `calc(${STRIPE_HEIGHT} + ${STRIPE_STRIPE_GAP} + ${STRIPE_
 function AnimatedT({ pulsing }: { pulsing: boolean }) {
   const pulse = pulsing
     ? {
-        opacity: [0.28, 1, 0.28] as number[],
-        scaleX: [0.88, 1, 0.88] as number[],
+        opacity: [...HEARTBEAT_OPACITY],
+        scaleX: [...HEARTBEAT_SCALE],
       }
     : { opacity: 1, scaleX: 1 };
 
   const transition = pulsing
     ? {
-        duration: 0.65,
+        duration: HEARTBEAT_DURATION_S,
+        times: [...HEARTBEAT_TIMES],
         repeat: Infinity,
         ease: "easeInOut" as const,
       }
@@ -111,7 +116,7 @@ function AnimatedT({ pulsing }: { pulsing: boolean }) {
               transformOrigin: "center",
             }}
             animate={pulse}
-            transition={{ ...transition, delay: pulsing ? 0.08 : 0 }}
+            transition={transition}
           />
         </span>
         Т
@@ -300,7 +305,7 @@ export function BrandSplash({
       >
         <BrandMark
           tagline={BOOT_TAGLINE}
-          taglineVisible={animation.taglineVisible}
+          taglineVisible
           stripesPulsing={animation.stripesPulsing}
           restRevealed={animation.restRevealed}
         />
@@ -334,8 +339,10 @@ export function BrandAuthIntro({
       <div className="flex flex-1 flex-col items-center justify-center px-5">
         <div ref={logoRef}>
           <BrandMark
-            tagline={AUTH_TAGLINE}
-            taglineVisible={animation.taglineVisible}
+            tagline={BOOT_TAGLINE}
+            taglineVisible={
+              animation.taglineVisible || !bootReady || !animation.restRevealed
+            }
             stripesPulsing={animation.stripesPulsing}
             restRevealed={animation.restRevealed}
           />
