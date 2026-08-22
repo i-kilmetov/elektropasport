@@ -141,13 +141,13 @@ export function BrandSplash({ onComplete }: { onComplete: () => void }) {
         <div className="relative inline-block">
           <motion.p
             aria-hidden={!taglineVisible}
-            className="pointer-events-none absolute right-0 text-center leading-none whitespace-nowrap"
+            className="pointer-events-none absolute right-0 text-right leading-none whitespace-nowrap"
             style={{
-              bottom: "calc(100% + 0.42em)",
+              bottom: "calc(100% + 0.62em)",
               width: "66.67%",
               fontFamily: "var(--font-geologica)",
               fontWeight: 500,
-              fontSize: "clamp(0.62rem, 2.45vw, 0.88rem)",
+              fontSize: "clamp(0.93rem, 3.68vw, 1.32rem)",
               letterSpacing: "0.14em",
               color: LOGO_INK,
             }}
