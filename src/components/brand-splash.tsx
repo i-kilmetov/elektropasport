@@ -6,7 +6,6 @@ import { Camera, MessagesSquare, Zap } from "lucide-react";
 import { BRAND_YELLOW } from "@/components/brand-logo";
 import { TelegramAppIcon } from "@/components/icons/telegram-app-icon";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import {
   LOGO_FONT_WEIGHT,
   LOGO_INK,
@@ -410,9 +409,12 @@ export function BrandAuthIntro({
   const [layoutExpanded, setLayoutExpanded] = useState(false);
   const [revealStep, setRevealStep] = useState(0);
   const [starting, setStarting] = useState(false);
+  const [liftSettled, setLiftSettled] = useState(false);
+  const [headerSlotPx, setHeaderSlotPx] = useState(0);
+  const logoRef = useRef<HTMLDivElement>(null);
   const shortViewport = useShortViewport();
   const logoVariant =
-    layoutExpanded && shortViewport ? "authIntro" : "splash";
+    layoutExpanded && liftSettled && shortViewport ? "authIntro" : "splash";
 
   useEffect(() => {
     if (!animation.taglineVisible) {
@@ -426,6 +428,41 @@ export function BrandAuthIntro({
     );
     return () => window.clearTimeout(expand);
   }, [animation.taglineVisible]);
+
+  useEffect(() => {
+    if (!layoutExpanded) {
+      setLiftSettled(false);
+      return;
+    }
+
+    const settle = window.setTimeout(
+      () => setLiftSettled(true),
+      AUTH_LIFT_DURATION_S * 1000 + 40,
+    );
+    return () => window.clearTimeout(settle);
+  }, [layoutExpanded]);
+
+  useEffect(() => {
+    if (!layoutExpanded) {
+      setHeaderSlotPx(0);
+      return;
+    }
+
+    const node = logoRef.current;
+    if (!node) return;
+
+    const measure = () => setHeaderSlotPx(node.offsetHeight);
+
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    window.addEventListener("resize", measure);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [layoutExpanded, logoVariant]);
 
   useEffect(() => {
     if (!layoutExpanded) {
@@ -463,16 +500,20 @@ export function BrandAuthIntro({
       aria-label="Током — вход"
     >
       <motion.div
-        layout
-        className={cn(
-          "flex w-full justify-center",
-          layoutExpanded
-            ? "shrink-0 pt-[max(1rem,calc(env(safe-area-inset-top)+0.5rem))]"
-            : "min-h-0 flex-1 items-center",
-        )}
-        transition={{ layout: AUTH_LAYOUT_MOTION }}
+        className="pointer-events-none absolute left-1/2 z-20 w-max max-w-[calc(100%-2.5rem)] -translate-x-1/2"
+        initial={false}
+        animate={{
+          top: layoutExpanded
+            ? "max(1rem, calc(env(safe-area-inset-top) + 0.5rem))"
+            : "50%",
+          y: layoutExpanded ? "0%" : "-50%",
+        }}
+        transition={AUTH_LAYOUT_MOTION}
       >
-        <div className={layoutExpanded ? "pt-4" : undefined}>
+        <div
+          ref={logoRef}
+          className={layoutExpanded ? "pt-4" : undefined}
+        >
           <BrandMark
             variant={logoVariant}
             tagline={BOOT_TAGLINE}
@@ -483,21 +524,27 @@ export function BrandAuthIntro({
         </div>
       </motion.div>
 
+      <motion.div
+        className="shrink-0"
+        initial={false}
+        animate={{
+          height: layoutExpanded
+            ? headerSlotPx > 0
+              ? headerSlotPx
+              : "min(30vh, 12rem)"
+            : "100%",
+        }}
+        transition={AUTH_LAYOUT_MOTION}
+        aria-hidden
+      />
+
       {layoutExpanded && (
         <>
-          <motion.div
-            layout
-            className="flex min-h-0 flex-1 flex-col justify-center overflow-y-auto overscroll-contain py-[min(1rem,2vh)] [-webkit-overflow-scrolling:touch]"
-            transition={{ layout: AUTH_LAYOUT_MOTION }}
-          >
+          <div className="flex min-h-0 flex-1 flex-col justify-center overflow-y-auto overscroll-contain py-[min(1rem,2vh)] [-webkit-overflow-scrolling:touch]">
             <AuthValuePoints revealedCount={revealedPoints} />
-          </motion.div>
+          </div>
 
-          <motion.div
-            layout
-            className="w-full shrink-0 pt-[min(1rem,2vh)]"
-            transition={{ layout: AUTH_LAYOUT_MOTION }}
-          >
+          <div className="w-full shrink-0 pt-[min(1rem,2vh)]">
             <motion.div
               className="min-h-14"
               initial={false}
@@ -527,7 +574,7 @@ export function BrandAuthIntro({
                 </a>
               </Button>
             </motion.div>
-          </motion.div>
+          </div>
         </>
       )}
     </div>
