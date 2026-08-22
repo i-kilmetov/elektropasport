@@ -8,6 +8,8 @@ const SPLASH_MS = 3200;
 const REST = "ОКОМ";
 const LOGO_INK = "#111113";
 const REVEAL_AT_MS = 900;
+/** OKOM width (0.9s) finishes ~1800ms; show tagline right after full wordmark. */
+const TAGLINE_AT_MS = 1900;
 
 const logoType = {
   fontFamily: "var(--font-geologica)",
@@ -100,14 +102,17 @@ function AnimatedT({ pulsing }: { pulsing: boolean }) {
 export function BrandSplash({ onComplete }: { onComplete: () => void }) {
   const [stripesPulsing, setStripesPulsing] = useState(true);
   const [restRevealed, setRestRevealed] = useState(false);
+  const [taglineVisible, setTaglineVisible] = useState(false);
 
   useEffect(() => {
     const pulseStop = window.setTimeout(() => setStripesPulsing(false), 1350);
     const reveal = window.setTimeout(() => setRestRevealed(true), REVEAL_AT_MS);
+    const tagline = window.setTimeout(() => setTaglineVisible(true), TAGLINE_AT_MS);
     const timer = window.setTimeout(onComplete, SPLASH_MS);
     return () => {
       window.clearTimeout(pulseStop);
       window.clearTimeout(reveal);
+      window.clearTimeout(tagline);
       window.clearTimeout(timer);
     };
   }, [onComplete]);
@@ -130,50 +135,83 @@ export function BrandSplash({ onComplete }: { onComplete: () => void }) {
         x: -50% keeps the wordmark centered while OKOM expands.
       */}
       <motion.div
-        className="absolute top-1/2 left-1/2 flex items-end whitespace-nowrap"
-        style={{ ...logoType, x: "-50%", y: "-50%" }}
+        className="absolute top-1/2 left-1/2"
+        style={{ x: "-50%", y: "-50%" }}
       >
-        <AnimatedT pulsing={stripesPulsing} />
-
-        <motion.span
-          className="inline-flex overflow-hidden"
-          initial={{ width: 0, opacity: 0 }}
-          animate={{
-            width: restRevealed ? "auto" : 0,
-            opacity: restRevealed ? 1 : 0,
-          }}
-          transition={{
-            width: {
-              duration: 0.9,
+        <div className="relative inline-block">
+          <motion.p
+            aria-hidden={!taglineVisible}
+            className="pointer-events-none absolute right-0 text-center leading-none whitespace-nowrap"
+            style={{
+              bottom: "calc(100% + 0.42em)",
+              width: "66.67%",
+              fontFamily: "var(--font-geologica)",
+              fontWeight: 500,
+              fontSize: "clamp(0.62rem, 2.45vw, 0.88rem)",
+              letterSpacing: "0.14em",
+              color: LOGO_INK,
+            }}
+            initial={{ opacity: 0, y: 6 }}
+            animate={
+              taglineVisible
+                ? { opacity: 1, y: 0 }
+                : { opacity: 0, y: 6 }
+            }
+            transition={{
+              duration: 0.38,
               ease: [0.22, 1, 0.36, 1],
-            },
-            opacity: {
-              duration: 0.45,
-              delay: restRevealed ? 0.1 : 0,
-              ease: "easeOut",
-            },
-          }}
-        >
-          {REST.split("").map((letter, index) => (
+            }}
+          >
+            ПРОВЕРЬ ЩИТОК
+          </motion.p>
+
+          <div
+            className="flex items-end whitespace-nowrap"
+            style={logoType}
+          >
+            <AnimatedT pulsing={stripesPulsing} />
+
             <motion.span
-              key={`${letter}-${index}`}
-              className="inline-block"
-              initial={{ opacity: 0, y: 16, filter: "blur(8px)" }}
-              animate={
-                restRevealed
-                  ? { opacity: 1, y: 0, filter: "blur(0px)" }
-                  : { opacity: 0, y: 16, filter: "blur(8px)" }
-              }
+              className="inline-flex overflow-hidden"
+              initial={{ width: 0, opacity: 0 }}
+              animate={{
+                width: restRevealed ? "auto" : 0,
+                opacity: restRevealed ? 1 : 0,
+              }}
               transition={{
-                delay: restRevealed ? 0.16 + index * 0.07 : 0,
-                duration: 0.32,
-                ease: [0.22, 1, 0.36, 1],
+                width: {
+                  duration: 0.9,
+                  ease: [0.22, 1, 0.36, 1],
+                },
+                opacity: {
+                  duration: 0.45,
+                  delay: restRevealed ? 0.1 : 0,
+                  ease: "easeOut",
+                },
               }}
             >
-              {letter}
+              {REST.split("").map((letter, index) => (
+                <motion.span
+                  key={`${letter}-${index}`}
+                  className="inline-block"
+                  initial={{ opacity: 0, y: 16, filter: "blur(8px)" }}
+                  animate={
+                    restRevealed
+                      ? { opacity: 1, y: 0, filter: "blur(0px)" }
+                      : { opacity: 0, y: 16, filter: "blur(8px)" }
+                  }
+                  transition={{
+                    delay: restRevealed ? 0.16 + index * 0.07 : 0,
+                    duration: 0.32,
+                    ease: [0.22, 1, 0.36, 1],
+                  }}
+                >
+                  {letter}
+                </motion.span>
+              ))}
             </motion.span>
-          ))}
-        </motion.span>
+          </div>
+        </div>
       </motion.div>
     </motion.div>
   );
