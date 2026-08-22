@@ -64,7 +64,7 @@ function AnimatedT({ pulsing }: { pulsing: boolean }) {
     >
       <span
         className="flex flex-col items-center"
-        style={{ gap: STRIPE_STRIPE_GAP }}
+        style={{ gap: STRIPE_STRIPE_GAP, marginBottom: STRIPE_OVERLAP }}
       >
         <motion.span
           aria-hidden
@@ -81,9 +81,7 @@ function AnimatedT({ pulsing }: { pulsing: boolean }) {
           transition={{ ...transition, delay: pulsing ? 0.08 : 0 }}
         />
       </span>
-      <span className="leading-none" style={{ marginTop: STRIPE_T_GAP }}>
-        Т
-      </span>
+      <span className="block leading-[0.72]">Т</span>
     </motion.span>
   );
 }
