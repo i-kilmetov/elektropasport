@@ -53,6 +53,168 @@ const SWIPE_DISTANCE = 80;
 const SWIPE_VELOCITY = 700;
 const SWIPE_MIN_OFFSET = 28;
 
+function HomeListCard({
+  item,
+  lifted,
+  pressing,
+  onOpen,
+  onContextMenu,
+  onPressingChange,
+}: {
+  item: HomeListItem;
+  lifted: boolean;
+  pressing: boolean;
+  onOpen: () => void;
+  onContextMenu: () => void;
+  onPressingChange: (pressing: boolean) => void;
+}) {
+  const isRequest = item.kind === "install_request";
+  const longPressedRef = useRef(false);
+  const timerRef = useRef<number | null>(null);
+  const liftTimerRef = useRef<number | null>(null);
+  const startPointRef = useRef<{ x: number; y: number } | null>(null);
+
+  const clearTimers = () => {
+    if (timerRef.current != null) {
+      window.clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    if (liftTimerRef.current != null) {
+      window.clearTimeout(liftTimerRef.current);
+      liftTimerRef.current = null;
+    }
+  };
+
+  const endPress = () => {
+    clearTimers();
+    startPointRef.current = null;
+    onPressingChange(false);
+  };
+
+  const startPress = (clientX: number, clientY: number) => {
+    longPressedRef.current = false;
+    clearTimers();
+    startPointRef.current = { x: clientX, y: clientY };
+    onPressingChange(false);
+
+    liftTimerRef.current = window.setTimeout(() => {
+      onPressingChange(true);
+    }, LIFT_DELAY_MS);
+
+    timerRef.current = window.setTimeout(() => {
+      longPressedRef.current = true;
+      onPressingChange(true);
+      hapticContextMenu();
+      onContextMenu();
+    }, LONG_PRESS_MS);
+  };
+
+  const onPointerMove = (clientX: number, clientY: number) => {
+    const start = startPointRef.current;
+    if (!start) return;
+    const dx = Math.abs(clientX - start.x);
+    const dy = Math.abs(clientY - start.y);
+    if (dx > MOVE_CANCEL_PX || dy > MOVE_CANCEL_PX) {
+      endPress();
+    }
+  };
+
+  const active = pressing || lifted;
+
+  return (
+    <motion.div
+      animate={{
+        scale: active ? 1.055 : 1,
+        y: active ? -2 : 0,
+      }}
+      transition={{
+        type: "spring",
+        stiffness: 420,
+        damping: 28,
+        mass: 0.7,
+      }}
+      className={cn(
+        "origin-center will-change-transform",
+        active && "relative z-20",
+      )}
+      style={{
+        filter: active
+          ? "drop-shadow(0 14px 28px rgba(17,17,19,0.18))"
+          : "drop-shadow(0 0 0 rgba(0,0,0,0))",
+      }}
+    >
+      <button
+        type="button"
+        onClick={() => {
+          if (longPressedRef.current) {
+            longPressedRef.current = false;
+            return;
+          }
+          onOpen();
+        }}
+        onPointerDown={(e) => {
+          if (e.button !== 0) return;
+          startPress(e.clientX, e.clientY);
+        }}
+        onPointerMove={(e) => onPointerMove(e.clientX, e.clientY)}
+        onPointerUp={endPress}
+        onPointerLeave={endPress}
+        onPointerCancel={endPress}
+        onContextMenu={(e) => e.preventDefault()}
+        className="w-full text-left select-none lg:cursor-pointer"
+      >
+        <GlassCard className="flex items-center gap-4 rounded-[24px] border p-4 transition-colors hover:bg-zinc-50 lg:p-5">
+          <div
+            className={cn(
+              "flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[18px] bg-zinc-100",
+              isRequest ? "text-zinc-500" : "text-zinc-600",
+            )}
+          >
+            {isRequest ? (
+              <ClipboardList className="h-6 w-6" />
+            ) : (
+              <BreakerIcon className="h-7 w-7" />
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="mb-0.5 flex items-center justify-between gap-2">
+              <h2 className="truncate text-[17px] font-semibold text-zinc-900">
+                {isRequest && item.publicCode ? item.publicCode : item.title}
+              </h2>
+              {isRequest ? (
+                <span
+                  className={cn(
+                    "shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium",
+                    installStatusTone(item.status).badge,
+                  )}
+                >
+                  {item.statusLabel}
+                </span>
+              ) : (
+                <span className="shrink-0 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
+                  {item.phases &&
+                  item.powerKw?.trim() &&
+                  typeof item.safety === "number"
+                    ? `${item.safety}%`
+                    : "—"}
+                </span>
+              )}
+            </div>
+            <p className="truncate text-[13px] text-zinc-500">
+              {isRequest ? item.subtitle : item.address}
+            </p>
+            <p className="mt-1 text-[12px] text-zinc-400">
+              {isRequest
+                ? item.createdAt
+                : `${item.breakers} устройств · ${item.lastCheck}`}
+            </p>
+          </div>
+        </GlassCard>
+      </button>
+    </motion.div>
+  );
+}
+
 function RequestListCard({
   item,
   lifted,
@@ -451,6 +613,7 @@ export function ObjectsScreen({
   onOpenRequest,
   onDeleteItem,
   onRenameItem,
+  onNoPanel,
   onHelpElectrical,
   onMenuSelect,
   onPanelLimit,
@@ -461,6 +624,7 @@ export function ObjectsScreen({
   isAdmin = false,
   masterMode = false,
   onMasterModeChange,
+  homeAppliancesMode = false,
   onAddAppliance,
   onOpenAppliance,
 }: {
@@ -473,6 +637,7 @@ export function ObjectsScreen({
   onOpenRequest: (id: string) => void;
   onDeleteItem: (id: string) => void;
   onRenameItem: (id: string, name: string) => void;
+  onNoPanel?: () => void;
   onHelpElectrical: () => void;
   onMenuSelect: (id: MainMenuId) => void;
   onPanelLimit?: () => void;
@@ -483,8 +648,9 @@ export function ObjectsScreen({
   isAdmin?: boolean;
   masterMode?: boolean;
   onMasterModeChange?: (next: boolean) => void;
-  onAddAppliance: (panelId: string, appliance: HomeAppliance) => void;
-  onOpenAppliance: (panelId: string, applianceId: string) => void;
+  homeAppliancesMode?: boolean;
+  onAddAppliance?: (panelId: string, appliance: HomeAppliance) => void;
+  onOpenAppliance?: (panelId: string, applianceId: string) => void;
 }) {
   const [page, setPage] = useState(0);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
@@ -536,6 +702,9 @@ export function ObjectsScreen({
     [items],
   );
   const atPanelLimit = isAtPanelLimit(quota, panels.length);
+  const panelEmptyText = homeAppliancesMode
+    ? "Современный дом начинается с электрического сердца — сфотографируйте щиток."
+    : "Просто сфотографируй щиток. Дальше мы все расскажем и покажем, что в нём и как это работает.";
 
   const pendingDelete = items.find((item) => item.id === pendingDeleteId);
   const actionsItem = items.find((item) => item.id === actionsItemId);
@@ -639,7 +808,22 @@ export function ObjectsScreen({
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.04 * i }}
           >
-            {obj.kind === "install_request" ? (
+            {!homeAppliancesMode ? (
+              <HomeListCard
+                item={obj}
+                pressing={pressingId === obj.id}
+                lifted={actionsItemId === obj.id}
+                onOpen={() =>
+                  obj.kind === "install_request"
+                    ? onOpenRequest(obj.id)
+                    : onOpenPanel(obj.id)
+                }
+                onContextMenu={() => setActionsItemId(obj.id)}
+                onPressingChange={(next) =>
+                  setPressingId(next ? obj.id : null)
+                }
+              />
+            ) : obj.kind === "install_request" ? (
               <RequestListCard
                 item={obj}
                 pressing={pressingId === obj.id}
@@ -661,7 +845,7 @@ export function ObjectsScreen({
                 }
                 onOpenPanel={() => onOpenPanel(obj.id)}
                 onOpenAppliance={(applianceId) =>
-                  onOpenAppliance(obj.id, applianceId)
+                  onOpenAppliance?.(obj.id, applianceId)
                 }
                 onContextMenu={() => setActionsItemId(obj.id)}
                 onPressingChange={(next) =>
@@ -675,13 +859,17 @@ export function ObjectsScreen({
     );
   };
 
+  const addPanel = () => {
+    if (atPanelLimit) {
+      onPanelLimit?.();
+      return;
+    }
+    onAdd();
+  };
+
   const handlePrimaryAdd = () => {
     if (panels.length === 0) {
-      if (atPanelLimit) {
-        onPanelLimit?.();
-        return;
-      }
-      onAdd();
+      addPanel();
       return;
     }
     setAddApplianceOpen(true);
@@ -689,11 +877,7 @@ export function ObjectsScreen({
 
   const addAnotherPanel = () => {
     setAddApplianceOpen(false);
-    if (atPanelLimit) {
-      onPanelLimit?.();
-      return;
-    }
-    onAdd();
+    addPanel();
   };
 
   return (
@@ -800,10 +984,26 @@ export function ObjectsScreen({
           </div>
           <div className="hidden items-center gap-3 lg:flex">
             {page === 0 ? (
-              <Button className="h-11 px-5" onClick={handlePrimaryAdd}>
-                <Plus className="h-5 w-5" />
-                Добавить
-              </Button>
+              homeAppliancesMode ? (
+                <Button className="h-11 px-5" onClick={handlePrimaryAdd}>
+                  <Plus className="h-5 w-5" />
+                  Добавить
+                </Button>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={onNoPanel}
+                    className="text-[14px] font-medium text-zinc-500 underline decoration-zinc-300 underline-offset-4 transition-colors hover:text-zinc-800"
+                  >
+                    У меня нет щитка
+                  </button>
+                  <Button className="h-11 px-5" onClick={addPanel}>
+                    <Plus className="h-5 w-5" />
+                    Добавить щиток
+                  </Button>
+                </>
+              )
             ) : (
               <Button className="h-11 px-5" onClick={onHelpElectrical}>
                 Помочь с электрикой
@@ -823,7 +1023,7 @@ export function ObjectsScreen({
         {page === 0
           ? renderList(panels, {
               icon: <BreakerIcon className="h-10 w-10" />,
-              text: "Современный дом начинается с электрического сердца — сфотографируйте щиток.",
+              text: panelEmptyText,
               framed: true,
             })
           : renderList(requests, {
@@ -856,7 +1056,7 @@ export function ObjectsScreen({
             <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
               {renderList(panels, {
                 icon: <BreakerIcon className="h-10 w-10" />,
-                text: "Современный дом начинается с электрического сердца — сфотографируйте щиток.",
+                text: panelEmptyText,
                 framed: true,
               })}
             </div>
@@ -877,10 +1077,26 @@ export function ObjectsScreen({
 
       <div className="shrink-0 border-t border-black/[0.06] bg-[var(--bg)] px-5 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))] lg:hidden">
         {page === 0 ? (
-          <Button className="w-full" onClick={handlePrimaryAdd}>
-            <Plus className="h-5 w-5" />
-            Добавить
-          </Button>
+          homeAppliancesMode ? (
+            <Button className="w-full" onClick={handlePrimaryAdd}>
+              <Plus className="h-5 w-5" />
+              Добавить
+            </Button>
+          ) : (
+            <div className="space-y-3">
+              <Button className="w-full" onClick={addPanel}>
+                <Plus className="h-5 w-5" />
+                Добавить щиток
+              </Button>
+              <button
+                type="button"
+                onClick={onNoPanel}
+                className="w-full text-center text-[15px] font-medium text-zinc-500 underline decoration-zinc-300 underline-offset-4 transition-colors hover:text-zinc-800"
+              >
+                У меня нет щитка
+              </button>
+            </div>
+          )
         ) : (
           <Button className="w-full" onClick={onHelpElectrical}>
             Помочь с электрикой
@@ -911,7 +1127,7 @@ export function ObjectsScreen({
       </AnimatePresence>
 
       <AnimatePresence>
-        {addApplianceOpen && (
+        {homeAppliancesMode && addApplianceOpen && onAddAppliance && (
           <AddApplianceSheet
             panels={panels}
             preferredPanelId={expandedId}

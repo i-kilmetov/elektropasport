@@ -1,6 +1,9 @@
 /** Canonical production site URL (custom domain). */
 export const PRODUCTION_APP_URL = "https://tokom.ru";
 
+/** Staging subdomain — same deployment, password gate + new features. */
+export const TEST_APP_URL = "https://test.tokom.ru";
+
 /** Old production host — same Vercel project / same DB as tokom.ru. */
 export const LEGACY_VERCEL_HOST = "elektropasport.vercel.app";
 

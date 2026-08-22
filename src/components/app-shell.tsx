@@ -114,6 +114,7 @@ import type {
 } from "@/types";
 import { installStatusLabels } from "@/types";
 import { BrandSplash } from "@/components/brand-splash";
+import { useHomeAppliancesEnabled } from "@/hooks/use-home-appliances-enabled";
 import { cn } from "@/lib/utils";
 
 function panelRailCount(
@@ -137,6 +138,7 @@ function clearSkipOnboarding() {
 }
 
 export function AppShell() {
+  const homeAppliancesEnabled = useHomeAppliancesEnabled();
   const [screen, setScreen] = useState<AppScreen>("welcome");
   const [onboardingReady, setOnboardingReady] = useState(false);
   const [splashDone, setSplashDone] = useState(false);
@@ -1359,30 +1361,45 @@ export function AppShell() {
               }}
               onDeleteItem={deleteHomeItem}
               onRenameItem={renameHomeItem}
+              onNoPanel={
+                homeAppliancesEnabled
+                  ? undefined
+                  : () => requireTelegramAuth("no-panel")
+              }
               onHelpElectrical={startHelpElectrical}
               onPanelLimit={openPanelLimit}
-              onAddAppliance={(panelId, appliance) => {
-                setItems((prev) => {
-                  const next = prev.map((item) => {
-                    if (item.kind !== "panel" || item.id !== panelId) return item;
-                    const updated: PanelObject = {
-                      ...item,
-                      appliances: [...(item.appliances ?? []), appliance],
-                      lastCheck: "сегодня",
-                    };
-                    void persistPanel(updated).catch((error) =>
-                      console.error(error),
-                    );
-                    return updated;
-                  });
-                  return next;
-                });
-              }}
-              onOpenAppliance={(panelId, applianceId) => {
-                setActivePanelId(panelId);
-                setActiveApplianceId(applianceId);
-                go("appliance-detail");
-              }}
+              homeAppliancesMode={homeAppliancesEnabled}
+              onAddAppliance={
+                homeAppliancesEnabled
+                  ? (panelId, appliance) => {
+                      setItems((prev) => {
+                        const next = prev.map((item) => {
+                          if (item.kind !== "panel" || item.id !== panelId)
+                            return item;
+                          const updated: PanelObject = {
+                            ...item,
+                            appliances: [...(item.appliances ?? []), appliance],
+                            lastCheck: "сегодня",
+                          };
+                          void persistPanel(updated).catch((error) =>
+                            console.error(error),
+                          );
+                          return updated;
+                        });
+                        return next;
+                      });
+                    }
+                  : undefined
+              }
+              onOpenAppliance={
+                homeAppliancesEnabled
+                  ? (panelId, applianceId) => {
+                      setActivePanelId(panelId);
+                      setActiveApplianceId(applianceId);
+                      go("appliance-detail");
+                    }
+                  : undefined
+              }
               isMaster={isMaster}
               isAdmin={isAdmin}
               masterMode={false}
@@ -1431,10 +1448,15 @@ export function AppShell() {
                 go("objects");
               }}
               onCapture={handlePhoto}
-              onNoPanel={() => requireTelegramAuth("no-panel")}
+              onNoPanel={
+                homeAppliancesEnabled
+                  ? () => requireTelegramAuth("no-panel")
+                  : undefined
+              }
             />
           )}
-          {screen === "appliance-detail" &&
+          {homeAppliancesEnabled &&
+            screen === "appliance-detail" &&
             (() => {
               const panel = items.find(
                 (item): item is PanelObject =>
