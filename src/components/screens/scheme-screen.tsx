@@ -61,7 +61,12 @@ import {
 import { WireSpecSheet } from "@/components/ui/wire-spec-sheet";
 import { WaitlistSheet } from "@/components/ui/waitlist-sheet";
 import { Portal } from "@/components/ui/portal";
+import { SchemeOnboardingTour } from "@/components/ui/scheme-onboarding-tour";
 import { deviceTypeGuide } from "@/lib/panel-device-guide";
+import {
+  hasSeenSchemeTour,
+  markSchemeTourSeen,
+} from "@/lib/scheme-onboarding";
 import {
   manualSpecEditDisclaimer,
 } from "@/lib/device-spec-guide";
@@ -1604,6 +1609,8 @@ export function SchemeScreen({
   hasGround,
   railCount,
   canUseTerminals = false,
+  startOnboarding = false,
+  onOnboardingDone,
 }: {
   title?: string;
   panelId?: string | null;
@@ -1654,6 +1661,9 @@ export function SchemeScreen({
   railCount?: number;
   /** Masters can edit terminal wiring; user mode shows a waitlist sheet. */
   canUseTerminals?: boolean;
+  /** After photo analysis — run the section spotlight tour once. */
+  startOnboarding?: boolean;
+  onOnboardingDone?: () => void;
 }) {
   const devices = devicesProp ?? [];
   const wires = wiresProp ?? [];
@@ -1672,6 +1682,7 @@ export function SchemeScreen({
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [nameOnBackOpen, setNameOnBackOpen] = useState(false);
   const [saveSharedOpen, setSaveSharedOpen] = useState(false);
+  const [tourOpen, setTourOpen] = useState(false);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [safetyOpen, setSafetyOpen] = useState(false);
   const [safetyExplainOpen, setSafetyExplainOpen] = useState(false);
@@ -1711,6 +1722,25 @@ export function SchemeScreen({
   useEffect(() => {
     setIdentifyContext(loadIdentifyContext(panelId));
   }, [panelId]);
+
+  useEffect(() => {
+    if (!startOnboarding || sharedPreview) return;
+    if (hasSeenSchemeTour()) {
+      onOnboardingDone?.();
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      setTab("scheme");
+      setTourOpen(true);
+    }, 450);
+    return () => window.clearTimeout(timer);
+  }, [startOnboarding, sharedPreview, onOnboardingDone]);
+
+  const finishSchemeTour = useCallback(() => {
+    markSchemeTourSeen();
+    setTourOpen(false);
+    onOnboardingDone?.();
+  }, [onOnboardingDone]);
 
   const persistIdentifyContext = useCallback((context: IdentifyContext) => {
     setIdentifyContext(context);
@@ -2138,6 +2168,7 @@ export function SchemeScreen({
     <>
       <button
         type="button"
+        data-scheme-tour="network"
         onClick={() => {
           if (sharedPreview) return;
           setSafetyOpen(true);
@@ -2187,6 +2218,7 @@ export function SchemeScreen({
       </button>
       <button
         type="button"
+        data-scheme-tour="safety"
         onClick={() => setSafetyExplainOpen(true)}
         className="min-w-0 text-left transition-transform active:scale-[0.99] lg:cursor-pointer"
       >
@@ -2301,31 +2333,36 @@ export function SchemeScreen({
       </header>
 
       <div className="mb-3 flex items-center gap-2 px-5 lg:px-10">
-        <button
-          type="button"
-          onClick={() => setTab("scheme")}
-          className={cn(
-            "rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors",
-            tab === "scheme"
-              ? "bg-zinc-100 text-zinc-900"
-              : "text-zinc-500 hover:text-zinc-700",
-          )}
+        <div className="flex items-center gap-2" data-scheme-tour="tabs">
+          <button
+            type="button"
+            onClick={() => setTab("scheme")}
+            className={cn(
+              "rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors",
+              tab === "scheme"
+                ? "bg-zinc-100 text-zinc-900"
+                : "text-zinc-500 hover:text-zinc-700",
+            )}
+          >
+            Схема
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab("photo")}
+            className={cn(
+              "rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors",
+              tab === "photo"
+                ? "bg-zinc-100 text-zinc-900"
+                : "text-zinc-500 hover:text-zinc-700",
+            )}
+          >
+            Фото
+          </button>
+        </div>
+        <div
+          className="ml-auto flex items-center gap-2"
+          data-scheme-tour="terminals"
         >
-          Схема
-        </button>
-        <button
-          type="button"
-          onClick={() => setTab("photo")}
-          className={cn(
-            "rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors",
-            tab === "photo"
-              ? "bg-zinc-100 text-zinc-900"
-              : "text-zinc-500 hover:text-zinc-700",
-          )}
-        >
-          Фото
-        </button>
-        <div className="ml-auto flex items-center gap-2">
           <span
             className={cn(
               "text-[13px] font-medium transition-colors",
@@ -2411,6 +2448,7 @@ export function SchemeScreen({
           )}
           <div className={cn("overflow-x-auto", showTerminals && canUseTerminals && "overflow-y-visible")}>
             <GlassCard
+              data-scheme-tour="scheme"
               className={cn(
                 "w-max max-w-none overflow-visible p-4",
                 showTerminals && canUseTerminals && "overflow-visible",
@@ -2503,6 +2541,7 @@ export function SchemeScreen({
 
           <button
             type="button"
+            data-scheme-tour="stickers"
             onClick={openStickers}
             className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-[16px] border border-black/8 bg-white px-4 py-3 text-[14px] font-medium text-zinc-800 shadow-sm transition-colors hover:bg-zinc-50"
           >
@@ -2510,10 +2549,12 @@ export function SchemeScreen({
             Стикеры в щиток
           </button>
 
-          <PanelDeviceGuideSection
-            devices={allRailDevices}
-            onCallMaster={onCallMaster}
-          />
+          <div data-scheme-tour="guide">
+            <PanelDeviceGuideSection
+              devices={allRailDevices}
+              onCallMaster={onCallMaster}
+            />
+          </div>
         </div>
       ) : (
         <div className="px-5 pb-4 lg:min-w-0 lg:flex-1 lg:px-0">
@@ -2560,6 +2601,8 @@ export function SchemeScreen({
           />
         )}
       </AnimatePresence>
+
+      <SchemeOnboardingTour open={tourOpen} onClose={finishSchemeTour} />
 
       <AnimatePresence>
         {stickerBlockedOpen && (

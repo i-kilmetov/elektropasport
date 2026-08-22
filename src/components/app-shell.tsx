@@ -180,6 +180,7 @@ export function AppShell() {
   );
   const [activeRequestId, setActiveRequestId] = useState<string | null>(null);
   const [askNameOnBack, setAskNameOnBack] = useState(false);
+  const [schemeTourPending, setSchemeTourPending] = useState(false);
   const [sharedPreview, setSharedPreview] = useState<{
     panel: PanelObject;
     token: string;
@@ -613,6 +614,7 @@ export function AppShell() {
           result.railCount ?? deriveRailCount(result.devices),
         );
         hapticNotification("success");
+        setSchemeTourPending(true);
         setScreen("scheme");
         return;
       }
@@ -664,6 +666,7 @@ export function AppShell() {
       setLinesCount(result.linesCount);
       setRailCount(result.railCount ?? deriveRailCount(result.devices));
       hapticNotification("success");
+      setSchemeTourPending(true);
       setScreen("scheme");
       void refreshQuota();
     },
@@ -1650,6 +1653,8 @@ export function AppShell() {
                 Boolean(masterViewRequest) ||
                 ((isMaster || isAdmin) && masterMode)
               }
+              startOnboarding={schemeTourPending && !sharedPreview}
+              onOnboardingDone={() => setSchemeTourPending(false)}
             />
           )}
           {screen === "no-panel-options" && (
