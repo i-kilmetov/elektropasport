@@ -8,18 +8,20 @@ const SPLASH_MS = 3200;
 const REST = "ОКОМ";
 const LOGO_INK = "#111113";
 
-/** Decorative stripes above the T crossbar (local coords, upright). */
-function TStripes({
-  pulsing,
-  fill,
-}: {
-  pulsing: boolean;
-  fill: string;
-}) {
+const logoType = {
+  fontFamily: "var(--font-geologica)",
+  fontWeight: 500,
+  fontSize: "clamp(2.25rem, 9vw, 3.25rem)",
+  color: LOGO_INK,
+  lineHeight: 1,
+  letterSpacing: "-0.02em",
+} as const;
+
+function TStripes({ pulsing }: { pulsing: boolean }) {
   const pulse = pulsing
     ? {
         opacity: [0.28, 1, 0.28] as number[],
-        scaleX: [0.9, 1, 0.9] as number[],
+        scaleX: [0.88, 1, 0.88] as number[],
       }
     : { opacity: 1, scaleX: 1 };
 
@@ -32,55 +34,50 @@ function TStripes({
     : { duration: 0.2 };
 
   return (
-    <>
-      <motion.rect
-        x="5"
-        y="10"
-        width="22"
-        height="5"
-        rx="0.6"
-        fill={fill}
+    <span
+      aria-hidden
+      className="pointer-events-none absolute bottom-full left-1/2 mb-[0.07em] flex -translate-x-1/2 flex-col items-center gap-[0.13em]"
+    >
+      <motion.span
+        className="block h-[0.11em] min-h-[3px] w-[0.5em] rounded-full"
+        style={{ backgroundColor: LOGO_INK, transformOrigin: "center" }}
         animate={pulse}
         transition={{ ...transition, delay: pulsing ? 0.08 : 0 }}
-        style={{ transformOrigin: "16px 12.5px" }}
       />
-      <motion.rect
-        x="8"
-        y="3"
-        width="16"
-        height="4"
-        rx="0.6"
-        fill={fill}
+      <motion.span
+        className="block h-[0.11em] min-h-[3px] w-[0.72em] rounded-full"
+        style={{ backgroundColor: LOGO_INK, transformOrigin: "center" }}
         animate={pulse}
         transition={transition}
-        style={{ transformOrigin: "16px 5px" }}
       />
-    </>
+    </span>
   );
 }
 
-function LetterT({ pulsing, fill }: { pulsing: boolean; fill: string }) {
+function AnimatedT({ pulsing }: { pulsing: boolean }) {
   return (
-    <motion.svg
-      viewBox="0 0 32 34"
-      aria-hidden
-      className="h-[clamp(2.25rem,9vw,3.25rem)] w-auto shrink-0 overflow-visible"
-    >
-      <motion.g
-        initial={{ rotate: 180 }}
-        animate={{ rotate: [180, 180, 0] }}
-        transition={{
+    <motion.span
+      className="relative inline-block"
+      style={{ ...logoType, transformOrigin: "50% 100%" }}
+      initial={{ rotate: 180, opacity: 0, scale: 0.92 }}
+      animate={{
+        rotate: [180, 180, 0],
+        opacity: 1,
+        scale: 1,
+      }}
+      transition={{
+        rotate: {
           duration: 1.35,
           times: [0, 0.42, 1],
           ease: [0.22, 1, 0.36, 1],
-        }}
-        style={{ transformBox: "fill-box", transformOrigin: "center" }}
-      >
-        <rect x="12" y="19" width="8" height="15" rx="0.6" fill={fill} />
-        <rect x="1" y="19" width="30" height="7" rx="0.6" fill={fill} />
-        <TStripes pulsing={pulsing} fill={fill} />
-      </motion.g>
-    </motion.svg>
+        },
+        opacity: { duration: 0.35, ease: [0.22, 1, 0.36, 1] },
+        scale: { duration: 0.35, ease: [0.22, 1, 0.36, 1] },
+      }}
+    >
+      <TStripes pulsing={pulsing} />
+      Т
+    </motion.span>
   );
 }
 
@@ -107,41 +104,29 @@ export function BrandSplash({ onComplete }: { onComplete: () => void }) {
         delay: SPLASH_MS / 1000 - 0.45,
         ease: "easeOut",
       }}
-      aria-hidden
+      aria-label="Током"
     >
-      <div className="flex items-end gap-[0.06em] px-6">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.92 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-        >
-          <LetterT pulsing={stripesPulsing} fill={LOGO_INK} />
-        </motion.div>
+      <div
+        className="flex items-end whitespace-nowrap px-6"
+        style={logoType}
+      >
+        <AnimatedT pulsing={stripesPulsing} />
 
-        <div
-          className="flex items-end leading-none tracking-[-0.02em] [font-family:var(--font-geologica)]"
-          style={{
-            color: LOGO_INK,
-            fontSize: "clamp(2.25rem, 9vw, 3.25rem)",
-            fontWeight: 300,
-          }}
-        >
-          {REST.split("").map((letter, index) => (
-            <motion.span
-              key={`${letter}-${index}`}
-              className="inline-block"
-              initial={{ opacity: 0, y: 10, filter: "blur(6px)" }}
-              animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-              transition={{
-                delay: 1.28 + index * 0.11,
-                duration: 0.38,
-                ease: [0.22, 1, 0.36, 1],
-              }}
-            >
-              {letter}
-            </motion.span>
-          ))}
-        </div>
+        {REST.split("").map((letter, index) => (
+          <motion.span
+            key={`${letter}-${index}`}
+            className="inline-block"
+            initial={{ opacity: 0, y: 10, filter: "blur(6px)" }}
+            animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+            transition={{
+              delay: 1.28 + index * 0.11,
+              duration: 0.38,
+              ease: [0.22, 1, 0.36, 1],
+            }}
+          >
+            {letter}
+          </motion.span>
+        ))}
       </div>
     </motion.div>
   );
