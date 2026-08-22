@@ -38,7 +38,12 @@ const LOGIN_BUTTON_DELAY_MS = 420;
 const AUTH_LAYOUT_EXPAND_DELAY_MS = 520;
 /** Equal step between each card and before the login button. */
 const AUTH_REVEAL_STEP_MS = 480;
-const AUTH_REVEAL_START_MS = 180;
+const AUTH_REVEAL_START_MS = 300;
+const AUTH_LIFT_DURATION_S = 0.58;
+const AUTH_ITEM_MOTION = {
+  duration: 0.42,
+  ease: [0.22, 1, 0.36, 1] as const,
+};
 /** Equal gap: logo ↔ points ↔ login button. */
 const AUTH_SECTION_GAP = "gap-6";
 /** T stays upside-down for ~62% of the flip timeline. */
@@ -289,11 +294,11 @@ function AuthValuePoints({ revealedCount }: { revealedCount: number }) {
             key={point.id}
             className="flex min-h-[4.75rem] items-start gap-3 rounded-[18px] border border-[#111113]/10 bg-[#111113]/[0.05] px-3.5 py-3 text-left shadow-[0_10px_30px_rgba(17,17,19,0.06)]"
             initial={false}
-            animate={{ opacity: visible ? 1 : 0 }}
-            transition={{
-              duration: 0.42,
-              ease: [0.22, 1, 0.36, 1],
+            animate={{
+              opacity: visible ? 1 : 0,
+              y: visible ? 0 : 18,
             }}
+            transition={AUTH_ITEM_MOTION}
             aria-hidden={!visible}
           >
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#111113] text-[#D3DA00]">
@@ -432,13 +437,19 @@ export function BrandAuthIntro({
       }}
       aria-label="Током — вход"
     >
-      <div
-        className={cn(
-          "flex w-full justify-center",
-          layoutExpanded
-            ? "shrink-0 pt-[max(2.25rem,calc(env(safe-area-inset-top)+1.25rem))]"
-            : "min-h-0 flex-1 items-center",
-        )}
+      <motion.div
+        className="pointer-events-none absolute left-1/2 z-20 w-max max-w-[calc(100%-2.5rem)] -translate-x-1/2"
+        initial={false}
+        animate={{
+          top: layoutExpanded
+            ? "max(2.25rem, calc(env(safe-area-inset-top) + 1.25rem))"
+            : "50%",
+          y: layoutExpanded ? "0%" : "-50%",
+        }}
+        transition={{
+          duration: AUTH_LIFT_DURATION_S,
+          ease: AUTH_ITEM_MOTION.ease,
+        }}
       >
         <div className={layoutExpanded ? "pt-6" : undefined}>
           <BrandMark
@@ -448,7 +459,20 @@ export function BrandAuthIntro({
             restRevealed={animation.restRevealed}
           />
         </div>
-      </div>
+      </motion.div>
+
+      <motion.div
+        className="shrink-0"
+        initial={false}
+        animate={{
+          height: layoutExpanded ? "min(34vh, 15rem)" : "100%",
+        }}
+        transition={{
+          duration: AUTH_LIFT_DURATION_S,
+          ease: AUTH_ITEM_MOTION.ease,
+        }}
+        aria-hidden
+      />
 
       {layoutExpanded && (
         <>
@@ -458,32 +482,33 @@ export function BrandAuthIntro({
 
           <div className="w-full shrink-0 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
             <motion.div
+              className="min-h-[3.5rem]"
               initial={false}
-              animate={{ opacity: showFooter ? 1 : 0 }}
-              transition={{
-                duration: 0.42,
-                ease: [0.22, 1, 0.36, 1],
+              animate={{
+                opacity: showFooter ? 1 : 0,
+                y: showFooter ? 0 : 18,
               }}
+              transition={AUTH_ITEM_MOTION}
             >
-            <Button
-              asChild
-              className="mx-auto h-14 min-h-[3.5rem] w-full max-w-sm gap-2.5 rounded-full bg-[#111113] px-6 text-[16px] text-white hover:bg-zinc-800"
-              disabled={!showFooter || starting}
-            >
-              <a
-                href="/api/auth/telegram/start"
-                onClick={(event) => {
-                  if (!showFooter || starting) {
-                    event.preventDefault();
-                    return;
-                  }
-                  handleLogin();
-                }}
+              <Button
+                asChild
+                className="mx-auto h-14 min-h-[3.5rem] w-full max-w-sm gap-2.5 rounded-full bg-[#111113] px-6 text-[16px] text-white hover:bg-zinc-800"
+                disabled={!showFooter || starting}
               >
-                <TelegramAppIcon className="h-6 w-6 shrink-0 text-current" />
-                {starting ? "Открываем Telegram…" : "Войти через Telegram"}
-              </a>
-            </Button>
+                <a
+                  href="/api/auth/telegram/start"
+                  onClick={(event) => {
+                    if (!showFooter || starting) {
+                      event.preventDefault();
+                      return;
+                    }
+                    handleLogin();
+                  }}
+                >
+                  <TelegramAppIcon className="h-6 w-6 shrink-0 text-current" />
+                  {starting ? "Открываем Telegram…" : "Войти через Telegram"}
+                </a>
+              </Button>
             </motion.div>
           </div>
         </>
