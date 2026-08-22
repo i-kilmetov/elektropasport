@@ -12,11 +12,14 @@ const REVEAL_AT_MS = 900;
 const logoType = {
   fontFamily: "var(--font-geologica)",
   fontWeight: 500,
-  fontSize: "clamp(2.25rem, 9vw, 3.25rem)",
+  fontSize: "clamp(4.5rem, 18vw, 6.5rem)",
   color: LOGO_INK,
   lineHeight: 1,
   letterSpacing: "-0.02em",
 } as const;
+
+/** Equal vertical rhythm: T ↔ lower stripe ↔ upper stripe */
+const STRIPE_GAP = "0.045em";
 
 function TStripes({ pulsing }: { pulsing: boolean }) {
   const pulse = pulsing
@@ -37,16 +40,17 @@ function TStripes({ pulsing }: { pulsing: boolean }) {
   return (
     <span
       aria-hidden
-      className="pointer-events-none absolute bottom-full left-1/2 mb-[0.07em] flex -translate-x-1/2 flex-col items-center gap-[0.11em]"
+      className="pointer-events-none absolute bottom-full left-1/2 flex -translate-x-1/2 flex-col-reverse items-center"
+      style={{ gap: STRIPE_GAP, marginBottom: STRIPE_GAP }}
     >
       <motion.span
-        className="block h-[0.08em] min-h-[2px] w-[0.28em] max-w-[22px] rounded-full"
+        className="block h-[0.08em] min-h-[3px] w-[0.38em] max-w-[60px]"
         style={{ backgroundColor: LOGO_INK, transformOrigin: "center" }}
         animate={pulse}
         transition={{ ...transition, delay: pulsing ? 0.08 : 0 }}
       />
       <motion.span
-        className="block h-[0.08em] min-h-[2px] w-[0.38em] max-w-[30px] rounded-full"
+        className="block h-[0.08em] min-h-[3px] w-[0.28em] max-w-[44px]"
         style={{ backgroundColor: LOGO_INK, transformOrigin: "center" }}
         animate={pulse}
         transition={transition}
@@ -143,11 +147,11 @@ export function BrandSplash({ onComplete }: { onComplete: () => void }) {
             <motion.span
               key={`${letter}-${index}`}
               className="inline-block"
-              initial={{ opacity: 0, y: 8, filter: "blur(4px)" }}
+              initial={{ opacity: 0, y: 16, filter: "blur(8px)" }}
               animate={
                 restRevealed
                   ? { opacity: 1, y: 0, filter: "blur(0px)" }
-                  : { opacity: 0, y: 8, filter: "blur(4px)" }
+                  : { opacity: 0, y: 16, filter: "blur(8px)" }
               }
               transition={{
                 delay: restRevealed ? 0.16 + index * 0.07 : 0,
