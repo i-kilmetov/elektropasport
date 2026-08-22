@@ -126,6 +126,7 @@ import { installStatusLabels } from "@/types";
 import { BrandAuthIntro, BrandSplash } from "@/components/brand-splash";
 import { useHomeAppliancesEnabled } from "@/hooks/use-home-appliances-enabled";
 import { isTestAppHost } from "@/lib/app-env";
+import { TEST_SITE_INACTIVITY_MS } from "@/lib/test-site-auth";
 import { cn } from "@/lib/utils";
 
 function isTestAppClientHost(): boolean {
@@ -310,6 +311,42 @@ export function AppShell() {
       setScreen("telegram-auth");
     }
   }, [onboardingReady, screen]);
+
+  /** Clear test-site cookie after idle timeout on the staging host. */
+  useEffect(() => {
+    if (!isTestAppClientHost()) return;
+
+    let lastActivity = Date.now();
+    const touchActivity = () => {
+      lastActivity = Date.now();
+    };
+    const activityEvents = [
+      "mousemove",
+      "mousedown",
+      "keydown",
+      "touchstart",
+      "scroll",
+      "click",
+    ] as const;
+
+    for (const event of activityEvents) {
+      window.addEventListener(event, touchActivity, { passive: true });
+    }
+
+    const interval = window.setInterval(() => {
+      if (Date.now() - lastActivity < TEST_SITE_INACTIVITY_MS) return;
+      void fetch("/api/test-access", { method: "DELETE" }).finally(() => {
+        window.location.assign("/test-login");
+      });
+    }, 30_000);
+
+    return () => {
+      for (const event of activityEvents) {
+        window.removeEventListener(event, touchActivity);
+      }
+      window.clearInterval(interval);
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
