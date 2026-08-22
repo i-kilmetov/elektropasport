@@ -29,7 +29,7 @@ function isTestPublicPath(pathname: string): boolean {
  * test.tokom.ru uses the same deployment but gates access with an admin password
  * and enables unreleased home-appliances UI.
  */
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const host = request.headers.get("host")?.split(":")[0]?.toLowerCase();
   const pathname = request.nextUrl.pathname;
 
@@ -46,7 +46,7 @@ export function middleware(request: NextRequest) {
     }
 
     const cookie = request.cookies.get(TEST_SITE_COOKIE)?.value;
-    if (!verifyTestSiteCookie(cookie)) {
+    if (!(await verifyTestSiteCookie(cookie))) {
       const login = new URL("/test-login", request.url);
       if (pathname !== "/") {
         login.searchParams.set("next", `${pathname}${request.nextUrl.search}`);

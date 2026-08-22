@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Неверный пароль" }, { status: 401 });
   }
 
-  const token = signTestSiteCookie();
+  const token = await signTestSiteCookie();
   if (!token) {
     return NextResponse.json(
       { error: "TEST_SITE_PASSWORD не настроен на сервере" },
