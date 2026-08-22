@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
-import {
-  TEST_SITE_COOKIE,
-  signTestSiteCookie,
-  verifyTestSitePassword,
-} from "@/lib/test-site-auth";
+import { verifyTestSitePassword, testSitePasswordConfigured } from "@/lib/test-site-auth";
 
 export async function POST(request: Request) {
+  if (!testSitePasswordConfigured()) {
+    return NextResponse.json(
+      { error: "TEST_SITE_PASSWORD не настроен на сервере" },
+      { status: 503 },
+    );
+  }
+
   let password = "";
   try {
     const body = (await request.json()) as { password?: string };
@@ -18,20 +21,5 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Неверный пароль" }, { status: 401 });
   }
 
-  const token = await signTestSiteCookie();
-  if (!token) {
-    return NextResponse.json(
-      { error: "TEST_SITE_PASSWORD не настроен на сервере" },
-      { status: 503 },
-    );
-  }
-
-  const response = NextResponse.json({ ok: true });
-  response.cookies.set(TEST_SITE_COOKIE, token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-  });
-  return response;
+  return NextResponse.json({ ok: true });
 }

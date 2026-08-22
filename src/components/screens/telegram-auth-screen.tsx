@@ -64,9 +64,6 @@ export function TelegramAuthScreen({
       >
         <GlassCard className="w-full max-w-sm space-y-5 p-6 text-center">
           <BrandLogo className="mx-auto h-10" />
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-[#2AABEE] text-white shadow-[0_8px_24px_rgba(42,171,238,0.28)]">
-            <TelegramAppIcon className="h-8 w-8" />
-          </div>
           <div>
             <h2 className="text-[22px] font-bold tracking-tight text-zinc-900">
               Войдите через Telegram
@@ -77,8 +74,19 @@ export function TelegramAuthScreen({
             </p>
           </div>
 
-          <Button className="w-full" disabled={starting} onClick={handleLogin}>
-            {starting ? "Открываем Telegram…" : "Войти через Telegram"}
+          <Button
+            className="w-full gap-2"
+            disabled={starting}
+            onClick={handleLogin}
+          >
+            {starting ? (
+              "Открываем Telegram…"
+            ) : (
+              <>
+                <TelegramAppIcon className="h-5 w-5 text-current" />
+                Войти через Telegram
+              </>
+            )}
           </Button>
         </GlassCard>
       </div>

@@ -5,7 +5,13 @@ import { useRouter } from "next/navigation";
 import { BrandLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
 
-export function TestLoginForm({ next = "/" }: { next?: string }) {
+export function TestLoginForm({
+  next = "/",
+  onSuccess,
+}: {
+  next?: string;
+  onSuccess?: () => void;
+}) {
   const router = useRouter();
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -27,6 +33,10 @@ export function TestLoginForm({ next = "/" }: { next?: string }) {
           error?: string;
         } | null;
         setError(data?.error ?? "Неверный пароль");
+        return;
+      }
+      if (onSuccess) {
+        onSuccess();
         return;
       }
       router.replace(next);

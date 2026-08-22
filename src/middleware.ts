@@ -9,35 +9,14 @@ import {
   isTestAppWwwHost,
   TEST_APP_HOST,
 } from "@/lib/app-env";
-import {
-  TEST_SITE_COOKIE,
-  testSitePasswordConfigured,
-  verifyTestSiteCookie,
-} from "@/lib/test-site-auth";
-
-const TEST_PUBLIC_PREFIXES = [
-  "/",
-  "/test-login",
-  "/api/test-access",
-  "/api/auth/telegram",
-  "/api/telegram/webhook",
-  "/auth/telegram/callback",
-];
-
-function isTestPublicPath(pathname: string): boolean {
-  return TEST_PUBLIC_PREFIXES.some(
-    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
-  );
-}
 
 /**
  * elektropasport.vercel.app and tokom.ru are the same deployment + same DB.
- * test.tokom.ru uses the same deployment but gates access with an admin password
- * and enables unreleased home-appliances UI.
+ * test.tokom.ru uses the same deployment but gates access in the client
+ * (password on every refresh + 10 min idle timeout).
  */
-export async function middleware(request: NextRequest) {
+export function middleware(request: NextRequest) {
   const host = request.headers.get("host")?.split(":")[0]?.toLowerCase();
-  const pathname = request.nextUrl.pathname;
 
   if (isTestAppWwwHost(host)) {
     const canonical = new URL(request.url);
@@ -46,27 +25,6 @@ export async function middleware(request: NextRequest) {
   }
 
   if (isTestAppHost(host)) {
-    if (isTestPublicPath(pathname)) {
-      return NextResponse.next();
-    }
-
-    if (!testSitePasswordConfigured()) {
-      return new NextResponse(
-        "TEST_SITE_PASSWORD is not configured for test.tokom.ru",
-        { status: 503 },
-      );
-    }
-
-    const cookie = request.cookies.get(TEST_SITE_COOKIE)?.value;
-    if (!(await verifyTestSiteCookie(cookie))) {
-      if (pathname === "/" || pathname === "/test-login") {
-        return NextResponse.next();
-      }
-      const login = new URL("/", request.url);
-      login.hostname = TEST_APP_HOST;
-      return NextResponse.redirect(login);
-    }
-
     return NextResponse.next();
   }
 
