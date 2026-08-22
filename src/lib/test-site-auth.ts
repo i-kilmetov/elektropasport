@@ -1,13 +1,12 @@
-export const TEST_SITE_COOKIE = "test-site-auth";
+export const TEST_SITE_COOKIE = "test-site-auth-v2";
 const TEST_SITE_COOKIE_VALUE = "ok";
 
 function authSecret(): string | null {
-  const secret =
+  return (
     process.env.TEST_SITE_PASSWORD?.trim() ||
     process.env.TELEGRAM_SETUP_KEY?.trim() ||
-    process.env.AUTH_SECRET?.trim() ||
-    process.env.BOT_TOKEN?.trim();
-  return secret || null;
+    null
+  );
 }
 
 export function testSitePasswordConfigured(): boolean {

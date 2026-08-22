@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import TestLoginForm from "./test-login-form";
+import { TestLoginRedirectForm } from "./test-login-redirect-form";
 
 export default function TestLoginPage() {
   return (
@@ -10,7 +10,7 @@ export default function TestLoginPage() {
         </main>
       }
     >
-      <TestLoginForm />
+      <TestLoginRedirectForm />
     </Suspense>
   );
 }

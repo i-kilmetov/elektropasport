@@ -1446,11 +1446,16 @@ export function AppShell() {
             <TelegramAuthScreen
               key="telegram-auth"
               pendingAction={pendingAuthAction ?? undefined}
-              onBack={() => {
-                setPendingAuthAction(null);
-                sessionStorage.removeItem("ep_pending_auth_action");
-                go(canUseServerAuth() ? "objects" : "welcome");
-              }}
+              minimal={isTestAppClientHost()}
+              onBack={
+                isTestAppClientHost()
+                  ? undefined
+                  : () => {
+                      setPendingAuthAction(null);
+                      sessionStorage.removeItem("ep_pending_auth_action");
+                      go(canUseServerAuth() ? "objects" : "welcome");
+                    }
+              }
             />
           )}
           {screen === "photo" && (

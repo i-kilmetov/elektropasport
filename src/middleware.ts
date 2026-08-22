@@ -16,8 +16,10 @@ import {
 } from "@/lib/test-site-auth";
 
 const TEST_PUBLIC_PREFIXES = [
+  "/",
   "/test-login",
   "/api/test-access",
+  "/api/auth/telegram",
   "/api/telegram/webhook",
   "/auth/telegram/callback",
 ];
@@ -57,11 +59,11 @@ export async function middleware(request: NextRequest) {
 
     const cookie = request.cookies.get(TEST_SITE_COOKIE)?.value;
     if (!(await verifyTestSiteCookie(cookie))) {
-      const login = new URL("/test-login", request.url);
-      login.hostname = TEST_APP_HOST;
-      if (pathname !== "/") {
-        login.searchParams.set("next", `${pathname}${request.nextUrl.search}`);
+      if (pathname === "/" || pathname === "/test-login") {
+        return NextResponse.next();
       }
+      const login = new URL("/", request.url);
+      login.hostname = TEST_APP_HOST;
       return NextResponse.redirect(login);
     }
 
