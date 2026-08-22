@@ -1,9 +1,10 @@
 "use client";
 
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import {
   getManufacturerBrand,
+  getManufacturerPalette,
   resolveBrandKey,
   type ManufacturerBrandKey,
 } from "@/lib/manufacturer-brands";
@@ -220,6 +221,142 @@ function BrandLogo({ brandKey }: { brandKey: ManufacturerBrandKey }) {
     default:
       return null;
   }
+}
+
+const UPPERCASE_SERIES_KEYS = new Set<ManufacturerBrandKey>([
+  "abb",
+  "iek",
+  "ekf",
+  "keaz",
+  "tdm",
+  "zubr",
+  "dekraft",
+  "chint",
+  "hager",
+]);
+
+function seriesTypographyStyle(
+  brandKey: ManufacturerBrandKey | null,
+  accent: string,
+): CSSProperties {
+  const uppercase = brandKey && UPPERCASE_SERIES_KEYS.has(brandKey);
+
+  switch (brandKey) {
+    case "abb":
+    case "hager":
+    case "iek":
+      return {
+        color: accent,
+        fontSize: "8px",
+        fontWeight: 800,
+        letterSpacing: "0.05em",
+        lineHeight: 1.05,
+        textTransform: "uppercase",
+        fontFamily:
+          'ui-sans-serif, system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif',
+      };
+    case "schneider":
+    case "systeme":
+      return {
+        color: accent,
+        fontSize: "7.5px",
+        fontWeight: 700,
+        letterSpacing: "0.01em",
+        lineHeight: 1.05,
+        fontFamily:
+          'ui-sans-serif, system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif',
+      };
+    case "legrand":
+      return {
+        color: accent,
+        fontSize: "8px",
+        fontWeight: 700,
+        letterSpacing: "0.03em",
+        lineHeight: 1.05,
+        fontFamily: 'Georgia, "Times New Roman", serif',
+      };
+    case "chint":
+    case "keaz":
+    case "dekraft":
+      return {
+        color: accent,
+        fontSize: "7.5px",
+        fontWeight: 800,
+        letterSpacing: "0.04em",
+        lineHeight: 1.05,
+        textTransform: "uppercase",
+        fontFamily:
+          'ui-sans-serif, system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif',
+      };
+    case "ekf":
+    case "tdm":
+    case "zubr":
+      return {
+        color: accent,
+        fontSize: "8px",
+        fontWeight: 800,
+        letterSpacing: "0.06em",
+        lineHeight: 1.05,
+        textTransform: "uppercase",
+        fontFamily:
+          'ui-sans-serif, system-ui, -apple-system, "Arial Narrow", Arial, sans-serif',
+      };
+    case "meander":
+    case "novatek":
+    case "digitop":
+    case "navigator":
+    case "kontaktor":
+      return {
+        color: accent,
+        fontSize: "7.5px",
+        fontWeight: 700,
+        letterSpacing: "0.02em",
+        lineHeight: 1.05,
+        fontFamily:
+          'ui-sans-serif, system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif',
+      };
+    default:
+      return {
+        color: accent,
+        fontSize: "7.5px",
+        fontWeight: 800,
+        letterSpacing: uppercase ? "0.04em" : "0.01em",
+        lineHeight: 1.05,
+        textTransform: uppercase ? "uppercase" : undefined,
+        fontFamily:
+          'ui-sans-serif, system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif',
+      };
+  }
+}
+
+/** Series name styled in the manufacturer accent, mimicking logo typography. */
+export function SeriesMark({
+  series,
+  brandKey,
+  brand,
+  className,
+}: {
+  series?: string;
+  brandKey?: string;
+  brand?: string;
+  className?: string;
+}) {
+  const label = series?.trim();
+  if (!label) return null;
+
+  const key = resolveBrandKey(brandKey, brand);
+  const palette = getManufacturerPalette(brandKey, brand);
+  const meta = getManufacturerBrand(brandKey, brand);
+
+  return (
+    <span
+      title={meta ? `${meta.label} · ${label}` : label}
+      className={cn("block max-w-full truncate leading-none", className)}
+      style={seriesTypographyStyle(key ?? null, palette.accent)}
+    >
+      {label}
+    </span>
+  );
 }
 
 export function BrandMark({

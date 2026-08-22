@@ -226,17 +226,52 @@ function BreakerLevers({
 
 function TestButton({ powered }: { powered: boolean }) {
   return (
-    <div className="flex w-full justify-center px-[2px]" aria-hidden>
-      <span
-        className={cn(
-          "flex h-[16px] w-full items-center justify-center rounded-[3px] text-[8px] font-extrabold tracking-wide",
-          powered
-            ? "bg-amber-400 text-amber-950"
-            : "bg-zinc-200 text-zinc-400",
-        )}
+    <span
+      className={cn(
+        "flex h-[15px] w-[15px] shrink-0 items-center justify-center rounded-full text-[4.5px] font-extrabold leading-none tracking-tight",
+        powered
+          ? "bg-amber-400 text-amber-950"
+          : "bg-zinc-200 text-zinc-400",
+      )}
+      aria-hidden
+    >
+      T
+    </span>
+  );
+}
+
+function RcdDiffFace({
+  modules,
+  powered,
+  accent,
+}: {
+  modules: number;
+  powered: boolean;
+  accent: string;
+}) {
+  if (modules <= 1) {
+    return (
+      <div className="flex w-full flex-col items-center gap-1.5">
+        <FlatLever powered={powered} accent={accent} wide />
+        <TestButton powered={powered} />
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="grid w-full flex-1 items-center px-[1px]"
+      style={{ gridTemplateColumns: `repeat(${modules}, minmax(0, 1fr))` }}
+    >
+      <div
+        className="flex h-full min-w-0 items-center justify-center"
+        style={{ gridColumn: `1 / ${modules}` }}
       >
-        TEST
-      </span>
+        <FlatLever powered={powered} accent={accent} wide />
+      </div>
+      <div className="flex h-full items-center justify-center">
+        <TestButton powered={powered} />
+      </div>
     </div>
   );
 }
@@ -335,10 +370,7 @@ function DeviceFunction({
   }
   if (resolvedType === "rcd" || resolvedType === "diff_breaker") {
     return (
-      <div className="flex w-full flex-col gap-1.5">
-        <FlatLever powered={powered} accent={accent} wide />
-        <TestButton powered={powered} />
-      </div>
+      <RcdDiffFace modules={modules} powered={powered} accent={accent} />
     );
   }
   return (
@@ -468,8 +500,8 @@ export function DeviceFaceStatic({
       >
         {showDetails && brand && (
           <div
-            className="mb-1 overflow-hidden"
-            style={{ maxWidth: MODULE_PX - 4 }}
+            className="mb-1 min-h-[10px] overflow-hidden"
+            style={{ maxWidth: width - 6 }}
           >
             {brand}
           </div>

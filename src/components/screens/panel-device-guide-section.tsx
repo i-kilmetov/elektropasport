@@ -3,7 +3,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Check, ChevronDown } from "lucide-react";
-import { BrandMark } from "@/components/icons/brand-mark";
+import { SeriesMark } from "@/components/icons/brand-mark";
 import { DeviceMiniPreview } from "@/components/icons/device-face";
 import { GlassCard } from "@/components/ui/glass-card";
 import { DeviceSpecGuideSheet } from "@/components/screens/device-spec-guide-sheet";
@@ -30,8 +30,9 @@ function PreviewWithCount({
         scale={0.36}
         showDetails={confident}
         brand={
-          confident && device.manufacturer ? (
-            <BrandMark
+          confident && device.series ? (
+            <SeriesMark
+              series={device.series}
               brandKey={device.brandKey}
               brand={device.manufacturer}
             />

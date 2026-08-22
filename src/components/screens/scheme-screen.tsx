@@ -24,7 +24,7 @@ import {
   Zap,
   X,
 } from "lucide-react";
-import { BrandMark } from "@/components/icons/brand-mark";
+import { SeriesMark } from "@/components/icons/brand-mark";
 import { IosShareIcon } from "@/components/icons/ios-share-icon";
 import { StickerBadgeIcon } from "@/components/icons/sticker-badge";
 import {
@@ -196,7 +196,11 @@ function DeviceBlock({
           onTerminalPointerDown={onTerminalPointerDown}
           brand={
             confident ? (
-              <BrandMark brandKey={device.brandKey} brand={device.manufacturer} />
+              <SeriesMark
+                series={device.series}
+                brandKey={device.brandKey}
+                brand={device.manufacturer}
+              />
             ) : undefined
           }
         />

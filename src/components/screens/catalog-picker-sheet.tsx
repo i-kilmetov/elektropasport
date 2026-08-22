@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { SlidersHorizontal, X } from "lucide-react";
-import { BrandMark } from "@/components/icons/brand-mark";
+import { SeriesMark } from "@/components/icons/brand-mark";
 import { DeviceMiniPreview } from "@/components/icons/device-face";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
@@ -202,7 +202,8 @@ export function CatalogPickerSheet({
                             device={preview}
                             scale={0.34}
                             brand={
-                              <BrandMark
+                              <SeriesMark
+                                series={product.series}
                                 brandKey={product.brandKey}
                                 brand={product.brand}
                               />
