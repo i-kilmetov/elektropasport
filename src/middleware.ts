@@ -4,7 +4,11 @@ import {
   LEGACY_VERCEL_HOST,
   PRODUCTION_APP_URL,
 } from "@/lib/app-url";
-import { isTestAppHost } from "@/lib/app-env";
+import {
+  isTestAppHost,
+  isTestAppWwwHost,
+  TEST_APP_HOST,
+} from "@/lib/app-env";
 import {
   TEST_SITE_COOKIE,
   testSitePasswordConfigured,
@@ -33,6 +37,12 @@ export async function middleware(request: NextRequest) {
   const host = request.headers.get("host")?.split(":")[0]?.toLowerCase();
   const pathname = request.nextUrl.pathname;
 
+  if (isTestAppWwwHost(host)) {
+    const canonical = new URL(request.url);
+    canonical.hostname = TEST_APP_HOST;
+    return NextResponse.redirect(canonical, 308);
+  }
+
   if (isTestAppHost(host)) {
     if (isTestPublicPath(pathname)) {
       return NextResponse.next();
@@ -48,6 +58,7 @@ export async function middleware(request: NextRequest) {
     const cookie = request.cookies.get(TEST_SITE_COOKIE)?.value;
     if (!(await verifyTestSiteCookie(cookie))) {
       const login = new URL("/test-login", request.url);
+      login.hostname = TEST_APP_HOST;
       if (pathname !== "/") {
         login.searchParams.set("next", `${pathname}${request.nextUrl.search}`);
       }

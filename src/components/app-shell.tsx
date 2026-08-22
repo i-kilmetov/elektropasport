@@ -115,7 +115,14 @@ import type {
 import { installStatusLabels } from "@/types";
 import { BrandSplash } from "@/components/brand-splash";
 import { useHomeAppliancesEnabled } from "@/hooks/use-home-appliances-enabled";
+import { isTestAppHost } from "@/lib/app-env";
 import { cn } from "@/lib/utils";
+
+function isTestAppClientHost(): boolean {
+  return (
+    typeof window !== "undefined" && isTestAppHost(window.location.hostname)
+  );
+}
 
 function panelRailCount(
   panel: Pick<PanelObject, "railCount" | "devices"> | null | undefined,
@@ -139,9 +146,11 @@ function clearSkipOnboarding() {
 
 export function AppShell() {
   const homeAppliancesEnabled = useHomeAppliancesEnabled();
-  const [screen, setScreen] = useState<AppScreen>("welcome");
+  const [screen, setScreen] = useState<AppScreen>(() =>
+    isTestAppClientHost() ? "telegram-auth" : "welcome",
+  );
   const [onboardingReady, setOnboardingReady] = useState(false);
-  const [splashDone, setSplashDone] = useState(false);
+  const [splashDone, setSplashDone] = useState(isTestAppClientHost);
   const [items, setItems] = useState<HomeListItem[]>(() => getCachedHomeItems());
   const [itemsLoading, setItemsLoading] = useState(
     () => getCachedHomeItems().length === 0,
@@ -260,9 +269,15 @@ export function AppShell() {
       } catch {
         // ignore
       }
-      // Unauthenticated visitors always start on onboarding cards.
-      clearSkipOnboarding();
-      setScreen("welcome");
+      if (isTestAppClientHost()) {
+        setScreen("telegram-auth");
+      } else {
+        // Unauthenticated visitors always start on onboarding cards.
+        clearSkipOnboarding();
+        setScreen("welcome");
+      }
+    } else if (isTestAppClientHost()) {
+      setScreen("telegram-auth");
     } else {
       clearSkipOnboarding();
       setScreen("welcome");
@@ -274,9 +289,11 @@ export function AppShell() {
   useEffect(() => {
     if (!onboardingReady) return;
     if (canUseServerAuth() || isTelegramMiniApp()) return;
-    const allowed: AppScreen[] = ["welcome", "telegram-auth"];
+    const allowed: AppScreen[] = isTestAppClientHost()
+      ? ["telegram-auth"]
+      : ["welcome", "telegram-auth"];
     if (!allowed.includes(screen)) {
-      setScreen("welcome");
+      setScreen(isTestAppClientHost() ? "telegram-auth" : "welcome");
     }
   }, [onboardingReady, screen]);
 
