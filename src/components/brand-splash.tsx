@@ -18,8 +18,10 @@ const logoType = {
   letterSpacing: "-0.02em",
 } as const;
 
-/** Equal vertical rhythm: upper stripe ↔ lower stripe ↔ T */
-const STRIPE_GAP = "0.022em";
+/** Gap between the two stripes */
+const STRIPE_STRIPE_GAP = "0.024em";
+/** Tight gap from lower stripe to the T crossbar */
+const STRIPE_T_GAP = "0.004em";
 
 function AnimatedT({ pulsing }: { pulsing: boolean }) {
   const pulse = pulsing
@@ -42,7 +44,6 @@ function AnimatedT({ pulsing }: { pulsing: boolean }) {
       className="inline-flex shrink-0 flex-col items-center"
       style={{
         ...logoType,
-        gap: STRIPE_GAP,
         transformOrigin: "center center",
       }}
       initial={{ rotate: 180, opacity: 0, scale: 0.92 }}
@@ -61,21 +62,28 @@ function AnimatedT({ pulsing }: { pulsing: boolean }) {
         scale: { duration: 0.35, ease: [0.22, 1, 0.36, 1] },
       }}
     >
-      <motion.span
-        aria-hidden
-        className="block h-[0.08em] min-h-[3px] w-[0.28em] max-w-[44px]"
-        style={{ backgroundColor: LOGO_INK, transformOrigin: "center" }}
-        animate={pulse}
-        transition={transition}
-      />
-      <motion.span
-        aria-hidden
-        className="block h-[0.08em] min-h-[3px] w-[0.38em] max-w-[60px]"
-        style={{ backgroundColor: LOGO_INK, transformOrigin: "center" }}
-        animate={pulse}
-        transition={{ ...transition, delay: pulsing ? 0.08 : 0 }}
-      />
-      <span className="leading-none">Т</span>
+      <span
+        className="flex flex-col items-center"
+        style={{ gap: STRIPE_STRIPE_GAP }}
+      >
+        <motion.span
+          aria-hidden
+          className="block h-[0.08em] min-h-[3px] w-[0.28em] max-w-[44px]"
+          style={{ backgroundColor: LOGO_INK, transformOrigin: "center" }}
+          animate={pulse}
+          transition={transition}
+        />
+        <motion.span
+          aria-hidden
+          className="block h-[0.08em] min-h-[3px] w-[0.38em] max-w-[60px]"
+          style={{ backgroundColor: LOGO_INK, transformOrigin: "center" }}
+          animate={pulse}
+          transition={{ ...transition, delay: pulsing ? 0.08 : 0 }}
+        />
+      </span>
+      <span className="leading-none" style={{ marginTop: STRIPE_T_GAP }}>
+        Т
+      </span>
     </motion.span>
   );
 }
