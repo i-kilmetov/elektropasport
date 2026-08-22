@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { BRAND_YELLOW } from "@/components/brand-logo";
 import { TelegramAppIcon } from "@/components/icons/telegram-app-icon";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import {
   LOGO_FONT_WEIGHT,
   LOGO_INK,
@@ -31,6 +32,8 @@ const REVEAL_AT_MS = 1750;
 /** OKOM width (0.9s) finishes ~2650ms; show tagline after full wordmark. */
 const TAGLINE_AT_MS = 2750;
 const LOGIN_BUTTON_DELAY_MS = 420;
+/** After tagline — shift logo up and reveal value props layout. */
+const AUTH_LAYOUT_EXPAND_DELAY_MS = 520;
 /** T stays upside-down for ~62% of the flip timeline. */
 const T_ROTATE_DURATION_S = 2;
 const T_INVERTED_HOLD_FRACTION = 0.62;
@@ -231,23 +234,36 @@ function useLogoAnimation(bootReady = true) {
   };
 }
 
-function useLogoWidth(active: boolean) {
-  const logoRef = useRef<HTMLDivElement>(null);
-  const [logoWidth, setLogoWidth] = useState<number | null>(null);
+const AUTH_VALUE_POINTS = [
+  "быстрая диагностика по фото",
+  "рассказываем доступным языком",
+  "помощь в электрике",
+] as const;
 
-  useEffect(() => {
-    const node = logoRef.current;
-    if (!node) return;
-
-    const update = () => setLogoWidth(node.offsetWidth);
-    update();
-
-    const observer = new ResizeObserver(update);
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [active]);
-
-  return { logoRef, logoWidth };
+function AuthValuePoints({ visible }: { visible: boolean }) {
+  return (
+    <ul className="w-full max-w-sm space-y-5">
+      {AUTH_VALUE_POINTS.map((point, index) => (
+        <motion.li
+          key={point}
+          className="flex items-start gap-3.5 text-left text-[17px] leading-snug font-medium text-[#111113]"
+          initial={{ opacity: 0, x: -14 }}
+          animate={visible ? { opacity: 1, x: 0 } : { opacity: 0, x: -14 }}
+          transition={{
+            delay: visible ? 0.12 + index * 0.1 : 0,
+            duration: 0.42,
+            ease: [0.22, 1, 0.36, 1],
+          }}
+        >
+          <span
+            aria-hidden
+            className="mt-[0.55rem] h-1.5 w-1.5 shrink-0 rounded-full bg-[#111113]"
+          />
+          {point}
+        </motion.li>
+      ))}
+    </ul>
+  );
 }
 
 export function BrandSplash({
@@ -314,65 +330,104 @@ export function BrandAuthIntro({
   bootReady?: boolean;
 }) {
   const animation = useLogoAnimation(bootReady);
-  const { logoRef, logoWidth } = useLogoWidth(animation.restRevealed);
+  const [layoutExpanded, setLayoutExpanded] = useState(false);
   const [starting, setStarting] = useState(false);
+
+  useEffect(() => {
+    if (!animation.taglineVisible) {
+      setLayoutExpanded(false);
+      return;
+    }
+
+    const expand = window.setTimeout(
+      () => setLayoutExpanded(true),
+      AUTH_LAYOUT_EXPAND_DELAY_MS,
+    );
+    return () => window.clearTimeout(expand);
+  }, [animation.taglineVisible]);
 
   const handleLogin = () => {
     setStarting(true);
     onLogin();
   };
 
+  const showFooter = layoutExpanded && animation.loginVisible;
+
   return (
     <div
-      className="fixed inset-0 z-[200] flex flex-col"
+      className="fixed inset-0 z-[200] flex flex-col px-5"
       style={{ backgroundColor: BRAND_YELLOW }}
       aria-label="Током — вход"
     >
-      <div className="flex flex-1 flex-col items-center justify-center px-5">
-        <div ref={logoRef}>
+      <motion.div
+        layout
+        className={cn(
+          "flex w-full justify-center",
+          layoutExpanded
+            ? "shrink-0 pt-[max(1.25rem,env(safe-area-inset-top))]"
+            : "min-h-0 flex-1 items-center",
+        )}
+        transition={{ duration: 0.58, ease: [0.22, 1, 0.36, 1] }}
+      >
+        <motion.div
+          animate={{ scale: layoutExpanded ? 0.5 : 1 }}
+          transition={{ duration: 0.58, ease: [0.22, 1, 0.36, 1] }}
+        >
           <BrandMark
             tagline={BOOT_TAGLINE}
             taglineVisible={animation.taglineVisible}
             stripesPulsing={animation.stripesPulsing}
             restRevealed={animation.restRevealed}
           />
-        </div>
-
-        <motion.div
-          className="mt-8"
-          style={{ width: logoWidth ?? undefined }}
-          initial={{ opacity: 0, y: 12 }}
-          animate={
-            animation.loginVisible
-              ? { opacity: 1, y: 0 }
-              : { opacity: 0, y: 12 }
-          }
-          transition={{
-            duration: 0.38,
-            ease: [0.22, 1, 0.36, 1],
-          }}
-        >
-          <Button
-            asChild
-            className="h-14 min-h-[3.5rem] w-full gap-2.5 rounded-full bg-[#111113] px-6 text-[16px] text-white hover:bg-zinc-800"
-            disabled={!animation.loginVisible || starting}
-          >
-            <a
-              href="/api/auth/telegram/start"
-              onClick={(event) => {
-                if (!animation.loginVisible || starting) {
-                  event.preventDefault();
-                  return;
-                }
-                handleLogin();
-              }}
-            >
-              <TelegramAppIcon className="h-6 w-6 shrink-0 text-current" />
-              {starting ? "Открываем Telegram…" : "Войти через Telegram"}
-            </a>
-          </Button>
         </motion.div>
-      </div>
+      </motion.div>
+
+      <motion.div
+        className={cn(
+          "flex min-h-0 flex-col items-center justify-center overflow-hidden",
+          layoutExpanded ? "flex-1 py-6" : "h-0 flex-none py-0",
+        )}
+        initial={false}
+        animate={{
+          opacity: layoutExpanded ? 1 : 0,
+          y: layoutExpanded ? 0 : 12,
+        }}
+        transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+        aria-hidden={!layoutExpanded}
+      >
+        <AuthValuePoints visible={layoutExpanded} />
+      </motion.div>
+
+      <motion.div
+        className="w-full shrink-0 overflow-hidden pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-2"
+        initial={false}
+        animate={{
+          opacity: showFooter ? 1 : 0,
+          y: showFooter ? 0 : 16,
+          maxHeight: showFooter ? 120 : 0,
+        }}
+        transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
+      >
+        <Button
+          asChild
+          className="mx-auto h-14 min-h-[3.5rem] w-full max-w-sm gap-2.5 rounded-full bg-[#111113] px-6 text-[16px] text-white hover:bg-zinc-800"
+          disabled={!showFooter || starting}
+        >
+          <a
+            href="/api/auth/telegram/start"
+            onClick={(event) => {
+              if (!showFooter || starting) {
+                event.preventDefault();
+                return;
+              }
+              handleLogin();
+            }}
+          >
+            <TelegramAppIcon className="h-6 w-6 shrink-0 text-current" />
+            {starting ? "Открываем Telegram…" : "Войти через Telegram"}
+          </a>
+        </Button>
+      </motion.div>
     </div>
   );
 }
