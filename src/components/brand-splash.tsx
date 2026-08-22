@@ -44,8 +44,11 @@ const AUTH_ITEM_MOTION = {
   duration: 0.42,
   ease: [0.22, 1, 0.36, 1] as const,
 };
-/** Equal gap: logo ↔ points ↔ login button. */
-const AUTH_SECTION_GAP = "gap-6";
+/** Equal gap: logo ↔ points ↔ login button (scales down on short screens). */
+const AUTH_SECTION_GAP =
+  "gap-[clamp(0.625rem,min(1.75vh,2vw),1.5rem)]";
+/** Top slot under lifted logo — keep close to real logo height so cards get room. */
+const AUTH_TOP_SLOT_HEIGHT = "clamp(8.75rem, min(24vh, 28vw), 11.5rem)";
 /** T stays upside-down for ~62% of the flip timeline. */
 const T_ROTATE_DURATION_S = 2;
 const T_INVERTED_HOLD_FRACTION = 0.62;
@@ -284,7 +287,7 @@ const AUTH_VALUE_POINTS = [
 
 function AuthValuePoints({ revealedCount }: { revealedCount: number }) {
   return (
-    <ul className="w-full max-w-md space-y-2.5">
+    <ul className="mx-auto w-full max-w-md space-y-[clamp(0.375rem,min(1.1vh,1.5vw),0.625rem)]">
       {AUTH_VALUE_POINTS.map((point, index) => {
         const Icon = point.icon;
         const visible = index < revealedCount;
@@ -292,7 +295,7 @@ function AuthValuePoints({ revealedCount }: { revealedCount: number }) {
         return (
           <motion.li
             key={point.id}
-            className="flex min-h-[4.75rem] items-start gap-3 rounded-[18px] border border-[#111113]/10 bg-[#111113]/[0.05] px-3.5 py-3 text-left shadow-[0_10px_30px_rgba(17,17,19,0.06)]"
+            className="flex min-h-[clamp(3.5rem,11vh,4.5rem)] items-start gap-[clamp(0.625rem,1.5vw,0.75rem)] rounded-[clamp(14px,3vw,18px)] border border-[#111113]/10 bg-[#111113]/[0.05] px-[clamp(0.75rem,2vw,0.875rem)] py-[clamp(0.5rem,min(1.2vh,1.5vw),0.75rem)] text-left shadow-[0_10px_30px_rgba(17,17,19,0.06)]"
             initial={false}
             animate={{
               opacity: visible ? 1 : 0,
@@ -301,14 +304,14 @@ function AuthValuePoints({ revealedCount }: { revealedCount: number }) {
             transition={AUTH_ITEM_MOTION}
             aria-hidden={!visible}
           >
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#111113] text-[#D3DA00]">
-              <Icon className="h-5 w-5" strokeWidth={2.1} />
+            <span className="flex h-[clamp(2.25rem,6.5vh,2.5rem)] w-[clamp(2.25rem,6.5vh,2.5rem)] shrink-0 items-center justify-center rounded-full bg-[#111113] text-[#D3DA00]">
+              <Icon className="h-[clamp(1.125rem,3vh,1.25rem)] w-[clamp(1.125rem,3vh,1.25rem)]" strokeWidth={2.1} />
             </span>
             <span className="min-w-0 pt-0.5">
-              <span className="block text-[16px] leading-snug font-semibold text-[#111113]">
+              <span className="block text-[clamp(14px,min(3.6vw,3.8vh),16px)] leading-snug font-semibold text-[#111113]">
                 {point.title}
               </span>
-              <span className="mt-1 block text-[14px] leading-relaxed text-[#111113]/72">
+              <span className="mt-0.5 block text-[clamp(12px,min(3.2vw,3.4vh),14px)] leading-snug text-[#111113]/72 max-h-[720px]:leading-tight">
                 {point.text}
               </span>
             </span>
@@ -428,8 +431,10 @@ export function BrandAuthIntro({
   return (
     <div
       className={cn(
-        "fixed inset-0 z-[200] flex flex-col overflow-hidden px-5",
-        layoutExpanded && AUTH_SECTION_GAP,
+        "fixed inset-0 z-[200] flex flex-col px-5",
+        layoutExpanded
+          ? cn("grid min-h-0 grid-rows-[auto_minmax(0,1fr)_auto]", AUTH_SECTION_GAP)
+          : "overflow-hidden",
       )}
       style={{
         backgroundColor: BRAND_YELLOW,
@@ -442,7 +447,7 @@ export function BrandAuthIntro({
         initial={false}
         animate={{
           top: layoutExpanded
-            ? "max(2.25rem, calc(env(safe-area-inset-top) + 1.25rem))"
+            ? "max(1.5rem, calc(env(safe-area-inset-top) + 0.75rem))"
             : "50%",
           y: layoutExpanded ? "0%" : "-50%",
         }}
@@ -451,7 +456,13 @@ export function BrandAuthIntro({
           ease: AUTH_ITEM_MOTION.ease,
         }}
       >
-        <div className={layoutExpanded ? "pt-6" : undefined}>
+        <div
+          className={
+            layoutExpanded
+              ? "pt-[clamp(0.75rem,min(2vh,2vw),1.5rem)]"
+              : undefined
+          }
+        >
           <BrandMark
             tagline={BOOT_TAGLINE}
             taglineVisible={animation.taglineVisible}
@@ -465,7 +476,7 @@ export function BrandAuthIntro({
         className="shrink-0"
         initial={false}
         animate={{
-          height: layoutExpanded ? "min(34vh, 15rem)" : "100%",
+          height: layoutExpanded ? AUTH_TOP_SLOT_HEIGHT : "100%",
         }}
         transition={{
           duration: AUTH_LIFT_DURATION_S,
@@ -476,13 +487,15 @@ export function BrandAuthIntro({
 
       {layoutExpanded && (
         <>
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch]">
-            <AuthValuePoints revealedCount={revealedPoints} />
+          <div className="flex min-h-0 flex-col overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch]">
+            <div className="my-auto flex w-full min-h-min flex-col justify-center py-1">
+              <AuthValuePoints revealedCount={revealedPoints} />
+            </div>
           </div>
 
-          <div className="w-full shrink-0 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+          <div className="w-full shrink-0 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
             <motion.div
-              className="min-h-[3.5rem]"
+              className="min-h-[clamp(3rem,8vh,3.5rem)]"
               initial={false}
               animate={{
                 opacity: showFooter ? 1 : 0,
@@ -492,7 +505,7 @@ export function BrandAuthIntro({
             >
               <Button
                 asChild
-                className="mx-auto h-14 min-h-[3.5rem] w-full max-w-sm gap-2.5 rounded-full bg-[#111113] px-6 text-[16px] text-white hover:bg-zinc-800"
+                className="mx-auto h-[clamp(3rem,8vh,3.5rem)] min-h-[clamp(3rem,8vh,3.5rem)] w-full max-w-sm gap-2.5 rounded-full bg-[#111113] px-6 text-[clamp(15px,3.8vw,16px)] text-white hover:bg-zinc-800"
                 disabled={!showFooter || starting}
               >
                 <a
@@ -505,7 +518,7 @@ export function BrandAuthIntro({
                     handleLogin();
                   }}
                 >
-                  <TelegramAppIcon className="h-6 w-6 shrink-0 text-current" />
+                  <TelegramAppIcon className="h-[clamp(1.375rem,3.5vh,1.5rem)] w-[clamp(1.375rem,3.5vh,1.5rem)] shrink-0 text-current" />
                   {starting ? "Открываем Telegram…" : "Войти через Telegram"}
                 </a>
               </Button>
