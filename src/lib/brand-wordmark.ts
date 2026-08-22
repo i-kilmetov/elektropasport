@@ -28,6 +28,11 @@ export function wordmarkTypeStyle(fontSize: string | number, color: string) {
 }
 
 export const splashWordmarkTypeStyle = wordmarkTypeStyle(
-  "clamp(4.5rem, 18vw, 6.5rem)",
+  "clamp(3rem, min(18vw, 22vh), 6.5rem)",
+  LOGO_INK,
+);
+
+export const headerWordmarkTypeStyle = wordmarkTypeStyle(
+  "clamp(2rem, min(7.5vw, 11vh), 2.75rem)",
   LOGO_INK,
 );

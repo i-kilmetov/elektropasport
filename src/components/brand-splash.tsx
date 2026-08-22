@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Camera, MessagesSquare, Zap } from "lucide-react";
 import { BRAND_YELLOW } from "@/components/brand-logo";
@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import {
   LOGO_FONT_WEIGHT,
   LOGO_INK,
+  headerWordmarkTypeStyle,
   splashWordmarkTypeStyle,
   STRIPE_ABOVE_CROSSBAR,
   STRIPE_BOTTOM_WIDTH,
@@ -37,13 +38,19 @@ const LOGIN_BUTTON_DELAY_MS = 420;
 const AUTH_LAYOUT_EXPAND_DELAY_MS = 520;
 const AUTH_POINT_REVEAL_INTERVAL_MS = 480;
 const AUTH_POINT_REVEAL_START_MS = 180;
-/** Equal gap: logo → first point and last point → login button. */
-const AUTH_SECTION_GAP_PX = 24;
+/** Equal gap: logo ↔ points ↔ login button. */
+const AUTH_SECTION_GAP = "gap-6";
 /** T stays upside-down for ~62% of the flip timeline. */
 const T_ROTATE_DURATION_S = 2;
 const T_INVERTED_HOLD_FRACTION = 0.62;
 
-function AnimatedT({ pulsing }: { pulsing: boolean }) {
+function AnimatedT({
+  pulsing,
+  wordmarkStyle,
+}: {
+  pulsing: boolean;
+  wordmarkStyle: typeof splashWordmarkTypeStyle;
+}) {
   const pulse = pulsing
     ? {
         opacity: [...HEARTBEAT_OPACITY],
@@ -64,7 +71,7 @@ function AnimatedT({ pulsing }: { pulsing: boolean }) {
     <motion.span
       className="relative inline-block shrink-0"
       style={{
-        ...splashWordmarkTypeStyle,
+        ...wordmarkStyle,
         paddingTop: STRIPE_PAD_TOP,
         transformOrigin: "center center",
       }}
@@ -127,12 +134,21 @@ function BrandMark({
   taglineVisible,
   stripesPulsing,
   restRevealed,
+  variant = "splash",
 }: {
   tagline: string;
   taglineVisible: boolean;
   stripesPulsing: boolean;
   restRevealed: boolean;
+  variant?: "splash" | "header";
 }) {
+  const wordmarkStyle =
+    variant === "header" ? headerWordmarkTypeStyle : splashWordmarkTypeStyle;
+  const taglineFontSize =
+    variant === "header"
+      ? "clamp(0.65rem, min(2.8vw, 4vh), 0.85rem)"
+      : "clamp(0.93rem, min(3.68vw, 5vh), 1.32rem)";
+
   return (
     <div className="relative inline-block">
       <motion.p
@@ -143,7 +159,7 @@ function BrandMark({
           width: "66.67%",
           fontFamily: "var(--font-geologica)",
           fontWeight: LOGO_FONT_WEIGHT,
-          fontSize: "clamp(0.93rem, 3.68vw, 1.32rem)",
+          fontSize: taglineFontSize,
           letterSpacing: "0.14em",
           color: LOGO_INK,
         }}
@@ -159,9 +175,9 @@ function BrandMark({
 
       <div
         className="flex items-end whitespace-nowrap"
-        style={splashWordmarkTypeStyle}
+        style={wordmarkStyle}
       >
-        <AnimatedT pulsing={stripesPulsing} />
+        <AnimatedT pulsing={stripesPulsing} wordmarkStyle={wordmarkStyle} />
 
         <motion.span
           className="inline-flex overflow-hidden"
@@ -262,7 +278,7 @@ const AUTH_VALUE_POINTS = [
 
 function AuthValuePoints({ revealedCount }: { revealedCount: number }) {
   return (
-    <ul className="w-full max-w-md space-y-3">
+    <ul className="w-full max-w-md space-y-2.5">
       {AUTH_VALUE_POINTS.map((point, index) => {
         const Icon = point.icon;
         const visible = index < revealedCount;
@@ -270,7 +286,7 @@ function AuthValuePoints({ revealedCount }: { revealedCount: number }) {
         return (
           <motion.li
             key={point.id}
-            className="flex items-start gap-3.5 rounded-[20px] border border-[#111113]/10 bg-[#111113]/[0.05] px-4 py-3.5 text-left shadow-[0_10px_30px_rgba(17,17,19,0.06)]"
+            className="flex items-start gap-3 rounded-[18px] border border-[#111113]/10 bg-[#111113]/[0.05] px-3.5 py-3 text-left shadow-[0_10px_30px_rgba(17,17,19,0.06)]"
             initial={{ opacity: 0, y: 28, filter: "blur(8px)" }}
             animate={
               visible
@@ -367,38 +383,6 @@ export function BrandAuthIntro({
   const [layoutExpanded, setLayoutExpanded] = useState(false);
   const [revealedPoints, setRevealedPoints] = useState(0);
   const [starting, setStarting] = useState(false);
-  const logoBlockRef = useRef<HTMLDivElement>(null);
-  const [headerSpacerHeight, setHeaderSpacerHeight] = useState(0);
-
-  useLayoutEffect(() => {
-    if (!layoutExpanded) {
-      setHeaderSpacerHeight(0);
-      return;
-    }
-
-    const node = logoBlockRef.current;
-    if (!node) return;
-
-    const update = () => {
-      const bottom = node.getBoundingClientRect().bottom;
-      if (bottom > 0) {
-        setHeaderSpacerHeight(bottom + AUTH_SECTION_GAP_PX);
-      }
-    };
-
-    update();
-    const observer = new ResizeObserver(update);
-    observer.observe(node);
-    window.addEventListener("resize", update);
-    return () => {
-      observer.disconnect();
-      window.removeEventListener("resize", update);
-    };
-  }, [
-    layoutExpanded,
-    animation.taglineVisible,
-    animation.restRevealed,
-  ]);
 
   useEffect(() => {
     if (!animation.taglineVisible) {
@@ -440,86 +424,77 @@ export function BrandAuthIntro({
 
   return (
     <div
-      className="fixed inset-0 z-[200] flex flex-col overflow-hidden px-5"
-      style={{ backgroundColor: BRAND_YELLOW }}
+      className={cn(
+        "fixed inset-0 z-[200] flex flex-col overflow-hidden px-5",
+        layoutExpanded && AUTH_SECTION_GAP,
+      )}
+      style={{
+        backgroundColor: BRAND_YELLOW,
+        height: "var(--app-height, 100dvh)",
+      }}
       aria-label="Током — вход"
     >
-      <motion.div
-        className="pointer-events-none absolute left-1/2 z-10 w-max max-w-[calc(100%-2.5rem)] -translate-x-1/2"
-        initial={false}
-        animate={{
-          top: layoutExpanded
-            ? "max(3.5rem, calc(env(safe-area-inset-top) + 2.75rem))"
-            : "50%",
-          y: layoutExpanded ? "0%" : "-50%",
-        }}
-        transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+      <div
+        className={cn(
+          "flex w-full justify-center",
+          layoutExpanded
+            ? "shrink-0 pt-[max(2.25rem,calc(env(safe-area-inset-top)+1.25rem))]"
+            : "min-h-0 flex-1 items-center",
+        )}
       >
-        <div
-          ref={logoBlockRef}
-          className={layoutExpanded ? "pt-8" : undefined}
-        >
+        <div className={layoutExpanded ? "pt-6" : undefined}>
           <BrandMark
+            variant={layoutExpanded ? "header" : "splash"}
             tagline={BOOT_TAGLINE}
             taglineVisible={animation.taglineVisible}
             stripesPulsing={animation.stripesPulsing}
             restRevealed={animation.restRevealed}
           />
         </div>
-      </motion.div>
-
-      <div
-        className="shrink-0"
-        style={{
-          height: layoutExpanded ? headerSpacerHeight : 0,
-        }}
-        aria-hidden
-      />
-
-      <div
-        className={cn(
-          "flex min-h-0 flex-1 flex-col items-center justify-start transition-opacity duration-300",
-          layoutExpanded ? "opacity-100" : "pointer-events-none opacity-0",
-        )}
-        aria-hidden={!layoutExpanded}
-      >
-        <AuthValuePoints revealedCount={revealedPoints} />
       </div>
 
-      <motion.div
-        className="w-full shrink-0 overflow-hidden pb-[max(1.25rem,env(safe-area-inset-bottom))]"
-        style={{
-          paddingTop:
-            layoutExpanded && showFooter ? AUTH_SECTION_GAP_PX : 0,
-        }}
-        initial={false}
-        animate={{
-          opacity: showFooter ? 1 : 0,
-          y: showFooter ? 0 : 16,
-          maxHeight: showFooter ? 120 : 0,
-        }}
-        transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
-      >
-        <Button
-          asChild
-          className="mx-auto h-14 min-h-[3.5rem] w-full max-w-sm gap-2.5 rounded-full bg-[#111113] px-6 text-[16px] text-white hover:bg-zinc-800"
-          disabled={!showFooter || starting}
-        >
-          <a
-            href="/api/auth/telegram/start"
-            onClick={(event) => {
-              if (!showFooter || starting) {
-                event.preventDefault();
-                return;
-              }
-              handleLogin();
+      {layoutExpanded && (
+        <>
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch]">
+            <div className="flex min-h-full flex-col justify-center">
+              <AuthValuePoints revealedCount={revealedPoints} />
+            </div>
+          </div>
+
+          <motion.div
+            className={cn(
+              "w-full shrink-0 overflow-hidden pb-[max(1.25rem,env(safe-area-inset-bottom))]",
+              !showFooter && "h-0 pb-0",
+            )}
+            initial={false}
+            animate={{
+              opacity: showFooter ? 1 : 0,
+              y: showFooter ? 0 : 12,
             }}
+            transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
           >
-            <TelegramAppIcon className="h-6 w-6 shrink-0 text-current" />
-            {starting ? "Открываем Telegram…" : "Войти через Telegram"}
-          </a>
-        </Button>
-      </motion.div>
+            <Button
+              asChild
+              className="mx-auto h-14 min-h-[3.5rem] w-full max-w-sm gap-2.5 rounded-full bg-[#111113] px-6 text-[16px] text-white hover:bg-zinc-800"
+              disabled={!showFooter || starting}
+            >
+              <a
+                href="/api/auth/telegram/start"
+                onClick={(event) => {
+                  if (!showFooter || starting) {
+                    event.preventDefault();
+                    return;
+                  }
+                  handleLogin();
+                }}
+              >
+                <TelegramAppIcon className="h-6 w-6 shrink-0 text-current" />
+                {starting ? "Открываем Telegram…" : "Войти через Telegram"}
+              </a>
+            </Button>
+          </motion.div>
+        </>
+      )}
     </div>
   );
 }
