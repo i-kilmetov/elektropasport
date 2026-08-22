@@ -1271,24 +1271,15 @@ export function AppShell() {
     void openSharedPanel(token);
   }, [itemsLoading, onboardingReady, openSharedPanel]);
 
-  if (!splashDone) {
-    return (
-      <BrandSplash
-        bootReady={onboardingReady && !itemsLoading}
-        onComplete={() => setSplashDone(true)}
-      />
-    );
-  }
-
-  const needsAuthIntro =
+  if (
     showAuthIntro &&
     !isTestAppClientHost() &&
     !canUseServerAuth() &&
-    !isTelegramMiniApp();
-
-  if (needsAuthIntro) {
+    !isTelegramMiniApp()
+  ) {
     return (
       <BrandAuthIntro
+        bootReady={onboardingReady && !itemsLoading}
         onLogin={() => {
           try {
             localStorage.setItem(ONBOARDING_SKIP_KEY, "1");
@@ -1298,6 +1289,15 @@ export function AppShell() {
           setShowAuthIntro(false);
           window.location.assign("/api/auth/telegram/start");
         }}
+      />
+    );
+  }
+
+  if (!splashDone) {
+    return (
+      <BrandSplash
+        bootReady={onboardingReady && !itemsLoading}
+        onComplete={() => setSplashDone(true)}
       />
     );
   }

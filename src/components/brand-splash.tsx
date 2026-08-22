@@ -202,13 +202,17 @@ function BrandMark({
   );
 }
 
-function useLogoAnimation() {
+function useLogoAnimation(bootReady = true) {
   const [stripesPulsing, setStripesPulsing] = useState(true);
   const [restRevealed, setRestRevealed] = useState(false);
   const [taglineVisible, setTaglineVisible] = useState(false);
   const [loginVisible, setLoginVisible] = useState(false);
+  const [started, setStarted] = useState(false);
 
   useEffect(() => {
+    if (!bootReady || started) return;
+    setStarted(true);
+
     const pulseStop = window.setTimeout(() => setStripesPulsing(false), REVEAL_AT_MS);
     const reveal = window.setTimeout(() => setRestRevealed(true), REVEAL_AT_MS);
     const tagline = window.setTimeout(() => setTaglineVisible(true), TAGLINE_AT_MS);
@@ -222,7 +226,7 @@ function useLogoAnimation() {
       window.clearTimeout(tagline);
       window.clearTimeout(login);
     };
-  }, []);
+  }, [bootReady, started]);
 
   return {
     stripesPulsing,
@@ -232,6 +236,25 @@ function useLogoAnimation() {
   };
 }
 
+function useLogoWidth(active: boolean) {
+  const logoRef = useRef<HTMLDivElement>(null);
+  const [logoWidth, setLogoWidth] = useState<number | null>(null);
+
+  useEffect(() => {
+    const node = logoRef.current;
+    if (!node) return;
+
+    const update = () => setLogoWidth(node.offsetWidth);
+    update();
+
+    const observer = new ResizeObserver(update);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [active]);
+
+  return { logoRef, logoWidth };
+}
+
 export function BrandSplash({
   onComplete,
   bootReady = true,
@@ -239,7 +262,7 @@ export function BrandSplash({
   onComplete: () => void;
   bootReady?: boolean;
 }) {
-  const animation = useLogoAnimation();
+  const animation = useLogoAnimation(bootReady);
   const [fadeOut, setFadeOut] = useState(false);
   const startedAtRef = useRef(Date.now());
   const completedRef = useRef(false);
@@ -288,8 +311,15 @@ export function BrandSplash({
   );
 }
 
-export function BrandAuthIntro({ onLogin }: { onLogin: () => void }) {
-  const animation = useLogoAnimation();
+export function BrandAuthIntro({
+  onLogin,
+  bootReady = true,
+}: {
+  onLogin: () => void;
+  bootReady?: boolean;
+}) {
+  const animation = useLogoAnimation(bootReady);
+  const { logoRef, logoWidth } = useLogoWidth(animation.restRevealed);
   const [starting, setStarting] = useState(false);
 
   const handleLogin = () => {
@@ -303,37 +333,40 @@ export function BrandAuthIntro({ onLogin }: { onLogin: () => void }) {
       style={{ backgroundColor: BRAND_YELLOW }}
       aria-label="Током — вход"
     >
-      <div className="flex flex-1 items-center justify-center px-5">
-        <BrandMark
-          tagline={AUTH_TAGLINE}
-          taglineVisible={animation.taglineVisible}
-          stripesPulsing={animation.stripesPulsing}
-          restRevealed={animation.restRevealed}
-        />
-      </div>
+      <div className="flex flex-1 flex-col items-center justify-center px-5">
+        <div ref={logoRef}>
+          <BrandMark
+            tagline={AUTH_TAGLINE}
+            taglineVisible={animation.taglineVisible}
+            stripesPulsing={animation.stripesPulsing}
+            restRevealed={animation.restRevealed}
+          />
+        </div>
 
-      <motion.div
-        className="shrink-0 px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
-        initial={{ opacity: 0, y: 12 }}
-        animate={
-          animation.loginVisible
-            ? { opacity: 1, y: 0 }
-            : { opacity: 0, y: 12 }
-        }
-        transition={{
-          duration: 0.38,
-          ease: [0.22, 1, 0.36, 1],
-        }}
-      >
-        <Button
-          className="mx-auto h-14 w-full max-w-sm gap-2 bg-[#111113] text-white hover:bg-zinc-800"
-          disabled={!animation.loginVisible || starting}
-          onClick={handleLogin}
+        <motion.div
+          className="mt-8"
+          style={{ width: logoWidth ?? undefined }}
+          initial={{ opacity: 0, y: 12 }}
+          animate={
+            animation.loginVisible
+              ? { opacity: 1, y: 0 }
+              : { opacity: 0, y: 12 }
+          }
+          transition={{
+            duration: 0.38,
+            ease: [0.22, 1, 0.36, 1],
+          }}
         >
-          <TelegramAppIcon className="h-5 w-5 text-current" />
-          {starting ? "Открываем Telegram…" : "Войти через Telegram"}
-        </Button>
-      </motion.div>
+          <Button
+            className="h-12 w-full gap-2 rounded-full bg-[#111113] px-5 text-[15px] text-white hover:bg-zinc-800"
+            disabled={!animation.loginVisible || starting || !logoWidth}
+            onClick={handleLogin}
+          >
+            <TelegramAppIcon className="h-5 w-5 shrink-0 text-current" />
+            {starting ? "Открываем Telegram…" : "Войти через Telegram"}
+          </Button>
+        </motion.div>
+      </div>
     </div>
   );
 }
