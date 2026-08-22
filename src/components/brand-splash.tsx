@@ -247,8 +247,8 @@ const AUTH_VALUE_POINTS = [
   {
     id: "plain",
     icon: MessagesSquare,
-    title: "Понятно и без жаргона",
-    text: "Объясняем простым языком — разберётся каждый, даже без опыта",
+    title: "Простым языком",
+    text: "Объясняем спокойно и по делу — разберётся каждый, даже без опыта",
   },
   {
     id: "help",
@@ -406,42 +406,48 @@ export function BrandAuthIntro({
 
   return (
     <div
-      className="fixed inset-0 z-[200] flex flex-col px-5"
+      className="fixed inset-0 z-[200] flex flex-col overflow-hidden px-5"
       style={{ backgroundColor: BRAND_YELLOW }}
       aria-label="Током — вход"
     >
       <motion.div
-        layout
-        className={cn(
-          "flex w-full justify-center",
-          layoutExpanded
-            ? "shrink-0 pt-[max(1.25rem,env(safe-area-inset-top))]"
-            : "min-h-0 flex-1 items-center",
-        )}
-        transition={{ duration: 0.58, ease: [0.22, 1, 0.36, 1] }}
-      >
-        <BrandMark
-          tagline={BOOT_TAGLINE}
-          taglineVisible={animation.taglineVisible}
-          stripesPulsing={animation.stripesPulsing}
-          restRevealed={animation.restRevealed}
-        />
-      </motion.div>
-
-      <motion.div
-        className={cn(
-          "flex min-h-0 flex-col items-center justify-center overflow-hidden",
-          layoutExpanded ? "flex-1 py-6" : "h-0 flex-none py-0",
-        )}
+        className="pointer-events-none absolute left-1/2 z-10 w-max max-w-[calc(100%-2.5rem)] -translate-x-1/2"
         initial={false}
         animate={{
-          opacity: layoutExpanded ? 1 : 0,
+          top: layoutExpanded
+            ? "max(3.5rem, calc(env(safe-area-inset-top) + 2.75rem))"
+            : "50%",
+          y: layoutExpanded ? "0%" : "-50%",
         }}
-        transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+        transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+      >
+        <div className={layoutExpanded ? "pt-8" : undefined}>
+          <BrandMark
+            tagline={BOOT_TAGLINE}
+            taglineVisible={animation.taglineVisible}
+            stripesPulsing={animation.stripesPulsing}
+            restRevealed={animation.restRevealed}
+          />
+        </div>
+      </motion.div>
+
+      <div
+        className={cn(
+          "shrink-0",
+          layoutExpanded ? "h-[min(38vh,16.5rem)]" : "h-0",
+        )}
+        aria-hidden
+      />
+
+      <div
+        className={cn(
+          "flex min-h-0 flex-1 flex-col items-center justify-center py-4 transition-opacity duration-300",
+          layoutExpanded ? "opacity-100" : "pointer-events-none opacity-0",
+        )}
         aria-hidden={!layoutExpanded}
       >
         <AuthValuePoints revealedCount={revealedPoints} />
-      </motion.div>
+      </div>
 
       <motion.div
         className="w-full shrink-0 overflow-hidden pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-2"
