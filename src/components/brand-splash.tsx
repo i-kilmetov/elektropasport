@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
+import { Camera, MessagesSquare, Zap } from "lucide-react";
 import { BRAND_YELLOW } from "@/components/brand-logo";
 import { TelegramAppIcon } from "@/components/icons/telegram-app-icon";
 import { Button } from "@/components/ui/button";
@@ -34,6 +35,8 @@ const TAGLINE_AT_MS = 2750;
 const LOGIN_BUTTON_DELAY_MS = 420;
 /** After tagline — shift logo up and reveal value props layout. */
 const AUTH_LAYOUT_EXPAND_DELAY_MS = 520;
+const AUTH_POINT_REVEAL_INTERVAL_MS = 480;
+const AUTH_POINT_REVEAL_START_MS = 180;
 /** T stays upside-down for ~62% of the flip timeline. */
 const T_ROTATE_DURATION_S = 2;
 const T_INVERTED_HOLD_FRACTION = 0.62;
@@ -235,33 +238,62 @@ function useLogoAnimation(bootReady = true) {
 }
 
 const AUTH_VALUE_POINTS = [
-  "быстрая диагностика по фото",
-  "рассказываем доступным языком",
-  "помощь в электрике",
+  {
+    id: "photo",
+    icon: Camera,
+    title: "Диагностика по фото",
+    text: "Сфотографируйте щиток — покажем риски и подскажем, что делать дальше",
+  },
+  {
+    id: "plain",
+    icon: MessagesSquare,
+    title: "Понятно и без жаргона",
+    text: "Объясняем простым языком — разберётся каждый, даже без опыта",
+  },
+  {
+    id: "help",
+    icon: Zap,
+    title: "Помощь с электрикой",
+    text: "Онлайн-консультация или вызов проверенного мастера — в один клик",
+  },
 ] as const;
 
-function AuthValuePoints({ visible }: { visible: boolean }) {
+function AuthValuePoints({ revealedCount }: { revealedCount: number }) {
   return (
-    <ul className="w-full max-w-sm space-y-5">
-      {AUTH_VALUE_POINTS.map((point, index) => (
-        <motion.li
-          key={point}
-          className="flex items-start gap-3.5 text-left text-[17px] leading-snug font-medium text-[#111113]"
-          initial={{ opacity: 0, x: -14 }}
-          animate={visible ? { opacity: 1, x: 0 } : { opacity: 0, x: -14 }}
-          transition={{
-            delay: visible ? 0.12 + index * 0.1 : 0,
-            duration: 0.42,
-            ease: [0.22, 1, 0.36, 1],
-          }}
-        >
-          <span
-            aria-hidden
-            className="mt-[0.55rem] h-1.5 w-1.5 shrink-0 rounded-full bg-[#111113]"
-          />
-          {point}
-        </motion.li>
-      ))}
+    <ul className="w-full max-w-md space-y-3">
+      {AUTH_VALUE_POINTS.map((point, index) => {
+        const Icon = point.icon;
+        const visible = index < revealedCount;
+
+        return (
+          <motion.li
+            key={point.id}
+            className="flex items-start gap-3.5 rounded-[20px] border border-[#111113]/10 bg-[#111113]/[0.05] px-4 py-3.5 text-left shadow-[0_10px_30px_rgba(17,17,19,0.06)]"
+            initial={{ opacity: 0, y: 28, filter: "blur(8px)" }}
+            animate={
+              visible
+                ? { opacity: 1, y: 0, filter: "blur(0px)" }
+                : { opacity: 0, y: 28, filter: "blur(8px)" }
+            }
+            transition={{
+              duration: 0.52,
+              ease: [0.22, 1, 0.36, 1],
+            }}
+          >
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#111113] text-[#D3DA00]">
+              <Icon className="h-5 w-5" strokeWidth={2.1} />
+            </span>
+            <span className="min-w-0 pt-0.5">
+              <span className="block text-[16px] leading-snug font-semibold text-[#111113]">
+                {point.title}
+              </span>
+              <span className="mt-1 block text-[14px] leading-relaxed text-[#111113]/72">
+                {point.text}
+              </span>
+            </span>
+          </motion.li>
+        );
+      })}
     </ul>
   );
 }
@@ -331,6 +363,7 @@ export function BrandAuthIntro({
 }) {
   const animation = useLogoAnimation(bootReady);
   const [layoutExpanded, setLayoutExpanded] = useState(false);
+  const [revealedPoints, setRevealedPoints] = useState(0);
   const [starting, setStarting] = useState(false);
 
   useEffect(() => {
@@ -346,12 +379,30 @@ export function BrandAuthIntro({
     return () => window.clearTimeout(expand);
   }, [animation.taglineVisible]);
 
+  useEffect(() => {
+    if (!layoutExpanded) {
+      setRevealedPoints(0);
+      return;
+    }
+
+    const timers = AUTH_VALUE_POINTS.map((_, index) =>
+      window.setTimeout(
+        () => setRevealedPoints(index + 1),
+        AUTH_POINT_REVEAL_START_MS + index * AUTH_POINT_REVEAL_INTERVAL_MS,
+      ),
+    );
+
+    return () => timers.forEach((timer) => window.clearTimeout(timer));
+  }, [layoutExpanded]);
+
   const handleLogin = () => {
     setStarting(true);
     onLogin();
   };
 
-  const showFooter = layoutExpanded && animation.loginVisible;
+  const allPointsVisible = revealedPoints >= AUTH_VALUE_POINTS.length;
+  const showFooter =
+    layoutExpanded && animation.loginVisible && allPointsVisible;
 
   return (
     <div
@@ -369,17 +420,12 @@ export function BrandAuthIntro({
         )}
         transition={{ duration: 0.58, ease: [0.22, 1, 0.36, 1] }}
       >
-        <motion.div
-          animate={{ scale: layoutExpanded ? 0.5 : 1 }}
-          transition={{ duration: 0.58, ease: [0.22, 1, 0.36, 1] }}
-        >
-          <BrandMark
-            tagline={BOOT_TAGLINE}
-            taglineVisible={animation.taglineVisible}
-            stripesPulsing={animation.stripesPulsing}
-            restRevealed={animation.restRevealed}
-          />
-        </motion.div>
+        <BrandMark
+          tagline={BOOT_TAGLINE}
+          taglineVisible={animation.taglineVisible}
+          stripesPulsing={animation.stripesPulsing}
+          restRevealed={animation.restRevealed}
+        />
       </motion.div>
 
       <motion.div
@@ -390,12 +436,11 @@ export function BrandAuthIntro({
         initial={false}
         animate={{
           opacity: layoutExpanded ? 1 : 0,
-          y: layoutExpanded ? 0 : 12,
         }}
-        transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+        transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
         aria-hidden={!layoutExpanded}
       >
-        <AuthValuePoints visible={layoutExpanded} />
+        <AuthValuePoints revealedCount={revealedPoints} />
       </motion.div>
 
       <motion.div
