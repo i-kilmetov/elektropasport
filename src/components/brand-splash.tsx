@@ -5,10 +5,21 @@ import { motion } from "framer-motion";
 import { BRAND_YELLOW } from "@/components/brand-logo";
 import { TelegramAppIcon } from "@/components/icons/telegram-app-icon";
 import { Button } from "@/components/ui/button";
+import {
+  LOGO_FONT_WEIGHT,
+  LOGO_INK,
+  splashWordmarkTypeStyle,
+  STRIPE_ABOVE_CROSSBAR,
+  STRIPE_BOTTOM_WIDTH,
+  STRIPE_HEIGHT,
+  STRIPE_PAD_TOP,
+  STRIPE_STRIPE_GAP,
+  STRIPE_TOP_WIDTH,
+  T_CAP_BEARING,
+  WORDMARK_REST,
+} from "@/lib/brand-wordmark";
 
 const SPLASH_MS = 4000;
-const REST = "ОКОМ";
-const LOGO_INK = "#111113";
 const BOOT_TAGLINE = "ПРОВЕРЬ ЩИТОК";
 /** lub-dub pulse: two quick beats, then rest (~52 bpm). */
 const HEARTBEAT_OPACITY = [0.3, 1, 0.42, 0.9, 0.3] as const;
@@ -23,30 +34,6 @@ const LOGIN_BUTTON_DELAY_MS = 420;
 /** T stays upside-down for ~62% of the flip timeline. */
 const T_ROTATE_DURATION_S = 2;
 const T_INVERTED_HOLD_FRACTION = 0.62;
-
-const LOGO_FONT_WEIGHT = 700;
-
-const logoType = {
-  fontFamily: "var(--font-geologica)",
-  fontWeight: LOGO_FONT_WEIGHT,
-  fontSize: "clamp(4.5rem, 18vw, 6.5rem)",
-  color: LOGO_INK,
-  lineHeight: 1,
-  letterSpacing: "-0.02em",
-} as const;
-
-/** Gap between the two stripes (top stripe sits a bit higher) */
-const STRIPE_STRIPE_GAP = "0.038em";
-/** Space from lower stripe to the T crossbar */
-const STRIPE_ABOVE_CROSSBAR = "0.016em";
-/** Geologica empty space above the T crossbar inside the glyph box */
-const T_CAP_BEARING = "0.11em";
-const STRIPE_HEIGHT = "0.08em";
-/** Top stripe — nearly square (length slightly greater than height). */
-const STRIPE_TOP_WIDTH = "0.095em";
-const STRIPE_BOTTOM_WIDTH = "0.30em";
-/** Room above the letter for stripes when rotating the mark */
-const STRIPE_PAD_TOP = `calc(${STRIPE_HEIGHT} + ${STRIPE_STRIPE_GAP} + ${STRIPE_HEIGHT} + ${STRIPE_ABOVE_CROSSBAR} - ${T_CAP_BEARING})`;
 
 function AnimatedT({ pulsing }: { pulsing: boolean }) {
   const pulse = pulsing
@@ -69,7 +56,7 @@ function AnimatedT({ pulsing }: { pulsing: boolean }) {
     <motion.span
       className="relative inline-block shrink-0"
       style={{
-        ...logoType,
+        ...splashWordmarkTypeStyle,
         paddingTop: STRIPE_PAD_TOP,
         transformOrigin: "center center",
       }}
@@ -162,7 +149,10 @@ function BrandMark({
         {tagline}
       </motion.p>
 
-      <div className="flex items-end whitespace-nowrap" style={logoType}>
+      <div
+        className="flex items-end whitespace-nowrap"
+        style={splashWordmarkTypeStyle}
+      >
         <AnimatedT pulsing={stripesPulsing} />
 
         <motion.span
@@ -184,7 +174,7 @@ function BrandMark({
             },
           }}
         >
-          {REST.split("").map((letter, index) => (
+          {WORDMARK_REST.split("").map((letter, index) => (
             <motion.span
               key={`${letter}-${index}`}
               className="inline-block"
