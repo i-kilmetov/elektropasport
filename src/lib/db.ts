@@ -25,7 +25,7 @@ import {
   type InviteOutcome,
   type PanelQuota,
 } from "@/lib/invites";
-import { buildPanelShareUrl } from "@/lib/panel-share";
+import { buildInviteUrl } from "@/lib/panel-share";
 
 let schemaReady: Promise<void> | null = null;
 
@@ -1334,7 +1334,7 @@ export async function getPanelQuota(
       : Math.max(0, panelLimit - panelCount),
     unlimited,
     creditedInvites,
-    inviteUrl: buildPanelShareUrl(inviteToken),
+    inviteUrl: buildInviteUrl(inviteToken),
     events,
   };
 }

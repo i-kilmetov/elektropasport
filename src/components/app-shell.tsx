@@ -66,6 +66,11 @@ import {
   clearPendingInstallLead,
   readPendingInstallLead,
 } from "@/lib/pending-lead";
+import {
+  clearPendingPanelShare,
+  readPendingPanelShare,
+  writePendingPanelShare,
+} from "@/lib/pending-panel-share";
 import { syncUserProfileFromServer } from "@/lib/user-profile";
 import {
   hapticDelete,
@@ -108,9 +113,11 @@ import {
   DEVICE_TYPE_OPTIONS,
 } from "@/lib/manufacturer-brands";
 import {
+  getPanelShareTokenFromLocation,
   getTelegramStartParam,
   isMasterReferralParam,
   isPanelShareToken,
+  stripPanelShareFromLocation,
 } from "@/lib/panel-share";
 import type {
   AnalyzePanelResult,
@@ -232,9 +239,16 @@ export function AppShell() {
     setSplashDone(true);
     setShowAuthIntro(false);
     setOnboardingReady(true);
-    if (canUseServerAuth()) {
+    if (canUseServerAuth() && !readPendingPanelShare()) {
       setScreen("objects");
     }
+  }, []);
+
+  useLayoutEffect(() => {
+    const token = getPanelShareTokenFromLocation();
+    if (!token) return;
+    writePendingPanelShare(token);
+    stripPanelShareFromLocation();
   }, []);
 
   const refreshQuota = useCallback(async () => {
@@ -274,9 +288,12 @@ export function AppShell() {
       } catch {
         // ignore
       }
-      if (intent === "become-master" || isMasterReferralParam(startParam)) {
+      if (
+        !readPendingPanelShare() &&
+        (intent === "become-master" || isMasterReferralParam(startParam))
+      ) {
         setScreen("become-master");
-      } else {
+      } else if (!readPendingPanelShare()) {
         setScreen("objects");
       }
     } else if (isMasterReferralParam(startParam) || intent === "become-master") {
@@ -1324,9 +1341,15 @@ export function AppShell() {
 
   useEffect(() => {
     if (!onboardingReady || itemsLoading || consumedShareRef.current) return;
-    const token = getTelegramStartParam();
+
+    const token = readPendingPanelShare();
     if (!token || !isPanelShareToken(token)) return;
+    if (!canUseServerAuth()) return;
+
     consumedShareRef.current = true;
+    clearPendingPanelShare();
+    setShowAuthIntro(false);
+    setSplashDone(true);
     void openSharedPanel(token);
   }, [itemsLoading, onboardingReady, openSharedPanel]);
 

@@ -1,8 +1,6 @@
-export const SHARE_TOKEN_RE = /^p[A-Za-z0-9]{8,16}$/;
+import { resolveAppOrigin } from "@/lib/app-url";
 
-function botUsername(): string | null {
-  return process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME?.trim() || null;
-}
+export const SHARE_TOKEN_RE = /^p[A-Za-z0-9]{8,16}$/;
 
 export function isPanelShareToken(value: string): boolean {
   return SHARE_TOKEN_RE.test(value);
@@ -33,18 +31,28 @@ export function getTelegramStartParam(): string | null {
   return fromQuery || null;
 }
 
-export function buildPanelShareUrl(token: string): string {
-  const bot = botUsername();
-  const app = process.env.NEXT_PUBLIC_TELEGRAM_MINI_APP_NAME?.trim();
-  if (!bot) {
-    const origin =
-      typeof window !== "undefined" ? window.location.origin : "";
-    return `${origin}/?startapp=${encodeURIComponent(token)}`;
+function resolveShareOrigin(origin?: string): string {
+  if (origin?.trim()) {
+    return origin.replace(/\/$/, "");
   }
-  if (app) {
-    return `https://t.me/${bot}/${app}?startapp=${encodeURIComponent(token)}`;
+  if (typeof window !== "undefined") {
+    return window.location.origin;
   }
-  return `https://t.me/${bot}?startapp=${encodeURIComponent(token)}`;
+  return resolveAppOrigin();
+}
+
+/** Public website link to open a shared panel (not a Telegram bot deep link). */
+export function buildPanelShareUrl(token: string, origin?: string): string {
+  const url = new URL("/", resolveShareOrigin(origin));
+  url.searchParams.set("share", token);
+  return url.href;
+}
+
+/** Invite links keep `startapp` for Mini App + legacy compatibility. */
+export function buildInviteUrl(token: string, origin?: string): string {
+  const url = new URL("/", resolveShareOrigin(origin));
+  url.searchParams.set("startapp", token);
+  return url.href;
 }
 
 const SHARE_TEXT = "Щиток в Токоме";
@@ -60,8 +68,59 @@ export function isMasterReferralParam(
   return value === MASTER_REFERRAL_PARAM;
 }
 
-export function buildMasterReferralUrl(): string {
-  return buildPanelShareUrl(MASTER_REFERRAL_PARAM);
+export function buildMasterReferralUrl(origin?: string): string {
+  const url = new URL("/", resolveShareOrigin(origin));
+  url.searchParams.set("intent", "become-master");
+  return url.href;
+}
+
+/** Panel share token from URL (web) or Telegram Mini App start param. */
+export function getPanelShareTokenFromLocation(): string | null {
+  if (typeof window === "undefined") return null;
+
+  const params = new URLSearchParams(window.location.search);
+  const fromShare = params.get("share")?.trim();
+  if (fromShare && isPanelShareToken(fromShare)) {
+    return fromShare;
+  }
+
+  const fromStartapp = params.get("startapp")?.trim();
+  if (fromStartapp && isPanelShareToken(fromStartapp)) {
+    return fromStartapp;
+  }
+
+  const fromTelegram = getTelegramStartParam();
+  if (fromTelegram && isPanelShareToken(fromTelegram)) {
+    return fromTelegram;
+  }
+
+  return null;
+}
+
+export function stripPanelShareFromLocation(): void {
+  if (typeof window === "undefined") return;
+
+  const url = new URL(window.location.href);
+  let changed = false;
+
+  if (url.searchParams.has("share")) {
+    url.searchParams.delete("share");
+    changed = true;
+  }
+
+  const startapp = url.searchParams.get("startapp")?.trim();
+  if (startapp && isPanelShareToken(startapp)) {
+    url.searchParams.delete("startapp");
+    changed = true;
+  }
+
+  if (!changed) return;
+
+  const next =
+    url.pathname +
+    (url.searchParams.toString() ? `?${url.searchParams.toString()}` : "") +
+    url.hash;
+  window.history.replaceState({}, "", next);
 }
 
 export async function shareViaNative(

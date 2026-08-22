@@ -10,6 +10,7 @@ import {
   upsertUser,
 } from "@/lib/db";
 import { buildPanelShareUrl } from "@/lib/panel-share";
+import { resolveRequestOrigin } from "@/lib/app-url";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -28,7 +29,7 @@ export async function POST(_request: Request, context: RouteContext) {
     const token = await createOrGetPanelShare(user.telegramId, id);
     return Response.json({
       token,
-      url: buildPanelShareUrl(token),
+      url: buildPanelShareUrl(token, resolveRequestOrigin(_request)),
     });
   } catch (error) {
     return dbErrorResponse(error) ?? authErrorResponse(error);
