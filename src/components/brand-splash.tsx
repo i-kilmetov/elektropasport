@@ -18,8 +18,8 @@ const logoType = {
   letterSpacing: "-0.02em",
 } as const;
 
-/** Gap between the two stripes */
-const STRIPE_STRIPE_GAP = "0.024em";
+/** Gap between the two stripes (top stripe sits a bit higher) */
+const STRIPE_STRIPE_GAP = "0.038em";
 /** Space from lower stripe to the T crossbar */
 const STRIPE_ABOVE_CROSSBAR = "0.016em";
 /** Geologica empty space above the T crossbar inside the glyph box */
