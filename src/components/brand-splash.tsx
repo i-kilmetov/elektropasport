@@ -6,9 +6,16 @@ import { BRAND_YELLOW } from "@/components/brand-logo";
 
 const SPLASH_MS = 3200;
 const REST = "ОКОМ";
+const LOGO_INK = "#111113";
 
 /** Decorative stripes above the T crossbar (local coords, upright). */
-function TStripes({ pulsing }: { pulsing: boolean }) {
+function TStripes({
+  pulsing,
+  fill,
+}: {
+  pulsing: boolean;
+  fill: string;
+}) {
   const pulse = pulsing
     ? {
         opacity: [0.28, 1, 0.28] as number[],
@@ -32,7 +39,7 @@ function TStripes({ pulsing }: { pulsing: boolean }) {
         width="22"
         height="5"
         rx="0.6"
-        fill={BRAND_YELLOW}
+        fill={fill}
         animate={pulse}
         transition={{ ...transition, delay: pulsing ? 0.08 : 0 }}
         style={{ transformOrigin: "16px 12.5px" }}
@@ -43,7 +50,7 @@ function TStripes({ pulsing }: { pulsing: boolean }) {
         width="16"
         height="4"
         rx="0.6"
-        fill={BRAND_YELLOW}
+        fill={fill}
         animate={pulse}
         transition={transition}
         style={{ transformOrigin: "16px 5px" }}
@@ -52,7 +59,7 @@ function TStripes({ pulsing }: { pulsing: boolean }) {
   );
 }
 
-function LetterT({ pulsing }: { pulsing: boolean }) {
+function LetterT({ pulsing, fill }: { pulsing: boolean; fill: string }) {
   return (
     <motion.svg
       viewBox="0 0 32 34"
@@ -69,9 +76,9 @@ function LetterT({ pulsing }: { pulsing: boolean }) {
         }}
         style={{ transformBox: "fill-box", transformOrigin: "center" }}
       >
-        <rect x="12" y="19" width="8" height="15" rx="0.6" fill={BRAND_YELLOW} />
-        <rect x="1" y="19" width="30" height="7" rx="0.6" fill={BRAND_YELLOW} />
-        <TStripes pulsing={pulsing} />
+        <rect x="12" y="19" width="8" height="15" rx="0.6" fill={fill} />
+        <rect x="1" y="19" width="30" height="7" rx="0.6" fill={fill} />
+        <TStripes pulsing={pulsing} fill={fill} />
       </motion.g>
     </motion.svg>
   );
@@ -91,7 +98,8 @@ export function BrandSplash({ onComplete }: { onComplete: () => void }) {
 
   return (
     <motion.div
-      className="fixed inset-0 z-[200] flex items-center justify-center bg-black"
+      className="fixed inset-0 z-[200] flex items-center justify-center"
+      style={{ backgroundColor: BRAND_YELLOW }}
       initial={{ opacity: 1 }}
       animate={{ opacity: [1, 1, 0] }}
       transition={{
@@ -107,14 +115,15 @@ export function BrandSplash({ onComplete }: { onComplete: () => void }) {
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
         >
-          <LetterT pulsing={stripesPulsing} />
+          <LetterT pulsing={stripesPulsing} fill={LOGO_INK} />
         </motion.div>
 
         <div
-          className="flex items-end font-sans font-extrabold leading-none tracking-[-0.04em]"
+          className="flex items-end leading-none tracking-[-0.02em] [font-family:var(--font-geologica)]"
           style={{
-            color: BRAND_YELLOW,
+            color: LOGO_INK,
             fontSize: "clamp(2.25rem, 9vw, 3.25rem)",
+            fontWeight: 300,
           }}
         >
           {REST.split("").map((letter, index) => (

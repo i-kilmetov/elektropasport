@@ -1,11 +1,18 @@
 import type { Metadata, Viewport } from "next";
-import { Manrope } from "next/font/google";
+import { Geologica, Manrope } from "next/font/google";
 import { TelegramProvider } from "@/components/telegram-provider";
 import "./globals.css";
 
 const manrope = Manrope({
   variable: "--font-sf",
   subsets: ["latin", "cyrillic"],
+  display: "swap",
+});
+
+const geologica = Geologica({
+  variable: "--font-geologica",
+  subsets: ["latin", "cyrillic"],
+  weight: "300",
   display: "swap",
 });
 
@@ -34,7 +41,10 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="ru" className={`${manrope.variable} h-full antialiased`}>
+    <html
+      lang="ru"
+      className={`${manrope.variable} ${geologica.variable} h-full antialiased`}
+    >
       <head>
         <script src="https://telegram.org/js/telegram-web-app.js" defer />
       </head>
