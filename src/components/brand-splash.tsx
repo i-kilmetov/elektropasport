@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { BRAND_YELLOW } from "@/components/brand-logo";
 
@@ -85,7 +85,6 @@ function AnimatedT({ pulsing }: { pulsing: boolean }) {
 export function BrandSplash({ onComplete }: { onComplete: () => void }) {
   const [stripesPulsing, setStripesPulsing] = useState(true);
   const [restRevealed, setRestRevealed] = useState(false);
-  const tRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
     const pulseStop = window.setTimeout(() => setStripesPulsing(false), 1350);
@@ -119,7 +118,7 @@ export function BrandSplash({ onComplete }: { onComplete: () => void }) {
         className="absolute top-1/2 left-1/2 flex items-end whitespace-nowrap"
         style={{ ...logoType, x: "-50%", y: "-50%" }}
       >
-        <AnimatedT pulsing={stripesPulsing} tRef={tRef} />
+        <AnimatedT pulsing={stripesPulsing} />
 
         <motion.span
           className="inline-flex overflow-hidden"
