@@ -356,12 +356,23 @@ export function BrandAuthIntro({
           }}
         >
           <Button
+            asChild
             className="h-12 w-full gap-2 rounded-full bg-[#111113] px-5 text-[15px] text-white hover:bg-zinc-800"
             disabled={!animation.loginVisible || starting}
-            onClick={handleLogin}
           >
-            <TelegramAppIcon className="h-5 w-5 shrink-0 text-current" />
-            {starting ? "Открываем Telegram…" : "Войти через Telegram"}
+            <a
+              href="/api/auth/telegram/start"
+              onClick={(event) => {
+                if (!animation.loginVisible || starting) {
+                  event.preventDefault();
+                  return;
+                }
+                handleLogin();
+              }}
+            >
+              <TelegramAppIcon className="h-5 w-5 shrink-0 text-current" />
+              {starting ? "Открываем Telegram…" : "Войти через Telegram"}
+            </a>
           </Button>
         </motion.div>
       </div>

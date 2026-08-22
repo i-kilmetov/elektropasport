@@ -1286,8 +1286,6 @@ export function AppShell() {
           } catch {
             // private mode
           }
-          setShowAuthIntro(false);
-          window.location.assign("/api/auth/telegram/start");
         }}
       />
     );
