@@ -20,8 +20,10 @@ const logoType = {
 
 /** Gap between the two stripes */
 const STRIPE_STRIPE_GAP = "0.024em";
-/** Pull stripes onto the T crossbar — compensates for font upper bearing */
-const STRIPE_OVERLAP = "-0.19em";
+/** Gap from lower stripe to the T crossbar (above, no overlap) */
+const STRIPE_T_GAP = "0.032em";
+const STRIPE_HEIGHT = "0.08em";
+const STRIPE_STACK_HEIGHT = `calc(${STRIPE_HEIGHT} + ${STRIPE_STRIPE_GAP} + ${STRIPE_HEIGHT} + ${STRIPE_T_GAP})`;
 
 function AnimatedT({ pulsing }: { pulsing: boolean }) {
   const pulse = pulsing
@@ -41,9 +43,10 @@ function AnimatedT({ pulsing }: { pulsing: boolean }) {
 
   return (
     <motion.span
-      className="inline-flex shrink-0 flex-col items-center"
+      className="relative inline-block shrink-0"
       style={{
         ...logoType,
+        paddingTop: STRIPE_STACK_HEIGHT,
         transformOrigin: "center center",
       }}
       initial={{ rotate: 180, opacity: 0, scale: 0.92 }}
@@ -63,25 +66,24 @@ function AnimatedT({ pulsing }: { pulsing: boolean }) {
       }}
     >
       <span
-        className="flex flex-col items-center"
-        style={{ gap: STRIPE_STRIPE_GAP, marginBottom: STRIPE_OVERLAP }}
+        aria-hidden
+        className="absolute top-0 left-1/2 flex -translate-x-1/2 flex-col items-center"
+        style={{ gap: STRIPE_STRIPE_GAP }}
       >
         <motion.span
-          aria-hidden
           className="block h-[0.08em] min-h-[3px] w-[0.28em] max-w-[44px]"
           style={{ backgroundColor: LOGO_INK, transformOrigin: "center" }}
           animate={pulse}
           transition={transition}
         />
         <motion.span
-          aria-hidden
           className="block h-[0.08em] min-h-[3px] w-[0.38em] max-w-[60px]"
           style={{ backgroundColor: LOGO_INK, transformOrigin: "center" }}
           animate={pulse}
           transition={{ ...transition, delay: pulsing ? 0.08 : 0 }}
         />
       </span>
-      <span className="block leading-[0.72]">Т</span>
+      <span className="leading-none">Т</span>
     </motion.span>
   );
 }
