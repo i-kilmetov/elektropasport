@@ -49,7 +49,6 @@ import {
 } from "@/components/ui/waitlist-sheet";
 import {
   ONBOARDING_SKIP_KEY,
-  WelcomeScreen,
 } from "@/components/screens/welcome-screen";
 import { canUseServerAuth, isTelegramMiniApp } from "@/lib/client-auth";
 import {
@@ -113,7 +112,7 @@ import type {
   PanelWire,
 } from "@/types";
 import { installStatusLabels } from "@/types";
-import { BrandSplash } from "@/components/brand-splash";
+import { BrandAuthIntro, BrandSplash } from "@/components/brand-splash";
 import { useHomeAppliancesEnabled } from "@/hooks/use-home-appliances-enabled";
 import { isTestAppHost } from "@/lib/app-env";
 import { cn } from "@/lib/utils";
@@ -135,22 +134,16 @@ function panelRailCount(
   return derived;
 }
 
-function clearSkipOnboarding() {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.removeItem(ONBOARDING_SKIP_KEY);
-  } catch {
-    // private mode
-  }
-}
-
 export function AppShell() {
   const homeAppliancesEnabled = useHomeAppliancesEnabled();
   const [screen, setScreen] = useState<AppScreen>(() =>
-    isTestAppClientHost() ? "telegram-auth" : "welcome",
+    isTestAppClientHost() ? "telegram-auth" : "telegram-auth",
   );
   const [onboardingReady, setOnboardingReady] = useState(false);
   const [splashDone, setSplashDone] = useState(isTestAppClientHost);
+  const [showAuthIntro, setShowAuthIntro] = useState(
+    () => !isTestAppClientHost(),
+  );
   const [items, setItems] = useState<HomeListItem[]>(() => getCachedHomeItems());
   const [itemsLoading, setItemsLoading] = useState(
     () => getCachedHomeItems().length === 0,
@@ -272,15 +265,14 @@ export function AppShell() {
       if (isTestAppClientHost()) {
         setScreen("telegram-auth");
       } else {
-        // Unauthenticated visitors always start on onboarding cards.
-        clearSkipOnboarding();
-        setScreen("welcome");
+        setScreen("telegram-auth");
+        setShowAuthIntro(true);
       }
     } else if (isTestAppClientHost()) {
       setScreen("telegram-auth");
     } else {
-      clearSkipOnboarding();
-      setScreen("welcome");
+      setScreen("telegram-auth");
+      setShowAuthIntro(true);
     }
     setOnboardingReady(true);
   }, []);
@@ -291,9 +283,9 @@ export function AppShell() {
     if (canUseServerAuth() || isTelegramMiniApp()) return;
     const allowed: AppScreen[] = isTestAppClientHost()
       ? ["telegram-auth"]
-      : ["welcome", "telegram-auth"];
+      : ["telegram-auth"];
     if (!allowed.includes(screen)) {
-      setScreen(isTestAppClientHost() ? "telegram-auth" : "welcome");
+      setScreen("telegram-auth");
     }
   }, [onboardingReady, screen]);
 
@@ -1288,6 +1280,28 @@ export function AppShell() {
     );
   }
 
+  const needsAuthIntro =
+    showAuthIntro &&
+    !isTestAppClientHost() &&
+    !canUseServerAuth() &&
+    !isTelegramMiniApp();
+
+  if (needsAuthIntro) {
+    return (
+      <BrandAuthIntro
+        onLogin={() => {
+          try {
+            localStorage.setItem(ONBOARDING_SKIP_KEY, "1");
+          } catch {
+            // private mode
+          }
+          setShowAuthIntro(false);
+          window.location.assign("/api/auth/telegram/start");
+        }}
+      />
+    );
+  }
+
   if (!onboardingReady) {
     return (
       <div className="relative h-[var(--app-height,100dvh)] w-full overflow-hidden bg-black text-white" />
@@ -1297,7 +1311,6 @@ export function AppShell() {
   const fillViewport =
     screen === "objects" ||
     screen === "scheme" ||
-    screen === "welcome" ||
     screen === "photo" ||
     screen === "analysis" ||
     screen === "master-search" ||
@@ -1307,25 +1320,19 @@ export function AppShell() {
   const wideLayout =
     screen === "objects" ||
     screen === "scheme" ||
-    screen === "welcome" ||
     screen === "photo" ||
     screen === "admin";
 
   return (
     <div
       className={cn(
-        "relative w-full",
-        screen === "welcome"
-          ? "bg-black text-white"
-          : "bg-[var(--bg)] text-zinc-900",
+        "relative w-full bg-[var(--bg)] text-zinc-900",
         fillViewport
           ? "flex h-[var(--app-height,100dvh)] flex-col overflow-hidden"
           : "min-h-[var(--app-height,100dvh)]",
       )}
     >
-      {screen !== "welcome" && (
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(17,17,19,0.035),transparent_55%)]" />
-      )}
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(17,17,19,0.035),transparent_55%)]" />
       <div
         className={cn(
           "relative z-10",
@@ -1335,20 +1342,6 @@ export function AppShell() {
         )}
       >
         <AnimatePresence mode="wait">
-          {screen === "welcome" && (
-            <WelcomeScreen
-              key="welcome"
-              onContinue={() => go("objects")}
-              onTelegramLogin={() => {
-                try {
-                  localStorage.setItem(ONBOARDING_SKIP_KEY, "1");
-                } catch {
-                  // private mode
-                }
-                go("telegram-auth");
-              }}
-            />
-          )}
           {screen === "objects" && masterMode && (
             <MasterDashboardScreen
               key="master-dashboard"
@@ -1458,7 +1451,7 @@ export function AppShell() {
                   : () => {
                       setPendingAuthAction(null);
                       sessionStorage.removeItem("ep_pending_auth_action");
-                      go(canUseServerAuth() ? "objects" : "welcome");
+                      setShowAuthIntro(true);
                     }
               }
             />

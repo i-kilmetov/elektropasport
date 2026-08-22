@@ -3,14 +3,19 @@
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { BRAND_YELLOW } from "@/components/brand-logo";
+import { TelegramAppIcon } from "@/components/icons/telegram-app-icon";
+import { Button } from "@/components/ui/button";
 
 const SPLASH_MS = 4000;
 const REST = "ОКОМ";
 const LOGO_INK = "#111113";
+const BOOT_TAGLINE = "ПРОВЕРЬ ЩИТОК";
+const AUTH_TAGLINE = "ПРОВЕРЬ СЕБЯ";
 /** Hold inverted T while boot fetch runs, then reveal OKOM. */
 const REVEAL_AT_MS = 1750;
 /** OKOM width (0.9s) finishes ~2650ms; show tagline after full wordmark. */
 const TAGLINE_AT_MS = 2750;
+const LOGIN_BUTTON_DELAY_MS = 420;
 /** T stays upside-down for ~62% of the flip timeline. */
 const T_ROTATE_DURATION_S = 2;
 const T_INVERTED_HOLD_FRACTION = 0.62;
@@ -115,6 +120,118 @@ function AnimatedT({ pulsing }: { pulsing: boolean }) {
   );
 }
 
+function BrandMark({
+  tagline,
+  taglineVisible,
+  stripesPulsing,
+  restRevealed,
+}: {
+  tagline: string;
+  taglineVisible: boolean;
+  stripesPulsing: boolean;
+  restRevealed: boolean;
+}) {
+  return (
+    <div className="relative inline-block">
+      <motion.p
+        aria-hidden={!taglineVisible}
+        className="pointer-events-none absolute right-0 text-right leading-none whitespace-nowrap"
+        style={{
+          bottom: "calc(100% + 0.62em)",
+          width: "66.67%",
+          fontFamily: "var(--font-geologica)",
+          fontWeight: 500,
+          fontSize: "clamp(0.93rem, 3.68vw, 1.32rem)",
+          letterSpacing: "0.14em",
+          color: LOGO_INK,
+        }}
+        initial={{ opacity: 0, y: 6 }}
+        animate={taglineVisible ? { opacity: 1, y: 0 } : { opacity: 0, y: 6 }}
+        transition={{
+          duration: 0.38,
+          ease: [0.22, 1, 0.36, 1],
+        }}
+      >
+        {tagline}
+      </motion.p>
+
+      <div className="flex items-end whitespace-nowrap" style={logoType}>
+        <AnimatedT pulsing={stripesPulsing} />
+
+        <motion.span
+          className="inline-flex overflow-hidden"
+          initial={{ width: 0, opacity: 0 }}
+          animate={{
+            width: restRevealed ? "auto" : 0,
+            opacity: restRevealed ? 1 : 0,
+          }}
+          transition={{
+            width: {
+              duration: 0.9,
+              ease: [0.22, 1, 0.36, 1],
+            },
+            opacity: {
+              duration: 0.45,
+              delay: restRevealed ? 0.1 : 0,
+              ease: "easeOut",
+            },
+          }}
+        >
+          {REST.split("").map((letter, index) => (
+            <motion.span
+              key={`${letter}-${index}`}
+              className="inline-block"
+              initial={{ opacity: 0, y: 16, filter: "blur(8px)" }}
+              animate={
+                restRevealed
+                  ? { opacity: 1, y: 0, filter: "blur(0px)" }
+                  : { opacity: 0, y: 16, filter: "blur(8px)" }
+              }
+              transition={{
+                delay: restRevealed ? 0.16 + index * 0.07 : 0,
+                duration: 0.32,
+                ease: [0.22, 1, 0.36, 1],
+              }}
+            >
+              {letter}
+            </motion.span>
+          ))}
+        </motion.span>
+      </div>
+    </div>
+  );
+}
+
+function useLogoAnimation() {
+  const [stripesPulsing, setStripesPulsing] = useState(true);
+  const [restRevealed, setRestRevealed] = useState(false);
+  const [taglineVisible, setTaglineVisible] = useState(false);
+  const [loginVisible, setLoginVisible] = useState(false);
+
+  useEffect(() => {
+    const pulseStop = window.setTimeout(() => setStripesPulsing(false), REVEAL_AT_MS);
+    const reveal = window.setTimeout(() => setRestRevealed(true), REVEAL_AT_MS);
+    const tagline = window.setTimeout(() => setTaglineVisible(true), TAGLINE_AT_MS);
+    const login = window.setTimeout(
+      () => setLoginVisible(true),
+      TAGLINE_AT_MS + LOGIN_BUTTON_DELAY_MS,
+    );
+    return () => {
+      window.clearTimeout(pulseStop);
+      window.clearTimeout(reveal);
+      window.clearTimeout(tagline);
+      window.clearTimeout(login);
+    };
+  }, []);
+
+  return {
+    stripesPulsing,
+    restRevealed,
+    taglineVisible,
+    loginVisible,
+  };
+}
+
 export function BrandSplash({
   onComplete,
   bootReady = true,
@@ -122,23 +239,10 @@ export function BrandSplash({
   onComplete: () => void;
   bootReady?: boolean;
 }) {
-  const [stripesPulsing, setStripesPulsing] = useState(true);
-  const [restRevealed, setRestRevealed] = useState(false);
-  const [taglineVisible, setTaglineVisible] = useState(false);
+  const animation = useLogoAnimation();
   const [fadeOut, setFadeOut] = useState(false);
   const startedAtRef = useRef(Date.now());
   const completedRef = useRef(false);
-
-  useEffect(() => {
-    const pulseStop = window.setTimeout(() => setStripesPulsing(false), REVEAL_AT_MS);
-    const reveal = window.setTimeout(() => setRestRevealed(true), REVEAL_AT_MS);
-    const tagline = window.setTimeout(() => setTaglineVisible(true), TAGLINE_AT_MS);
-    return () => {
-      window.clearTimeout(pulseStop);
-      window.clearTimeout(reveal);
-      window.clearTimeout(tagline);
-    };
-  }, []);
 
   useEffect(() => {
     if (!bootReady || fadeOut || completedRef.current) return;
@@ -169,89 +273,67 @@ export function BrandSplash({
       }}
       aria-label="Током"
     >
-      {/*
-        Stripes sit in layout flow so the block height includes them.
-        x: -50% keeps the wordmark centered while OKOM expands.
-      */}
       <motion.div
         className="absolute top-1/2 left-1/2"
         style={{ x: "-50%", y: "-50%" }}
       >
-        <div className="relative inline-block">
-          <motion.p
-            aria-hidden={!taglineVisible}
-            className="pointer-events-none absolute right-0 text-right leading-none whitespace-nowrap"
-            style={{
-              bottom: "calc(100% + 0.62em)",
-              width: "66.67%",
-              fontFamily: "var(--font-geologica)",
-              fontWeight: 500,
-              fontSize: "clamp(0.93rem, 3.68vw, 1.32rem)",
-              letterSpacing: "0.14em",
-              color: LOGO_INK,
-            }}
-            initial={{ opacity: 0, y: 6 }}
-            animate={
-              taglineVisible
-                ? { opacity: 1, y: 0 }
-                : { opacity: 0, y: 6 }
-            }
-            transition={{
-              duration: 0.38,
-              ease: [0.22, 1, 0.36, 1],
-            }}
-          >
-            ПРОВЕРЬ ЩИТОК
-          </motion.p>
-
-          <div
-            className="flex items-end whitespace-nowrap"
-            style={logoType}
-          >
-            <AnimatedT pulsing={stripesPulsing} />
-
-            <motion.span
-              className="inline-flex overflow-hidden"
-              initial={{ width: 0, opacity: 0 }}
-              animate={{
-                width: restRevealed ? "auto" : 0,
-                opacity: restRevealed ? 1 : 0,
-              }}
-              transition={{
-                width: {
-                  duration: 0.9,
-                  ease: [0.22, 1, 0.36, 1],
-                },
-                opacity: {
-                  duration: 0.45,
-                  delay: restRevealed ? 0.1 : 0,
-                  ease: "easeOut",
-                },
-              }}
-            >
-              {REST.split("").map((letter, index) => (
-                <motion.span
-                  key={`${letter}-${index}`}
-                  className="inline-block"
-                  initial={{ opacity: 0, y: 16, filter: "blur(8px)" }}
-                  animate={
-                    restRevealed
-                      ? { opacity: 1, y: 0, filter: "blur(0px)" }
-                      : { opacity: 0, y: 16, filter: "blur(8px)" }
-                  }
-                  transition={{
-                    delay: restRevealed ? 0.16 + index * 0.07 : 0,
-                    duration: 0.32,
-                    ease: [0.22, 1, 0.36, 1],
-                  }}
-                >
-                  {letter}
-                </motion.span>
-              ))}
-            </motion.span>
-          </div>
-        </div>
+        <BrandMark
+          tagline={BOOT_TAGLINE}
+          taglineVisible={animation.taglineVisible}
+          stripesPulsing={animation.stripesPulsing}
+          restRevealed={animation.restRevealed}
+        />
       </motion.div>
     </motion.div>
+  );
+}
+
+export function BrandAuthIntro({ onLogin }: { onLogin: () => void }) {
+  const animation = useLogoAnimation();
+  const [starting, setStarting] = useState(false);
+
+  const handleLogin = () => {
+    setStarting(true);
+    onLogin();
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-[200] flex flex-col"
+      style={{ backgroundColor: BRAND_YELLOW }}
+      aria-label="Током — вход"
+    >
+      <div className="flex flex-1 items-center justify-center px-5">
+        <BrandMark
+          tagline={AUTH_TAGLINE}
+          taglineVisible={animation.taglineVisible}
+          stripesPulsing={animation.stripesPulsing}
+          restRevealed={animation.restRevealed}
+        />
+      </div>
+
+      <motion.div
+        className="shrink-0 px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
+        initial={{ opacity: 0, y: 12 }}
+        animate={
+          animation.loginVisible
+            ? { opacity: 1, y: 0 }
+            : { opacity: 0, y: 12 }
+        }
+        transition={{
+          duration: 0.38,
+          ease: [0.22, 1, 0.36, 1],
+        }}
+      >
+        <Button
+          className="mx-auto h-14 w-full max-w-sm gap-2 bg-[#111113] text-white hover:bg-zinc-800"
+          disabled={!animation.loginVisible || starting}
+          onClick={handleLogin}
+        >
+          <TelegramAppIcon className="h-5 w-5 text-current" />
+          {starting ? "Открываем Telegram…" : "Войти через Telegram"}
+        </Button>
+      </motion.div>
+    </div>
   );
 }
