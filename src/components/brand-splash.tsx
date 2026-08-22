@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Camera, MessagesSquare, Zap } from "lucide-react";
 import { BRAND_YELLOW } from "@/components/brand-logo";
@@ -37,6 +37,8 @@ const LOGIN_BUTTON_DELAY_MS = 420;
 const AUTH_LAYOUT_EXPAND_DELAY_MS = 520;
 const AUTH_POINT_REVEAL_INTERVAL_MS = 480;
 const AUTH_POINT_REVEAL_START_MS = 180;
+/** Equal gap: logo → first point and last point → login button. */
+const AUTH_SECTION_GAP_PX = 24;
 /** T stays upside-down for ~62% of the flip timeline. */
 const T_ROTATE_DURATION_S = 2;
 const T_INVERTED_HOLD_FRACTION = 0.62;
@@ -365,6 +367,38 @@ export function BrandAuthIntro({
   const [layoutExpanded, setLayoutExpanded] = useState(false);
   const [revealedPoints, setRevealedPoints] = useState(0);
   const [starting, setStarting] = useState(false);
+  const logoBlockRef = useRef<HTMLDivElement>(null);
+  const [headerSpacerHeight, setHeaderSpacerHeight] = useState(0);
+
+  useLayoutEffect(() => {
+    if (!layoutExpanded) {
+      setHeaderSpacerHeight(0);
+      return;
+    }
+
+    const node = logoBlockRef.current;
+    if (!node) return;
+
+    const update = () => {
+      const bottom = node.getBoundingClientRect().bottom;
+      if (bottom > 0) {
+        setHeaderSpacerHeight(bottom + AUTH_SECTION_GAP_PX);
+      }
+    };
+
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(node);
+    window.addEventListener("resize", update);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", update);
+    };
+  }, [
+    layoutExpanded,
+    animation.taglineVisible,
+    animation.restRevealed,
+  ]);
 
   useEffect(() => {
     if (!animation.taglineVisible) {
@@ -421,7 +455,10 @@ export function BrandAuthIntro({
         }}
         transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
       >
-        <div className={layoutExpanded ? "pt-8" : undefined}>
+        <div
+          ref={logoBlockRef}
+          className={layoutExpanded ? "pt-8" : undefined}
+        >
           <BrandMark
             tagline={BOOT_TAGLINE}
             taglineVisible={animation.taglineVisible}
@@ -432,16 +469,16 @@ export function BrandAuthIntro({
       </motion.div>
 
       <div
-        className={cn(
-          "shrink-0",
-          layoutExpanded ? "h-[min(38vh,16.5rem)]" : "h-0",
-        )}
+        className="shrink-0"
+        style={{
+          height: layoutExpanded ? headerSpacerHeight : 0,
+        }}
         aria-hidden
       />
 
       <div
         className={cn(
-          "flex min-h-0 flex-1 flex-col items-center justify-center py-4 transition-opacity duration-300",
+          "flex min-h-0 flex-1 flex-col items-center justify-start transition-opacity duration-300",
           layoutExpanded ? "opacity-100" : "pointer-events-none opacity-0",
         )}
         aria-hidden={!layoutExpanded}
@@ -450,7 +487,11 @@ export function BrandAuthIntro({
       </div>
 
       <motion.div
-        className="w-full shrink-0 overflow-hidden pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-2"
+        className="w-full shrink-0 overflow-hidden pb-[max(1.25rem,env(safe-area-inset-bottom))]"
+        style={{
+          paddingTop:
+            layoutExpanded && showFooter ? AUTH_SECTION_GAP_PX : 0,
+        }}
         initial={false}
         animate={{
           opacity: showFooter ? 1 : 0,
