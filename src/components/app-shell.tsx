@@ -113,6 +113,7 @@ import type {
   PanelWire,
 } from "@/types";
 import { installStatusLabels } from "@/types";
+import { BrandSplash } from "@/components/brand-splash";
 import { cn } from "@/lib/utils";
 
 function panelRailCount(
@@ -138,6 +139,7 @@ function clearSkipOnboarding() {
 export function AppShell() {
   const [screen, setScreen] = useState<AppScreen>("welcome");
   const [onboardingReady, setOnboardingReady] = useState(false);
+  const [splashDone, setSplashDone] = useState(false);
   const [items, setItems] = useState<HomeListItem[]>(() => getCachedHomeItems());
   const [itemsLoading, setItemsLoading] = useState(
     () => getCachedHomeItems().length === 0,
@@ -1257,6 +1259,10 @@ export function AppShell() {
     consumedShareRef.current = true;
     void openSharedPanel(token);
   }, [itemsLoading, onboardingReady, openSharedPanel]);
+
+  if (!splashDone) {
+    return <BrandSplash onComplete={() => setSplashDone(true)} />;
+  }
 
   if (!onboardingReady) {
     return (
