@@ -18,10 +18,10 @@ const logoType = {
   letterSpacing: "-0.02em",
 } as const;
 
-/** Equal vertical rhythm: T ↔ lower stripe ↔ upper stripe */
-const STRIPE_GAP = "0.045em";
+/** Equal vertical rhythm: upper stripe ↔ lower stripe ↔ T */
+const STRIPE_GAP = "0.022em";
 
-function TStripes({ pulsing }: { pulsing: boolean }) {
+function AnimatedT({ pulsing }: { pulsing: boolean }) {
   const pulse = pulsing
     ? {
         opacity: [0.28, 1, 0.28] as number[],
@@ -38,32 +38,13 @@ function TStripes({ pulsing }: { pulsing: boolean }) {
     : { duration: 0.2 };
 
   return (
-    <span
-      aria-hidden
-      className="pointer-events-none absolute bottom-full left-1/2 flex -translate-x-1/2 flex-col-reverse items-center"
-      style={{ gap: STRIPE_GAP, marginBottom: STRIPE_GAP }}
-    >
-      <motion.span
-        className="block h-[0.08em] min-h-[3px] w-[0.38em] max-w-[60px]"
-        style={{ backgroundColor: LOGO_INK, transformOrigin: "center" }}
-        animate={pulse}
-        transition={{ ...transition, delay: pulsing ? 0.08 : 0 }}
-      />
-      <motion.span
-        className="block h-[0.08em] min-h-[3px] w-[0.28em] max-w-[44px]"
-        style={{ backgroundColor: LOGO_INK, transformOrigin: "center" }}
-        animate={pulse}
-        transition={transition}
-      />
-    </span>
-  );
-}
-
-function AnimatedT({ pulsing }: { pulsing: boolean }) {
-  return (
     <motion.span
-      className="relative inline-block shrink-0"
-      style={{ ...logoType, transformOrigin: "50% 100%" }}
+      className="inline-flex shrink-0 flex-col items-center"
+      style={{
+        ...logoType,
+        gap: STRIPE_GAP,
+        transformOrigin: "center center",
+      }}
       initial={{ rotate: 180, opacity: 0, scale: 0.92 }}
       animate={{
         rotate: [180, 180, 0],
@@ -80,8 +61,21 @@ function AnimatedT({ pulsing }: { pulsing: boolean }) {
         scale: { duration: 0.35, ease: [0.22, 1, 0.36, 1] },
       }}
     >
-      <TStripes pulsing={pulsing} />
-      Т
+      <motion.span
+        aria-hidden
+        className="block h-[0.08em] min-h-[3px] w-[0.28em] max-w-[44px]"
+        style={{ backgroundColor: LOGO_INK, transformOrigin: "center" }}
+        animate={pulse}
+        transition={transition}
+      />
+      <motion.span
+        aria-hidden
+        className="block h-[0.08em] min-h-[3px] w-[0.38em] max-w-[60px]"
+        style={{ backgroundColor: LOGO_INK, transformOrigin: "center" }}
+        animate={pulse}
+        transition={{ ...transition, delay: pulsing ? 0.08 : 0 }}
+      />
+      <span className="leading-none">Т</span>
     </motion.span>
   );
 }
@@ -115,8 +109,8 @@ export function BrandSplash({ onComplete }: { onComplete: () => void }) {
       aria-label="Током"
     >
       {/*
-        Anchor at viewport center. x: -50% keeps the current wordmark centered
-        while OKOM expands — the T slides left as the block grows.
+        Stripes sit in layout flow so the block height includes them.
+        x: -50% keeps the wordmark centered while OKOM expands.
       */}
       <motion.div
         className="absolute top-1/2 left-1/2 flex items-end whitespace-nowrap"
