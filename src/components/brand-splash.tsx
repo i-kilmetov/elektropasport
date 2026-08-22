@@ -305,7 +305,7 @@ export function BrandSplash({
       >
         <BrandMark
           tagline={BOOT_TAGLINE}
-          taglineVisible
+          taglineVisible={animation.taglineVisible}
           stripesPulsing={animation.stripesPulsing}
           restRevealed={animation.restRevealed}
         />
@@ -340,9 +340,7 @@ export function BrandAuthIntro({
         <div ref={logoRef}>
           <BrandMark
             tagline={BOOT_TAGLINE}
-            taglineVisible={
-              animation.taglineVisible || !bootReady || !animation.restRevealed
-            }
+            taglineVisible={animation.taglineVisible}
             stripesPulsing={animation.stripesPulsing}
             restRevealed={animation.restRevealed}
           />
