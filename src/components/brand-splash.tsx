@@ -20,10 +20,13 @@ const logoType = {
 
 /** Gap between the two stripes */
 const STRIPE_STRIPE_GAP = "0.024em";
-/** Gap from lower stripe to the T crossbar (above, no overlap) */
-const STRIPE_T_GAP = "0.032em";
+/** Space from lower stripe to the T crossbar */
+const STRIPE_ABOVE_CROSSBAR = "0.016em";
+/** Geologica empty space above the T crossbar inside the glyph box */
+const T_CAP_BEARING = "0.11em";
 const STRIPE_HEIGHT = "0.08em";
-const STRIPE_STACK_HEIGHT = `calc(${STRIPE_HEIGHT} + ${STRIPE_STRIPE_GAP} + ${STRIPE_HEIGHT} + ${STRIPE_T_GAP})`;
+/** Room above the letter for stripes when rotating the mark */
+const STRIPE_PAD_TOP = `calc(${STRIPE_HEIGHT} + ${STRIPE_STRIPE_GAP} + ${STRIPE_HEIGHT} + ${STRIPE_ABOVE_CROSSBAR} - ${T_CAP_BEARING})`;
 
 function AnimatedT({ pulsing }: { pulsing: boolean }) {
   const pulse = pulsing
@@ -46,7 +49,7 @@ function AnimatedT({ pulsing }: { pulsing: boolean }) {
       className="relative inline-block shrink-0"
       style={{
         ...logoType,
-        paddingTop: STRIPE_STACK_HEIGHT,
+        paddingTop: STRIPE_PAD_TOP,
         transformOrigin: "center center",
       }}
       initial={{ rotate: 180, opacity: 0, scale: 0.92 }}
@@ -65,25 +68,31 @@ function AnimatedT({ pulsing }: { pulsing: boolean }) {
         scale: { duration: 0.35, ease: [0.22, 1, 0.36, 1] },
       }}
     >
-      <span
-        aria-hidden
-        className="absolute top-0 left-1/2 flex -translate-x-1/2 flex-col items-center"
-        style={{ gap: STRIPE_STRIPE_GAP }}
-      >
-        <motion.span
-          className="block h-[0.08em] min-h-[3px] w-[0.28em] max-w-[44px]"
-          style={{ backgroundColor: LOGO_INK, transformOrigin: "center" }}
-          animate={pulse}
-          transition={transition}
-        />
-        <motion.span
-          className="block h-[0.08em] min-h-[3px] w-[0.38em] max-w-[60px]"
-          style={{ backgroundColor: LOGO_INK, transformOrigin: "center" }}
-          animate={pulse}
-          transition={{ ...transition, delay: pulsing ? 0.08 : 0 }}
-        />
+      <span className="relative inline-block leading-none">
+        <span
+          aria-hidden
+          className="pointer-events-none absolute left-1/2 flex -translate-x-1/2 flex-col items-center"
+          style={{
+            gap: STRIPE_STRIPE_GAP,
+            bottom: `calc(100% - ${T_CAP_BEARING})`,
+            paddingBottom: STRIPE_ABOVE_CROSSBAR,
+          }}
+        >
+          <motion.span
+            className="block h-[0.08em] min-h-[3px] w-[0.28em] max-w-[44px]"
+            style={{ backgroundColor: LOGO_INK, transformOrigin: "center" }}
+            animate={pulse}
+            transition={transition}
+          />
+          <motion.span
+            className="block h-[0.08em] min-h-[3px] w-[0.38em] max-w-[60px]"
+            style={{ backgroundColor: LOGO_INK, transformOrigin: "center" }}
+            animate={pulse}
+            transition={{ ...transition, delay: pulsing ? 0.08 : 0 }}
+          />
+        </span>
+        Т
       </span>
-      <span className="leading-none">Т</span>
     </motion.span>
   );
 }
