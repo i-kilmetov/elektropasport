@@ -12,7 +12,7 @@ const manrope = Manrope({
 const geologica = Geologica({
   variable: "--font-geologica",
   subsets: ["latin", "cyrillic"],
-  weight: "500",
+  weight: "700",
   display: "swap",
 });
 

@@ -24,9 +24,11 @@ const LOGIN_BUTTON_DELAY_MS = 420;
 const T_ROTATE_DURATION_S = 2;
 const T_INVERTED_HOLD_FRACTION = 0.62;
 
+const LOGO_FONT_WEIGHT = 700;
+
 const logoType = {
   fontFamily: "var(--font-geologica)",
-  fontWeight: 500,
+  fontWeight: LOGO_FONT_WEIGHT,
   fontSize: "clamp(4.5rem, 18vw, 6.5rem)",
   color: LOGO_INK,
   lineHeight: 1,
@@ -145,7 +147,7 @@ function BrandMark({
           bottom: "calc(100% + 0.62em)",
           width: "66.67%",
           fontFamily: "var(--font-geologica)",
-          fontWeight: 500,
+          fontWeight: LOGO_FONT_WEIGHT,
           fontSize: "clamp(0.93rem, 3.68vw, 1.32rem)",
           letterSpacing: "0.14em",
           color: LOGO_INK,
