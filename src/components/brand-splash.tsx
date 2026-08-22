@@ -20,8 +20,8 @@ const logoType = {
 
 /** Gap between the two stripes */
 const STRIPE_STRIPE_GAP = "0.024em";
-/** Tight gap from lower stripe to the T crossbar */
-const STRIPE_T_GAP = "0.004em";
+/** Pull stripes onto the T crossbar — compensates for font upper bearing */
+const STRIPE_OVERLAP = "-0.19em";
 
 function AnimatedT({ pulsing }: { pulsing: boolean }) {
   const pulse = pulsing
