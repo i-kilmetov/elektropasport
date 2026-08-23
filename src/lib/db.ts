@@ -1,4 +1,3 @@
-import { neon, type NeonQueryFunction } from "@neondatabase/serverless";
 import type {
   Device,
   HomeAppliance,
@@ -16,6 +15,14 @@ import {
   type RequestTypeCode,
 } from "@/lib/request-codes";
 import type { PanelHouseSnapshot } from "@/lib/house-insight";
+import { DbError, dbErrorResponse } from "@/lib/db-error";
+export { DbError, dbErrorResponse } from "@/lib/db-error";
+import { getSql } from "@/lib/sql-client";
+export {
+  getSql,
+  isRussianDatabaseConfigured,
+  resolveDatabaseUrl,
+} from "@/lib/sql-client";
 import {
   inviteeDisplayName,
   isAtPanelLimit,
@@ -31,15 +38,7 @@ import { buildInviteUrl } from "@/lib/panel-share";
 let schemaReady: Promise<void> | null = null;
 
 /** Bump when DDL below changes so cold starts re-run migrations once. */
-const SCHEMA_VERSION = "2026-08-23-a";
-
-export function getSql(): NeonQueryFunction<false, false> {
-  const url = process.env.DATABASE_URL?.trim();
-  if (!url) {
-    throw new DbError("DATABASE_URL не настроен на сервере", 503);
-  }
-  return neon(url);
-}
+const SCHEMA_VERSION = "2026-08-23-c";
 
 export async function ensureSchema(): Promise<void> {
   if (!schemaReady) {
@@ -344,6 +343,14 @@ export async function ensureSchema(): Promise<void> {
         ADD COLUMN IF NOT EXISTS email TEXT
       `;
       await sql`
+        ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS pd_consent_at TIMESTAMPTZ
+      `;
+      await sql`
+        ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS pd_consent_version TEXT
+      `;
+      await sql`
         CREATE TABLE IF NOT EXISTS waitlist (
           id TEXT PRIMARY KEY,
           list TEXT NOT NULL,
@@ -420,6 +427,31 @@ export async function upsertUser(
     WHERE telegram_id = ${user.telegramId}
   `;
   return { isNew: false };
+}
+
+export async function recordUserPdConsent(
+  telegramUserId: number,
+  version: string,
+): Promise<void> {
+  const sql = getSql();
+  await ensureSchema();
+  await sql`
+    UPDATE users
+    SET pd_consent_at = NOW(), pd_consent_version = ${version}, updated_at = NOW()
+    WHERE telegram_id = ${telegramUserId}
+  `;
+}
+
+export async function userHasPdConsent(telegramUserId: number): Promise<boolean> {
+  const sql = getSql();
+  await ensureSchema();
+  const [row] = (await sql`
+    SELECT pd_consent_version
+    FROM users
+    WHERE telegram_id = ${telegramUserId}
+    LIMIT 1
+  `) as Array<{ pd_consent_version: string | null }>;
+  return Boolean(row?.pd_consent_version);
 }
 
 export type StoredUserProfile = {
@@ -1676,26 +1708,4 @@ export async function setRequestPanelId(
     SET panel_id = ${panelId}
     WHERE id = ${requestId}
   `;
-}
-
-export class DbError extends Error {
-  status: number;
-  code?: string;
-
-  constructor(message: string, status = 500, code?: string) {
-    super(message);
-    this.name = "DbError";
-    this.status = status;
-    this.code = code;
-  }
-}
-
-export function dbErrorResponse(error: unknown): Response | null {
-  if (error instanceof DbError) {
-    return Response.json(
-      { error: error.message, code: error.code },
-      { status: error.status },
-    );
-  }
-  return null;
 }

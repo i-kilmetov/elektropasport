@@ -6,6 +6,8 @@ import { Camera, MessagesSquare, Zap } from "lucide-react";
 import { BRAND_YELLOW } from "@/components/brand-logo";
 import { TelegramAppIcon } from "@/components/icons/telegram-app-icon";
 import { Button } from "@/components/ui/button";
+import { PdConsentCheckbox } from "@/components/ui/pd-consent-checkbox";
+import { beginTelegramLogin } from "@/lib/pd-consent-client";
 import {
   LOGO_FONT_WEIGHT,
   LOGO_INK,
@@ -409,6 +411,8 @@ export function BrandAuthIntro({
   const [layoutExpanded, setLayoutExpanded] = useState(false);
   const [revealStep, setRevealStep] = useState(0);
   const [starting, setStarting] = useState(false);
+  const [consent, setConsent] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
   const [liftSettled, setLiftSettled] = useState(false);
   const [headerSlotPx, setHeaderSlotPx] = useState(0);
   const logoRef = useRef<HTMLDivElement>(null);
@@ -482,8 +486,16 @@ export function BrandAuthIntro({
   }, [layoutExpanded]);
 
   const handleLogin = () => {
+    if (!consent) return;
+    setLoginError(null);
     setStarting(true);
     onLogin();
+    void beginTelegramLogin().catch((error) => {
+      setStarting(false);
+      setLoginError(
+        error instanceof Error ? error.message : "Не удалось начать вход",
+      );
+    });
   };
 
   const revealedPoints = Math.min(revealStep, AUTH_VALUE_POINTS.length);
@@ -544,7 +556,7 @@ export function BrandAuthIntro({
             <AuthValuePoints revealedCount={revealedPoints} />
           </div>
 
-          <div className="w-full shrink-0 pt-[min(1rem,2vh)]">
+          <div className="w-full shrink-0 space-y-3 pt-[min(1rem,2vh)]">
             <motion.div
               className="min-h-14"
               initial={false}
@@ -555,25 +567,27 @@ export function BrandAuthIntro({
               transition={AUTH_ITEM_MOTION}
             >
               <Button
-                asChild
+                type="button"
                 className="mx-auto h-14 min-h-14 w-full max-w-sm gap-2.5 rounded-full bg-[#111113] px-6 text-[16px] text-white hover:bg-zinc-800"
-                disabled={!showFooter || starting}
+                disabled={!showFooter || starting || !consent}
+                onClick={handleLogin}
               >
-                <a
-                  href="/api/auth/telegram/start"
-                  onClick={(event) => {
-                    if (!showFooter || starting) {
-                      event.preventDefault();
-                      return;
-                    }
-                    handleLogin();
-                  }}
-                >
-                  <TelegramAppIcon className="h-6 w-6 shrink-0 text-current" />
-                  {starting ? "Открываем Telegram…" : "Войти через Telegram"}
-                </a>
+                <TelegramAppIcon className="h-6 w-6 shrink-0 text-current" />
+                {starting ? "Открываем Telegram…" : "Войти через Telegram"}
               </Button>
             </motion.div>
+            {showFooter && (
+              <div className="mx-auto max-w-sm">
+                <PdConsentCheckbox
+                  checked={consent}
+                  onChange={setConsent}
+                  className="flex cursor-pointer items-start gap-3 rounded-[16px] border border-black/10 bg-white/70 p-3 text-left backdrop-blur-sm"
+                />
+                {loginError && (
+                  <p className="mt-2 text-[13px] text-red-700">{loginError}</p>
+                )}
+              </div>
+            )}
           </div>
         </>
       )}

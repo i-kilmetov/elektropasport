@@ -9,11 +9,16 @@ import {
   oauthCookieHeader,
   pkceChallenge,
 } from "@/lib/telegram-oauth";
+import { isPdConsentCookieValid, readPdConsentCookie } from "@/lib/pd-consent";
 
 export async function GET(request: Request) {
   const clientId = getTelegramClientId();
   if (!clientId) {
     return NextResponse.redirect(new URL("/?auth_error=config", request.url));
+  }
+
+  if (!isPdConsentCookieValid(readPdConsentCookie(request))) {
+    return NextResponse.redirect(new URL("/?auth_error=consent", request.url));
   }
 
   // Must match the host that sets the PKCE cookie (not NEXT_PUBLIC_APP_URL).

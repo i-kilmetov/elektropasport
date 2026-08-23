@@ -55,6 +55,8 @@ import {
   type WaitlistKind,
 } from "@/components/ui/waitlist-sheet";
 import { PanelHouseAddressSheet } from "@/components/ui/panel-house-address-sheet";
+import { PdConsentGate } from "@/components/ui/pd-consent-gate";
+import { fetchPdConsentStatus } from "@/lib/pd-consent-client";
 import { clearSchemeTourSeen } from "@/lib/scheme-onboarding";
 import {
   ONBOARDING_SKIP_KEY,
@@ -190,6 +192,8 @@ export function AppShell() {
   const [schemeTourPending, setSchemeTourPending] = useState(false);
   const [panelHousePromptOpen, setPanelHousePromptOpen] = useState(false);
   const [panelHouseSaving, setPanelHouseSaving] = useState(false);
+  const [pdConsentReady, setPdConsentReady] = useState(false);
+  const [pdConsentChecked, setPdConsentChecked] = useState(false);
   const [sharedPreview, setSharedPreview] = useState<{
     panel: PanelObject;
     token: string;
@@ -373,6 +377,23 @@ export function AppShell() {
         window.removeEventListener(event, touchActivity);
       }
       window.clearInterval(interval);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!canUseServerAuth()) {
+      setPdConsentChecked(true);
+      setPdConsentReady(true);
+      return;
+    }
+    let cancelled = false;
+    void fetchPdConsentStatus().then((accepted) => {
+      if (cancelled) return;
+      setPdConsentReady(accepted);
+      setPdConsentChecked(true);
+    });
+    return () => {
+      cancelled = true;
     };
   }, []);
 
@@ -2105,6 +2126,9 @@ export function AppShell() {
             />
           )}
         </AnimatePresence>
+        {pdConsentChecked && canUseServerAuth() && !pdConsentReady && (
+          <PdConsentGate onAccepted={() => setPdConsentReady(true)} />
+        )}
       </div>
     </div>
   );

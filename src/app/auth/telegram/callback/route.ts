@@ -9,9 +9,15 @@ import { signSessionToken } from "@/lib/session-token";
 import {
   ensureSchema,
   getStoredUserProfile,
+  recordUserPdConsent,
   updateStoredUserProfile,
   upsertUser,
 } from "@/lib/db";
+import {
+  isPdConsentCookieValid,
+  PD_CONSENT_VERSION,
+  readPdConsentCookie,
+} from "@/lib/pd-consent";
 import {
   canUseOidcLogin,
   exchangeAuthorizationCode,
@@ -76,9 +82,17 @@ function sessionHtml(user: ValidatedTelegramUser, token: string): string {
 </html>`;
 }
 
-async function finishLogin(user: ValidatedTelegramUser): Promise<NextResponse> {
+async function finishLogin(
+  user: ValidatedTelegramUser,
+  request: Request,
+): Promise<NextResponse> {
   await ensureSchema();
   await upsertUser(user);
+
+  const consentVersion = readPdConsentCookie(request);
+  if (isPdConsentCookieValid(consentVersion)) {
+    await recordUserPdConsent(user.telegramId, PD_CONSENT_VERSION);
+  }
 
   // Keep profile display name in sync when Telegram provides one and profile is empty.
   const existing = await getStoredUserProfile(user.telegramId);
@@ -127,7 +141,7 @@ export async function GET(request: Request) {
         clientSecret,
       });
       const user = await validateTelegramIdToken(idToken, clientId);
-      return finishLogin(user);
+      return finishLogin(user, request);
     }
 
     const botToken = getBotToken();
@@ -141,7 +155,7 @@ export async function GET(request: Request) {
     }
 
     const user = validateTelegramLoginWidget(raw, botToken);
-    return finishLogin(user);
+    return finishLogin(user, request);
   } catch {
     return NextResponse.redirect(new URL("/?auth_error=failed", request.url));
   }
