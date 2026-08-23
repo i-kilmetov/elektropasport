@@ -20,6 +20,7 @@ import { MasterSuccessScreen } from "@/components/screens/master-success-screen"
 import { MasterNotFoundScreen } from "@/components/screens/master-not-found-screen";
 import { CitySelectScreen } from "@/components/screens/city-select-screen";
 import { FeedbackScreen } from "@/components/screens/feedback-screen";
+import { ResearchSurveyScreen } from "@/components/screens/research-survey-screen";
 import { MasterAboutScreen } from "@/components/screens/master-about-screen";
 import {
   ElectricalDetailsScreen,
@@ -133,6 +134,7 @@ import {
   isPanelShareToken,
   stripPanelShareFromLocation,
 } from "@/lib/panel-share";
+import { isResearchSurveyLaunch } from "@/lib/research-survey-access";
 import type {
   AnalyzePanelResult,
   AppScreen,
@@ -287,12 +289,20 @@ export function AppShell() {
     setSplashPhase("done");
     setShowAuthIntro(false);
     setOnboardingReady(true);
-    if (canUseServerAuth() && !readPendingPanelShare()) {
+    if (isResearchSurveyLaunch()) {
+      setScreen("research-survey");
+    } else if (canUseServerAuth() && !readPendingPanelShare()) {
       setScreen("objects");
     }
   }, []);
 
   useLayoutEffect(() => {
+    if (isResearchSurveyLaunch()) {
+      markSplashSeen();
+      setSplashPhase("done");
+      setShowAuthIntro(false);
+      return;
+    }
     if (isTestAppClientHost()) {
       setSplashPhase("done");
       return;
@@ -347,6 +357,15 @@ export function AppShell() {
           })()
         : null;
 
+    if (isResearchSurveyLaunch()) {
+      setShowAuthIntro(false);
+      markSplashSeen();
+      setSplashPhase("done");
+      setScreen("research-survey");
+      setOnboardingReady(true);
+      return;
+    }
+
     if (canUseServerAuth()) {
       try {
         sessionStorage.removeItem("ep_intent");
@@ -387,8 +406,8 @@ export function AppShell() {
     if (!onboardingReady) return;
     if (canUseServerAuth() || isTelegramMiniApp()) return;
     const allowed: AppScreen[] = isTestAppClientHost()
-      ? ["telegram-auth"]
-      : ["telegram-auth"];
+      ? ["telegram-auth", "research-survey"]
+      : ["telegram-auth", "research-survey"];
     if (!allowed.includes(screen)) {
       setScreen("telegram-auth");
     }
@@ -1589,7 +1608,8 @@ export function AppShell() {
     showAuthIntro &&
     !isTestAppClientHost() &&
     !canUseServerAuth() &&
-    !isTelegramMiniApp()
+    !isTelegramMiniApp() &&
+    !isResearchSurveyLaunch()
   ) {
     return (
       <BrandAuthIntro
@@ -1637,7 +1657,8 @@ export function AppShell() {
     screen === "master-search" ||
     screen === "master-success" ||
     screen === "master-not-found" ||
-    screen === "admin";
+    screen === "admin" ||
+    screen === "research-survey";
   const wideLayout =
     screen === "objects" ||
     screen === "scheme" ||
@@ -2146,6 +2167,9 @@ export function AppShell() {
           {screen === "feedback" && (
             <FeedbackScreen key="feedback" onBack={() => go("objects")} />
           )}
+          {screen === "research-survey" && (
+            <ResearchSurveyScreen key="research-survey" />
+          )}
           {screen === "electrical-rules" && (
             <ElectricalRulesScreen
               key="electrical-rules"
@@ -2263,7 +2287,10 @@ export function AppShell() {
             />
           )}
         </AnimatePresence>
-        {pdConsentChecked && canUseServerAuth() && !pdConsentReady && (
+        {pdConsentChecked &&
+          canUseServerAuth() &&
+          !pdConsentReady &&
+          screen !== "research-survey" && (
           <PdConsentGate onAccepted={() => setPdConsentReady(true)} />
         )}
       </div>

@@ -198,7 +198,8 @@ export type AppScreen =
   | "master-success"
   | "master-not-found"
   | "admin"
-  | "appliance-detail";
+  | "appliance-detail"
+  | "research-survey";
 
 export type LeadFlow = "install" | "master";
 

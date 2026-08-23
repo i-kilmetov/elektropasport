@@ -445,6 +445,36 @@ export async function notifyAdminFeedback(payload: {
   });
 }
 
+export async function notifyAdminResearchSurvey(payload: {
+  name: string;
+  username?: string;
+  customerTelegramId?: number;
+  branch: string;
+  dwelling: string;
+  typology: string;
+  need: string;
+}): Promise<void> {
+  if ((await listAdminTelegramIds()).length === 0) return;
+  await sendToAdmins({
+    text: [
+      "📋 Анкета исследования",
+      "",
+      `Имя: ${payload.name}`,
+      payload.username ? `Username: @${payload.username}` : null,
+      payload.customerTelegramId
+        ? `Telegram user id: ${payload.customerTelegramId}`
+        : "Telegram user id: нет",
+      `Жильё: ${payload.dwelling}`,
+      `Ветка ввода: ${payload.branch}`,
+      `Тип: ${payload.typology}`,
+      `Нужен сервис: ${payload.need}`,
+    ]
+      .filter((line): line is string => line !== null)
+      .join("\n"),
+    disable_web_page_preview: true,
+  });
+}
+
 export async function notifyAdminFeedbackAttachment(payload: {
   file: Blob;
   filename: string;
