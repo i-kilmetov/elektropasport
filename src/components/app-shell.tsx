@@ -115,7 +115,7 @@ import {
   groundingToHasGround,
   houseInsightToPanelSnapshot,
 } from "@/lib/house-insight";
-import { buildLocalHouseInsight } from "@/lib/house-insight-lookup";
+import { buildPanelHouseSnapshot } from "@/lib/house-insight-lookup";
 import { syncRatingFromCharacteristics } from "@/lib/device-spec-guide";
 import { deriveRailCount } from "@/lib/panel-rails";
 import { isAtPanelLimit, isInviteToken, type PanelQuota } from "@/lib/invites";
@@ -164,13 +164,34 @@ function panelRailCount(
   return derived;
 }
 
+const SPLASH_SEEN_KEY = "ep:splash-seen";
+
+function readSplashSeen(): boolean {
+  if (isTestAppClientHost()) return true;
+  try {
+    return sessionStorage.getItem(SPLASH_SEEN_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function markSplashSeen(): void {
+  try {
+    sessionStorage.setItem(SPLASH_SEEN_KEY, "1");
+  } catch {
+    // private mode
+  }
+}
+
 export function AppShell() {
   const homeAppliancesEnabled = useHomeAppliancesEnabled();
   const [screen, setScreen] = useState<AppScreen>(() =>
     isTestAppClientHost() ? "telegram-auth" : "telegram-auth",
   );
   const [onboardingReady, setOnboardingReady] = useState(false);
-  const [splashDone, setSplashDone] = useState(isTestAppClientHost);
+  const [splashDone, setSplashDone] = useState(
+    () => isTestAppClientHost() || readSplashSeen(),
+  );
   const [showAuthIntro, setShowAuthIntro] = useState(
     () => !isTestAppClientHost(),
   );
@@ -252,6 +273,7 @@ export function AppShell() {
   /** After Telegram OAuth return — home with skeletons, not boot splash. */
   useLayoutEffect(() => {
     if (isTestAppClientHost() || !consumePostAuthSkipSplash()) return;
+    markSplashSeen();
     setSplashDone(true);
     setShowAuthIntro(false);
     setOnboardingReady(true);
@@ -719,61 +741,80 @@ export function AppShell() {
   }, [activePanelId, items, sharedPreview]);
 
   const savePanelHouseInsight = useCallback(
-    async (payload: { city: string; address: string; fiasId?: string }) => {
+    (payload: { city: string; address: string; fiasId?: string }) => {
       if (!activePanelId) return;
       setPanelHouseSaving(true);
-      try {
-        const insight = isMoscow(payload.city)
-          ? await lookupHouseInsight({
-              city: payload.city,
-              address: payload.address,
-              fiasId: payload.fiasId ?? null,
-            })
-          : buildLocalHouseInsight({
-              city: payload.city,
-              address: payload.address,
-              fiasId: payload.fiasId ?? null,
-            });
-        const snapshot = houseInsightToPanelSnapshot(insight);
-        const groundPrefill = groundingToHasGround(snapshot.groundingExpectation);
-        const panel = items.find(
-          (item): item is PanelObject =>
-            item.kind === "panel" && item.id === activePanelId,
-        );
-        const patch: Partial<
-          Pick<PanelObject, "houseSnapshot" | "address" | "hasGround">
-        > = {
-          houseSnapshot: snapshot,
-          address: snapshot.address,
-        };
-        if (groundPrefill !== undefined && panel?.hasGround === undefined) {
-          patch.hasGround = groundPrefill;
-        }
-        setItems((prev) =>
-          prev.map((item) =>
-            item.kind === "panel" && item.id === activePanelId
-              ? { ...item, ...patch }
-              : item,
-          ),
-        );
-        setPanelHousePromptOpen(false);
-        void persistPanelPatch(activePanelId, patch).catch((error) => {
-          console.error(error);
-          setItemsError(
-            error instanceof Error
-              ? error.message
-              : "Не удалось сохранить данные о доме",
-          );
-        });
-      } catch (error) {
+
+      const snapshot = buildPanelHouseSnapshot(payload);
+      const groundPrefill = groundingToHasGround(snapshot.groundingExpectation);
+      const panel = items.find(
+        (item): item is PanelObject =>
+          item.kind === "panel" && item.id === activePanelId,
+      );
+      const patch: Partial<
+        Pick<PanelObject, "houseSnapshot" | "address" | "hasGround">
+      > = {
+        houseSnapshot: snapshot,
+        address: snapshot.address,
+      };
+      if (groundPrefill !== undefined && panel?.hasGround === undefined) {
+        patch.hasGround = groundPrefill;
+      }
+
+      setItems((prev) =>
+        prev.map((item) =>
+          item.kind === "panel" && item.id === activePanelId
+            ? { ...item, ...patch }
+            : item,
+        ),
+      );
+      setPanelHousePromptOpen(false);
+      setPanelHouseSaving(false);
+
+      void persistPanelPatch(activePanelId, patch).catch((error) => {
         console.error(error);
         setItemsError(
           error instanceof Error
             ? error.message
-            : "Не удалось загрузить данные о доме",
+            : "Не удалось сохранить данные о доме",
         );
-      } finally {
-        setPanelHouseSaving(false);
+      });
+
+      if (isMoscow(payload.city)) {
+        void lookupHouseInsight({
+          city: payload.city,
+          address: payload.address,
+          fiasId: payload.fiasId ?? null,
+        })
+          .then((insight) => {
+            const enriched = houseInsightToPanelSnapshot(insight);
+            const enrichedGround = groundingToHasGround(
+              enriched.groundingExpectation,
+            );
+            const enrichPatch: Partial<
+              Pick<PanelObject, "houseSnapshot" | "address" | "hasGround">
+            > = {
+              houseSnapshot: enriched,
+              address: enriched.address,
+            };
+            if (
+              enrichedGround !== undefined &&
+              panel?.hasGround === undefined
+            ) {
+              enrichPatch.hasGround = enrichedGround;
+            }
+            setItems((prev) =>
+              prev.map((item) =>
+                item.kind === "panel" && item.id === activePanelId
+                  ? { ...item, ...enrichPatch }
+                  : item,
+              ),
+            );
+            void persistPanelPatch(activePanelId, enrichPatch).catch(
+              (error) => console.error(error),
+            );
+          })
+          .catch((error) => console.error(error));
       }
     },
     [activePanelId, items],
@@ -1473,6 +1514,7 @@ export function AppShell() {
     consumedShareRef.current = true;
     clearPendingPanelShare();
     setShowAuthIntro(false);
+    markSplashSeen();
     setSplashDone(true);
     void openSharedPanel(token);
   }, [itemsLoading, onboardingReady, openSharedPanel]);
@@ -1501,7 +1543,10 @@ export function AppShell() {
     return (
       <BrandSplash
         bootReady={onboardingReady && !itemsLoading}
-        onComplete={() => setSplashDone(true)}
+        onComplete={() => {
+          markSplashSeen();
+          setSplashDone(true);
+        }}
       />
     );
   }

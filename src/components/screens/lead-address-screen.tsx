@@ -48,25 +48,20 @@ export function LeadAddressScreen({
   const [lookupFailed, setLookupFailed] = useState(false);
 
   const cityLabel = normalizeCityName(city);
-  const useMoscowOpenData = isMoscow(city);
-  const addressSource = useMoscowOpenData ? "moscow" : "dadata";
+  const useMoscow = isMoscow(city);
   const trimmed = query.trim();
   const needsApartment =
-    !useMoscowOpenData &&
     requireApartment &&
     selected != null &&
     hasHouse(selected) &&
     !hasFlat(selected) &&
     apartments.length > 0;
-  const ready = useMoscowOpenData
-    ? selected != null &&
+  const ready =
+    (selected != null &&
       selected.value === trimmed &&
-      Boolean(selected.houseFiasId ?? selected.fiasId)
-    : (selected != null &&
-        selected.value === trimmed &&
-        hasHouse(selected) &&
-        !needsApartment) ||
-      (lookupFailed && trimmed.length >= 8);
+      hasHouse(selected) &&
+      !needsApartment) ||
+    (lookupFailed && trimmed.length >= 8);
 
   return (
     <motion.section
@@ -92,16 +87,16 @@ export function LeadAddressScreen({
       </h2>
       <p className="mb-5 text-[15px] leading-relaxed text-zinc-600">
         {description ??
-          (useMoscowOpenData
-            ? "Выберите дом из открытых данных Москвы — подтянем год постройки, заземление и сроки капремонта."
-            : "Укажите точный адрес через DaData: улица и дом. Так мы точнее подскажем по электрике и времени выезда.")}
+          (useMoscow
+            ? "Укажите улицу и дом — год постройки и капремонт подтянем из открытых данных Москвы."
+            : "Укажите точный адрес: улица и дом. Так мы точнее подскажем по электрике и времени выезда.")}
       </p>
 
       <AddressSuggestField
         city={cityLabel}
         value={query}
-        source={addressSource}
-        houseOnly={useMoscowOpenData || !requireApartment}
+        source="dadata"
+        houseOnly={!requireApartment}
         onChange={(next) => {
           setQuery(next);
           if (selected && next.trim() !== selected.value) {
@@ -115,20 +110,13 @@ export function LeadAddressScreen({
           setLookupFailed(false);
         }}
         onLookupError={(message) => setLookupFailed(Boolean(message))}
-        placeholder={useMoscowOpenData ? "Улица и номер дома" : "Улица, дом"}
+        placeholder="Улица, дом"
       />
 
       {needsApartment && (
         <p className="mt-3 text-[13px] leading-relaxed text-amber-800">
           В этом доме есть квартиры в адресном реестре — выберите квартиру из
           списка.
-        </p>
-      )}
-
-      {useMoscowOpenData && !ready && trimmed.length >= 3 && (
-        <p className="mt-3 text-[13px] leading-relaxed text-zinc-500">
-          Выберите дом из списка подсказок — так год постройки и капремонт
-          подтянутся из реестра Москвы.
         </p>
       )}
 

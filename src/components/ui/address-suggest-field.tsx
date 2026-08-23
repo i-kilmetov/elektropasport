@@ -83,7 +83,7 @@ export function AddressSuggestField({
         .finally(() => {
           if (requestId.current === id) setLoading(false);
         });
-    }, 320);
+    }, 200);
 
     return () => window.clearTimeout(timer);
   }, [value, city, source]);

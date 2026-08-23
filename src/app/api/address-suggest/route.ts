@@ -1,11 +1,6 @@
 import { authErrorResponse, requireTelegramUser } from "@/lib/telegram-auth";
 import { isMoscow, normalizeCityName } from "@/lib/lead-services";
 import { MOSCOW_KLADR_ID, parseDaDataSuggestions } from "@/lib/dadata";
-import {
-  mapMoscowHitsToSuggestions,
-  searchMoscowAddressSuggestions,
-} from "@/lib/moscow-house-passport";
-import { isMoscowOpenDataConfigured } from "@/lib/moscow-open-data";
 
 const DADATA_URL =
   "https://suggestions.dadata.ru/suggestions/api/4_1/rs/suggest/address";
@@ -63,17 +58,12 @@ export async function POST(request: Request) {
     const body = (await request.json()) as {
       query?: string;
       city?: string;
-      source?: "dadata" | "moscow";
     };
     const query = body.query?.trim() ?? "";
     const city = normalizeCityName(body.city ?? "");
-    const useMoscowOpenData = isMoscow(city);
 
     if (query.length < 2) {
-      return Response.json({
-        suggestions: [],
-        source: useMoscowOpenData ? "moscow" : "dadata",
-      });
+      return Response.json({ suggestions: [], source: "dadata" });
     }
     if (query.length > MAX_QUERY_LENGTH) {
       return Response.json(
@@ -83,25 +73,6 @@ export async function POST(request: Request) {
     }
     if (!city) {
       return Response.json({ error: "Укажите город" }, { status: 400 });
-    }
-
-    if (body.source === "moscow" && !useMoscowOpenData) {
-      return Response.json(
-        { error: "Открытые данные Москвы доступны только для города Москва" },
-        { status: 400 },
-      );
-    }
-
-    if (useMoscowOpenData && isMoscowOpenDataConfigured() && query.length >= 3) {
-      try {
-        const hits = await searchMoscowAddressSuggestions(query, 15);
-        const suggestions = mapMoscowHitsToSuggestions(hits);
-        if (suggestions.length > 0) {
-          return Response.json({ suggestions, source: "moscow" });
-        }
-      } catch (error) {
-        console.error("Moscow open-data address suggest failed", error);
-      }
     }
 
     return suggestFromDaData(query, city);

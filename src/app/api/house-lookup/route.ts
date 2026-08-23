@@ -1,6 +1,9 @@
 import { authErrorResponse, requireTelegramUser } from "@/lib/telegram-auth";
 import { isMoscow, normalizeCityName } from "@/lib/lead-services";
-import { lookupHouseInsight } from "@/lib/house-insight-lookup";
+import {
+  buildLocalHouseInsight,
+  lookupHouseInsight,
+} from "@/lib/house-insight-lookup";
 import { isMoscowOpenDataConfigured } from "@/lib/moscow-open-data";
 
 const MAX_ADDRESS_LENGTH = 200;
@@ -33,10 +36,9 @@ export async function POST(request: Request) {
     }
 
     if (isMoscow(city) && !isMoscowOpenDataConfigured()) {
-      return Response.json(
-        { error: "Справка по дому в Москве временно недоступна" },
-        { status: 503 },
-      );
+      return Response.json({
+        insight: buildLocalHouseInsight({ city, address, fiasId }),
+      });
     }
 
     const insight = await lookupHouseInsight({ city, address, fiasId });

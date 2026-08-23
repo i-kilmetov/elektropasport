@@ -42,7 +42,7 @@ export function PanelHouseAddressSheet({
   );
   const city = citySelected ?? cityExact ?? null;
   const cityLabel = city ? normalizeCityName(city) : "";
-  const useMoscowOpenData = city ? isMoscow(city) : false;
+  const useMoscow = city ? isMoscow(city) : false;
   const addressTrimmed = addressQuery.trim();
   const addressReady =
     addressSelected != null &&
@@ -76,7 +76,8 @@ export function PanelHouseAddressSheet({
               </h3>
               <p className="mt-1 text-[14px] leading-relaxed text-zinc-500">
                 Укажите город и дом — подскажем год постройки, заземление и
-                капремонт. Для Москвы используем открытые данные города.
+                капремонт
+                {useMoscow ? " (для Москвы — из открытых данных города)" : ""}.
               </p>
             </div>
             <button
@@ -128,8 +129,8 @@ export function PanelHouseAddressSheet({
             <AddressSuggestField
               city={cityLabel}
               value={addressQuery}
-              source={useMoscowOpenData ? "moscow" : "dadata"}
-              houseOnly={useMoscowOpenData}
+              source="dadata"
+              houseOnly
               onChange={(next) => {
                 setAddressQuery(next);
                 if (addressSelected && next.trim() !== addressSelected.value) {
@@ -137,17 +138,8 @@ export function PanelHouseAddressSheet({
                 }
               }}
               onSelect={(item) => setAddressSelected(item)}
-              placeholder={
-                useMoscowOpenData ? "Улица и номер дома" : "Улица, дом"
-              }
+              placeholder="Улица и номер дома"
             />
-          )}
-
-          {city && useMoscowOpenData && addressTrimmed.length >= 3 && !addressReady && (
-            <p className="mt-3 text-[13px] leading-relaxed text-zinc-500">
-              Начните вводить улицу и номер дома — подсказки появятся по мере
-              ввода. Год постройки для Москвы возьмём из открытых данных города.
-            </p>
           )}
 
           <div className="mt-6 flex gap-3">

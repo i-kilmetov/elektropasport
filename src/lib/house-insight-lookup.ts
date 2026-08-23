@@ -1,6 +1,8 @@
 import {
   electricalGuessForYear,
+  houseInsightToPanelSnapshot,
   type HouseInsight,
+  type PanelHouseSnapshot,
 } from "@/lib/house-insight";
 import { assessGroundingForYear } from "@/lib/grounding-assessment";
 import { isMoscow } from "@/lib/lead-services";
@@ -32,6 +34,14 @@ export function buildLocalHouseInsight(input: {
     managementType: null,
     moscowOpenDataUsed: false,
   };
+}
+
+export function buildPanelHouseSnapshot(input: {
+  city: string;
+  address: string;
+  fiasId?: string | null;
+}): PanelHouseSnapshot {
+  return houseInsightToPanelSnapshot(buildLocalHouseInsight(input));
 }
 
 export async function lookupHouseInsight(input: {
