@@ -6,6 +6,9 @@ import {
 } from "@/lib/house-insight-lookup";
 import { isMoscowOpenDataConfigured } from "@/lib/moscow-open-data";
 
+export const runtime = "nodejs";
+export const maxDuration = 60;
+
 const MAX_ADDRESS_LENGTH = 200;
 
 export async function POST(request: Request) {
@@ -44,10 +47,11 @@ export async function POST(request: Request) {
     if (isMoscow(city) && !isMoscowOpenDataConfigured()) {
       return Response.json({
         insight: buildLocalHouseInsight({ city, address, fiasId }),
+        moscowLookup: { configured: false, status: "not_configured" as const },
       });
     }
 
-    const insight = await lookupHouseInsight({
+    const result = await lookupHouseInsight({
       city,
       address,
       fiasId,
@@ -55,7 +59,12 @@ export async function POST(request: Request) {
       house,
       block,
     });
-    return Response.json({ insight });
+
+    const { moscowLookup, ...insight } = result;
+    return Response.json({
+      insight,
+      ...(moscowLookup ? { moscowLookup } : {}),
+    });
   } catch (error) {
     return authErrorResponse(error);
   }

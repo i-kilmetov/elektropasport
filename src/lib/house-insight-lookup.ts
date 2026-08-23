@@ -7,7 +7,10 @@ import {
 import { assessGroundingForYear } from "@/lib/grounding-assessment";
 import { isMoscow } from "@/lib/lead-services";
 import { lookupMoscowCapitalRepair } from "@/lib/moscow-capital-repair";
-import { lookupMoscowHousePassport } from "@/lib/moscow-house-passport";
+import {
+  lookupMoscowHousePassportWithDebug,
+  type MoscowLookupDebug,
+} from "@/lib/moscow-house-passport";
 
 /** Building year and kapremont from Moscow open data; address only elsewhere. */
 export function buildLocalHouseInsight(input: {
@@ -51,7 +54,7 @@ export async function lookupHouseInsight(input: {
   street?: string | null;
   house?: string | null;
   block?: string | null;
-}): Promise<HouseInsight> {
+}): Promise<HouseInsight & { moscowLookup?: MoscowLookupDebug }> {
   const city = input.city.trim();
   let address = input.address.trim();
   const rawFiasId = input.fiasId?.trim() || null;
@@ -60,13 +63,15 @@ export async function lookupHouseInsight(input: {
   let buildingYear: number | null = null;
   let operationYear: number | null = null;
   let moscowOpenDataUsed = false;
+  let moscowLookup: MoscowLookupDebug | undefined;
 
   if (isMoscow(city)) {
-    const passport = await lookupMoscowHousePassport(address, {
+    const { passport, debug } = await lookupMoscowHousePassportWithDebug(address, {
       street: input.street,
       house: input.house,
       block: input.block,
     });
+    moscowLookup = debug;
     if (passport) {
       address = passport.address || address;
       buildingYear = passport.buildingYear;
@@ -97,5 +102,6 @@ export async function lookupHouseInsight(input: {
     management: null,
     managementType: null,
     moscowOpenDataUsed,
+    ...(moscowLookup ? { moscowLookup } : {}),
   };
 }

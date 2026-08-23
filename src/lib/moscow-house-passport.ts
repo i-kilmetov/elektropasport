@@ -15,9 +15,24 @@ import {
   fetchDatasetRows,
   isMoscowOpenDataConfigured,
   mosFetchDatasetList,
+  probeMoscowOpenDataApi,
   resolveCapitalRepairDatasetId,
   type MosDataRow,
 } from "@/lib/moscow-open-data";
+
+export type MoscowLookupDebug = {
+  configured: boolean;
+  apiProbe?: { ok: boolean; status: number; error?: string };
+  datasetId?: number | null;
+  status:
+    | "ok"
+    | "not_configured"
+    | "api_unreachable"
+    | "no_dataset"
+    | "no_match"
+    | "error";
+  detail?: string;
+};
 
 export type MoscowAddressHit = {
   address: string;
@@ -82,16 +97,28 @@ function resolveAddressColumn(
 }
 
 /** Known dommos / MKD passport tables on apidata.mos.ru (probed before full catalog scan). */
-const KNOWN_PASSPORT_DATASET_IDS = [29171, 27707, 60562, 658];
+const KNOWN_PASSPORT_DATASET_IDS = [29171, 27707, 60562];
+
+function hasDommosYearColumn(
+  columns: Array<{ name: string; caption: string }>,
+): boolean {
+  return columns.some((col) => {
+    const name = col.name.toLowerCase();
+    const caption = col.caption.toLowerCase();
+    return (
+      name === "year_built" ||
+      name.includes("year_built") ||
+      caption.includes("год постройки") ||
+      caption.includes("год постро")
+    );
+  });
+}
 
 async function datasetHasPassportShape(datasetId: number): Promise<boolean> {
   const columns = await fetchDatasetColumns(datasetId);
   if (columns.length === 0) return false;
   const addressColumn = resolveAddressColumn(columns);
-  const hasYear = columns.some((col) =>
-    YEAR_KEYS.some((key) => col.name.toLowerCase() === key.toLowerCase()),
-  );
-  return Boolean(addressColumn && hasYear);
+  return Boolean(addressColumn && hasDommosYearColumn(columns));
 }
 
 async function resolvePassportDatasetId(): Promise<number | null> {
@@ -99,7 +126,9 @@ async function resolvePassportDatasetId(): Promise<number | null> {
     process.env.MOS_DOM_PASSPORT_DATASET_ID ?? "",
     10,
   );
-  if (Number.isFinite(fromEnv) && fromEnv > 0) return fromEnv;
+  if (Number.isFinite(fromEnv) && fromEnv > 0) {
+    if (await datasetHasPassportShape(fromEnv)) return fromEnv;
+  }
 
   if (cachedPassportDatasetId !== undefined) return cachedPassportDatasetId;
 
@@ -117,22 +146,25 @@ async function resolvePassportDatasetId(): Promise<number | null> {
     return null;
   }
 
-  let best: { id: number; caption: string } | null = null;
-  for (const item of list) {
-    const points = scorePassportDataset(item.caption);
-    if (points < 3) continue;
-    if (!best || points > scorePassportDataset(best.caption)) best = item;
+  const candidates = list
+    .map((item) => ({ ...item, points: scorePassportDataset(item.caption) }))
+    .filter((item) => item.points >= 5)
+    .sort((a, b) => b.points - a.points);
+
+  for (const candidate of candidates) {
+    if (await datasetHasPassportShape(candidate.id)) {
+      cachedPassportDatasetId = candidate.id;
+      console.info(
+        "Moscow dom passport dataset:",
+        candidate.id,
+        candidate.caption.slice(0, 80),
+      );
+      return candidate.id;
+    }
   }
 
-  cachedPassportDatasetId = best?.id ?? null;
-  if (best) {
-    console.info(
-      "Moscow dom passport dataset:",
-      best.id,
-      best.caption.slice(0, 80),
-    );
-  }
-  return cachedPassportDatasetId;
+  cachedPassportDatasetId = null;
+  return null;
 }
 
 function pickBestPassportRow(
@@ -312,14 +344,48 @@ export async function lookupMoscowHousePassport(
   address: string,
   hints?: { street?: string | null; house?: string | null; block?: string | null },
 ): Promise<MoscowHousePassport | null> {
-  if (!isMoscowOpenDataConfigured()) return null;
+  const result = await lookupMoscowHousePassportWithDebug(address, hints);
+  return result.passport;
+}
+
+export async function lookupMoscowHousePassportWithDebug(
+  address: string,
+  hints?: { street?: string | null; house?: string | null; block?: string | null },
+): Promise<{ passport: MoscowHousePassport | null; debug: MoscowLookupDebug }> {
+  const debug: MoscowLookupDebug = {
+    configured: isMoscowOpenDataConfigured(),
+    status: "not_configured",
+  };
+
+  if (!debug.configured) {
+    return { passport: null, debug };
+  }
+
+  debug.apiProbe = await probeMoscowOpenDataApi();
+  if (!debug.apiProbe.ok) {
+    debug.status = "api_unreachable";
+    debug.detail =
+      debug.apiProbe.error ??
+      (debug.apiProbe.status ? `HTTP ${debug.apiProbe.status}` : "network_error");
+    return { passport: null, debug };
+  }
 
   const datasetId = await resolvePassportDatasetId();
-  if (!datasetId) return null;
+  debug.datasetId = datasetId;
+  if (!datasetId) {
+    debug.status = "no_dataset";
+    debug.detail =
+      "Не найден набор «База жилых домов». Задайте MOS_DOM_PASSPORT_DATASET_ID в Vercel.";
+    return { passport: null, debug };
+  }
 
   try {
     const row = await findPassportRow(datasetId, address, hints);
-    if (!row?.Cells) return null;
+    if (!row?.Cells) {
+      debug.status = "no_match";
+      debug.detail = "Адрес не найден в реестре dommos.";
+      return { passport: null, debug };
+    }
 
     const cells = row.Cells;
     const resolvedAddress =
@@ -327,17 +393,32 @@ export async function lookupMoscowHousePassport(
     const buildingYear = parseYear(cellString(cells, YEAR_KEYS));
     const operationYear = parseYear(cellString(cells, OPERATION_YEAR_KEYS));
 
-    if (!resolvedAddress && !buildingYear) return null;
+    if (!resolvedAddress && !buildingYear) {
+      debug.status = "no_match";
+      debug.detail = "Строка найдена, но год постройки пустой.";
+      return { passport: null, debug };
+    }
 
-    return {
+    const passport: MoscowHousePassport = {
       address: resolvedAddress,
       buildingYear,
       operationYear,
       sourceLabel: "Открытые данные Москвы",
     };
+
+    if (!buildingYear && !operationYear) {
+      debug.status = "no_match";
+      debug.detail = "Строка найдена, но год постройки пустой.";
+      return { passport: null, debug };
+    }
+
+    debug.status = "ok";
+    return { passport, debug };
   } catch (error) {
     console.error("Moscow house passport lookup failed", error);
-    return null;
+    debug.status = "error";
+    debug.detail = error instanceof Error ? error.message : "lookup_failed";
+    return { passport: null, debug };
   }
 }
 

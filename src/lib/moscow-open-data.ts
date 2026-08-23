@@ -28,12 +28,18 @@ export function isMoscowOpenDataConfigured(): boolean {
   return Boolean(apiKey());
 }
 
-async function mosFetch<T>(
+export type MosFetchResult<T> = {
+  data: T | null;
+  status: number;
+  error?: string;
+};
+
+async function mosFetchRaw(
   path: string,
   searchParams?: Record<string, string | number | undefined>,
-): Promise<T | null> {
+): Promise<MosFetchResult<unknown>> {
   const key = apiKey();
-  if (!key) return null;
+  if (!key) return { data: null, status: 0, error: "missing_api_key" };
 
   const url = new URL(`${MOS_DATA_BASE}${path}`);
   url.searchParams.set("api_key", key);
@@ -44,21 +50,44 @@ async function mosFetch<T>(
     }
   }
 
-  const res = await fetch(url, {
-    method: "GET",
-    headers: { Accept: "application/json" },
-    cache: path.includes("/rows") ? "no-store" : "force-cache",
-    next: path.includes("/rows") ? undefined : { revalidate: 86400 },
-  });
+  try {
+    const res = await fetch(url, {
+      method: "GET",
+      headers: { Accept: "application/json" },
+      cache: path.includes("/rows") ? "no-store" : "force-cache",
+      next: path.includes("/rows") ? undefined : { revalidate: 86400 },
+    });
 
-  if (res.status === 404) return null;
-  if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    console.error("Moscow open data request failed", path, res.status, body);
-    return null;
+    if (res.status === 404) {
+      return { data: null, status: 404 };
+    }
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      console.error("Moscow open data request failed", path, res.status, body);
+      return {
+        data: null,
+        status: res.status,
+        error: body.slice(0, 200) || `http_${res.status}`,
+      };
+    }
+
+    return { data: await res.json(), status: res.status };
+  } catch (error) {
+    console.error("Moscow open data request error", path, error);
+    return {
+      data: null,
+      status: 0,
+      error: error instanceof Error ? error.message : "network_error",
+    };
   }
+}
 
-  return (await res.json()) as T;
+async function mosFetch<T>(
+  path: string,
+  searchParams?: Record<string, string | number | undefined>,
+): Promise<T | null> {
+  const result = await mosFetchRaw(path, searchParams);
+  return (result.data as T | null) ?? null;
 }
 
 let cachedRepairDatasetId: number | null | undefined;
@@ -155,10 +184,26 @@ export async function fetchDatasetRows(
   datasetId: number,
   options?: { skip?: number; top?: number; filter?: string },
 ): Promise<MosDataRow[]> {
-  const payload = await mosFetch<MosDataRow[]>(`/datasets/${datasetId}/rows`, {
+  const result = await mosFetchRaw(`/datasets/${datasetId}/rows`, {
     $skip: options?.skip ?? 0,
     $top: options?.top ?? 1000,
     $filter: options?.filter,
   });
-  return Array.isArray(payload) ? payload.map(normalizeMosRow) : [];
+  const payload = result.data;
+  if (!Array.isArray(payload)) return [];
+  return payload.map(normalizeMosRow);
+}
+
+/** Lightweight API health check for diagnostics (does not log secrets). */
+export async function probeMoscowOpenDataApi(): Promise<{
+  ok: boolean;
+  status: number;
+  error?: string;
+}> {
+  const result = await mosFetchRaw("/datasets", { $top: 1, foreign: "false" });
+  return {
+    ok: result.status === 200 && Array.isArray(result.data),
+    status: result.status,
+    error: result.error,
+  };
 }
