@@ -15,10 +15,19 @@ import {
   parseAcceptRequestCallback,
   notifyMasterRequestAccepted,
   notifyMasterRequestTaken,
+  sendResearchSurveyInvite,
 } from "@/lib/telegram-notify";
+import {
+  isResearchSurveyStartParam,
+} from "@/lib/research-survey-access";
+import { parseTelegramStartCommand } from "@/lib/research-survey";
 import { installStatusLabels } from "@/types";
 
 type TelegramUpdate = {
+  message?: {
+    chat: { id: number; type?: string };
+    text?: string;
+  };
   callback_query?: {
     id: string;
     from?: { id: number };
@@ -45,6 +54,19 @@ export async function POST(request: Request) {
     }
 
     const update = (await request.json()) as TelegramUpdate;
+
+    const startPayload = parseTelegramStartCommand(update.message?.text);
+    if (
+      startPayload &&
+      isResearchSurveyStartParam(startPayload) &&
+      update.message?.chat.id &&
+      update.message.chat.type !== "group" &&
+      update.message.chat.type !== "supergroup"
+    ) {
+      await sendResearchSurveyInvite(update.message.chat.id);
+      return Response.json({ ok: true });
+    }
+
     const callback = update.callback_query;
     if (!callback?.id) {
       return Response.json({ ok: true });

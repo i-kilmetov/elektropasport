@@ -12,6 +12,8 @@ export function isResearchSurveyLaunch(): boolean {
   if (typeof window === "undefined") return false;
   if (isResearchSurveyStartParam(getTelegramStartParam())) return true;
   try {
+    const path = window.location.pathname.replace(/\/$/, "") || "/";
+    if (path === "/research") return true;
     const params = new URLSearchParams(window.location.search);
     if (params.get("survey") === "1") return true;
     if (isResearchSurveyStartParam(params.get("startapp"))) return true;

@@ -193,15 +193,18 @@ function markSplashSeen(): void {
   }
 }
 
-export function AppShell() {
+export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?: boolean } = {}) {
   const homeAppliancesEnabled = useHomeAppliancesEnabled();
+  const surveyLaunch = forceResearchSurvey || isResearchSurveyLaunch();
   const [screen, setScreen] = useState<AppScreen>(() =>
-    isTestAppClientHost() ? "telegram-auth" : "telegram-auth",
+    forceResearchSurvey ? "research-survey" : "telegram-auth",
   );
-  const [onboardingReady, setOnboardingReady] = useState(false);
-  const [splashPhase, setSplashPhase] = useState<SplashPhase>("pending");
+  const [onboardingReady, setOnboardingReady] = useState(forceResearchSurvey);
+  const [splashPhase, setSplashPhase] = useState<SplashPhase>(
+    forceResearchSurvey ? "done" : "pending",
+  );
   const [showAuthIntro, setShowAuthIntro] = useState(
-    () => !isTestAppClientHost(),
+    () => !forceResearchSurvey && !isTestAppClientHost(),
   );
   const [items, setItems] = useState<HomeListItem[]>(() => getCachedHomeItems());
   const [itemsLoading, setItemsLoading] = useState(
@@ -289,7 +292,7 @@ export function AppShell() {
     setSplashPhase("done");
     setShowAuthIntro(false);
     setOnboardingReady(true);
-    if (isResearchSurveyLaunch()) {
+    if (surveyLaunch) {
       setScreen("research-survey");
     } else if (canUseServerAuth() && !readPendingPanelShare()) {
       setScreen("objects");
@@ -297,7 +300,7 @@ export function AppShell() {
   }, []);
 
   useLayoutEffect(() => {
-    if (isResearchSurveyLaunch()) {
+    if (surveyLaunch) {
       markSplashSeen();
       setSplashPhase("done");
       setShowAuthIntro(false);
@@ -357,7 +360,7 @@ export function AppShell() {
           })()
         : null;
 
-    if (isResearchSurveyLaunch()) {
+    if (surveyLaunch) {
       setShowAuthIntro(false);
       markSplashSeen();
       setSplashPhase("done");
@@ -1609,7 +1612,7 @@ export function AppShell() {
     !isTestAppClientHost() &&
     !canUseServerAuth() &&
     !isTelegramMiniApp() &&
-    !isResearchSurveyLaunch()
+    !surveyLaunch
   ) {
     return (
       <BrandAuthIntro

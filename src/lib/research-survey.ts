@@ -1,5 +1,14 @@
 export const RESEARCH_SURVEY_START_PARAMS = new Set(["research", "survey"]);
 
+/** Payload after `/start` or `/start@bot`, e.g. `research`. */
+export function parseTelegramStartCommand(text?: string | null): string | null {
+  if (!text) return null;
+  const match = text
+    .trim()
+    .match(/^\/start(?:@[A-Za-z0-9_]+)?(?:\s+(\S+))?$/i);
+  return match?.[1]?.trim() || null;
+}
+
 export const RESEARCH_SURVEY_TOTAL_STEPS = 16;
 
 export type SurveyQuestionKind = "single" | "multi" | "text";

@@ -1,5 +1,6 @@
 import type { InstallRequest, InstallRequestStatus } from "@/types";
 import { installStatusLabels } from "@/types";
+import { PRODUCTION_APP_URL } from "@/lib/app-url";
 import { getBotToken } from "@/lib/telegram-auth";
 import { listAdminTelegramIds, ownerAdminTelegramId } from "@/lib/admin";
 
@@ -172,6 +173,23 @@ export async function sendTelegramUserMessage(
   });
   if (!result.ok) return { ok: false, error: result.error };
   return { ok: true };
+}
+
+export async function sendResearchSurveyInvite(chatId: number): Promise<void> {
+  const url = `${PRODUCTION_APP_URL}/research`;
+  const result = await telegramApi("sendMessage", {
+    chat_id: chatId,
+    text: "Короткий опрос про электрику дома. Ответы анонимно идут в исследование Токома.",
+    disable_web_page_preview: true,
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: "Пройти анкету", web_app: { url } }],
+      ],
+    },
+  });
+  if (!result.ok) {
+    throw new Error(result.error);
+  }
 }
 
 /** Probe whether the bot can DM this user (user must have started the bot). */
