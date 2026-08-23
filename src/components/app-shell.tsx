@@ -54,6 +54,7 @@ import {
   WaitlistSheet,
   type WaitlistKind,
 } from "@/components/ui/waitlist-sheet";
+import { PanelHouseAddressSheet } from "@/components/ui/panel-house-address-sheet";
 import {
   ONBOARDING_SKIP_KEY,
 } from "@/components/screens/welcome-screen";
@@ -105,7 +106,12 @@ import {
   persistPanelPatch,
   createPanelShare,
   fetchSharedPanel,
+  lookupHouseInsight,
 } from "@/lib/user-data";
+import {
+  groundingToHasGround,
+  houseInsightToPanelSnapshot,
+} from "@/lib/house-insight";
 import { syncRatingFromCharacteristics } from "@/lib/device-spec-guide";
 import { deriveRailCount } from "@/lib/panel-rails";
 import { isAtPanelLimit, isInviteToken, type PanelQuota } from "@/lib/invites";
@@ -181,6 +187,8 @@ export function AppShell() {
   const [activeRequestId, setActiveRequestId] = useState<string | null>(null);
   const [askNameOnBack, setAskNameOnBack] = useState(false);
   const [schemeTourPending, setSchemeTourPending] = useState(false);
+  const [panelHousePromptOpen, setPanelHousePromptOpen] = useState(false);
+  const [panelHouseSaving, setPanelHouseSaving] = useState(false);
   const [sharedPreview, setSharedPreview] = useState<{
     panel: PanelObject;
     token: string;
@@ -671,6 +679,66 @@ export function AppShell() {
       void refreshQuota();
     },
     [items, localPanelCount, openPanelLimit, photoDataUrl, quota, refreshQuota, retakePanelId],
+  );
+
+  const handleSchemeOnboardingDone = useCallback(() => {
+    setSchemeTourPending(false);
+    if (!activePanelId || sharedPreview) return;
+    const panel = items.find(
+      (item): item is PanelObject =>
+        item.kind === "panel" && item.id === activePanelId,
+    );
+    if (!panel?.houseSnapshot) {
+      setPanelHousePromptOpen(true);
+    }
+  }, [activePanelId, items, sharedPreview]);
+
+  const savePanelHouseInsight = useCallback(
+    async (payload: { city: string; address: string; fiasId?: string }) => {
+      if (!activePanelId) return;
+      setPanelHouseSaving(true);
+      try {
+        const insight = await lookupHouseInsight({
+          city: payload.city,
+          address: payload.address,
+          fiasId: payload.fiasId ?? null,
+        });
+        const snapshot = houseInsightToPanelSnapshot(insight);
+        const groundPrefill = groundingToHasGround(snapshot.groundingExpectation);
+        const panel = items.find(
+          (item): item is PanelObject =>
+            item.kind === "panel" && item.id === activePanelId,
+        );
+        const patch: Partial<
+          Pick<PanelObject, "houseSnapshot" | "address" | "hasGround">
+        > = {
+          houseSnapshot: snapshot,
+          address: snapshot.address,
+        };
+        if (groundPrefill !== undefined && panel?.hasGround === undefined) {
+          patch.hasGround = groundPrefill;
+        }
+        setItems((prev) =>
+          prev.map((item) =>
+            item.kind === "panel" && item.id === activePanelId
+              ? { ...item, ...patch }
+              : item,
+          ),
+        );
+        await persistPanelPatch(activePanelId, patch);
+        setPanelHousePromptOpen(false);
+      } catch (error) {
+        console.error(error);
+        setItemsError(
+          error instanceof Error
+            ? error.message
+            : "Не удалось загрузить данные о доме",
+        );
+      } finally {
+        setPanelHouseSaving(false);
+      }
+    },
+    [activePanelId, items],
   );
 
   const openPanel = useCallback(
@@ -1648,13 +1716,17 @@ export function AppShell() {
               phases={activePanel?.phases}
               powerKw={activePanel?.powerKw}
               hasGround={activePanel?.hasGround}
+              houseSnapshot={activePanel?.houseSnapshot}
+              onEditHouse={
+                sharedPreview ? undefined : () => setPanelHousePromptOpen(true)
+              }
               railCount={railCount ?? undefined}
               canUseTerminals={
                 Boolean(masterViewRequest) ||
                 ((isMaster || isAdmin) && masterMode)
               }
               startOnboarding={schemeTourPending && !sharedPreview}
-              onOnboardingDone={() => setSchemeTourPending(false)}
+              onOnboardingDone={handleSchemeOnboardingDone}
             />
           )}
           {screen === "no-panel-options" && (
@@ -2011,6 +2083,18 @@ export function AppShell() {
           )}
         </AnimatePresence>
         <AnimatePresence>
+          {panelHousePromptOpen && (
+            <PanelHouseAddressSheet
+              open={panelHousePromptOpen}
+              saving={panelHouseSaving}
+              onClose={() => setPanelHousePromptOpen(false)}
+              onConfirm={(payload) => {
+                void savePanelHouseInsight(payload);
+              }}
+            />
+          )}
+        </AnimatePresence>
+        <AnimatePresence>
           {waitlistKind && (
             <WaitlistSheet
               kind={waitlistKind}
@@ -2018,6 +2102,14 @@ export function AppShell() {
             />
           )}
         </AnimatePresence>
+        <PanelHouseAddressSheet
+          open={panelHousePromptOpen}
+          saving={panelHouseSaving}
+          onClose={() => setPanelHousePromptOpen(false)}
+          onConfirm={(payload) => {
+            void savePanelHouseInsight(payload);
+          }}
+        />
       </div>
     </div>
   );

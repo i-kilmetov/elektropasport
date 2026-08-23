@@ -53,6 +53,22 @@ async function mosFetch<T>(
 
 let cachedRepairDatasetId: number | null | undefined;
 
+export async function mosFetchDatasetList(): Promise<
+  MosDatasetSummary[] | null
+> {
+  const list = await mosFetch<Array<{ Id?: number; Caption?: string | null }>>(
+    "/datasets",
+    { $top: 1000, foreign: "false" },
+  );
+  if (!Array.isArray(list)) return null;
+  return list
+    .map((item) => ({
+      id: item.Id ?? 0,
+      caption: item.Caption?.trim() ?? "",
+    }))
+    .filter((item) => item.id > 0 && item.caption);
+}
+
 export async function resolveCapitalRepairDatasetId(): Promise<number | null> {
   const fromEnv = Number.parseInt(
     process.env.MOS_CAPITAL_REPAIR_DATASET_ID ?? "",
@@ -62,11 +78,8 @@ export async function resolveCapitalRepairDatasetId(): Promise<number | null> {
 
   if (cachedRepairDatasetId !== undefined) return cachedRepairDatasetId;
 
-  const list = await mosFetch<
-    Array<{ Id?: number; Caption?: string | null }>
-  >("/datasets", { $top: 1000, foreign: "false" });
-
-  if (!Array.isArray(list)) {
+  const list = await mosFetchDatasetList();
+  if (!list) {
     cachedRepairDatasetId = null;
     return null;
   }
@@ -84,13 +97,10 @@ export async function resolveCapitalRepairDatasetId(): Promise<number | null> {
 
   let best: MosDatasetSummary | null = null;
   for (const item of list) {
-    const id = item.Id;
-    const caption = item.Caption?.trim();
-    if (!id || !caption) continue;
-    const points = score(caption);
+    const points = score(item.caption);
     if (points < 3) continue;
     if (!best || points > score(best.caption)) {
-      best = { id, caption };
+      best = item;
     }
   }
 

@@ -15,6 +15,7 @@ import {
   AlertTriangle,
   ArrowLeft,
   Check,
+  Building2,
   Gauge,
   ImageIcon,
   MoreHorizontal,
@@ -67,6 +68,10 @@ import {
   hasSeenSchemeTour,
   markSchemeTourSeen,
 } from "@/lib/scheme-onboarding";
+import {
+  formatBuildingYear,
+  type PanelHouseSnapshot,
+} from "@/lib/house-insight";
 import {
   manualSpecEditDisclaimer,
 } from "@/lib/device-spec-guide";
@@ -1609,6 +1614,8 @@ export function SchemeScreen({
   hasGround,
   railCount,
   canUseTerminals = false,
+  houseSnapshot,
+  onEditHouse,
   startOnboarding = false,
   onOnboardingDone,
 }: {
@@ -1661,6 +1668,9 @@ export function SchemeScreen({
   railCount?: number;
   /** Masters can edit terminal wiring; user mode shows a waitlist sheet. */
   canUseTerminals?: boolean;
+  /** Address / year / kapremont snapshot for this dwelling */
+  houseSnapshot?: PanelHouseSnapshot;
+  onEditHouse?: () => void;
   /** After photo analysis — run the section spotlight tour once. */
   startOnboarding?: boolean;
   onOnboardingDone?: () => void;
@@ -1724,8 +1734,8 @@ export function SchemeScreen({
   }, [panelId]);
 
   useEffect(() => {
-    if (!startOnboarding || sharedPreview) return;
-    if (hasSeenSchemeTour()) {
+    if (!startOnboarding || sharedPreview || !panelId) return;
+    if (hasSeenSchemeTour(panelId)) {
       onOnboardingDone?.();
       return;
     }
@@ -1734,13 +1744,13 @@ export function SchemeScreen({
       setTourOpen(true);
     }, 450);
     return () => window.clearTimeout(timer);
-  }, [startOnboarding, sharedPreview, onOnboardingDone]);
+  }, [startOnboarding, sharedPreview, panelId, onOnboardingDone]);
 
   const finishSchemeTour = useCallback(() => {
-    markSchemeTourSeen();
+    if (panelId) markSchemeTourSeen(panelId);
     setTourOpen(false);
     onOnboardingDone?.();
-  }, [onOnboardingDone]);
+  }, [panelId, onOnboardingDone]);
 
   const persistIdentifyContext = useCallback((context: IdentifyContext) => {
     setIdentifyContext(context);
@@ -2166,6 +2176,60 @@ export function SchemeScreen({
 
   const networkSafetyCards = (
     <>
+      <div className="min-w-0 col-span-2 lg:col-span-1">
+        <GlassCard className="flex h-full flex-col p-4 lg:p-5">
+          <div className="mb-2 flex items-center gap-1.5 text-[12px] text-zinc-500">
+            <Building2 className="h-3.5 w-3.5 text-zinc-400" />
+            Дом
+          </div>
+          {houseSnapshot ? (
+            <div className="space-y-2">
+              <p className="text-[14px] font-semibold leading-snug text-zinc-900">
+                {houseSnapshot.address}
+              </p>
+              <p className="text-[13px] text-zinc-600">
+                Год постройки:{" "}
+                <span className="font-medium text-zinc-800">
+                  {formatBuildingYear(houseSnapshot.buildingYear)}
+                </span>
+              </p>
+              <p className="text-[13px] leading-snug text-zinc-600">
+                {houseSnapshot.groundingTitle}. {houseSnapshot.groundingSummary}
+              </p>
+              {houseSnapshot.capitalRepairMessage && (
+                <p className="text-[12px] leading-snug text-zinc-500">
+                  {houseSnapshot.capitalRepairMessage}
+                </p>
+              )}
+              {!sharedPreview && onEditHouse && (
+                <button
+                  type="button"
+                  onClick={onEditHouse}
+                  className="pt-1 text-[13px] font-medium text-zinc-700 underline-offset-2 hover:underline"
+                >
+                  Изменить адрес
+                </button>
+              )}
+            </div>
+          ) : (
+            <div>
+              <p className="text-[13px] leading-snug text-zinc-400">
+                Укажите адрес дома — подскажем год постройки, заземление и
+                капремонт.
+              </p>
+              {!sharedPreview && onEditHouse && (
+                <button
+                  type="button"
+                  onClick={onEditHouse}
+                  className="mt-2 text-[13px] font-medium text-zinc-700 underline-offset-2 hover:underline"
+                >
+                  Указать адрес
+                </button>
+              )}
+            </div>
+          )}
+        </GlassCard>
+      </div>
       <button
         type="button"
         data-scheme-tour="network"

@@ -1,5 +1,11 @@
 import { isMoscow } from "@/lib/lead-services";
 import {
+  addressesLikelyMatch,
+  cellString,
+  extractHouseTokens,
+  MOSCOW_ADDRESS_CELL_KEYS,
+} from "@/lib/moscow-address-match";
+import {
   fetchDatasetColumns,
   fetchDatasetRows,
   isMoscowOpenDataConfigured,
@@ -16,18 +22,6 @@ export type CapitalRepairInfo = {
   sourceLabel: string | null;
   userMessage: string;
 };
-
-const ADDRESS_KEYS = [
-  "Address",
-  "AddressMKD",
-  "Adress",
-  "AdressMKD",
-  "FullAddress",
-  "AddressHouse",
-  "SIMPLE_ADDRESS",
-  "ADDRESS",
-  "AddressStr",
-];
 
 const YEAR_START_KEYS = [
   "YearStart",
@@ -71,61 +65,6 @@ const WORKS_KEYS = [
 
 const STATUS_KEYS = ["Status", "StatusRepair", "RepairStatus", "State"];
 
-function normalizeAddressPart(value: string): string {
-  return value
-    .toLowerCase()
-    .replace(/ё/g, "е")
-    .replace(/[^\p{L}\p{N}]+/gu, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function extractHouseTokens(address: string): string[] {
-  const norm = normalizeAddressPart(address);
-  const tokens = norm.split(" ").filter(Boolean);
-  const houseMatch =
-    /(?:д\.?|дом|к\.?|корп\.?|стр\.?)\s*([\d/a-zа-я-]+)/i.exec(address) ??
-    /,\s*([\d/a-zа-я-]+)\s*$/.exec(address);
-  const house = houseMatch?.[1]
-    ? normalizeAddressPart(houseMatch[1])
-    : tokens.at(-1) ?? "";
-  const streetTokens = tokens.filter(
-    (token) =>
-      token.length > 2 &&
-      token !== house &&
-      !["москва", "город", "россия", "ул", "улица", "пр", "проспект"].includes(
-        token,
-      ),
-  );
-  return [...streetTokens.slice(-3), house].filter(Boolean);
-}
-
-function addressesLikelyMatch(stored: string, query: string): boolean {
-  const a = normalizeAddressPart(stored);
-  const b = normalizeAddressPart(query);
-  if (!a || !b) return false;
-  if (a.includes(b) || b.includes(a)) return true;
-
-  const tokens = extractHouseTokens(query);
-  if (tokens.length === 0) return false;
-  return tokens.every((token) => a.includes(token));
-}
-
-function cellValue(cells: Record<string, unknown>, keys: string[]): string {
-  for (const key of keys) {
-    const direct = cells[key];
-    if (direct != null && String(direct).trim()) return String(direct).trim();
-  }
-  const lowerMap = new Map(
-    Object.entries(cells).map(([k, v]) => [k.toLowerCase(), v]),
-  );
-  for (const key of keys) {
-    const value = lowerMap.get(key.toLowerCase());
-    if (value != null && String(value).trim()) return String(value).trim();
-  }
-  return "";
-}
-
 function parseYear(raw: string): number | null {
   const match = /(19|20)\d{2}/.exec(raw);
   if (!match) return null;
@@ -134,11 +73,11 @@ function parseYear(raw: string): number | null {
 }
 
 function pickYear(cells: Record<string, unknown>, keys: string[]): number | null {
-  return parseYear(cellValue(cells, keys));
+  return parseYear(cellString(cells, keys));
 }
 
 function pickWorks(cells: Record<string, unknown>): string | null {
-  const raw = cellValue(cells, WORKS_KEYS);
+  const raw = cellString(cells, WORKS_KEYS);
   if (!raw) return null;
   return raw.length > 220 ? `${raw.slice(0, 217)}…` : raw;
 }
@@ -150,7 +89,7 @@ function rowToRepairInfo(row: MosDataRow): Omit<CapitalRepairInfo, "userMessage"
     plannedStartYear: pickYear(cells, YEAR_START_KEYS),
     plannedEndYear: pickYear(cells, YEAR_END_KEYS),
     worksSummary: pickWorks(cells),
-    status: cellValue(cells, STATUS_KEYS) || null,
+    status: cellString(cells, STATUS_KEYS) || null,
     sourceLabel: "Портал открытых данных Москвы",
   };
 }
@@ -185,7 +124,7 @@ async function findRowByAddress(
 ): Promise<MosDataRow | null> {
   const columns = await fetchDatasetColumns(datasetId);
   const addressColumn = columns.find((col) =>
-    ADDRESS_KEYS.some(
+    MOSCOW_ADDRESS_CELL_KEYS.some(
       (key) =>
         col.name.toLowerCase() === key.toLowerCase() ||
         col.caption.toLowerCase().includes("адрес"),
@@ -198,10 +137,12 @@ async function findRowByAddress(
       top: 50,
       filter: `contains(${addressColumn}, '${houseToken.replace(/'/g, "''")}')`,
     });
-    const match = filtered.find((row) => {
-      const stored = cellValue(row.Cells ?? {}, ADDRESS_KEYS);
-      return addressesLikelyMatch(stored, address);
-    });
+    const match = filtered.find((row) =>
+      addressesLikelyMatch(
+        cellString(row.Cells ?? {}, MOSCOW_ADDRESS_CELL_KEYS),
+        address,
+      ),
+    );
     if (match) return match;
   }
 
@@ -211,10 +152,12 @@ async function findRowByAddress(
     const skip = page * pageSize;
     const rows = await fetchDatasetRows(datasetId, { skip, top: pageSize });
     if (rows.length === 0) break;
-    const match = rows.find((row) => {
-      const stored = cellValue(row.Cells ?? {}, ADDRESS_KEYS);
-      return addressesLikelyMatch(stored, address);
-    });
+    const match = rows.find((row) =>
+      addressesLikelyMatch(
+        cellString(row.Cells ?? {}, MOSCOW_ADDRESS_CELL_KEYS),
+        address,
+      ),
+    );
     if (match) return match;
     if (rows.length < pageSize) break;
   }

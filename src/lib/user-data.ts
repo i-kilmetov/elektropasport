@@ -419,7 +419,14 @@ export async function persistPanelPatch(
   patch: Partial<
     Pick<
       PanelObject,
-      "title" | "named" | "address" | "safety" | "phases" | "powerKw" | "hasGround"
+      | "title"
+      | "named"
+      | "address"
+      | "safety"
+      | "phases"
+      | "powerKw"
+      | "hasGround"
+      | "houseSnapshot"
     >
   >,
 ): Promise<void> {

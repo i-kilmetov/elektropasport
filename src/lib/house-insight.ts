@@ -1,5 +1,6 @@
 import type { CapitalRepairInfo } from "@/lib/moscow-capital-repair";
-import type { GroundingAssessment } from "@/lib/grounding-assessment";
+import type { GroundingAssessment, GroundingExpectation } from "@/lib/grounding-assessment";
+import { isMoscow } from "@/lib/lead-services";
 
 export type ElectricalEra = "legacy" | "transitional" | "modern" | "unknown";
 
@@ -13,6 +14,21 @@ export type HouseManagementCompany = {
   name: string;
   phone: string | null;
   ogrn: string | null;
+};
+
+/** Persisted on panel after address lookup on scheme page. */
+export type PanelHouseSnapshot = {
+  city: string;
+  address: string;
+  buildingYear: number | null;
+  operationYear?: number | null;
+  groundingExpectation: GroundingExpectation;
+  groundingTitle: string;
+  groundingSummary: string;
+  capitalRepairMessage?: string | null;
+  capitalRepairStartYear?: number | null;
+  capitalRepairEndYear?: number | null;
+  dataSource?: string | null;
 };
 
 export type HouseInsight = {
@@ -62,6 +78,38 @@ export function electricalGuessForYear(year: number | null): ElectricalGuess {
     description:
       "С 2003 года в новых домах предусмотрено заземление (PE). Если в щитке только фаза и ноль — это повод проверить ввод и этажный щит.",
   };
+}
+
+export function houseInsightToPanelSnapshot(
+  insight: HouseInsight,
+): PanelHouseSnapshot {
+  return {
+    city: insight.city ?? "Москва",
+    address: insight.address,
+    buildingYear: insight.buildingYear,
+    operationYear: insight.operationYear,
+    groundingExpectation: insight.grounding.expectation,
+    groundingTitle: insight.grounding.title,
+    groundingSummary: insight.grounding.summary,
+    capitalRepairMessage: insight.capitalRepair?.userMessage ?? null,
+    capitalRepairStartYear: insight.capitalRepair?.plannedStartYear ?? null,
+    capitalRepairEndYear: insight.capitalRepair?.plannedEndYear ?? null,
+    dataSource:
+      insight.capitalRepair?.sourceLabel ??
+      (insight.buildingYear
+        ? insight.city && isMoscow(insight.city)
+          ? "Открытые данные Москвы / HouseScore"
+          : "HouseScore"
+        : null),
+  };
+}
+
+export function groundingToHasGround(
+  expectation: GroundingExpectation,
+): boolean | undefined {
+  if (expectation === "expected") return true;
+  if (expectation === "none") return false;
+  return undefined;
 }
 
 export function formatBuildingYear(year: number | null): string {

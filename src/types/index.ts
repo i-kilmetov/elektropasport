@@ -1,3 +1,7 @@
+import type { PanelHouseSnapshot } from "@/lib/house-insight";
+
+export type { PanelHouseSnapshot } from "@/lib/house-insight";
+
 export type DeviceType =
   | "main_breaker"
   | "rcd"
@@ -119,6 +123,8 @@ export interface PanelObject {
   sourceShareToken?: string;
   /** Major appliances in this home / apartment */
   appliances?: HomeAppliance[];
+  /** Dwelling address + year / kapremont snapshot for this panel */
+  houseSnapshot?: PanelHouseSnapshot;
 }
 
 export type InstallRequestStatus =

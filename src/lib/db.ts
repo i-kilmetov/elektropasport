@@ -15,6 +15,7 @@ import {
   formatRequestPublicCode,
   type RequestTypeCode,
 } from "@/lib/request-codes";
+import type { PanelHouseSnapshot } from "@/lib/house-insight";
 import {
   inviteeDisplayName,
   isAtPanelLimit,
@@ -197,6 +198,10 @@ export async function ensureSchema(): Promise<void> {
       await sql`
         ALTER TABLE panels
         ADD COLUMN IF NOT EXISTS has_ground BOOLEAN
+      `;
+      await sql`
+        ALTER TABLE panels
+        ADD COLUMN IF NOT EXISTS house_snapshot JSONB
       `;
       await sql`
         ALTER TABLE panels
@@ -550,6 +555,7 @@ type PanelRow = {
   phases: string | null;
   power_kw: string | null;
   has_ground: boolean | null;
+  house_snapshot: PanelHouseSnapshot | null;
   rail_count: number | null;
   wires: PanelWire[] | null;
   appliances: HomeAppliance[] | null;
@@ -607,6 +613,7 @@ function rowToPanel(row: PanelRow): PanelObject {
         : row.has_ground === false
           ? false
           : undefined,
+    houseSnapshot: row.house_snapshot ?? undefined,
     railCount:
       typeof row.rail_count === "number" && row.rail_count > 0
         ? row.rail_count
@@ -674,7 +681,7 @@ export async function listHomeItems(
     SELECT
       id, type, title, address, last_check, breakers, safety,
       devices, lines_count, photo_data_url, named, phases, power_kw,
-      has_ground, rail_count, wires, appliances, source_share_token, created_at
+      has_ground, house_snapshot, rail_count, wires, appliances, source_share_token, created_at
     FROM panels
     WHERE telegram_user_id = ${telegramUserId}
   `) as PanelRow[];
@@ -723,11 +730,12 @@ export async function insertPanel(
       photoDataUrl: undefined,
     })),
   );
+  const houseSnapshotJson = JSON.stringify(panel.houseSnapshot ?? null);
   await sql`
     INSERT INTO panels (
       id, telegram_user_id, type, title, address, last_check, breakers, safety,
       devices, lines_count, photo_data_url, named, phases, power_kw,
-      has_ground, rail_count, wires, appliances, source_share_token, created_at, updated_at
+      has_ground, house_snapshot, rail_count, wires, appliances, source_share_token, created_at, updated_at
     ) VALUES (
       ${panel.id},
       ${telegramUserId},
@@ -744,6 +752,7 @@ export async function insertPanel(
       ${panel.phases ?? null},
       ${panel.powerKw ?? null},
       ${panel.hasGround ?? null},
+      ${houseSnapshotJson}::jsonb,
       ${panel.railCount ?? null},
       ${wiresJson}::jsonb,
       ${appliancesJson}::jsonb,
@@ -763,6 +772,7 @@ export async function insertPanel(
       phases = EXCLUDED.phases,
       power_kw = EXCLUDED.power_kw,
       has_ground = EXCLUDED.has_ground,
+      house_snapshot = EXCLUDED.house_snapshot,
       rail_count = EXCLUDED.rail_count,
       wires = EXCLUDED.wires,
       appliances = EXCLUDED.appliances,
@@ -779,11 +789,22 @@ export async function updatePanel(
   patch: Partial<
     Pick<
       PanelObject,
-      "title" | "named" | "address" | "safety" | "phases" | "powerKw" | "hasGround"
+      | "title"
+      | "named"
+      | "address"
+      | "safety"
+      | "phases"
+      | "powerKw"
+      | "hasGround"
+      | "houseSnapshot"
     >
   >,
 ): Promise<PanelObject | null> {
   const sql = getSql();
+  const houseSnapshotJson =
+    patch.houseSnapshot !== undefined
+      ? JSON.stringify(patch.houseSnapshot)
+      : null;
   const rows = (await sql`
     UPDATE panels SET
       title = COALESCE(${patch.title ?? null}, title),
@@ -796,12 +817,13 @@ export async function updatePanel(
       phases = COALESCE(${patch.phases ?? null}, phases),
       power_kw = COALESCE(${patch.powerKw ?? null}, power_kw),
       has_ground = COALESCE(${patch.hasGround ?? null}, has_ground),
+      house_snapshot = COALESCE(${houseSnapshotJson}::jsonb, house_snapshot),
       updated_at = NOW()
     WHERE id = ${id} AND telegram_user_id = ${telegramUserId}
     RETURNING
       id, type, title, address, last_check, breakers, safety,
       devices, lines_count, photo_data_url, named, phases, power_kw,
-      has_ground, rail_count, wires, appliances, source_share_token, created_at
+      has_ground, house_snapshot, rail_count, wires, appliances, source_share_token, created_at
   `) as PanelRow[];
   return rows[0] ? rowToPanel(rows[0]) : null;
 }
@@ -815,7 +837,7 @@ export async function getPanelByOwner(
     SELECT
       id, type, title, address, last_check, breakers, safety,
       devices, lines_count, photo_data_url, named, phases, power_kw,
-      has_ground, rail_count, wires, appliances, source_share_token, created_at
+      has_ground, house_snapshot, rail_count, wires, appliances, source_share_token, created_at
     FROM panels
     WHERE id = ${id} AND telegram_user_id = ${telegramUserId}
     LIMIT 1
@@ -833,7 +855,7 @@ export async function getPanelForMasterRequest(
       panels.id, panels.type, panels.title, panels.address, panels.last_check,
       panels.breakers, panels.safety, panels.devices, panels.lines_count,
       panels.photo_data_url, panels.named, panels.phases, panels.power_kw,
-      panels.has_ground, panels.rail_count, panels.wires, panels.appliances,
+      panels.has_ground, panels.house_snapshot, panels.rail_count, panels.wires, panels.appliances,
       panels.source_share_token, panels.created_at
     FROM install_requests
     JOIN panels ON panels.id = install_requests.panel_id
@@ -875,7 +897,7 @@ export async function getSharedPanel(token: string): Promise<{
       panels.id, panels.type, panels.title, panels.address, panels.last_check,
       panels.breakers, panels.safety, panels.devices, panels.lines_count,
       panels.photo_data_url, panels.named, panels.phases, panels.power_kw,
-      panels.has_ground, panels.rail_count, panels.wires, panels.appliances,
+      panels.has_ground, panels.house_snapshot, panels.rail_count, panels.wires, panels.appliances,
       panels.source_share_token, panels.created_at,
       panel_shares.owner_telegram_id
     FROM panel_shares

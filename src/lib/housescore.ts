@@ -6,6 +6,7 @@ import {
 import { assessGroundingForYear } from "@/lib/grounding-assessment";
 import { isMoscow } from "@/lib/lead-services";
 import { lookupMoscowCapitalRepair } from "@/lib/moscow-capital-repair";
+import { lookupMoscowHousePassport } from "@/lib/moscow-house-passport";
 import type { AddressSuggestion } from "@/lib/dadata";
 
 const HOUSESCORE_BASE = "https://housescore.ru";
@@ -300,6 +301,37 @@ async function resolveManagementCompany(
   return { management: null, managementType: null };
 }
 
+async function mergeMoscowOpenData(
+  city: string,
+  address: string,
+  base: {
+    address: string;
+    buildingYear: number | null;
+    operationYear: number | null;
+  },
+): Promise<{
+  address: string;
+  buildingYear: number | null;
+  operationYear: number | null;
+  openDataUsed: boolean;
+}> {
+  if (!isMoscow(city)) {
+    return { ...base, openDataUsed: false };
+  }
+
+  const passport = await lookupMoscowHousePassport(address);
+  if (!passport) {
+    return { ...base, openDataUsed: false };
+  }
+
+  return {
+    address: passport.address || base.address,
+    buildingYear: passport.buildingYear ?? base.buildingYear,
+    operationYear: passport.operationYear ?? base.operationYear,
+    openDataUsed: Boolean(passport.buildingYear ?? passport.operationYear),
+  };
+}
+
 export async function lookupHouseInsight(input: {
   city: string;
   address: string;
@@ -327,18 +359,24 @@ export async function lookupHouseInsight(input: {
   }
 
   if (!fiasId) {
-    const year = null;
+    const merged = await mergeMoscowOpenData(city, address, {
+      address,
+      buildingYear: null,
+      operationYear: null,
+    });
+    const year =
+      merged.buildingYear ?? merged.operationYear;
     const grounding = assessGroundingForYear(year);
     const capitalRepair =
       isMoscow(city) && address
-        ? await lookupMoscowCapitalRepair(city, address)
+        ? await lookupMoscowCapitalRepair(city, merged.address)
         : null;
     return {
-      address,
+      address: merged.address,
       city: foundCity,
       fiasId: null,
-      buildingYear: null,
-      operationYear: null,
+      buildingYear: merged.buildingYear,
+      operationYear: merged.operationYear,
       electrical: electricalGuessForYear(year),
       grounding,
       capitalRepair:
@@ -351,19 +389,27 @@ export async function lookupHouseInsight(input: {
   const house = await fetchHouseByFias(fiasId);
   if (house?.fias_guid) fiasCandidates.unshift(house.fias_guid);
 
-  const buildingYear =
+  let buildingYear =
     typeof house?.building_year === "number" ? house.building_year : null;
-  const operationYear =
+  let operationYear =
     typeof house?.operation_year === "number" ? house.operation_year : null;
+  let resolvedAddress = house?.address?.trim() || foundAddress;
+
+  const merged = await mergeMoscowOpenData(city, resolvedAddress, {
+    address: resolvedAddress,
+    buildingYear,
+    operationYear,
+  });
+  buildingYear = merged.buildingYear;
+  operationYear = merged.operationYear;
+  resolvedAddress = merged.address;
+
   const effectiveYear = buildingYear ?? operationYear;
   const grounding = assessGroundingForYear(effectiveYear);
 
   let capitalRepair: HouseInsight["capitalRepair"] = null;
   if (isMoscow(city) && grounding.suggestCapitalRepair) {
-    capitalRepair = await lookupMoscowCapitalRepair(
-      city,
-      house?.address?.trim() || foundAddress,
-    );
+    capitalRepair = await lookupMoscowCapitalRepair(city, resolvedAddress);
   }
 
   let management: HouseManagementCompany | null = null;
@@ -377,7 +423,7 @@ export async function lookupHouseInsight(input: {
   }
 
   return {
-    address: house?.address?.trim() || foundAddress,
+    address: resolvedAddress,
     city: house?.city?.trim() || foundCity,
     fiasId,
     buildingYear,

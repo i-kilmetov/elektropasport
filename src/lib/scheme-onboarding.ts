@@ -1,16 +1,21 @@
-export const SCHEME_TOUR_SEEN_KEY = "elektropasport:scheme-tour-v1";
+export const SCHEME_TOUR_VERSION = "v2";
 
-export function hasSeenSchemeTour(): boolean {
+export function schemeTourSeenKey(panelId: string): string {
+  return `elektropasport:scheme-tour-${SCHEME_TOUR_VERSION}:${panelId}`;
+}
+
+export function hasSeenSchemeTour(panelId?: string | null): boolean {
+  if (!panelId) return true;
   try {
-    return localStorage.getItem(SCHEME_TOUR_SEEN_KEY) === "1";
+    return localStorage.getItem(schemeTourSeenKey(panelId)) === "1";
   } catch {
     return true;
   }
 }
 
-export function markSchemeTourSeen(): void {
+export function markSchemeTourSeen(panelId: string): void {
   try {
-    localStorage.setItem(SCHEME_TOUR_SEEN_KEY, "1");
+    localStorage.setItem(schemeTourSeenKey(panelId), "1");
   } catch {
     // private mode
   }
