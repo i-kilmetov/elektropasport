@@ -56,17 +56,30 @@ let cachedRepairDatasetId: number | null | undefined;
 export async function mosFetchDatasetList(): Promise<
   MosDatasetSummary[] | null
 > {
-  const list = await mosFetch<Array<{ Id?: number; Caption?: string | null }>>(
-    "/datasets",
-    { $top: 1000, foreign: "false" },
-  );
-  if (!Array.isArray(list)) return null;
-  return list
-    .map((item) => ({
-      id: item.Id ?? 0,
-      caption: item.Caption?.trim() ?? "",
-    }))
-    .filter((item) => item.id > 0 && item.caption);
+  const all: MosDatasetSummary[] = [];
+  for (let skip = 0; skip < 20_000; skip += 1000) {
+    const page = await mosFetch<Array<{ Id?: number; Caption?: string | null }>>(
+      "/datasets",
+      { $skip: skip, $top: 1000, foreign: "false" },
+    );
+    if (!Array.isArray(page) || page.length === 0) break;
+    for (const item of page) {
+      const id = item.Id ?? 0;
+      const caption = item.Caption?.trim() ?? "";
+      if (id > 0 && caption) all.push({ id, caption });
+    }
+    if (page.length < 1000) break;
+  }
+  return all.length > 0 ? all : null;
+}
+
+/** Moscow API filter: attribute must be Cells/{name}, operator eq does partial match. */
+export function buildMoscowCellsFilter(
+  columnName: string,
+  value: string,
+): string {
+  const escaped = value.replace(/'/g, "''");
+  return `Cells/${columnName} eq '${escaped}'`;
 }
 
 export async function resolveCapitalRepairDatasetId(): Promise<number | null> {

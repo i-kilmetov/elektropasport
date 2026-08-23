@@ -115,6 +115,7 @@ import {
   groundingToHasGround,
   houseInsightToPanelSnapshot,
 } from "@/lib/house-insight";
+import { buildLocalHouseInsight } from "@/lib/house-insight-lookup";
 import { syncRatingFromCharacteristics } from "@/lib/device-spec-guide";
 import { deriveRailCount } from "@/lib/panel-rails";
 import { isAtPanelLimit, isInviteToken, type PanelQuota } from "@/lib/invites";
@@ -722,11 +723,17 @@ export function AppShell() {
       if (!activePanelId) return;
       setPanelHouseSaving(true);
       try {
-        const insight = await lookupHouseInsight({
-          city: payload.city,
-          address: payload.address,
-          fiasId: payload.fiasId ?? null,
-        });
+        const insight = isMoscow(payload.city)
+          ? await lookupHouseInsight({
+              city: payload.city,
+              address: payload.address,
+              fiasId: payload.fiasId ?? null,
+            })
+          : buildLocalHouseInsight({
+              city: payload.city,
+              address: payload.address,
+              fiasId: payload.fiasId ?? null,
+            });
         const snapshot = houseInsightToPanelSnapshot(insight);
         const groundPrefill = groundingToHasGround(snapshot.groundingExpectation);
         const panel = items.find(
@@ -749,8 +756,15 @@ export function AppShell() {
               : item,
           ),
         );
-        await persistPanelPatch(activePanelId, patch);
         setPanelHousePromptOpen(false);
+        void persistPanelPatch(activePanelId, patch).catch((error) => {
+          console.error(error);
+          setItemsError(
+            error instanceof Error
+              ? error.message
+              : "Не удалось сохранить данные о доме",
+          );
+        });
       } catch (error) {
         console.error(error);
         setItemsError(

@@ -145,8 +145,8 @@ export function PanelHouseAddressSheet({
 
           {city && useMoscowOpenData && addressTrimmed.length >= 3 && !addressReady && (
             <p className="mt-3 text-[13px] leading-relaxed text-zinc-500">
-              Выберите дом из списка — для Москвы год постройки возьмём из
-              открытых данных города.
+              Начните вводить улицу и номер дома — подсказки появятся по мере
+              ввода. Год постройки для Москвы возьмём из открытых данных города.
             </p>
           )}
 

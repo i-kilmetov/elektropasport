@@ -2,16 +2,17 @@ import { isMoscow } from "@/lib/lead-services";
 import {
   addressesLikelyMatch,
   cellString,
-  extractHouseTokens,
   MOSCOW_ADDRESS_CELL_KEYS,
 } from "@/lib/moscow-address-match";
 import {
+  buildMoscowCellsFilter,
   fetchDatasetColumns,
   fetchDatasetRows,
   isMoscowOpenDataConfigured,
   resolveCapitalRepairDatasetId,
   type MosDataRow,
 } from "@/lib/moscow-open-data";
+import { pickAddressSearchTokens } from "@/lib/moscow-address-match";
 
 export type CapitalRepairInfo = {
   found: boolean;
@@ -131,19 +132,21 @@ async function findRowByAddress(
     ),
   )?.name;
 
-  const houseToken = extractHouseTokens(address).at(-1);
-  if (addressColumn && houseToken && houseToken.length >= 1) {
-    const filtered = await fetchDatasetRows(datasetId, {
-      top: 50,
-      filter: `contains(${addressColumn}, '${houseToken.replace(/'/g, "''")}')`,
-    });
-    const match = filtered.find((row) =>
-      addressesLikelyMatch(
-        cellString(row.Cells ?? {}, MOSCOW_ADDRESS_CELL_KEYS),
-        address,
-      ),
-    );
-    if (match) return match;
+  const searchTokens = pickAddressSearchTokens(address);
+  if (addressColumn) {
+    for (const token of searchTokens) {
+      const filtered = await fetchDatasetRows(datasetId, {
+        top: 50,
+        filter: buildMoscowCellsFilter(addressColumn, token),
+      });
+      const match = filtered.find((row) =>
+        addressesLikelyMatch(
+          cellString(row.Cells ?? {}, MOSCOW_ADDRESS_CELL_KEYS),
+          address,
+        ),
+      );
+      if (match) return match;
+    }
   }
 
   const pageSize = 1000;

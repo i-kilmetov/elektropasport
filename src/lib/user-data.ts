@@ -53,8 +53,25 @@ function writeLocalItems(items: HomeListItem[]): void {
 }
 
 function upsertLocalItem(item: HomeListItem): void {
-  const items = readLocalItems().filter((i) => i.id !== item.id);
-  writeLocalItems([item, ...items]);
+  const items = readLocalItems();
+  const existing = items.find((i) => i.id === item.id);
+  let merged = item;
+  if (
+    existing?.kind === "panel" &&
+    item.kind === "panel"
+  ) {
+    merged = {
+      ...item,
+      houseSnapshot: item.houseSnapshot ?? existing.houseSnapshot,
+      address:
+        item.address && item.address !== "Добавлен по фото"
+          ? item.address
+          : existing.address,
+      hasGround: item.hasGround ?? existing.hasGround,
+    };
+  }
+  const next = items.filter((i) => i.id !== item.id);
+  writeLocalItems([merged, ...next]);
 }
 
 /**
@@ -430,12 +447,12 @@ export async function persistPanelPatch(
     >
   >,
 ): Promise<void> {
-  return enqueuePanelOp(id, async () => {
-    const items = readLocalItems().map((item) =>
-      item.kind === "panel" && item.id === id ? { ...item, ...patch } : item,
-    );
-    writeLocalItems(items);
+  const items = readLocalItems().map((item) =>
+    item.kind === "panel" && item.id === id ? { ...item, ...patch } : item,
+  );
+  writeLocalItems(items);
 
+  return enqueuePanelOp(id, async () => {
     if (!canUseServer()) return;
 
     const res = await fetch(`/api/panels/${encodeURIComponent(id)}`, {

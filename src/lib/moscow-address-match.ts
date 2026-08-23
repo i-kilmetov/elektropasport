@@ -57,12 +57,58 @@ export function cellString(
 }
 
 export const MOSCOW_ADDRESS_CELL_KEYS = [
+  "address",
   "Address",
   "AddressMKD",
   "ADDRESS",
   "SIMPLE_ADDRESS",
-  "address",
   "FullAddress",
   "AddressStr",
   "Adress",
 ];
+
+const ADDRESS_QUERY_STOP_WORDS = new Set([
+  "москва",
+  "город",
+  "россия",
+  "ул",
+  "улица",
+  "пр",
+  "проспект",
+  "пер",
+  "переулок",
+  "бул",
+  "бульвар",
+  "ш",
+  "шоссе",
+  "наб",
+  "набережная",
+  "д",
+  "дом",
+  "к",
+  "корп",
+  "стр",
+]);
+
+/** Tokens for Moscow open-data search (longest first). */
+export function pickAddressSearchTokens(query: string): string[] {
+  const norm = normalizeAddressPart(query);
+  const seen = new Set<string>();
+  const tokens: string[] = [];
+
+  for (const token of extractHouseTokens(query)) {
+    if (token.length >= 2 && !ADDRESS_QUERY_STOP_WORDS.has(token) && !seen.has(token)) {
+      seen.add(token);
+      tokens.push(token);
+    }
+  }
+
+  for (const token of norm.split(" ").filter(Boolean)) {
+    if (token.length >= 3 && !ADDRESS_QUERY_STOP_WORDS.has(token) && !seen.has(token)) {
+      seen.add(token);
+      tokens.push(token);
+    }
+  }
+
+  return tokens.sort((a, b) => b.length - a.length);
+}

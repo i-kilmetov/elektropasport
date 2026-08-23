@@ -56,33 +56,6 @@ async function suggestFromDaData(query: string, city: string) {
   });
 }
 
-async function suggestFromMoscowOpenData(query: string) {
-  if (!isMoscowOpenDataConfigured()) {
-    return Response.json(
-      { error: "Подсказки адресов Москвы не настроены" },
-      { status: 503 },
-    );
-  }
-
-  if (query.length < 3) {
-    return Response.json({ suggestions: [], source: "moscow" });
-  }
-
-  try {
-    const hits = await searchMoscowAddressSuggestions(query, 15);
-    return Response.json({
-      suggestions: mapMoscowHitsToSuggestions(hits),
-      source: "moscow",
-    });
-  } catch (error) {
-    console.error("Moscow open-data address suggest failed", error);
-    return Response.json(
-      { error: "Не удалось получить адреса домов" },
-      { status: 502 },
-    );
-  }
-}
-
 export async function POST(request: Request) {
   try {
     requireTelegramUser(request);
@@ -94,10 +67,13 @@ export async function POST(request: Request) {
     };
     const query = body.query?.trim() ?? "";
     const city = normalizeCityName(body.city ?? "");
-    const source = isMoscow(city) ? "moscow" : "dadata";
+    const useMoscowOpenData = isMoscow(city);
 
     if (query.length < 2) {
-      return Response.json({ suggestions: [], source });
+      return Response.json({
+        suggestions: [],
+        source: useMoscowOpenData ? "moscow" : "dadata",
+      });
     }
     if (query.length > MAX_QUERY_LENGTH) {
       return Response.json(
@@ -109,16 +85,25 @@ export async function POST(request: Request) {
       return Response.json({ error: "Укажите город" }, { status: 400 });
     }
 
-    if (body.source === "moscow" && !isMoscow(city)) {
+    if (body.source === "moscow" && !useMoscowOpenData) {
       return Response.json(
         { error: "Открытые данные Москвы доступны только для города Москва" },
         { status: 400 },
       );
     }
 
-    if (source === "moscow") {
-      return suggestFromMoscowOpenData(query);
+    if (useMoscowOpenData && isMoscowOpenDataConfigured() && query.length >= 3) {
+      try {
+        const hits = await searchMoscowAddressSuggestions(query, 15);
+        const suggestions = mapMoscowHitsToSuggestions(hits);
+        if (suggestions.length > 0) {
+          return Response.json({ suggestions, source: "moscow" });
+        }
+      } catch (error) {
+        console.error("Moscow open-data address suggest failed", error);
+      }
     }
+
     return suggestFromDaData(query, city);
   } catch (error) {
     return authErrorResponse(error);

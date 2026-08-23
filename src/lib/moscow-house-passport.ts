@@ -3,13 +3,16 @@ import {
   cellString,
   extractHouseTokens,
   normalizeAddressPart,
+  pickAddressSearchTokens,
   MOSCOW_ADDRESS_CELL_KEYS,
 } from "@/lib/moscow-address-match";
 import type { AddressSuggestion } from "@/lib/dadata";
 import {
+  buildMoscowCellsFilter,
   fetchDatasetColumns,
   fetchDatasetRows,
   isMoscowOpenDataConfigured,
+  mosFetchDatasetList,
   resolveCapitalRepairDatasetId,
   type MosDataRow,
 } from "@/lib/moscow-open-data";
@@ -54,6 +57,16 @@ function parseYear(raw: string): number | null {
   return Number.isFinite(year) ? year : null;
 }
 
+function scorePassportDataset(caption: string): number {
+  const lower = caption.toLowerCase();
+  let points = 0;
+  if (/база/.test(lower) && /жил/.test(lower) && /дом/.test(lower)) points += 8;
+  if (/паспорт/.test(lower) && /жил/.test(lower)) points += 5;
+  if (/мкд/.test(lower) || /многоквартир/.test(lower)) points += 2;
+  if (/dommos/.test(lower)) points += 2;
+  return points;
+}
+
 async function resolvePassportDatasetId(): Promise<number | null> {
   const fromEnv = Number.parseInt(
     process.env.MOS_DOM_PASSPORT_DATASET_ID ?? "",
@@ -63,34 +76,40 @@ async function resolvePassportDatasetId(): Promise<number | null> {
 
   if (cachedPassportDatasetId !== undefined) return cachedPassportDatasetId;
 
-  // Reuse capital repair resolver's dataset list fetch indirectly:
-  // scan via same /datasets list in open-data module.
-  const { mosFetchDatasetList } = await import("@/lib/moscow-open-data");
   const list = await mosFetchDatasetList();
   if (!list) {
     cachedPassportDatasetId = null;
     return null;
   }
 
-  const score = (caption: string): number => {
-    const lower = caption.toLowerCase();
-    let points = 0;
-    if (/паспорт/.test(lower) && /жил/.test(lower)) points += 5;
-    if (/мкд/.test(lower) || /многоквартир/.test(lower)) points += 2;
-    if (/база.*дом/.test(lower)) points += 3;
-    if (/dommos/.test(lower)) points += 2;
-    return points;
-  };
-
   let best: { id: number; caption: string } | null = null;
   for (const item of list) {
-    const points = score(item.caption);
-    if (points < 4) continue;
-    if (!best || points > score(best.caption)) best = item;
+    const points = scorePassportDataset(item.caption);
+    if (points < 3) continue;
+    if (!best || points > scorePassportDataset(best.caption)) best = item;
   }
 
   cachedPassportDatasetId = best?.id ?? null;
+  if (best) {
+    console.info(
+      "Moscow dom passport dataset:",
+      best.id,
+      best.caption.slice(0, 80),
+    );
+  }
   return cachedPassportDatasetId;
+}
+
+function resolveAddressColumn(
+  columns: Array<{ name: string; caption: string }>,
+): string | undefined {
+  return columns.find((col) =>
+    MOSCOW_ADDRESS_CELL_KEYS.some(
+      (key) =>
+        col.name.toLowerCase() === key.toLowerCase() ||
+        col.caption.toLowerCase().includes("адрес"),
+    ),
+  )?.name;
 }
 
 async function findPassportRow(
@@ -98,27 +117,23 @@ async function findPassportRow(
   address: string,
 ): Promise<MosDataRow | null> {
   const columns = await fetchDatasetColumns(datasetId);
-  const addressColumn = columns.find((col) =>
-    MOSCOW_ADDRESS_CELL_KEYS.some(
-      (key) =>
-        col.name.toLowerCase() === key.toLowerCase() ||
-        col.caption.toLowerCase().includes("адрес"),
-    ),
-  )?.name;
+  const addressColumn = resolveAddressColumn(columns);
+  const searchTokens = pickAddressSearchTokens(address);
 
-  const houseToken = extractHouseTokens(address).at(-1);
-  if (addressColumn && houseToken) {
-    const filtered = await fetchDatasetRows(datasetId, {
-      top: 50,
-      filter: `contains(${addressColumn}, '${houseToken.replace(/'/g, "''")}')`,
-    });
-    const match = filtered.find((row) =>
-      addressesLikelyMatch(
-        cellString(row.Cells ?? {}, MOSCOW_ADDRESS_CELL_KEYS),
-        address,
-      ),
-    );
-    if (match) return match;
+  if (addressColumn) {
+    for (const token of searchTokens) {
+      const filtered = await fetchDatasetRows(datasetId, {
+        top: 50,
+        filter: buildMoscowCellsFilter(addressColumn, token),
+      });
+      const match = filtered.find((row) =>
+        addressesLikelyMatch(
+          cellString(row.Cells ?? {}, MOSCOW_ADDRESS_CELL_KEYS),
+          address,
+        ),
+      );
+      if (match) return match;
+    }
   }
 
   const pageSize = 1000;
@@ -164,16 +179,8 @@ async function searchPassportRows(
   limit: number,
 ): Promise<MosDataRow[]> {
   const columns = await fetchDatasetColumns(datasetId);
-  const addressColumn = columns.find((col) =>
-    MOSCOW_ADDRESS_CELL_KEYS.some(
-      (key) =>
-        col.name.toLowerCase() === key.toLowerCase() ||
-        col.caption.toLowerCase().includes("адрес"),
-    ),
-  )?.name;
-
-  const tokens = extractHouseTokens(query);
-  const houseToken = tokens.at(-1);
+  const addressColumn = resolveAddressColumn(columns);
+  const searchTokens = pickAddressSearchTokens(query);
   const results: MosDataRow[] = [];
   const seen = new Set<string>();
 
@@ -188,20 +195,12 @@ async function searchPassportRows(
     }
   };
 
-  if (addressColumn && houseToken) {
-    const filtered = await fetchDatasetRows(datasetId, {
-      top: Math.min(80, limit * 5),
-      filter: `contains(${addressColumn}, '${houseToken.replace(/'/g, "''")}')`,
-    });
-    collect(filtered);
-  }
-
-  if (results.length < limit && addressColumn && tokens.length >= 2) {
-    const streetToken = tokens[tokens.length - 2];
-    if (streetToken && streetToken.length >= 4) {
+  if (addressColumn) {
+    for (const token of searchTokens) {
+      if (results.length >= limit) break;
       const filtered = await fetchDatasetRows(datasetId, {
         top: Math.min(80, limit * 5),
-        filter: `contains(${addressColumn}, '${streetToken.replace(/'/g, "''")}')`,
+        filter: buildMoscowCellsFilter(addressColumn, token),
       });
       collect(filtered);
     }
@@ -253,7 +252,7 @@ export function mapMoscowHitsToSuggestions(
       unrestrictedValue: value,
       fiasId: `mos:${value}`,
       fiasLevel: 8,
-      house: houseMatch?.[1]?.trim(),
+      house: houseMatch?.[1]?.trim() ?? "1",
     });
   }
 
