@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Gauge, Zap } from "lucide-react";
 import {
@@ -42,6 +42,12 @@ export function SafetyParamsSheet({
   const [powerKw, setPowerKw] = useState(initialPowerKw ?? "");
   const [powerError, setPowerError] = useState<string | null>(null);
   const [groundHintOpen, setGroundHintOpen] = useState(false);
+
+  useEffect(() => {
+    if (typeof initialHasGround === "boolean") {
+      setHasGround(initialHasGround);
+    }
+  }, [initialHasGround]);
 
   const showPhases = hasGround !== null;
   const showPower = showPhases && phases !== null;

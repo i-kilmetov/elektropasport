@@ -42,6 +42,8 @@ export type HouseInsight = {
   capitalRepair: CapitalRepairInfo | null;
   management: HouseManagementCompany | null;
   managementType: string | null;
+  /** Year/address came from Moscow dommos open data (when applicable). */
+  moscowOpenDataUsed?: boolean;
 };
 
 export function electricalGuessForYear(year: number | null): ElectricalGuess {
@@ -96,11 +98,11 @@ export function houseInsightToPanelSnapshot(
     capitalRepairEndYear: insight.capitalRepair?.plannedEndYear ?? null,
     dataSource:
       insight.capitalRepair?.sourceLabel ??
-      (insight.buildingYear
-        ? insight.city && isMoscow(insight.city)
-          ? "Открытые данные Москвы / HouseScore"
-          : "HouseScore"
-        : null),
+      (insight.moscowOpenDataUsed
+        ? "Открытые данные Москвы"
+        : insight.buildingYear
+          ? "HouseScore"
+          : null),
   };
 }
 

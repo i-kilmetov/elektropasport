@@ -65,8 +65,8 @@ import { Portal } from "@/components/ui/portal";
 import { SchemeOnboardingTour } from "@/components/ui/scheme-onboarding-tour";
 import { deviceTypeGuide } from "@/lib/panel-device-guide";
 import {
-  hasSeenSchemeTour,
   markSchemeTourSeen,
+  shouldRunSchemeTour,
 } from "@/lib/scheme-onboarding";
 import {
   formatBuildingYear,
@@ -1734,15 +1734,16 @@ export function SchemeScreen({
   }, [panelId]);
 
   useEffect(() => {
-    if (!startOnboarding || sharedPreview || !panelId) return;
-    if (hasSeenSchemeTour(panelId)) {
+    if (sharedPreview || !startOnboarding) return;
+    if (!panelId) return;
+    if (!shouldRunSchemeTour(panelId, true)) {
       onOnboardingDone?.();
       return;
     }
     const timer = window.setTimeout(() => {
       setTab("scheme");
       setTourOpen(true);
-    }, 450);
+    }, 520);
     return () => window.clearTimeout(timer);
   }, [startOnboarding, sharedPreview, panelId, onOnboardingDone]);
 
@@ -2199,6 +2200,19 @@ export function SchemeScreen({
               {houseSnapshot.capitalRepairMessage && (
                 <p className="text-[12px] leading-snug text-zinc-500">
                   {houseSnapshot.capitalRepairMessage}
+                  {houseSnapshot.capitalRepairStartYear != null &&
+                    houseSnapshot.capitalRepairEndYear != null && (
+                      <>
+                        {" "}
+                        ({houseSnapshot.capitalRepairStartYear}–
+                        {houseSnapshot.capitalRepairEndYear})
+                      </>
+                    )}
+                </p>
+              )}
+              {houseSnapshot.dataSource && (
+                <p className="text-[11px] text-zinc-400">
+                  Источник: {houseSnapshot.dataSource}
                 </p>
               )}
               {!sharedPreview && onEditHouse && (

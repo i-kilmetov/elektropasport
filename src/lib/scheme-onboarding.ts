@@ -1,15 +1,15 @@
-export const SCHEME_TOUR_VERSION = "v2";
+export const SCHEME_TOUR_VERSION = "v3";
 
 export function schemeTourSeenKey(panelId: string): string {
   return `elektropasport:scheme-tour-${SCHEME_TOUR_VERSION}:${panelId}`;
 }
 
 export function hasSeenSchemeTour(panelId?: string | null): boolean {
-  if (!panelId) return true;
+  if (!panelId) return false;
   try {
     return localStorage.getItem(schemeTourSeenKey(panelId)) === "1";
   } catch {
-    return true;
+    return false;
   }
 }
 
@@ -19,6 +19,24 @@ export function markSchemeTourSeen(panelId: string): void {
   } catch {
     // private mode
   }
+}
+
+/** Allow the spotlight tour again after a new photo analysis. */
+export function clearSchemeTourSeen(panelId: string): void {
+  try {
+    localStorage.removeItem(schemeTourSeenKey(panelId));
+  } catch {
+    // private mode
+  }
+}
+
+export function shouldRunSchemeTour(
+  panelId: string | null | undefined,
+  force = false,
+): boolean {
+  if (!panelId) return false;
+  if (force) return true;
+  return !hasSeenSchemeTour(panelId);
 }
 
 export type SchemeTourStepId =

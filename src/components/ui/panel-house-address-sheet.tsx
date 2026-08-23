@@ -42,15 +42,12 @@ export function PanelHouseAddressSheet({
   );
   const city = citySelected ?? cityExact ?? null;
   const cityLabel = city ? normalizeCityName(city) : "";
-  const fromHouseScore = city ? isMoscow(city) : false;
+  const useMoscowOpenData = city ? isMoscow(city) : false;
   const addressTrimmed = addressQuery.trim();
-  const addressReady = fromHouseScore
-    ? addressSelected != null &&
-      addressSelected.value === addressTrimmed &&
-      Boolean(addressSelected.houseFiasId ?? addressSelected.fiasId)
-    : addressSelected != null &&
-      addressSelected.value === addressTrimmed &&
-      hasHouse(addressSelected);
+  const addressReady =
+    addressSelected != null &&
+    addressSelected.value === addressTrimmed &&
+    hasHouse(addressSelected);
   const canSubmit = Boolean(city && addressReady && !saving);
 
   if (!open) return null;
@@ -131,8 +128,8 @@ export function PanelHouseAddressSheet({
             <AddressSuggestField
               city={cityLabel}
               value={addressQuery}
-              source={fromHouseScore ? "housescore" : "dadata"}
-              houseOnly={fromHouseScore}
+              source={useMoscowOpenData ? "moscow" : "dadata"}
+              houseOnly={useMoscowOpenData}
               onChange={(next) => {
                 setAddressQuery(next);
                 if (addressSelected && next.trim() !== addressSelected.value) {
@@ -141,12 +138,12 @@ export function PanelHouseAddressSheet({
               }}
               onSelect={(item) => setAddressSelected(item)}
               placeholder={
-                fromHouseScore ? "Улица и номер дома" : "Улица, дом"
+                useMoscowOpenData ? "Улица и номер дома" : "Улица, дом"
               }
             />
           )}
 
-          {city && fromHouseScore && addressTrimmed.length >= 3 && !addressReady && (
+          {city && useMoscowOpenData && addressTrimmed.length >= 3 && !addressReady && (
             <p className="mt-3 text-[13px] leading-relaxed text-zinc-500">
               Выберите дом из списка — для Москвы год постройки возьмём из
               открытых данных города.

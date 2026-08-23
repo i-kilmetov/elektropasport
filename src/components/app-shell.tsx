@@ -55,6 +55,7 @@ import {
   type WaitlistKind,
 } from "@/components/ui/waitlist-sheet";
 import { PanelHouseAddressSheet } from "@/components/ui/panel-house-address-sheet";
+import { clearSchemeTourSeen } from "@/lib/scheme-onboarding";
 import {
   ONBOARDING_SKIP_KEY,
 } from "@/components/screens/welcome-screen";
@@ -622,6 +623,7 @@ export function AppShell() {
           result.railCount ?? deriveRailCount(result.devices),
         );
         hapticNotification("success");
+        clearSchemeTourSeen(panelId);
         setSchemeTourPending(true);
         setScreen("scheme");
         return;
@@ -674,6 +676,7 @@ export function AppShell() {
       setLinesCount(result.linesCount);
       setRailCount(result.railCount ?? deriveRailCount(result.devices));
       hapticNotification("success");
+      clearSchemeTourSeen(id);
       setSchemeTourPending(true);
       setScreen("scheme");
       void refreshQuota();
@@ -2102,14 +2105,6 @@ export function AppShell() {
             />
           )}
         </AnimatePresence>
-        <PanelHouseAddressSheet
-          open={panelHousePromptOpen}
-          saving={panelHouseSaving}
-          onClose={() => setPanelHousePromptOpen(false)}
-          onConfirm={(payload) => {
-            void savePanelHouseInsight(payload);
-          }}
-        />
       </div>
     </div>
   );

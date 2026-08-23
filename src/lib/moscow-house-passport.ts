@@ -2,8 +2,10 @@ import {
   addressesLikelyMatch,
   cellString,
   extractHouseTokens,
+  normalizeAddressPart,
   MOSCOW_ADDRESS_CELL_KEYS,
 } from "@/lib/moscow-address-match";
+import type { AddressSuggestion } from "@/lib/dadata";
 import {
   fetchDatasetColumns,
   fetchDatasetRows,
@@ -11,6 +13,11 @@ import {
   resolveCapitalRepairDatasetId,
   type MosDataRow,
 } from "@/lib/moscow-open-data";
+
+export type MoscowAddressHit = {
+  address: string;
+  buildingYear: number | null;
+};
 
 export type MoscowHousePassport = {
   address: string;
@@ -131,6 +138,126 @@ async function findPassportRow(
     if (rows.length < pageSize) break;
   }
   return null;
+}
+
+function rowMatchesQuery(storedAddress: string, query: string): boolean {
+  if (addressesLikelyMatch(storedAddress, query)) return true;
+  const tokens = extractHouseTokens(query);
+  if (tokens.length === 0) return false;
+  const norm = normalizeAddressPart(storedAddress);
+  return tokens.every((token) => norm.includes(token));
+}
+
+function rowToHit(row: MosDataRow): MoscowAddressHit | null {
+  const cells = row.Cells ?? {};
+  const address = cellString(cells, MOSCOW_ADDRESS_CELL_KEYS);
+  if (!address) return null;
+  return {
+    address,
+    buildingYear: parseYear(cellString(cells, YEAR_KEYS)),
+  };
+}
+
+async function searchPassportRows(
+  datasetId: number,
+  query: string,
+  limit: number,
+): Promise<MosDataRow[]> {
+  const columns = await fetchDatasetColumns(datasetId);
+  const addressColumn = columns.find((col) =>
+    MOSCOW_ADDRESS_CELL_KEYS.some(
+      (key) =>
+        col.name.toLowerCase() === key.toLowerCase() ||
+        col.caption.toLowerCase().includes("адрес"),
+    ),
+  )?.name;
+
+  const tokens = extractHouseTokens(query);
+  const houseToken = tokens.at(-1);
+  const results: MosDataRow[] = [];
+  const seen = new Set<string>();
+
+  const collect = (rows: MosDataRow[]) => {
+    for (const row of rows) {
+      if (results.length >= limit) break;
+      const addr = cellString(row.Cells ?? {}, MOSCOW_ADDRESS_CELL_KEYS);
+      if (!addr || seen.has(addr)) continue;
+      if (!rowMatchesQuery(addr, query)) continue;
+      seen.add(addr);
+      results.push(row);
+    }
+  };
+
+  if (addressColumn && houseToken) {
+    const filtered = await fetchDatasetRows(datasetId, {
+      top: Math.min(80, limit * 5),
+      filter: `contains(${addressColumn}, '${houseToken.replace(/'/g, "''")}')`,
+    });
+    collect(filtered);
+  }
+
+  if (results.length < limit && addressColumn && tokens.length >= 2) {
+    const streetToken = tokens[tokens.length - 2];
+    if (streetToken && streetToken.length >= 4) {
+      const filtered = await fetchDatasetRows(datasetId, {
+        top: Math.min(80, limit * 5),
+        filter: `contains(${addressColumn}, '${streetToken.replace(/'/g, "''")}')`,
+      });
+      collect(filtered);
+    }
+  }
+
+  return results;
+}
+
+/** Address + year suggestions from Moscow dommos / MKD open data. */
+export async function searchMoscowAddressSuggestions(
+  query: string,
+  limit = 15,
+): Promise<MoscowAddressHit[]> {
+  if (!isMoscowOpenDataConfigured()) return [];
+  const q = query.trim();
+  if (q.length < 3) return [];
+
+  const datasetId = await resolvePassportDatasetId();
+  if (!datasetId) return [];
+
+  try {
+    const rows = await searchPassportRows(datasetId, q, limit);
+    return rows
+      .map(rowToHit)
+      .filter((hit): hit is MoscowAddressHit => hit != null);
+  } catch (error) {
+    console.error("Moscow address suggest failed", error);
+    return [];
+  }
+}
+
+export function mapMoscowHitsToSuggestions(
+  hits: MoscowAddressHit[],
+): AddressSuggestion[] {
+  const seen = new Set<string>();
+  const suggestions: AddressSuggestion[] = [];
+
+  for (const hit of hits) {
+    const value = hit.address.trim();
+    if (!value || seen.has(value)) continue;
+    seen.add(value);
+
+    const houseMatch =
+      /(?:д\.?|дом)\s*([\d/a-zа-я-]+)/i.exec(value) ??
+      /,\s*([\d/a-zа-я-]+)\s*$/.exec(value);
+
+    suggestions.push({
+      value,
+      unrestrictedValue: value,
+      fiasId: `mos:${value}`,
+      fiasLevel: 8,
+      house: houseMatch?.[1]?.trim(),
+    });
+  }
+
+  return suggestions;
 }
 
 /**

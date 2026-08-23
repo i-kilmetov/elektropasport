@@ -31,9 +31,9 @@ export function AddressSuggestField({
   ) => void;
   onLookupError?: (message: string | null) => void;
   placeholder?: string;
-  /** HouseScore returns MKD houses with stable fias_id for later year/UK lookup. */
-  source?: "dadata" | "housescore";
-  /** Skip apartment drill-down (HouseScore is house-level only). */
+  /** Moscow open data returns MKD houses with year from dommos passports. */
+  source?: "dadata" | "housescore" | "moscow";
+  /** Skip apartment drill-down (house-level sources only). */
   houseOnly?: boolean;
 }) {
   const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([]);
@@ -50,7 +50,8 @@ export function AddressSuggestField({
       return;
     }
     const query = value.trim();
-    const minLen = source === "housescore" ? 3 : 2;
+    const minLen =
+      source === "housescore" || source === "moscow" ? 3 : 2;
     if (query.length < minLen) {
       setSuggestions([]);
       setApartments([]);
@@ -98,7 +99,7 @@ export function AddressSuggestField({
     pickingRef.current = true;
     onChange(item.value);
 
-    if (houseOnly || source === "housescore" || hasFlat(item) || !hasHouse(item)) {
+    if (houseOnly || source === "housescore" || source === "moscow" || hasFlat(item) || !hasHouse(item)) {
       setApartments([]);
       setOpen(false);
       onSelect(item, { apartments: [] });
@@ -134,9 +135,14 @@ export function AddressSuggestField({
 
   const list = apartments.length > 0 ? apartments : suggestions;
   const hint =
-    source === "housescore" && value.trim().length >= 3 && !loading && !error
+    (source === "housescore" || source === "moscow") &&
+    value.trim().length >= 3 &&
+    !loading &&
+    !error
       ? list.length === 0
-        ? "Ищем дом в базе МКД HouseScore — уточните улицу и номер"
+        ? source === "moscow"
+          ? "Ищем дом в открытых данных Москвы — уточните улицу и номер"
+          : "Ищем дом в базе МКД HouseScore — уточните улицу и номер"
         : null
       : null;
 
@@ -166,7 +172,9 @@ export function AddressSuggestField({
         <p className="mt-2 text-[13px] text-zinc-400">
           {source === "housescore"
             ? "Ищем дом в базе HouseScore…"
-            : apartments.length > 0 || value.includes("кв")
+            : source === "moscow"
+              ? "Ищем дом в открытых данных Москвы…"
+              : apartments.length > 0 || value.includes("кв")
               ? "Ищем квартиры…"
               : "Ищем адрес…"}
         </p>
@@ -190,6 +198,11 @@ export function AddressSuggestField({
               Дома из базы HouseScore — выберите свой
             </p>
           )}
+          {source === "moscow" && (
+            <p className="border-b border-black/6 px-4 py-2 text-[12px] font-medium text-zinc-500">
+              Дома из открытых данных Москвы — выберите свой
+            </p>
+          )}
           <ul className="max-h-[40vh] overflow-y-auto">
             {list.map((item) => (
               <li key={`${item.fiasId ?? item.value}-${item.value}`}>
@@ -206,7 +219,9 @@ export function AddressSuggestField({
                       "mt-0.5 text-[12px]",
                       source === "housescore"
                         ? "text-emerald-700"
-                        : hasFlat(item)
+                        : source === "moscow"
+                          ? "text-emerald-700"
+                          : hasFlat(item)
                           ? "text-emerald-700"
                           : hasHouse(item)
                             ? "text-zinc-400"
@@ -215,7 +230,9 @@ export function AddressSuggestField({
                   >
                     {source === "housescore"
                       ? "Дом в базе МКД"
-                      : hasFlat(item)
+                      : source === "moscow"
+                        ? "Дом в реестре Москвы"
+                        : hasFlat(item)
                         ? "Квартира найдена в адресном реестре"
                         : hasHouse(item)
                           ? "Дом найден — уточните квартиру, если она есть"
