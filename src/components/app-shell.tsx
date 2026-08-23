@@ -741,7 +741,14 @@ export function AppShell() {
   }, [activePanelId, items, sharedPreview]);
 
   const savePanelHouseInsight = useCallback(
-    (payload: { city: string; address: string; fiasId?: string }) => {
+    (payload: {
+      city: string;
+      address: string;
+      fiasId?: string;
+      street?: string;
+      house?: string;
+      block?: string;
+    }) => {
       if (!activePanelId) return;
       setPanelHouseSaving(true);
 
@@ -785,6 +792,9 @@ export function AppShell() {
           city: payload.city,
           address: payload.address,
           fiasId: payload.fiasId ?? null,
+          street: payload.street ?? null,
+          house: payload.house ?? null,
+          block: payload.block ?? null,
         })
           .then((insight) => {
             const enriched = houseInsightToPanelSnapshot(insight);

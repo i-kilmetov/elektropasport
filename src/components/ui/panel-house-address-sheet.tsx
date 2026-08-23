@@ -23,6 +23,9 @@ export function PanelHouseAddressSheet({
     city: string;
     address: string;
     fiasId?: string;
+    street?: string;
+    house?: string;
+    block?: string;
   }) => void;
 }) {
   const [cityQuery, setCityQuery] = useState("");
@@ -163,6 +166,9 @@ export function PanelHouseAddressSheet({
                   address: addressSelected?.value ?? addressTrimmed,
                   fiasId:
                     addressSelected?.houseFiasId ?? addressSelected?.fiasId,
+                  street: addressSelected?.street,
+                  house: addressSelected?.house,
+                  block: addressSelected?.block,
                 });
               }}
             >

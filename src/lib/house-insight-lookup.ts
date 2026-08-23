@@ -48,6 +48,9 @@ export async function lookupHouseInsight(input: {
   city: string;
   address: string;
   fiasId?: string | null;
+  street?: string | null;
+  house?: string | null;
+  block?: string | null;
 }): Promise<HouseInsight> {
   const city = input.city.trim();
   let address = input.address.trim();
@@ -59,7 +62,11 @@ export async function lookupHouseInsight(input: {
   let moscowOpenDataUsed = false;
 
   if (isMoscow(city)) {
-    const passport = await lookupMoscowHousePassport(address);
+    const passport = await lookupMoscowHousePassport(address, {
+      street: input.street,
+      house: input.house,
+      block: input.block,
+    });
     if (passport) {
       address = passport.address || address;
       buildingYear = passport.buildingYear;

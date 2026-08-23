@@ -16,11 +16,17 @@ export async function POST(request: Request) {
       city?: string;
       address?: string;
       fiasId?: string;
+      street?: string;
+      house?: string;
+      block?: string;
     };
 
     const city = normalizeCityName(body.city ?? "");
     const address = body.address?.trim() ?? "";
     const fiasId = body.fiasId?.trim() || null;
+    const street = body.street?.trim() || null;
+    const house = body.house?.trim() || null;
+    const block = body.block?.trim() || null;
 
     if (!city) {
       return Response.json({ error: "Укажите город" }, { status: 400 });
@@ -41,7 +47,14 @@ export async function POST(request: Request) {
       });
     }
 
-    const insight = await lookupHouseInsight({ city, address, fiasId });
+    const insight = await lookupHouseInsight({
+      city,
+      address,
+      fiasId,
+      street,
+      house,
+      block,
+    });
     return Response.json({ insight });
   } catch (error) {
     return authErrorResponse(error);

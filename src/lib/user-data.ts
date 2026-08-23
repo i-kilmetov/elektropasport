@@ -588,6 +588,9 @@ export async function lookupHouseInsight(input: {
   city: string;
   address: string;
   fiasId?: string | null;
+  street?: string | null;
+  house?: string | null;
+  block?: string | null;
 }): Promise<HouseInsight> {
   if (!canUseServer()) {
     throw new Error("Справка по дому доступна после входа через Telegram");
@@ -603,6 +606,9 @@ export async function lookupHouseInsight(input: {
       city: input.city,
       address: input.address,
       fiasId: input.fiasId ?? undefined,
+      street: input.street ?? undefined,
+      house: input.house ?? undefined,
+      block: input.block ?? undefined,
     }),
   });
 

@@ -1,9 +1,11 @@
 import {
   addressesLikelyMatch,
+  buildMoscowAddressKey,
   cellString,
-  extractHouseTokens,
-  normalizeAddressPart,
   pickAddressSearchTokens,
+  pickMoscowApiSearchTokens,
+  scoreMoscowAddressMatch,
+  type MoscowAddressKey,
   MOSCOW_ADDRESS_CELL_KEYS,
 } from "@/lib/moscow-address-match";
 import type { AddressSuggestion } from "@/lib/dadata";
@@ -112,65 +114,77 @@ function resolveAddressColumn(
   )?.name;
 }
 
-async function findPassportRow(
-  datasetId: number,
-  address: string,
-): Promise<MosDataRow | null> {
-  const columns = await fetchDatasetColumns(datasetId);
-  const addressColumn = resolveAddressColumn(columns);
-  const searchTokens = pickAddressSearchTokens(address);
+function pickBestPassportRow(
+  rows: MosDataRow[],
+  queryKey: MoscowAddressKey,
+): MosDataRow | null {
+  let best: { row: MosDataRow; score: number } | null = null;
 
-  if (addressColumn) {
-    for (const token of searchTokens) {
-      const filtered = await fetchDatasetRows(datasetId, {
-        top: 50,
-        filter: buildMoscowCellsFilter(addressColumn, token),
-      });
-      const match = filtered.find((row) =>
-        addressesLikelyMatch(
-          cellString(row.Cells ?? {}, MOSCOW_ADDRESS_CELL_KEYS),
-          address,
-        ),
-      );
-      if (match) return match;
+  for (const row of rows) {
+    const stored = cellString(row.Cells ?? {}, MOSCOW_ADDRESS_CELL_KEYS);
+    if (!stored) continue;
+    const score = scoreMoscowAddressMatch(stored, queryKey);
+    if (score <= 0) continue;
+    if (!best || score > best.score) {
+      best = { row, score };
     }
   }
 
-  const pageSize = 1000;
-  for (let page = 0; page < 4; page += 1) {
-    const rows = await fetchDatasetRows(datasetId, {
-      skip: page * pageSize,
-      top: pageSize,
-    });
-    if (rows.length === 0) break;
-    const match = rows.find((row) =>
-      addressesLikelyMatch(
-        cellString(row.Cells ?? {}, MOSCOW_ADDRESS_CELL_KEYS),
-        address,
-      ),
-    );
-    if (match) return match;
-    if (rows.length < pageSize) break;
-  }
-  return null;
+  return best?.row ?? null;
 }
 
-function rowMatchesQuery(storedAddress: string, query: string): boolean {
-  if (addressesLikelyMatch(storedAddress, query)) return true;
-  const tokens = extractHouseTokens(query);
-  if (tokens.length === 0) return false;
-  const norm = normalizeAddressPart(storedAddress);
-  return tokens.every((token) => norm.includes(token));
-}
-
-function rowToHit(row: MosDataRow): MoscowAddressHit | null {
-  const cells = row.Cells ?? {};
-  const address = cellString(cells, MOSCOW_ADDRESS_CELL_KEYS);
-  if (!address) return null;
-  return {
+async function findPassportRow(
+  datasetId: number,
+  address: string,
+  hints?: { street?: string | null; house?: string | null; block?: string | null },
+): Promise<MosDataRow | null> {
+  const queryKey = buildMoscowAddressKey({
     address,
-    buildingYear: parseYear(cellString(cells, YEAR_KEYS)),
+    street: hints?.street,
+    house: hints?.house,
+    block: hints?.block,
+  });
+  if (!queryKey) return null;
+
+  const columns = await fetchDatasetColumns(datasetId);
+  const addressColumn = resolveAddressColumn(columns);
+  const candidates: MosDataRow[] = [];
+  const seenRows = new Set<number>();
+
+  const collect = (rows: MosDataRow[]) => {
+    for (const row of rows) {
+      const id = row.global_id ?? row.Number;
+      if (id != null && seenRows.has(id)) continue;
+      if (id != null) seenRows.add(id);
+      candidates.push(row);
+    }
   };
+
+  if (addressColumn) {
+    const apiTokens = pickMoscowApiSearchTokens(queryKey);
+    for (const token of apiTokens) {
+      const filtered = await fetchDatasetRows(datasetId, {
+        top: 80,
+        filter: buildMoscowCellsFilter(addressColumn, token),
+      });
+      collect(filtered);
+      const best = pickBestPassportRow(candidates, queryKey);
+      if (best) return best;
+    }
+  }
+
+  return pickBestPassportRow(candidates, queryKey);
+}
+
+function rowMatchesQuery(
+  storedAddress: string,
+  query: string,
+  queryKey?: MoscowAddressKey | null,
+): boolean {
+  if (queryKey && scoreMoscowAddressMatch(storedAddress, queryKey) >= 40) {
+    return true;
+  }
+  return addressesLikelyMatch(storedAddress, query);
 }
 
 async function searchPassportRows(
@@ -178,9 +192,10 @@ async function searchPassportRows(
   query: string,
   limit: number,
 ): Promise<MosDataRow[]> {
+  const queryKey = buildMoscowAddressKey({ address: query });
   const columns = await fetchDatasetColumns(datasetId);
   const addressColumn = resolveAddressColumn(columns);
-  const searchTokens = pickAddressSearchTokens(query);
+  const searchTokens = pickAddressSearchTokens(query, queryKey);
   const results: MosDataRow[] = [];
   const seen = new Set<string>();
 
@@ -189,7 +204,7 @@ async function searchPassportRows(
       if (results.length >= limit) break;
       const addr = cellString(row.Cells ?? {}, MOSCOW_ADDRESS_CELL_KEYS);
       if (!addr || seen.has(addr)) continue;
-      if (!rowMatchesQuery(addr, query)) continue;
+      if (!rowMatchesQuery(addr, query, queryKey)) continue;
       seen.add(addr);
       results.push(row);
     }
@@ -259,11 +274,22 @@ export function mapMoscowHitsToSuggestions(
   return suggestions;
 }
 
+function rowToHit(row: MosDataRow): MoscowAddressHit | null {
+  const cells = row.Cells ?? {};
+  const address = cellString(cells, MOSCOW_ADDRESS_CELL_KEYS);
+  if (!address) return null;
+  return {
+    address,
+    buildingYear: parseYear(cellString(cells, YEAR_KEYS)),
+  };
+}
+
 /**
  * Building year from Moscow open data (dommos passports / MKD registry).
  */
 export async function lookupMoscowHousePassport(
   address: string,
+  hints?: { street?: string | null; house?: string | null; block?: string | null },
 ): Promise<MoscowHousePassport | null> {
   if (!isMoscowOpenDataConfigured()) return null;
 
@@ -271,7 +297,7 @@ export async function lookupMoscowHousePassport(
   if (!datasetId) return null;
 
   try {
-    const row = await findPassportRow(datasetId, address);
+    const row = await findPassportRow(datasetId, address, hints);
     if (!row?.Cells) return null;
 
     const cells = row.Cells;

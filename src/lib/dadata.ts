@@ -12,6 +12,8 @@ export type AddressSuggestion = {
   house?: string;
   street?: string;
   flat?: string;
+  block?: string;
+  building?: string;
 };
 
 type DaDataSuggestion = {
@@ -23,6 +25,8 @@ type DaDataSuggestion = {
     street_fias_id?: string | null;
     fias_level?: string | number | null;
     house?: string | null;
+    block?: string | null;
+    building?: string | null;
     street_with_type?: string | null;
     city?: string | null;
     flat?: string | null;
@@ -66,6 +70,8 @@ export function parseDaDataSuggestions(raw: unknown): AddressSuggestion[] {
       house: item.data?.house ?? undefined,
       street: item.data?.street_with_type ?? undefined,
       flat: item.data?.flat ?? undefined,
+      block: item.data?.block ?? undefined,
+      building: item.data?.building ?? undefined,
     });
   }
   return parsed;

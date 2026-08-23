@@ -38,7 +38,8 @@ async function mosFetch<T>(
   const res = await fetch(url, {
     method: "GET",
     headers: { Accept: "application/json" },
-    next: { revalidate: 86400 },
+    cache: path.includes("/rows") ? "no-store" : "force-cache",
+    next: path.includes("/rows") ? undefined : { revalidate: 86400 },
   });
 
   if (res.status === 404) return null;
