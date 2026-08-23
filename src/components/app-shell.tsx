@@ -906,11 +906,11 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
   const openPanel = useCallback(
     (id: string) => {
       const panel =
-        getCachedHomeItems().find(
+        items.find(
           (item): item is PanelObject =>
             item.kind === "panel" && item.id === id,
         ) ??
-        items.find(
+        getCachedHomeItems().find(
           (item): item is PanelObject =>
             item.kind === "panel" && item.id === id,
         );
@@ -926,9 +926,9 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
       );
       setLinesCount(panel?.linesCount ?? null);
       setRailCount(panelRailCount(panel));
-      go("scheme");
+      setScreen("scheme");
     },
-    [go, items],
+    [items],
   );
 
   const showPanel = useCallback(

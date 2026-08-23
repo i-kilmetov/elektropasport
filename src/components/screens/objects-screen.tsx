@@ -1,22 +1,22 @@
 "use client";
 
 import {
-  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
   useState,
   type ReactNode,
-  type PointerEvent,
-  type SyntheticEvent,
 } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import {
-  AnimatePresence,
-  animate,
-  motion,
-  useMotionValue,
-} from "framer-motion";
-import { ChevronDown, ClipboardList, Menu, Plus, Wrench, Zap } from "lucide-react";
+  ChevronDown,
+  ClipboardList,
+  Menu,
+  MoreHorizontal,
+  Plus,
+  Wrench,
+  Zap,
+} from "lucide-react";
 import { BreakerIcon } from "@/components/icons/breaker-icon";
 import { AddApplianceSheet } from "@/components/screens/add-appliance-sheet";
 import {
@@ -32,7 +32,6 @@ import { GlassCard } from "@/components/ui/glass-card";
 import { ItemActionsSheet } from "@/components/ui/item-actions-sheet";
 import { NameDialog } from "@/components/ui/name-dialog";
 import { formatAppliancePower } from "@/lib/home-appliances";
-import { hapticContextMenu } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
 import type {
   HomeAppliance,
@@ -44,276 +43,42 @@ import { installStatusTone } from "@/types";
 import { formatPanelAddedLabel } from "@/lib/panel-list-meta";
 import { isAtPanelLimit, type PanelQuota } from "@/lib/invites";
 
-/** Hold duration before context menu — close to iOS Haptic Touch. */
-const LONG_PRESS_MS = 480;
-const LIFT_DELAY_MS = 90;
-const MOVE_CANCEL_PX = 10;
-const PAGE_SPRING = { type: "spring" as const, stiffness: 380, damping: 38 };
-
-function useCardPressHandlers({
-  onShortTap,
-  onContextMenu,
-  onPressingChange,
-}: {
-  onShortTap: () => void;
-  onContextMenu: () => void;
-  onPressingChange: (pressing: boolean) => void;
-}) {
-  const longPressedRef = useRef(false);
-  const tapHandledRef = useRef(false);
-  const timerRef = useRef<number | null>(null);
-  const liftTimerRef = useRef<number | null>(null);
-  const startPointRef = useRef<{ x: number; y: number } | null>(null);
-
-  const clearTimers = () => {
-    if (timerRef.current != null) {
-      window.clearTimeout(timerRef.current);
-      timerRef.current = null;
-    }
-    if (liftTimerRef.current != null) {
-      window.clearTimeout(liftTimerRef.current);
-      liftTimerRef.current = null;
-    }
-  };
-
-  const finishPress = (clientX: number, clientY: number) => {
-    const wasLongPress = longPressedRef.current;
-    const start = startPointRef.current;
-    clearTimers();
-    startPointRef.current = null;
-    onPressingChange(false);
-    if (wasLongPress) return;
-    if (!start) return;
-    const dx = Math.abs(clientX - start.x);
-    const dy = Math.abs(clientY - start.y);
-    if (dx > MOVE_CANCEL_PX || dy > MOVE_CANCEL_PX) return;
-    tapHandledRef.current = true;
-    onShortTap();
-  };
-
-  const startPress = (clientX: number, clientY: number) => {
-    longPressedRef.current = false;
-    tapHandledRef.current = false;
-    clearTimers();
-    startPointRef.current = { x: clientX, y: clientY };
-    onPressingChange(false);
-
-    liftTimerRef.current = window.setTimeout(() => {
-      onPressingChange(true);
-    }, LIFT_DELAY_MS);
-
-    timerRef.current = window.setTimeout(() => {
-      longPressedRef.current = true;
-      onPressingChange(true);
-      hapticContextMenu();
-      onContextMenu();
-    }, LONG_PRESS_MS);
-  };
-
-  const onPointerMove = (clientX: number, clientY: number) => {
-    const start = startPointRef.current;
-    if (!start) return;
-    const dx = Math.abs(clientX - start.x);
-    const dy = Math.abs(clientY - start.y);
-    if (dx > MOVE_CANCEL_PX || dy > MOVE_CANCEL_PX) {
-      clearTimers();
-      startPointRef.current = null;
-      onPressingChange(false);
-    }
-  };
-
-  return {
-    onClick: () => {
-      if (longPressedRef.current) {
-        longPressedRef.current = false;
-        return;
-      }
-      if (tapHandledRef.current) {
-        tapHandledRef.current = false;
-        return;
-      }
-      onShortTap();
-    },
-    onPointerDown: (e: PointerEvent<HTMLButtonElement>) => {
-      if (e.button !== 0) return;
-      startPress(e.clientX, e.clientY);
-    },
-    onPointerMove: (e: PointerEvent<HTMLButtonElement>) =>
-      onPointerMove(e.clientX, e.clientY),
-    onPointerUp: (e: PointerEvent<HTMLButtonElement>) => {
-      if (e.button !== 0) return;
-      finishPress(e.clientX, e.clientY);
-    },
-    onPointerCancel: (e: PointerEvent<HTMLButtonElement>) => {
-      if (e.button !== 0) return;
-      finishPress(e.clientX, e.clientY);
-    },
-    onContextMenu: (e: SyntheticEvent) => e.preventDefault(),
-  };
-}
-
 function HomeListCard({
   item,
-  lifted,
-  pressing,
   onOpen,
   onContextMenu,
-  onPressingChange,
 }: {
   item: HomeListItem;
-  lifted: boolean;
-  pressing: boolean;
   onOpen: () => void;
   onContextMenu: () => void;
-  onPressingChange: (pressing: boolean) => void;
 }) {
   const isRequest = item.kind === "install_request";
-  const pressHandlers = useCardPressHandlers({
-    onShortTap: onOpen,
-    onContextMenu,
-    onPressingChange,
-  });
-
-  const active = pressing || lifted;
 
   return (
-    <motion.div
-      animate={{
-        scale: active ? 1.055 : 1,
-        y: active ? -2 : 0,
-      }}
-      transition={{
-        type: "spring",
-        stiffness: 420,
-        damping: 28,
-        mass: 0.7,
-      }}
-      className={cn(
-        "origin-center will-change-transform",
-        active && "relative z-20",
-      )}
-      style={{
-        filter: active
-          ? "drop-shadow(0 14px 28px rgba(17,17,19,0.18))"
-          : "drop-shadow(0 0 0 rgba(0,0,0,0))",
-      }}
-    >
+    <GlassCard className="relative flex items-center gap-2 rounded-[24px] border p-4 transition-colors hover:bg-zinc-50 lg:gap-4 lg:p-5">
       <button
         type="button"
-        {...pressHandlers}
-        className="w-full touch-manipulation text-left select-none lg:cursor-pointer"
+        onClick={onOpen}
+        className="flex min-w-0 flex-1 items-center gap-4 text-left touch-manipulation select-none lg:cursor-pointer"
       >
-        <GlassCard className="flex items-center gap-4 rounded-[24px] border p-4 transition-colors hover:bg-zinc-50 lg:p-5">
-          <div
-            className={cn(
-              "flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[18px] bg-zinc-100",
-              isRequest ? "text-zinc-500" : "text-zinc-600",
-            )}
-          >
-            {isRequest ? (
-              <ClipboardList className="h-6 w-6" />
-            ) : (
-              <BreakerIcon className="h-7 w-7" />
-            )}
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="mb-0.5 flex items-center justify-between gap-2">
-              <h2 className="truncate text-[17px] font-semibold text-zinc-900">
-                {isRequest && item.publicCode ? item.publicCode : item.title}
-              </h2>
-              {isRequest ? (
-                <span
-                  className={cn(
-                    "shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium",
-                    installStatusTone(item.status).badge,
-                  )}
-                >
-                  {item.statusLabel}
-                </span>
-              ) : (
-                <span className="shrink-0 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
-                  {item.phases &&
-                  item.powerKw?.trim() &&
-                  typeof item.safety === "number"
-                    ? `${item.safety}%`
-                    : "—"}
-                </span>
-              )}
-            </div>
-            <p className="truncate text-[13px] text-zinc-500">
-              {isRequest ? item.subtitle : item.address}
-            </p>
-            <p className="mt-1 text-[12px] text-zinc-400">
-              {isRequest
-                ? item.createdAt
-                : `${item.breakers} устройств · добавлен ${formatPanelAddedLabel(item)}`}
-            </p>
-          </div>
-        </GlassCard>
-      </button>
-    </motion.div>
-  );
-}
-
-function RequestListCard({
-  item,
-  lifted,
-  pressing,
-  onOpen,
-  onContextMenu,
-  onPressingChange,
-}: {
-  item: InstallRequest;
-  lifted: boolean;
-  pressing: boolean;
-  onOpen: () => void;
-  onContextMenu: () => void;
-  onPressingChange: (pressing: boolean) => void;
-}) {
-  const pressHandlers = useCardPressHandlers({
-    onShortTap: onOpen,
-    onContextMenu,
-    onPressingChange,
-  });
-
-  const active = pressing || lifted;
-
-  return (
-    <motion.div
-      animate={{
-        scale: active ? 1.055 : 1,
-        y: active ? -2 : 0,
-      }}
-      transition={{
-        type: "spring",
-        stiffness: 420,
-        damping: 28,
-        mass: 0.7,
-      }}
-      className={cn(
-        "origin-center will-change-transform",
-        active && "relative z-20",
-      )}
-      style={{
-        filter: active
-          ? "drop-shadow(0 14px 28px rgba(17,17,19,0.18))"
-          : "drop-shadow(0 0 0 rgba(0,0,0,0))",
-      }}
-    >
-      <button
-        type="button"
-        {...pressHandlers}
-        className="w-full touch-manipulation text-left select-none lg:cursor-pointer"
-      >
-        <GlassCard className="flex items-center gap-4 rounded-[24px] border p-4 transition-colors hover:bg-zinc-50 lg:p-5">
-          <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[18px] bg-zinc-100 text-zinc-500">
+        <div
+          className={cn(
+            "flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[18px] bg-zinc-100",
+            isRequest ? "text-zinc-500" : "text-zinc-600",
+          )}
+        >
+          {isRequest ? (
             <ClipboardList className="h-6 w-6" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="mb-0.5 flex items-center justify-between gap-2">
-              <h2 className="truncate text-[17px] font-semibold text-zinc-900">
-                {item.publicCode ? item.publicCode : item.title}
-              </h2>
+          ) : (
+            <BreakerIcon className="h-7 w-7" />
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="mb-0.5 flex items-center justify-between gap-2">
+            <h2 className="truncate text-[17px] font-semibold text-zinc-900">
+              {isRequest && item.publicCode ? item.publicCode : item.title}
+            </h2>
+            {isRequest ? (
               <span
                 className={cn(
                   "shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium",
@@ -322,73 +87,117 @@ function RequestListCard({
               >
                 {item.statusLabel}
               </span>
-            </div>
-            <p className="truncate text-[13px] text-zinc-500">{item.subtitle}</p>
-            <p className="mt-1 text-[12px] text-zinc-400">{item.createdAt}</p>
+            ) : (
+              <span className="shrink-0 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
+                {item.phases &&
+                item.powerKw?.trim() &&
+                typeof item.safety === "number"
+                  ? `${item.safety}%`
+                  : "—"}
+              </span>
+            )}
           </div>
-        </GlassCard>
+          <p className="truncate text-[13px] text-zinc-500">
+            {isRequest ? item.subtitle : item.address}
+          </p>
+          <p className="mt-1 text-[12px] text-zinc-400">
+            {isRequest
+              ? item.createdAt
+              : `${(item as PanelObject).breakers} устройств · добавлен ${formatPanelAddedLabel(item as PanelObject)}`}
+          </p>
+        </div>
       </button>
-    </motion.div>
+      <button
+        type="button"
+        aria-label="Действия с карточкой"
+        onClick={(event) => {
+          event.stopPropagation();
+          onContextMenu();
+        }}
+        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700"
+      >
+        <MoreHorizontal className="h-5 w-5" />
+      </button>
+    </GlassCard>
+  );
+}
+
+function RequestListCard({
+  item,
+  onOpen,
+  onContextMenu,
+}: {
+  item: InstallRequest;
+  onOpen: () => void;
+  onContextMenu: () => void;
+}) {
+  return (
+    <GlassCard className="relative flex items-center gap-2 rounded-[24px] border p-4 transition-colors hover:bg-zinc-50 lg:gap-4 lg:p-5">
+      <button
+        type="button"
+        onClick={onOpen}
+        className="flex min-w-0 flex-1 items-center gap-4 text-left touch-manipulation select-none lg:cursor-pointer"
+      >
+        <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[18px] bg-zinc-100 text-zinc-500">
+          <ClipboardList className="h-6 w-6" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="mb-0.5 flex items-center justify-between gap-2">
+            <h2 className="truncate text-[17px] font-semibold text-zinc-900">
+              {item.publicCode ? item.publicCode : item.title}
+            </h2>
+            <span
+              className={cn(
+                "shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium",
+                installStatusTone(item.status).badge,
+              )}
+            >
+              {item.statusLabel}
+            </span>
+          </div>
+          <p className="truncate text-[13px] text-zinc-500">{item.subtitle}</p>
+          <p className="mt-1 text-[12px] text-zinc-400">{item.createdAt}</p>
+        </div>
+      </button>
+      <button
+        type="button"
+        aria-label="Действия с карточкой"
+        onClick={(event) => {
+          event.stopPropagation();
+          onContextMenu();
+        }}
+        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700"
+      >
+        <MoreHorizontal className="h-5 w-5" />
+      </button>
+    </GlassCard>
   );
 }
 
 function ExpandableHomeCard({
   panel,
   expanded,
-  lifted,
-  pressing,
   onToggle,
   onOpenPanel,
   onOpenAppliance,
   onContextMenu,
-  onPressingChange,
 }: {
   panel: PanelObject;
   expanded: boolean;
-  lifted: boolean;
-  pressing: boolean;
   onToggle: () => void;
   onOpenPanel: () => void;
   onOpenAppliance: (applianceId: string) => void;
   onContextMenu: () => void;
-  onPressingChange: (pressing: boolean) => void;
 }) {
   const appliances = panel.appliances ?? [];
-  const pressHandlers = useCardPressHandlers({
-    onShortTap: onToggle,
-    onContextMenu,
-    onPressingChange,
-  });
-
-  const active = pressing || lifted;
 
   return (
-    <motion.div
-      animate={{
-        scale: active ? 1.02 : 1,
-        y: active ? -1 : 0,
-      }}
-      transition={{
-        type: "spring",
-        stiffness: 420,
-        damping: 28,
-        mass: 0.7,
-      }}
-      className={cn(
-        "origin-center will-change-transform",
-        active && "relative z-20",
-      )}
-      style={{
-        filter: active
-          ? "drop-shadow(0 14px 28px rgba(17,17,19,0.18))"
-          : "drop-shadow(0 0 0 rgba(0,0,0,0))",
-      }}
-    >
-      <GlassCard className="overflow-hidden rounded-[24px] border p-0">
+    <GlassCard className="overflow-hidden rounded-[24px] border p-0">
+      <div className="relative flex items-center">
         <button
           type="button"
-          {...pressHandlers}
-          className="flex w-full touch-manipulation items-center gap-4 p-4 text-left select-none transition-colors hover:bg-zinc-50 lg:cursor-pointer lg:p-5"
+          onClick={onToggle}
+          className="flex min-w-0 flex-1 touch-manipulation items-center gap-4 p-4 text-left select-none transition-colors hover:bg-zinc-50 lg:cursor-pointer lg:p-5"
         >
           <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[18px] bg-zinc-100 text-zinc-600">
             <BreakerIcon className="h-7 w-7" />
@@ -420,6 +229,18 @@ function ExpandableHomeCard({
             )}
           />
         </button>
+        <button
+          type="button"
+          aria-label="Действия с карточкой"
+          onClick={(event) => {
+            event.stopPropagation();
+            onContextMenu();
+          }}
+          className="mr-3 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700"
+        >
+          <MoreHorizontal className="h-5 w-5" />
+        </button>
+      </div>
 
         <AnimatePresence initial={false}>
           {expanded && (
@@ -490,7 +311,6 @@ function ExpandableHomeCard({
           )}
         </AnimatePresence>
       </GlassCard>
-    </motion.div>
   );
 }
 
@@ -578,21 +398,16 @@ export function ObjectsScreen({
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [actionsItemId, setActionsItemId] = useState<string | null>(null);
   const [renameItemId, setRenameItemId] = useState<string | null>(null);
-  const [pressingId, setPressingId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [addApplianceOpen, setAddApplianceOpen] = useState(false);
-  const [pagerWidth, setPagerWidth] = useState(0);
   const [tabMetrics, setTabMetrics] = useState({
     left0: 4,
     width0: 0,
     left1: 4,
     width1: 0,
   });
-  const pagerRef = useRef<HTMLDivElement>(null);
   const tab0Ref = useRef<HTMLButtonElement>(null);
   const tab1Ref = useRef<HTMLButtonElement>(null);
-  const pageRef = useRef(0);
-  const x = useMotionValue(0);
 
   const panels = useMemo(
     () => items.filter((item): item is PanelObject => item.kind === "panel"),
@@ -614,20 +429,6 @@ export function ObjectsScreen({
   const actionsItem = items.find((item) => item.id === actionsItemId);
   const renameItem = items.find((item) => item.id === renameItemId);
 
-  useEffect(() => {
-    pageRef.current = page;
-  }, [page]);
-
-  useEffect(() => {
-    const node = pagerRef.current;
-    if (!node) return;
-    const update = () => setPagerWidth(node.clientWidth);
-    update();
-    const observer = new ResizeObserver(update);
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, []);
-
   useLayoutEffect(() => {
     const first = tab0Ref.current;
     const second = tab1Ref.current;
@@ -647,17 +448,8 @@ export function ObjectsScreen({
     return () => observer.disconnect();
   }, [panels.length, requests.length]);
 
-  useEffect(() => {
-    if (!pagerWidth) return;
-    void animate(x, -page * pagerWidth, PAGE_SPRING);
-  }, [page, pagerWidth, x]);
-
   const settlePage = (next: 0 | 1) => {
-    pageRef.current = next;
     setPage(next);
-    if (pagerWidth) {
-      void animate(x, -next * pagerWidth, PAGE_SPRING);
-    }
   };
 
   const renderList = (
@@ -688,35 +480,23 @@ export function ObjectsScreen({
             {!homeAppliancesMode ? (
               <HomeListCard
                 item={obj}
-                pressing={pressingId === obj.id}
-                lifted={actionsItemId === obj.id}
                 onOpen={() =>
                   obj.kind === "install_request"
                     ? onOpenRequest(obj.id)
                     : onOpenPanel(obj.id)
                 }
                 onContextMenu={() => setActionsItemId(obj.id)}
-                onPressingChange={(next) =>
-                  setPressingId(next ? obj.id : null)
-                }
               />
             ) : obj.kind === "install_request" ? (
               <RequestListCard
                 item={obj}
-                pressing={pressingId === obj.id}
-                lifted={actionsItemId === obj.id}
                 onOpen={() => onOpenRequest(obj.id)}
                 onContextMenu={() => setActionsItemId(obj.id)}
-                onPressingChange={(next) =>
-                  setPressingId(next ? obj.id : null)
-                }
               />
             ) : (
               <ExpandableHomeCard
                 panel={obj}
                 expanded={expandedId === obj.id}
-                pressing={pressingId === obj.id}
-                lifted={actionsItemId === obj.id}
                 onToggle={() =>
                   setExpandedId((prev) => (prev === obj.id ? null : obj.id))
                 }
@@ -725,9 +505,6 @@ export function ObjectsScreen({
                   onOpenAppliance?.(obj.id, applianceId)
                 }
                 onContextMenu={() => setActionsItemId(obj.id)}
-                onPressingChange={(next) =>
-                  setPressingId(next ? obj.id : null)
-                }
               />
             )}
           </motion.div>
@@ -916,38 +693,17 @@ export function ObjectsScreen({
             })}
       </div>
 
-      <div ref={pagerRef} className="min-h-0 flex-1 overflow-hidden lg:hidden">
-        <motion.div
-          className="flex h-full"
-          style={{
-            x,
-            width: pagerWidth ? pagerWidth * 2 : "200%",
-          }}
-        >
-          <div
-            className="flex h-full min-h-0 flex-col px-5 lg:px-10"
-            style={{ width: pagerWidth || "50%" }}
-          >
-            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
-              {renderList(panels, {
-                icon: <BreakerIcon className="h-10 w-10" />,
-                text: panelEmptyText,
-                framed: true,
-              })}
-            </div>
-          </div>
-          <div
-            className="flex h-full min-h-0 flex-col px-5 lg:px-10"
-            style={{ width: pagerWidth || "50%" }}
-          >
-            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
-              {renderList(requests, {
-                icon: <ClipboardList className="h-10 w-10" />,
-                text: "Здесь появятся заявки на помощь с электрикой.",
-              })}
-            </div>
-          </div>
-        </motion.div>
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-2 lg:hidden">
+        {page === 0
+          ? renderList(panels, {
+              icon: <BreakerIcon className="h-10 w-10" />,
+              text: panelEmptyText,
+              framed: true,
+            })
+          : renderList(requests, {
+              icon: <ClipboardList className="h-10 w-10" />,
+              text: "Здесь появятся заявки на помощь с электрикой.",
+            })}
       </div>
 
       <div className="shrink-0 border-t border-black/[0.06] bg-[var(--bg)] px-5 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))] lg:hidden">
@@ -1021,19 +777,14 @@ export function ObjectsScreen({
         {actionsItem && (
           <ItemActionsSheet
             title={actionsItem.title}
-            onClose={() => {
-              setActionsItemId(null);
-              setPressingId(null);
-            }}
+            onClose={() => setActionsItemId(null)}
             onRename={() => {
               setRenameItemId(actionsItem.id);
               setActionsItemId(null);
-              setPressingId(null);
             }}
             onDelete={() => {
               setPendingDeleteId(actionsItem.id);
               setActionsItemId(null);
-              setPressingId(null);
             }}
           />
         )}

@@ -83,10 +83,7 @@ function writeLocalItems(items: HomeListItem[]): void {
         })),
       };
     });
-    localStorage.setItem(
-      LOCAL_KEY,
-      JSON.stringify(sortHomeItemsByRecency(slim)),
-    );
+    localStorage.setItem(LOCAL_KEY, JSON.stringify(slim));
   } catch (error) {
     console.error("Failed to write home items cache", error);
   }
@@ -695,7 +692,6 @@ export async function persistPanel(panel: PanelObject): Promise<void> {
     if (!res.ok) {
       if (res.status === 503) return;
       if (res.status === 403) {
-        writeLocalItems(readLocalItems().filter((item) => item.id !== panel.id));
         const error = new Error(await parseError(res));
         error.name = "PanelLimitError";
         throw error;
