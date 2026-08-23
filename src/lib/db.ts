@@ -31,7 +31,7 @@ import { buildInviteUrl } from "@/lib/panel-share";
 let schemaReady: Promise<void> | null = null;
 
 /** Bump when DDL below changes so cold starts re-run migrations once. */
-const SCHEMA_VERSION = "2026-08-22-b";
+const SCHEMA_VERSION = "2026-08-23-a";
 
 export function getSql(): NeonQueryFunction<false, false> {
   const url = process.env.DATABASE_URL?.trim();
