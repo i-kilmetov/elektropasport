@@ -6,6 +6,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type MutableRefObject,
   type ReactNode,
 } from "react";
 import {
@@ -14,7 +15,6 @@ import {
   motion,
   useMotionValue,
   useTransform,
-  type PanInfo,
 } from "framer-motion";
 import { ChevronDown, ClipboardList, Menu, Plus, Wrench, Zap } from "lucide-react";
 import { BreakerIcon } from "@/components/icons/breaker-icon";
@@ -42,16 +42,38 @@ import type {
 } from "@/types";
 import { installStatusTone } from "@/types";
 import { isAtPanelLimit, type PanelQuota } from "@/lib/invites";
+import {
+  formatPanelActivityLabel,
+  formatPanelAddedLabel,
+  panelSortTime,
+} from "@/lib/panel-list-meta";
 
 /** Hold duration before context menu — close to iOS Haptic Touch. */
 const LONG_PRESS_MS = 480;
 const LIFT_DELAY_MS = 90;
 const MOVE_CANCEL_PX = 10;
 const PAGE_SPRING = { type: "spring" as const, stiffness: 380, damping: 38 };
-/** Ignore taps and tiny jitter; only a real horizontal swipe changes tabs. */
-const SWIPE_DISTANCE = 80;
-const SWIPE_VELOCITY = 700;
-const SWIPE_MIN_OFFSET = 28;
+
+function tryOpenFromPress(
+  longPressedRef: MutableRefObject<boolean>,
+  startPointRef: MutableRefObject<{ x: number; y: number } | null>,
+  clientX: number,
+  clientY: number,
+  onOpen: () => void,
+): boolean {
+  if (longPressedRef.current) {
+    longPressedRef.current = false;
+    return false;
+  }
+  const start = startPointRef.current;
+  if (start) {
+    const dx = Math.abs(clientX - start.x);
+    const dy = Math.abs(clientY - start.y);
+    if (dx > MOVE_CANCEL_PX || dy > MOVE_CANCEL_PX) return false;
+  }
+  onOpen();
+  return true;
+}
 
 function HomeListCard({
   item,
@@ -120,6 +142,26 @@ function HomeListCard({
   };
 
   const active = pressing || lifted;
+  const openedRef = useRef(false);
+
+  const openFromPress = (clientX: number, clientY: number) => {
+    if (openedRef.current) return;
+    if (
+      !tryOpenFromPress(
+        longPressedRef,
+        startPointRef,
+        clientX,
+        clientY,
+        onOpen,
+      )
+    ) {
+      return;
+    }
+    openedRef.current = true;
+    window.setTimeout(() => {
+      openedRef.current = false;
+    }, 350);
+  };
 
   return (
     <motion.div
@@ -145,20 +187,17 @@ function HomeListCard({
     >
       <button
         type="button"
-        onClick={() => {
-          if (longPressedRef.current) {
-            longPressedRef.current = false;
-            return;
-          }
-          onOpen();
-        }}
         onPointerDown={(e) => {
           e.stopPropagation();
           if (e.button !== 0) return;
           startPress(e.clientX, e.clientY);
         }}
         onPointerMove={(e) => onPointerMove(e.clientX, e.clientY)}
-        onPointerUp={endPress}
+        onPointerUp={(e) => {
+          if (e.button !== 0) return;
+          openFromPress(e.clientX, e.clientY);
+          endPress();
+        }}
         onPointerLeave={endPress}
         onPointerCancel={endPress}
         onContextMenu={(e) => e.preventDefault()}
@@ -207,7 +246,7 @@ function HomeListCard({
             <p className="mt-1 text-[12px] text-zinc-400">
               {isRequest
                 ? item.createdAt
-                : `${item.breakers} устройств · ${item.lastCheck}`}
+                : `${item.breakers} устройств · добавлен ${formatPanelAddedLabel(item as PanelObject)}`}
             </p>
           </div>
         </GlassCard>
@@ -490,8 +529,8 @@ function ExpandableHomeCard({
             <p className="truncate text-[13px] text-zinc-500">{panel.address}</p>
             <p className="mt-1 text-[12px] text-zinc-400">
               {appliances.length > 0
-                ? `${appliances.length} приборов · ${panel.lastCheck}`
-                : `Щиток · ${panel.lastCheck}`}
+                ? `${appliances.length} приборов · обновлён ${formatPanelActivityLabel(panel.lastCheck)}`
+                : `${panel.breakers} устройств · добавлен ${formatPanelAddedLabel(panel)}`}
             </p>
           </div>
           <ChevronDown
@@ -695,7 +734,10 @@ export function ObjectsScreen({
   const tab1Color = useTransform(tabProgress, [0, 1], ["#71717a", "#18181b"]);
 
   const panels = useMemo(
-    () => items.filter((item): item is PanelObject => item.kind === "panel"),
+    () =>
+      items
+        .filter((item): item is PanelObject => item.kind === "panel")
+        .sort((a, b) => panelSortTime(b) - panelSortTime(a)),
     [items],
   );
   const requests = useMemo(
@@ -761,30 +803,6 @@ export function ObjectsScreen({
     pageRef.current = next;
     setPage(next);
     snapTo(next);
-  };
-
-  const onPagerDragEnd = (_: unknown, info: PanInfo) => {
-    const current = pageRef.current as 0 | 1;
-    const { offset, velocity } = info;
-    const absOffset = Math.abs(offset.x);
-    const committed =
-      absOffset >= SWIPE_DISTANCE ||
-      (absOffset >= SWIPE_MIN_OFFSET && Math.abs(velocity.x) >= SWIPE_VELOCITY);
-
-    if (!committed) {
-      snapTo(current);
-      return;
-    }
-
-    if (offset.x < 0 && current === 0) {
-      settlePage(1);
-      return;
-    }
-    if (offset.x > 0 && current === 1) {
-      settlePage(0);
-      return;
-    }
-    snapTo(current);
   };
 
   const renderList = (
@@ -1041,20 +1059,11 @@ export function ObjectsScreen({
 
       <div ref={pagerRef} className="min-h-0 flex-1 overflow-hidden lg:hidden">
         <motion.div
-          className="flex h-full touch-pan-y"
-          drag="x"
-          dragDirectionLock
-          dragElastic={0.16}
-          dragConstraints={{
-            left: pagerWidth ? -pagerWidth : 0,
-            right: 0,
-          }}
-          dragMomentum={false}
+          className="flex h-full"
           style={{
             x,
             width: pagerWidth ? pagerWidth * 2 : "200%",
           }}
-          onDragEnd={onPagerDragEnd}
         >
           <div
             className="flex h-full min-h-0 flex-col px-5 lg:px-10"

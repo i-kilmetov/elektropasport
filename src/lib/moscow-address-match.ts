@@ -32,10 +32,16 @@ const CITY_PREFIX =
 const STREET_TYPE_PREFIX =
   /^(?:ул\.?|улица|пр\.?|просп\.?|проспект|пер\.?|переулок|проезд|пр\-?д|бул\.?|бульвар|ш\.?|шоссе|наб\.?|набережная|ал\.?|аллея|пл\.?|площадь|туп\.?|тупик|линия|кв-л|квартал|мкр\.?|микрорайон)\s+/i;
 
+const STREET_TYPE_SUFFIX =
+  /\s+(?:ул\.?|улица|пр\.?|просп\.?|проспект|пер\.?|переулок|проезд|пр\-?д|бул\.?|бульвар|ш\.?|шоссе|наб\.?|набережная|ал\.?|аллея|пл\.?|площадь|туп\.?|тупик|линия|кв-л|квартал|мкр\.?|микрорайон)$/i;
+
 function stripStreetType(value: string): string {
   let rest = value.trim();
   while (STREET_TYPE_PREFIX.test(rest)) {
     rest = rest.replace(STREET_TYPE_PREFIX, "").trim();
+  }
+  while (STREET_TYPE_SUFFIX.test(rest)) {
+    rest = rest.replace(STREET_TYPE_SUFFIX, "").trim();
   }
   return rest;
 }
@@ -337,6 +343,11 @@ export function pickMoscowApiSearchTokens(key: MoscowAddressKey): string[] {
   if (streetWords.length >= 2) {
     add(streetWords.slice(-2).join(" "));
   }
+  if (streetParts.length >= 1) {
+    add(`${streetParts[0]} ${key.house}`);
+    add(`${streetParts.join(" ")}, дом ${key.house}`);
+    add(`${streetParts.join(" ")}, д ${key.house}`);
+  }
 
-  return tokens;
+  return tokens.sort((a, b) => b.length - a.length);
 }

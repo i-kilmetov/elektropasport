@@ -681,6 +681,7 @@ export function AppShell() {
       }
       const today = new Date();
       const lastCheck = today.toLocaleDateString("ru-RU");
+      const createdAt = today.toISOString();
       const panelCount = items.filter((i) => i.kind === "panel").length;
       const id = `panel-${Date.now()}`;
       const panel: PanelObject = {
@@ -690,6 +691,7 @@ export function AppShell() {
         title: `Щиток ${panelCount + 1}`,
         address: "Добавлен по фото",
         lastCheck,
+        createdAt,
         breakers: result.devices.length,
         safety: null,
         devices: result.devices,

@@ -653,6 +653,7 @@ function rowToPanel(row: PanelRow): PanelObject {
     wires: Array.isArray(row.wires) ? row.wires : undefined,
     appliances: Array.isArray(row.appliances) ? row.appliances : undefined,
     sourceShareToken: row.source_share_token ?? undefined,
+    createdAt: row.created_at,
   };
 }
 
@@ -763,6 +764,7 @@ export async function insertPanel(
     })),
   );
   const houseSnapshotJson = JSON.stringify(panel.houseSnapshot ?? null);
+  const createdAt = panel.createdAt ?? new Date().toISOString();
   await sql`
     INSERT INTO panels (
       id, telegram_user_id, type, title, address, last_check, breakers, safety,
@@ -789,7 +791,7 @@ export async function insertPanel(
       ${wiresJson}::jsonb,
       ${appliancesJson}::jsonb,
       ${panel.sourceShareToken ?? null},
-      NOW(),
+      ${createdAt}::timestamptz,
       NOW()
     )
     ON CONFLICT (id) DO UPDATE SET

@@ -125,6 +125,8 @@ export interface PanelObject {
   appliances?: HomeAppliance[];
   /** Dwelling address + year / kapremont snapshot for this panel */
   houseSnapshot?: PanelHouseSnapshot;
+  /** ISO timestamp for stable list ordering */
+  createdAt?: string;
 }
 
 export type InstallRequestStatus =

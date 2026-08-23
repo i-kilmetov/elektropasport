@@ -17,6 +17,7 @@ import {
   formatRequestPublicCode,
   type RequestTypeCode,
 } from "@/lib/request-codes";
+import { sortHomeItemsByRecency } from "@/lib/panel-list-meta";
 
 const LOCAL_KEY = "elektropasport:home-items";
 
@@ -46,7 +47,7 @@ export function getCachedHomeItems(): HomeListItem[] {
 
 function writeLocalItems(items: HomeListItem[]): void {
   try {
-    localStorage.setItem(LOCAL_KEY, JSON.stringify(items));
+    localStorage.setItem(LOCAL_KEY, JSON.stringify(sortHomeItemsByRecency(items)));
   } catch {
     // Quota / private mode — ignore
   }
@@ -237,7 +238,7 @@ function pickHouseSnapshot(
 function mergePanelHouseFields(
   local: PanelObject,
   remote: PanelObject,
-): Pick<PanelObject, "houseSnapshot" | "address" | "hasGround"> {
+): Pick<PanelObject, "houseSnapshot" | "address" | "hasGround" | "createdAt"> {
   const houseSnapshot = pickHouseSnapshot(local.houseSnapshot, remote.houseSnapshot);
   const address = (() => {
     if (houseSnapshot?.address?.trim()) return houseSnapshot.address;
@@ -254,6 +255,7 @@ function mergePanelHouseFields(
     houseSnapshot,
     address,
     hasGround: local.hasGround ?? remote.hasGround,
+    createdAt: local.createdAt ?? remote.createdAt,
   };
 }
 
@@ -276,7 +278,7 @@ export function mergeHomeItemsWithLocalState(
     if (!fetchedIds.has(item.id)) merged.push(item);
   }
 
-  return merged;
+  return sortHomeItemsByRecency(merged);
 }
 
 function mergeServerWithLocal(serverItems: HomeListItem[]): HomeListItem[] {
@@ -320,7 +322,7 @@ function mergeServerWithLocal(serverItems: HomeListItem[]): HomeListItem[] {
 
   // Never drop local-only panels if the server does not have them yet.
   const orphans = localItems.filter((item) => !serverIds.has(item.id));
-  return [...mergedServer, ...orphans];
+  return sortHomeItemsByRecency([...mergedServer, ...orphans]);
 }
 
 export async function fetchHomeItems(): Promise<HomeListItem[]> {

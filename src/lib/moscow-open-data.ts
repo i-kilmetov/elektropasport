@@ -4,7 +4,16 @@ export type MosDataRow = {
   global_id?: number;
   Number?: number;
   Cells?: Record<string, unknown>;
+  attributes?: Record<string, unknown>;
 };
+
+function normalizeMosRow(row: MosDataRow): MosDataRow {
+  if (row.Cells && Object.keys(row.Cells).length > 0) return row;
+  if (row.attributes && Object.keys(row.attributes).length > 0) {
+    return { ...row, Cells: row.attributes };
+  }
+  return row;
+}
 
 export type MosDatasetSummary = {
   id: number;
@@ -151,5 +160,5 @@ export async function fetchDatasetRows(
     $top: options?.top ?? 1000,
     $filter: options?.filter,
   });
-  return Array.isArray(payload) ? payload : [];
+  return Array.isArray(payload) ? payload.map(normalizeMosRow) : [];
 }

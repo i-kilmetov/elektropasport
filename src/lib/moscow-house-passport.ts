@@ -69,6 +69,31 @@ function scorePassportDataset(caption: string): number {
   return points;
 }
 
+function resolveAddressColumn(
+  columns: Array<{ name: string; caption: string }>,
+): string | undefined {
+  return columns.find((col) =>
+    MOSCOW_ADDRESS_CELL_KEYS.some(
+      (key) =>
+        col.name.toLowerCase() === key.toLowerCase() ||
+        col.caption.toLowerCase().includes("адрес"),
+    ),
+  )?.name;
+}
+
+/** Known dommos / MKD passport tables on apidata.mos.ru (probed before full catalog scan). */
+const KNOWN_PASSPORT_DATASET_IDS = [29171, 27707, 60562, 658];
+
+async function datasetHasPassportShape(datasetId: number): Promise<boolean> {
+  const columns = await fetchDatasetColumns(datasetId);
+  if (columns.length === 0) return false;
+  const addressColumn = resolveAddressColumn(columns);
+  const hasYear = columns.some((col) =>
+    YEAR_KEYS.some((key) => col.name.toLowerCase() === key.toLowerCase()),
+  );
+  return Boolean(addressColumn && hasYear);
+}
+
 async function resolvePassportDatasetId(): Promise<number | null> {
   const fromEnv = Number.parseInt(
     process.env.MOS_DOM_PASSPORT_DATASET_ID ?? "",
@@ -77,6 +102,14 @@ async function resolvePassportDatasetId(): Promise<number | null> {
   if (Number.isFinite(fromEnv) && fromEnv > 0) return fromEnv;
 
   if (cachedPassportDatasetId !== undefined) return cachedPassportDatasetId;
+
+  for (const datasetId of KNOWN_PASSPORT_DATASET_IDS) {
+    if (await datasetHasPassportShape(datasetId)) {
+      cachedPassportDatasetId = datasetId;
+      console.info("Moscow dom passport dataset (known id):", datasetId);
+      return datasetId;
+    }
+  }
 
   const list = await mosFetchDatasetList();
   if (!list) {
@@ -100,18 +133,6 @@ async function resolvePassportDatasetId(): Promise<number | null> {
     );
   }
   return cachedPassportDatasetId;
-}
-
-function resolveAddressColumn(
-  columns: Array<{ name: string; caption: string }>,
-): string | undefined {
-  return columns.find((col) =>
-    MOSCOW_ADDRESS_CELL_KEYS.some(
-      (key) =>
-        col.name.toLowerCase() === key.toLowerCase() ||
-        col.caption.toLowerCase().includes("адрес"),
-    ),
-  )?.name;
 }
 
 function pickBestPassportRow(
