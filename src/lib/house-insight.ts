@@ -98,11 +98,7 @@ export function houseInsightToPanelSnapshot(
     capitalRepairEndYear: insight.capitalRepair?.plannedEndYear ?? null,
     dataSource:
       insight.capitalRepair?.sourceLabel ??
-      (insight.moscowOpenDataUsed
-        ? "Открытые данные Москвы"
-        : insight.buildingYear
-          ? "HouseScore"
-          : null),
+      (insight.moscowOpenDataUsed ? "Открытые данные Москвы" : null),
   };
 }
 

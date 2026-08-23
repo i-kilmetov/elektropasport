@@ -1,0 +1,58 @@
+import {
+  electricalGuessForYear,
+  type HouseInsight,
+} from "@/lib/house-insight";
+import { assessGroundingForYear } from "@/lib/grounding-assessment";
+import { isMoscow } from "@/lib/lead-services";
+import { lookupMoscowCapitalRepair } from "@/lib/moscow-capital-repair";
+import { lookupMoscowHousePassport } from "@/lib/moscow-house-passport";
+
+/** Building year and kapremont from Moscow open data; address only elsewhere. */
+export async function lookupHouseInsight(input: {
+  city: string;
+  address: string;
+  fiasId?: string | null;
+}): Promise<HouseInsight> {
+  const city = input.city.trim();
+  let address = input.address.trim();
+  const rawFiasId = input.fiasId?.trim() || null;
+  const fiasId = rawFiasId?.startsWith("mos:") ? null : rawFiasId;
+
+  let buildingYear: number | null = null;
+  let operationYear: number | null = null;
+  let moscowOpenDataUsed = false;
+
+  if (isMoscow(city)) {
+    const passport = await lookupMoscowHousePassport(address);
+    if (passport) {
+      address = passport.address || address;
+      buildingYear = passport.buildingYear;
+      operationYear = passport.operationYear;
+      moscowOpenDataUsed = Boolean(
+        passport.buildingYear ?? passport.operationYear ?? passport.address,
+      );
+    }
+  }
+
+  const effectiveYear = buildingYear ?? operationYear;
+  const grounding = assessGroundingForYear(effectiveYear);
+
+  let capitalRepair: HouseInsight["capitalRepair"] = null;
+  if (isMoscow(city) && grounding.suggestCapitalRepair) {
+    capitalRepair = await lookupMoscowCapitalRepair(city, address);
+  }
+
+  return {
+    address,
+    city: city || null,
+    fiasId,
+    buildingYear,
+    operationYear,
+    electrical: electricalGuessForYear(effectiveYear),
+    grounding,
+    capitalRepair,
+    management: null,
+    managementType: null,
+    moscowOpenDataUsed,
+  };
+}

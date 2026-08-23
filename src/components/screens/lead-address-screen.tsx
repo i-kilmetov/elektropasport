@@ -6,7 +6,7 @@ import { ArrowLeft } from "lucide-react";
 import { AddressSuggestField } from "@/components/ui/address-suggest-field";
 import { Button } from "@/components/ui/button";
 import { hasFlat, hasHouse, type AddressSuggestion } from "@/lib/dadata";
-import { normalizeCityName } from "@/lib/lead-services";
+import { isMoscow, normalizeCityName } from "@/lib/lead-services";
 
 export type ConfirmedAddress = {
   value: string;
@@ -23,7 +23,6 @@ export function LeadAddressScreen({
   heading,
   description,
   requireApartment = true,
-  suggestSource = "dadata",
 }: {
   city: string;
   initialAddress?: string;
@@ -34,8 +33,6 @@ export function LeadAddressScreen({
   description?: string;
   /** When false, house-level address is enough (no flat required). */
   requireApartment?: boolean;
-  /** Prefer HouseScore so year/UK lookup uses the same house GUID. */
-  suggestSource?: "dadata" | "housescore";
 }) {
   const [query, setQuery] = useState(initialAddress ?? "");
   const [selected, setSelected] = useState<AddressSuggestion | null>(
@@ -51,16 +48,17 @@ export function LeadAddressScreen({
   const [lookupFailed, setLookupFailed] = useState(false);
 
   const cityLabel = normalizeCityName(city);
+  const useMoscowOpenData = isMoscow(city);
+  const addressSource = useMoscowOpenData ? "moscow" : "dadata";
   const trimmed = query.trim();
-  const fromHouseScore = suggestSource === "housescore";
   const needsApartment =
-    !fromHouseScore &&
+    !useMoscowOpenData &&
     requireApartment &&
     selected != null &&
     hasHouse(selected) &&
     !hasFlat(selected) &&
     apartments.length > 0;
-  const ready = fromHouseScore
+  const ready = useMoscowOpenData
     ? selected != null &&
       selected.value === trimmed &&
       Boolean(selected.houseFiasId ?? selected.fiasId)
@@ -94,16 +92,16 @@ export function LeadAddressScreen({
       </h2>
       <p className="mb-5 text-[15px] leading-relaxed text-zinc-600">
         {description ??
-          (fromHouseScore
-            ? "Выберите дом из базы HouseScore — так год постройки и УК подтянутся по тому же идентификатору."
-            : "Укажите точный адрес: улица и дом. Так мы точнее подскажем по электрике и времени выезда.")}
+          (useMoscowOpenData
+            ? "Выберите дом из открытых данных Москвы — подтянем год постройки, заземление и сроки капремонта."
+            : "Укажите точный адрес через DaData: улица и дом. Так мы точнее подскажем по электрике и времени выезда.")}
       </p>
 
       <AddressSuggestField
         city={cityLabel}
         value={query}
-        source={suggestSource}
-        houseOnly={fromHouseScore || !requireApartment}
+        source={addressSource}
+        houseOnly={useMoscowOpenData || !requireApartment}
         onChange={(next) => {
           setQuery(next);
           if (selected && next.trim() !== selected.value) {
@@ -117,7 +115,7 @@ export function LeadAddressScreen({
           setLookupFailed(false);
         }}
         onLookupError={(message) => setLookupFailed(Boolean(message))}
-        placeholder={fromHouseScore ? "Улица и номер дома" : "Улица, дом"}
+        placeholder={useMoscowOpenData ? "Улица и номер дома" : "Улица, дом"}
       />
 
       {needsApartment && (
@@ -127,10 +125,10 @@ export function LeadAddressScreen({
         </p>
       )}
 
-      {fromHouseScore && !ready && trimmed.length >= 3 && (
+      {useMoscowOpenData && !ready && trimmed.length >= 3 && (
         <p className="mt-3 text-[13px] leading-relaxed text-zinc-500">
-          Выберите дом из списка подсказок — так данные о доме и УК совпадут с
-          базой HouseScore.
+          Выберите дом из списка подсказок — так год постройки и капремонт
+          подтянутся из реестра Москвы.
         </p>
       )}
 

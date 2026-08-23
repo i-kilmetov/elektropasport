@@ -1870,14 +1870,15 @@ export function AppShell() {
               city={selectedCity}
               initialAddress={selectedAddress ?? undefined}
               requireApartment={false}
-              suggestSource="housescore"
               heading={
                 helpElectricalFlow || isMoscow(selectedCity)
                   ? "Точный адрес дома"
                   : undefined
               }
               description={
-                "Выберите дом из базы HouseScore — подтянем год постройки, заземление по году и сроки капремонта (для Москвы)."
+                isMoscow(selectedCity)
+                  ? "Выберите дом из открытых данных Москвы — подтянем год постройки, заземление по году и сроки капремонта."
+                  : "Укажите точный адрес через DaData — улица и номер дома."
               }
               onBack={() => go("city-select")}
               onConfirm={(address) => {

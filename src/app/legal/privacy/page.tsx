@@ -99,7 +99,7 @@ export default function PrivacyPolicyPage() {
             для оплаты);
           </li>
           <li>
-            <strong>DaData, HouseScore, портал открытых данных Москвы</strong> —
+            <strong>DaData, портал открытых данных Москвы</strong> —
             для подсказок адреса и сведений о доме (передаётся только запрос по
             адресу, без привязки к аккаунту, где это возможно);
           </li>

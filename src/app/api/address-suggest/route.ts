@@ -2,12 +2,6 @@ import { authErrorResponse, requireTelegramUser } from "@/lib/telegram-auth";
 import { isMoscow, normalizeCityName } from "@/lib/lead-services";
 import { MOSCOW_KLADR_ID, parseDaDataSuggestions } from "@/lib/dadata";
 import {
-  isHouseScoreConfigured,
-  mapHouseScoreFindsToSuggestions,
-  normalizeQueryAddress,
-  searchHousesByAddress,
-} from "@/lib/housescore";
-import {
   mapMoscowHitsToSuggestions,
   searchMoscowAddressSuggestions,
 } from "@/lib/moscow-house-passport";
@@ -62,34 +56,6 @@ async function suggestFromDaData(query: string, city: string) {
   });
 }
 
-async function suggestFromHouseScore(query: string, city: string) {
-  if (!isHouseScoreConfigured()) {
-    return Response.json(
-      { error: "Подсказки домов HouseScore не настроены" },
-      { status: 503 },
-    );
-  }
-
-  const q = normalizeQueryAddress(city, query);
-  if (q.length < 10) {
-    return Response.json({ suggestions: [], source: "housescore" });
-  }
-
-  try {
-    const items = await searchHousesByAddress(q);
-    return Response.json({
-      suggestions: mapHouseScoreFindsToSuggestions(items, city),
-      source: "housescore",
-    });
-  } catch (error) {
-    console.error("HouseScore address suggest failed", error);
-    return Response.json(
-      { error: "Не удалось получить адреса домов" },
-      { status: 502 },
-    );
-  }
-}
-
 async function suggestFromMoscowOpenData(query: string) {
   if (!isMoscowOpenDataConfigured()) {
     return Response.json(
@@ -124,16 +90,11 @@ export async function POST(request: Request) {
     const body = (await request.json()) as {
       query?: string;
       city?: string;
-      source?: "dadata" | "housescore" | "moscow";
+      source?: "dadata" | "moscow";
     };
     const query = body.query?.trim() ?? "";
     const city = normalizeCityName(body.city ?? "");
-    const source =
-      body.source === "housescore"
-        ? "housescore"
-        : body.source === "moscow"
-          ? "moscow"
-          : "dadata";
+    const source = isMoscow(city) ? "moscow" : "dadata";
 
     if (query.length < 2) {
       return Response.json({ suggestions: [], source });
@@ -148,16 +109,14 @@ export async function POST(request: Request) {
       return Response.json({ error: "Укажите город" }, { status: 400 });
     }
 
-    if (source === "housescore") {
-      return suggestFromHouseScore(query, city);
+    if (body.source === "moscow" && !isMoscow(city)) {
+      return Response.json(
+        { error: "Открытые данные Москвы доступны только для города Москва" },
+        { status: 400 },
+      );
     }
+
     if (source === "moscow") {
-      if (!isMoscow(city)) {
-        return Response.json(
-          { error: "Открытые данные Москвы доступны только для города Москва" },
-          { status: 400 },
-        );
-      }
       return suggestFromMoscowOpenData(query);
     }
     return suggestFromDaData(query, city);
