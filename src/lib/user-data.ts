@@ -79,6 +79,123 @@ function upsertLocalItem(item: HomeListItem): void {
  * Photos as data URLs are too large for Vercel/Neon request bodies.
  * Keep them in client memory/localStorage only; persist metadata + devices.
  */
+function applyPanelPatch(
+  panel: PanelObject,
+  patch: Partial<
+    Pick<
+      PanelObject,
+      | "title"
+      | "named"
+      | "address"
+      | "safety"
+      | "phases"
+      | "powerKw"
+      | "hasGround"
+      | "houseSnapshot"
+    >
+  >,
+): PanelObject {
+  const next: PanelObject = { ...panel };
+
+  if (patch.title !== undefined) next.title = patch.title;
+  if (patch.named !== undefined) next.named = patch.named;
+  if (patch.safety !== undefined) next.safety = patch.safety;
+  if (patch.phases !== undefined) next.phases = patch.phases;
+  if (patch.powerKw !== undefined) next.powerKw = patch.powerKw;
+  if (patch.hasGround !== undefined) next.hasGround = patch.hasGround;
+
+  if (
+    patch.address !== undefined &&
+    patch.address.trim() &&
+    patch.address !== "Добавлен по фото"
+  ) {
+    next.address = patch.address.trim();
+  }
+
+  if (patch.houseSnapshot !== undefined) {
+    const mergedAddress =
+      patch.houseSnapshot.address?.trim() ||
+      next.houseSnapshot?.address?.trim() ||
+      (next.address !== "Добавлен по фото" ? next.address : "");
+    next.houseSnapshot = {
+      ...next.houseSnapshot,
+      ...patch.houseSnapshot,
+      ...(mergedAddress ? { address: mergedAddress } : {}),
+    };
+  }
+
+  return next;
+}
+
+function sanitizePanelPatch(
+  patch: Partial<
+    Pick<
+      PanelObject,
+      | "title"
+      | "named"
+      | "address"
+      | "safety"
+      | "phases"
+      | "powerKw"
+      | "hasGround"
+      | "houseSnapshot"
+    >
+  >,
+): Partial<
+  Pick<
+    PanelObject,
+    | "title"
+    | "named"
+    | "address"
+    | "safety"
+    | "phases"
+    | "powerKw"
+    | "hasGround"
+    | "houseSnapshot"
+  >
+> {
+  const sanitized: Partial<
+    Pick<
+      PanelObject,
+      | "title"
+      | "named"
+      | "address"
+      | "safety"
+      | "phases"
+      | "powerKw"
+      | "hasGround"
+      | "houseSnapshot"
+    >
+  > = {};
+
+  if (patch.title !== undefined) sanitized.title = patch.title;
+  if (patch.named !== undefined) sanitized.named = patch.named;
+  if (patch.safety !== undefined) sanitized.safety = patch.safety;
+  if (patch.phases !== undefined) sanitized.phases = patch.phases;
+  if (patch.powerKw !== undefined) sanitized.powerKw = patch.powerKw;
+  if (patch.hasGround !== undefined) sanitized.hasGround = patch.hasGround;
+
+  if (
+    patch.address !== undefined &&
+    patch.address.trim() &&
+    patch.address !== "Добавлен по фото"
+  ) {
+    sanitized.address = patch.address.trim();
+  }
+
+  if (patch.houseSnapshot !== undefined) {
+    const snapshotAddress = patch.houseSnapshot.address?.trim();
+    sanitized.houseSnapshot = {
+      ...patch.houseSnapshot,
+      ...(snapshotAddress && snapshotAddress !== "Добавлен по фото"
+        ? { address: snapshotAddress }
+        : {}),
+    };
+  }
+
+  return sanitized;
+}
+
 function panelForApi(panel: PanelObject): PanelObject {
   return {
     ...panel,
@@ -448,7 +565,26 @@ export async function importHomeBackup(
 
 export async function persistPanel(panel: PanelObject): Promise<void> {
   return enqueuePanelOp(panel.id, async () => {
-    const already = readLocalItems().some((item) => item.id === panel.id);
+    const stored = readLocalItems().find(
+      (item): item is PanelObject =>
+        item.kind === "panel" && item.id === panel.id,
+    );
+    const merged: PanelObject = stored
+      ? {
+          ...stored,
+          ...panel,
+          address:
+            panel.address && panel.address !== "Добавлен по фото"
+              ? panel.address
+              : stored.address,
+          houseSnapshot: panel.houseSnapshot ?? stored.houseSnapshot,
+          devices: panel.devices ?? stored.devices,
+          wires: panel.wires ?? stored.wires,
+          appliances: panel.appliances ?? stored.appliances,
+        }
+      : panel;
+
+    const already = Boolean(stored);
     // Server auth: the API enforces quota. Offline/local-only: check free tier here.
     // Never pass `undefined` quota into isAtPanelLimit — that treats any existing
     // local panel as "at limit" even when the account is unlimited.
@@ -463,7 +599,7 @@ export async function persistPanel(panel: PanelObject): Promise<void> {
       }
     }
 
-    upsertLocalItem(panel);
+    upsertLocalItem(merged);
 
     if (!canUseServer()) return;
 
@@ -473,7 +609,7 @@ export async function persistPanel(panel: PanelObject): Promise<void> {
         "Content-Type": "application/json",
         ...authHeaders(),
       },
-      body: JSON.stringify({ panel: panelForApi(panel) }),
+      body: JSON.stringify({ panel: panelForApi(merged) }),
     });
 
     if (!res.ok) {
@@ -532,16 +668,12 @@ export async function persistPanelPatch(
     >
   >,
 ): Promise<void> {
-  const sanitized: typeof patch = { ...patch };
-  if (
-    sanitized.address !== undefined &&
-    (!sanitized.address.trim() || sanitized.address === "Добавлен по фото")
-  ) {
-    sanitized.address = undefined;
-  }
+  const sanitized = sanitizePanelPatch(patch);
 
   const items = readLocalItems().map((item) =>
-    item.kind === "panel" && item.id === id ? { ...item, ...sanitized } : item,
+    item.kind === "panel" && item.id === id
+      ? applyPanelPatch(item, sanitized)
+      : item,
   );
   writeLocalItems(items);
 
@@ -572,7 +704,7 @@ export async function persistPanelPatch(
               "Content-Type": "application/json",
               ...authHeaders(),
             },
-            body: JSON.stringify({ panel: panelForApi({ ...local, ...sanitized }) }),
+            body: JSON.stringify({ panel: panelForApi(local) }),
           });
           if (createRes.ok || createRes.status === 503) return;
           throw new Error(await parseError(createRes));

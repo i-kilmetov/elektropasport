@@ -166,12 +166,14 @@ function panelRailCount(
 }
 
 const SPLASH_SEEN_KEY = "ep:splash-seen";
+const SPLASH_SEEN_PERSIST_KEY = "ep:splash-seen-persist";
 
 type SplashPhase = "pending" | "show" | "done";
 
 function readSplashSeen(): boolean {
   if (isTestAppClientHost()) return true;
   try {
+    if (localStorage.getItem(SPLASH_SEEN_PERSIST_KEY) === "1") return true;
     return sessionStorage.getItem(SPLASH_SEEN_KEY) === "1";
   } catch {
     return false;
@@ -181,6 +183,7 @@ function readSplashSeen(): boolean {
 function markSplashSeen(): void {
   try {
     sessionStorage.setItem(SPLASH_SEEN_KEY, "1");
+    localStorage.setItem(SPLASH_SEEN_PERSIST_KEY, "1");
   } catch {
     // private mode
   }
@@ -288,8 +291,12 @@ export function AppShell() {
       setSplashPhase("done");
       return;
     }
-    if (canUseServerAuth() || readSplashSeen()) {
+    if (canUseServerAuth()) {
       markSplashSeen();
+      setSplashPhase("done");
+      return;
+    }
+    if (readSplashSeen()) {
       setSplashPhase("done");
       return;
     }

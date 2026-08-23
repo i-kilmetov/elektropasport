@@ -54,27 +54,6 @@ const LIFT_DELAY_MS = 90;
 const MOVE_CANCEL_PX = 10;
 const PAGE_SPRING = { type: "spring" as const, stiffness: 380, damping: 38 };
 
-function tryOpenFromPress(
-  longPressedRef: MutableRefObject<boolean>,
-  startPointRef: MutableRefObject<{ x: number; y: number } | null>,
-  clientX: number,
-  clientY: number,
-  onOpen: () => void,
-): boolean {
-  if (longPressedRef.current) {
-    longPressedRef.current = false;
-    return false;
-  }
-  const start = startPointRef.current;
-  if (start) {
-    const dx = Math.abs(clientX - start.x);
-    const dy = Math.abs(clientY - start.y);
-    if (dx > MOVE_CANCEL_PX || dy > MOVE_CANCEL_PX) return false;
-  }
-  onOpen();
-  return true;
-}
-
 function HomeListCard({
   item,
   lifted,
@@ -92,92 +71,23 @@ function HomeListCard({
 }) {
   const isRequest = item.kind === "install_request";
   const longPressedRef = useRef(false);
-  const timerRef = useRef<number | null>(null);
-  const liftTimerRef = useRef<number | null>(null);
-  const startPointRef = useRef<{ x: number; y: number } | null>(null);
+  const longPressTimerRef = useRef<number | null>(null);
 
-  const clearTimers = () => {
-    if (timerRef.current != null) {
-      window.clearTimeout(timerRef.current);
-      timerRef.current = null;
+  const clearLongPress = () => {
+    if (longPressTimerRef.current != null) {
+      window.clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
     }
-    if (liftTimerRef.current != null) {
-      window.clearTimeout(liftTimerRef.current);
-      liftTimerRef.current = null;
-    }
-  };
-
-  const endPress = () => {
-    clearTimers();
-    startPointRef.current = null;
     onPressingChange(false);
-  };
-
-  const startPress = (clientX: number, clientY: number) => {
-    longPressedRef.current = false;
-    clearTimers();
-    startPointRef.current = { x: clientX, y: clientY };
-    onPressingChange(false);
-
-    liftTimerRef.current = window.setTimeout(() => {
-      onPressingChange(true);
-    }, LIFT_DELAY_MS);
-
-    timerRef.current = window.setTimeout(() => {
-      longPressedRef.current = true;
-      onPressingChange(true);
-      hapticContextMenu();
-      onContextMenu();
-    }, LONG_PRESS_MS);
-  };
-
-  const onPointerMove = (clientX: number, clientY: number) => {
-    const start = startPointRef.current;
-    if (!start) return;
-    const dx = Math.abs(clientX - start.x);
-    const dy = Math.abs(clientY - start.y);
-    if (dx > MOVE_CANCEL_PX || dy > MOVE_CANCEL_PX) {
-      endPress();
-    }
   };
 
   const active = pressing || lifted;
-  const openedRef = useRef(false);
-
-  const openFromPress = (clientX: number, clientY: number) => {
-    if (openedRef.current) return;
-    if (
-      !tryOpenFromPress(
-        longPressedRef,
-        startPointRef,
-        clientX,
-        clientY,
-        onOpen,
-      )
-    ) {
-      return;
-    }
-    openedRef.current = true;
-    window.setTimeout(() => {
-      openedRef.current = false;
-    }, 350);
-  };
 
   return (
-    <motion.div
-      animate={{
-        scale: active ? 1.055 : 1,
-        y: active ? -2 : 0,
-      }}
-      transition={{
-        type: "spring",
-        stiffness: 420,
-        damping: 28,
-        mass: 0.7,
-      }}
+    <div
       className={cn(
-        "origin-center will-change-transform",
-        active && "relative z-20",
+        "origin-center transition-transform duration-150",
+        active && "relative z-20 scale-[1.03] -translate-y-0.5",
       )}
       style={{
         filter: active
@@ -192,27 +102,27 @@ function HomeListCard({
             longPressedRef.current = false;
             return;
           }
-          if (openedRef.current) return;
-          openedRef.current = true;
           onOpen();
-          window.setTimeout(() => {
-            openedRef.current = false;
-          }, 350);
         }}
         onPointerDown={(e) => {
           e.stopPropagation();
           if (e.button !== 0) return;
-          startPress(e.clientX, e.clientY);
+          longPressedRef.current = false;
+          onPressingChange(true);
+          longPressTimerRef.current = window.setTimeout(() => {
+            longPressedRef.current = true;
+            hapticContextMenu();
+            onContextMenu();
+            onPressingChange(true);
+          }, LONG_PRESS_MS);
         }}
-        onPointerMove={(e) => onPointerMove(e.clientX, e.clientY)}
-        onPointerUp={(e) => {
-          if (e.button !== 0) return;
-          openFromPress(e.clientX, e.clientY);
-          endPress();
+        onPointerUp={clearLongPress}
+        onPointerLeave={clearLongPress}
+        onPointerCancel={clearLongPress}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          onContextMenu();
         }}
-        onPointerLeave={endPress}
-        onPointerCancel={endPress}
-        onContextMenu={(e) => e.preventDefault()}
         className="w-full touch-manipulation text-left select-none lg:cursor-pointer"
       >
         <GlassCard className="flex items-center gap-4 rounded-[24px] border p-4 transition-colors hover:bg-zinc-50 lg:p-5">
@@ -263,7 +173,7 @@ function HomeListCard({
           </div>
         </GlassCard>
       </button>
-    </motion.div>
+    </div>
   );
 }
 
@@ -838,13 +748,8 @@ export function ObjectsScreen({
         className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:gap-4 xl:grid-cols-3"
         onPointerDown={(e) => e.stopPropagation()}
       >
-        {list.map((obj, i) => (
-          <motion.div
-            key={obj.id}
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.04 * i }}
-          >
+        {list.map((obj) => (
+          <div key={obj.id}>
             {!homeAppliancesMode ? (
               <HomeListCard
                 item={obj}
@@ -890,7 +795,7 @@ export function ObjectsScreen({
                 }
               />
             )}
-          </motion.div>
+          </div>
         ))}
       </div>
     );
@@ -1056,7 +961,7 @@ export function ObjectsScreen({
         </p>
       )}
 
-      <div className="hidden min-h-0 flex-1 overflow-y-auto px-10 pb-10 lg:flex lg:flex-col">
+      <div className="hidden min-h-0 flex-1 overflow-y-auto px-10 pb-10 pt-1 lg:flex lg:flex-col">
         {page === 0
           ? renderList(panels, {
               icon: <BreakerIcon className="h-10 w-10" />,
@@ -1082,7 +987,7 @@ export function ObjectsScreen({
             style={{ width: pagerWidth || "50%" }}
           >
             <div
-              className="flex min-h-0 flex-1 touch-pan-y flex-col overflow-y-auto overscroll-contain"
+              className="flex min-h-0 flex-1 touch-pan-y flex-col overflow-y-auto overscroll-contain pt-1"
               onPointerDown={(e) => e.stopPropagation()}
             >
               {renderList(panels, {
@@ -1097,7 +1002,7 @@ export function ObjectsScreen({
             style={{ width: pagerWidth || "50%" }}
           >
             <div
-              className="flex min-h-0 flex-1 touch-pan-y flex-col overflow-y-auto overscroll-contain"
+              className="flex min-h-0 flex-1 touch-pan-y flex-col overflow-y-auto overscroll-contain pt-1"
               onPointerDown={(e) => e.stopPropagation()}
             >
               {renderList(requests, {

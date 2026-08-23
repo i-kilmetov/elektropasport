@@ -796,7 +796,13 @@ export async function insertPanel(
     )
     ON CONFLICT (id) DO UPDATE SET
       title = EXCLUDED.title,
-      address = EXCLUDED.address,
+      address = CASE
+        WHEN EXCLUDED.address IS NOT NULL
+          AND BTRIM(EXCLUDED.address) <> ''
+          AND EXCLUDED.address <> 'Добавлен по фото'
+        THEN EXCLUDED.address
+        ELSE panels.address
+      END,
       last_check = EXCLUDED.last_check,
       breakers = EXCLUDED.breakers,
       safety = EXCLUDED.safety,
@@ -806,7 +812,7 @@ export async function insertPanel(
       phases = EXCLUDED.phases,
       power_kw = EXCLUDED.power_kw,
       has_ground = EXCLUDED.has_ground,
-      house_snapshot = EXCLUDED.house_snapshot,
+      house_snapshot = COALESCE(EXCLUDED.house_snapshot, panels.house_snapshot),
       rail_count = EXCLUDED.rail_count,
       wires = EXCLUDED.wires,
       appliances = EXCLUDED.appliances,
@@ -843,7 +849,13 @@ export async function updatePanel(
     UPDATE panels SET
       title = COALESCE(${patch.title ?? null}, title),
       named = COALESCE(${patch.named ?? null}, named),
-      address = COALESCE(NULLIF(BTRIM(${patch.address ?? null}), ''), address),
+      address = CASE
+        WHEN ${patch.address ?? null} IS NOT NULL
+          AND BTRIM(${patch.address ?? null}) <> ''
+          AND ${patch.address ?? null} <> 'Добавлен по фото'
+        THEN ${patch.address}
+        ELSE address
+      END,
       safety = CASE
         WHEN ${patch.safety !== undefined} THEN ${patch.safety ?? null}
         ELSE safety
