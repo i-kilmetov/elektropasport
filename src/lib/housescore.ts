@@ -3,6 +3,9 @@ import {
   type HouseInsight,
   type HouseManagementCompany,
 } from "@/lib/house-insight";
+import { assessGroundingForYear } from "@/lib/grounding-assessment";
+import { isMoscow } from "@/lib/lead-services";
+import { lookupMoscowCapitalRepair } from "@/lib/moscow-capital-repair";
 import type { AddressSuggestion } from "@/lib/dadata";
 
 const HOUSESCORE_BASE = "https://housescore.ru";
@@ -324,13 +327,22 @@ export async function lookupHouseInsight(input: {
   }
 
   if (!fiasId) {
+    const year = null;
+    const grounding = assessGroundingForYear(year);
+    const capitalRepair =
+      isMoscow(city) && address
+        ? await lookupMoscowCapitalRepair(city, address)
+        : null;
     return {
       address,
       city: foundCity,
       fiasId: null,
       buildingYear: null,
       operationYear: null,
-      electrical: electricalGuessForYear(null),
+      electrical: electricalGuessForYear(year),
+      grounding,
+      capitalRepair:
+        grounding.suggestCapitalRepair ? capitalRepair : null,
       management: null,
       managementType: null,
     };
@@ -343,6 +355,16 @@ export async function lookupHouseInsight(input: {
     typeof house?.building_year === "number" ? house.building_year : null;
   const operationYear =
     typeof house?.operation_year === "number" ? house.operation_year : null;
+  const effectiveYear = buildingYear ?? operationYear;
+  const grounding = assessGroundingForYear(effectiveYear);
+
+  let capitalRepair: HouseInsight["capitalRepair"] = null;
+  if (isMoscow(city) && grounding.suggestCapitalRepair) {
+    capitalRepair = await lookupMoscowCapitalRepair(
+      city,
+      house?.address?.trim() || foundAddress,
+    );
+  }
 
   let management: HouseManagementCompany | null = null;
   let managementType: string | null = null;
@@ -360,7 +382,9 @@ export async function lookupHouseInsight(input: {
     fiasId,
     buildingYear,
     operationYear,
-    electrical: electricalGuessForYear(buildingYear ?? operationYear),
+    electrical: electricalGuessForYear(effectiveYear),
+    grounding,
+    capitalRepair,
     management,
     managementType,
   };

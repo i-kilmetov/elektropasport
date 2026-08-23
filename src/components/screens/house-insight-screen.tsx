@@ -7,6 +7,7 @@ import {
   Building2,
   Cable,
   Phone,
+  Shield,
   Wrench,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -63,9 +64,20 @@ export function HouseInsightScreen({
   const eraTone =
     insight?.electrical.era === "legacy"
       ? "bg-amber-50 text-amber-950"
-      : insight?.electrical.era === "modern"
-        ? "bg-emerald-50 text-emerald-950"
-        : "bg-zinc-100 text-zinc-900";
+      : insight?.electrical.era === "transitional"
+        ? "bg-amber-50/80 text-amber-950"
+        : insight?.electrical.era === "modern"
+          ? "bg-emerald-50 text-emerald-950"
+          : "bg-zinc-100 text-zinc-900";
+
+  const groundingTone =
+    insight?.grounding.expectation === "expected"
+      ? "bg-emerald-50 text-emerald-950"
+      : insight?.grounding.expectation === "uncertain"
+        ? "bg-amber-50 text-amber-950"
+        : insight?.grounding.expectation === "none"
+          ? "bg-rose-50 text-rose-950"
+          : "bg-zinc-100 text-zinc-900";
 
   return (
     <motion.section
@@ -144,6 +156,54 @@ export function HouseInsightScreen({
               {insight.electrical.description}
             </p>
           </GlassCard>
+
+          <GlassCard className={cn("p-5", groundingTone)}>
+            <div className="mb-2 flex items-center gap-2 opacity-70">
+              <Shield className="h-4 w-4" />
+              <span className="text-[13px] font-medium uppercase tracking-wide">
+                Заземление
+              </span>
+            </div>
+            <p className="text-[18px] font-semibold leading-snug">
+              {insight.grounding.title}
+            </p>
+            <p className="mt-2 text-[14px] leading-relaxed opacity-90">
+              {insight.grounding.summary}
+            </p>
+          </GlassCard>
+
+          {insight.capitalRepair && (
+            <GlassCard className="border border-sky-200/80 bg-sky-50 p-5">
+              <div className="mb-2 flex items-center gap-2 text-sky-800/80">
+                <Building2 className="h-4 w-4" />
+                <span className="text-[13px] font-medium uppercase tracking-wide">
+                  Капремонт дома
+                </span>
+              </div>
+              {insight.capitalRepair.plannedStartYear && (
+                <p className="text-[18px] font-semibold leading-snug text-sky-950">
+                  {insight.capitalRepair.plannedEndYear &&
+                  insight.capitalRepair.plannedEndYear !==
+                    insight.capitalRepair.plannedStartYear
+                    ? `${insight.capitalRepair.plannedStartYear}–${insight.capitalRepair.plannedEndYear} г.`
+                    : `${insight.capitalRepair.plannedStartYear} г.`}
+                </p>
+              )}
+              <p className="mt-2 text-[14px] leading-relaxed text-sky-950/90">
+                {insight.capitalRepair.userMessage}
+              </p>
+              {insight.capitalRepair.worksSummary && (
+                <p className="mt-3 text-[13px] leading-relaxed text-sky-900/75">
+                  Работы: {insight.capitalRepair.worksSummary}
+                </p>
+              )}
+              {insight.capitalRepair.sourceLabel && (
+                <p className="mt-2 text-[12px] text-sky-800/60">
+                  Источник: {insight.capitalRepair.sourceLabel}
+                </p>
+              )}
+            </GlassCard>
+          )}
 
           <GlassCard className="p-5">
             <div className="mb-2 flex items-center gap-2 text-zinc-500">

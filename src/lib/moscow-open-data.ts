@@ -1,0 +1,131 @@
+const MOS_DATA_BASE = "https://apidata.mos.ru/v1";
+
+export type MosDataRow = {
+  global_id?: number;
+  Number?: number;
+  Cells?: Record<string, unknown>;
+};
+
+export type MosDatasetSummary = {
+  id: number;
+  caption: string;
+};
+
+function apiKey(): string | null {
+  return process.env.MOS_DATA_API_KEY?.trim() || null;
+}
+
+export function isMoscowOpenDataConfigured(): boolean {
+  return Boolean(apiKey());
+}
+
+async function mosFetch<T>(
+  path: string,
+  searchParams?: Record<string, string | number | undefined>,
+): Promise<T | null> {
+  const key = apiKey();
+  if (!key) return null;
+
+  const url = new URL(`${MOS_DATA_BASE}${path}`);
+  url.searchParams.set("api_key", key);
+  if (searchParams) {
+    for (const [name, value] of Object.entries(searchParams)) {
+      if (value === undefined || value === "") continue;
+      url.searchParams.set(name, String(value));
+    }
+  }
+
+  const res = await fetch(url, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+    next: { revalidate: 86400 },
+  });
+
+  if (res.status === 404) return null;
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    console.error("Moscow open data request failed", path, res.status, body);
+    return null;
+  }
+
+  return (await res.json()) as T;
+}
+
+let cachedRepairDatasetId: number | null | undefined;
+
+export async function resolveCapitalRepairDatasetId(): Promise<number | null> {
+  const fromEnv = Number.parseInt(
+    process.env.MOS_CAPITAL_REPAIR_DATASET_ID ?? "",
+    10,
+  );
+  if (Number.isFinite(fromEnv) && fromEnv > 0) return fromEnv;
+
+  if (cachedRepairDatasetId !== undefined) return cachedRepairDatasetId;
+
+  const list = await mosFetch<
+    Array<{ Id?: number; Caption?: string | null }>
+  >("/datasets", { $top: 1000, foreign: "false" });
+
+  if (!Array.isArray(list)) {
+    cachedRepairDatasetId = null;
+    return null;
+  }
+
+  const score = (caption: string): number => {
+    const lower = caption.toLowerCase();
+    let points = 0;
+    if (/капитальн/.test(lower) && /ремонт/.test(lower)) points += 3;
+    if (/региональн/.test(lower) && /программ/.test(lower)) points += 4;
+    if (/график/.test(lower)) points += 2;
+    if (/многоквартир/.test(lower) || /\bмкд\b/.test(lower)) points += 2;
+    if (/счет/.test(lower) || /счёт/.test(lower)) points -= 2;
+    return points;
+  };
+
+  let best: MosDatasetSummary | null = null;
+  for (const item of list) {
+    const id = item.Id;
+    const caption = item.Caption?.trim();
+    if (!id || !caption) continue;
+    const points = score(caption);
+    if (points < 3) continue;
+    if (!best || points > score(best.caption)) {
+      best = { id, caption };
+    }
+  }
+
+  cachedRepairDatasetId = best?.id ?? null;
+  if (best) {
+    console.info(
+      "Moscow capital repair dataset:",
+      best.id,
+      best.caption.slice(0, 80),
+    );
+  }
+  return cachedRepairDatasetId;
+}
+
+export async function fetchDatasetColumns(
+  datasetId: number,
+): Promise<Array<{ name: string; caption: string }>> {
+  const meta = await mosFetch<{
+    Columns?: Array<{ Name?: string; Caption?: string | null }>;
+  }>(`/datasets/${datasetId}`);
+  if (!meta?.Columns) return [];
+  return meta.Columns.map((col) => ({
+    name: col.Name?.trim() ?? "",
+    caption: col.Caption?.trim() ?? "",
+  })).filter((col) => col.name);
+}
+
+export async function fetchDatasetRows(
+  datasetId: number,
+  options?: { skip?: number; top?: number; filter?: string },
+): Promise<MosDataRow[]> {
+  const payload = await mosFetch<MosDataRow[]>(`/datasets/${datasetId}/rows`, {
+    $skip: options?.skip ?? 0,
+    $top: options?.top ?? 1000,
+    $filter: options?.filter,
+  });
+  return Array.isArray(payload) ? payload : [];
+}

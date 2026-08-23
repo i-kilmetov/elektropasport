@@ -1781,7 +1781,7 @@ export function AppShell() {
                   : undefined
               }
               description={
-                "Выберите дом из базы HouseScore — подтянем год постройки, типичную электрику и УК по тому же дому."
+                "Выберите дом из базы HouseScore — подтянем год постройки, заземление по году и сроки капремонта (для Москвы)."
               }
               onBack={() => go("city-select")}
               onConfirm={(address) => {

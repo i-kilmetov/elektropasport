@@ -1,3 +1,6 @@
+import type { CapitalRepairInfo } from "@/lib/moscow-capital-repair";
+import type { GroundingAssessment } from "@/lib/grounding-assessment";
+
 export type ElectricalEra = "legacy" | "transitional" | "modern" | "unknown";
 
 export type ElectricalGuess = {
@@ -19,6 +22,8 @@ export type HouseInsight = {
   buildingYear: number | null;
   operationYear: number | null;
   electrical: ElectricalGuess;
+  grounding: GroundingAssessment;
+  capitalRepair: CapitalRepairInfo | null;
   management: HouseManagementCompany | null;
   managementType: string | null;
 };
@@ -33,29 +38,29 @@ export function electricalGuessForYear(year: number | null): ElectricalGuess {
     };
   }
 
-  if (year < 1980) {
+  if (year < 1995) {
     return {
       era: "legacy",
-      title: "Скорее всего старая электрика",
+      title: "Старая электрика",
       description:
-        "В домах этого периода часто стоят пробки или автоматы в общем коридоре, алюминиевая проводка и нет нормального заземления. Проблемы на стояке или в этажном щите обычно решает управляющая компания.",
+        "До 1995 года в типовых домах часто алюминиевая проводка, общие автоматы на этаже и нет заземления в квартире. Обновление стояков и PE обычно привязано к капремонту дома.",
     };
   }
 
-  if (year < 2005) {
+  if (year < 2003) {
     return {
       era: "transitional",
-      title: "Переходный вариант",
+      title: "Переходный период (1995–2002)",
       description:
-        "Часто смешанная схема: алюминий в стенах, частичная замена на медь, заземление может быть неполным. Если гаснет весь стояк или греется этажный щит — сначала в управляющую компанию.",
+        "В этот период нормы по заземлению применялись по-разному: в одних домах PE уже есть, в других — только ноль. Нужна проверка вводного кабеля в щитке.",
     };
   }
 
   return {
     era: "modern",
-    title: "Скорее всего современная электрика",
+    title: "Современные нормы (с 2003 года)",
     description:
-      "В домах после середины 2000-х обычно многожильный медный кабель, отдельные автоматы и заземление. Если проблема в квартире — вызывайте мастера Током; если на вводе в дом или в этажном щите — обращайтесь в УК.",
+      "С 2003 года в новых домах предусмотрено заземление (PE). Если в щитке только фаза и ноль — это повод проверить ввод и этажный щит.",
   };
 }
 
