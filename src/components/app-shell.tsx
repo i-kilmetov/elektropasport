@@ -100,6 +100,7 @@ import {
   fetchMasterRequestPanel,
   fetchPanelQuota,
   getCachedHomeItems,
+  mergeHomeItemsWithLocalState,
   persistDeleteInstallRequest,
   persistDeletePanel,
   persistInstallRequest,
@@ -464,7 +465,7 @@ export function AppShell() {
 
         if (cancelled) return;
 
-        setItems(loaded);
+        setItems((prev) => mergeHomeItemsWithLocalState(loaded, prev));
         if (masterProfile?.isMaster) setIsMaster(true);
         setIsAdmin(Boolean(admin));
         if (claimed) setQuota(claimed);
@@ -832,10 +833,15 @@ export function AppShell() {
 
   const openPanel = useCallback(
     (id: string) => {
-      const panel = items.find(
-        (item): item is PanelObject =>
-          item.kind === "panel" && item.id === id,
-      );
+      const panel =
+        getCachedHomeItems().find(
+          (item): item is PanelObject =>
+            item.kind === "panel" && item.id === id,
+        ) ??
+        items.find(
+          (item): item is PanelObject =>
+            item.kind === "panel" && item.id === id,
+        );
       setSharedPreview(null);
       setActivePanelId(id);
       setAskNameOnBack(false);

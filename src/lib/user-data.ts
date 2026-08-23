@@ -1,5 +1,5 @@
 import type { AddressSuggestion } from "@/lib/dadata";
-import type { HouseInsight } from "@/lib/house-insight";
+import type { HouseInsight, PanelHouseSnapshot } from "@/lib/house-insight";
 import type { HomeListItem, InstallRequest, PanelObject } from "@/types";
 import {
   authHeaders,
@@ -218,6 +218,67 @@ async function uploadLocalOnlyPanels(
   return uploaded;
 }
 
+function pickHouseSnapshot(
+  local?: PanelHouseSnapshot,
+  remote?: PanelHouseSnapshot,
+): PanelHouseSnapshot | undefined {
+  if (!local) return remote;
+  if (!remote) return local;
+
+  const richness = (snap: PanelHouseSnapshot) =>
+    (snap.buildingYear ? 10 : 0) +
+    (snap.operationYear ? 5 : 0) +
+    (snap.dataSource ? 3 : 0) +
+    (snap.capitalRepairMessage ? 1 : 0);
+
+  return richness(local) >= richness(remote) ? local : remote;
+}
+
+function mergePanelHouseFields(
+  local: PanelObject,
+  remote: PanelObject,
+): Pick<PanelObject, "houseSnapshot" | "address" | "hasGround"> {
+  const houseSnapshot = pickHouseSnapshot(local.houseSnapshot, remote.houseSnapshot);
+  const address = (() => {
+    if (houseSnapshot?.address?.trim()) return houseSnapshot.address;
+    if (local.address && local.address !== "Добавлен по фото") {
+      return local.address;
+    }
+    if (remote.address && remote.address !== "Добавлен по фото") {
+      return remote.address;
+    }
+    return local.address ?? remote.address;
+  })();
+
+  return {
+    houseSnapshot,
+    address,
+    hasGround: local.hasGround ?? remote.hasGround,
+  };
+}
+
+/** Keep in-memory house/address edits when a stale fetch completes. */
+export function mergeHomeItemsWithLocalState(
+  fetched: HomeListItem[],
+  current: HomeListItem[],
+): HomeListItem[] {
+  const currentById = new Map(current.map((item) => [item.id, item]));
+  const fetchedIds = new Set(fetched.map((item) => item.id));
+
+  const merged = fetched.map((item) => {
+    if (item.kind !== "panel") return item;
+    const live = currentById.get(item.id);
+    if (!live || live.kind !== "panel") return item;
+    return { ...item, ...mergePanelHouseFields(live, item) };
+  });
+
+  for (const item of current) {
+    if (!fetchedIds.has(item.id)) merged.push(item);
+  }
+
+  return merged;
+}
+
 function mergeServerWithLocal(serverItems: HomeListItem[]): HomeListItem[] {
   const localItems = readLocalItems();
   const localById = new Map(
@@ -253,6 +314,7 @@ function mergeServerWithLocal(serverItems: HomeListItem[]): HomeListItem[] {
       railCount: item.railCount ?? local.railCount,
       wires:
         item.wires && item.wires.length > 0 ? item.wires : local.wires,
+      ...mergePanelHouseFields(local, item),
     };
   });
 

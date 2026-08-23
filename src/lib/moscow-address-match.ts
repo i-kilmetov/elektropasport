@@ -10,9 +10,10 @@ export function normalizeAddressPart(value: string): string {
 /** Expand common abbreviations before tokenization (DaData vs dommos). */
 export function preprocessAddress(raw: string): string {
   return raw
-    .replace(/\bпр-кт\b/gi, "проспект")
-    .replace(/\bб-р\b/gi, "бульвар")
-    .replace(/\bнаб\.\b/gi, "набережная")
+    .replace(/пр-кт/gi, "проспект")
+    .replace(/пр-д/gi, "проезд")
+    .replace(/б-р/gi, "бульвар")
+    .replace(/наб\./gi, "набережная")
     .replace(/\b(\d+)-й\b/gi, "$1-й")
     .replace(/\b(\d+)-го\b/gi, "$1-го")
     .replace(/\b(\d+)-я\b/gi, "$1-я")
@@ -29,7 +30,7 @@ const CITY_PREFIX =
   /^(?:\d{6}\s*,?\s*)?(?:г\.?\s*)?(?:москва|moscow)(?:\s+г)?\s*,?\s*/i;
 
 const STREET_TYPE_PREFIX =
-  /^(?:ул\.?|улица|пр\.?|просп\.?|проспект|пер\.?|переулок|бул\.?|бульвар|ш\.?|шоссе|наб\.?|набережная|ал\.?|аллея|пл\.?|площадь|проезд|туп\.?|тупик|линия|кв-л|квартал|мкр\.?|микрорайон)\s+/i;
+  /^(?:ул\.?|улица|пр\.?|просп\.?|проспект|пер\.?|переулок|проезд|пр\-?д|бул\.?|бульвар|ш\.?|шоссе|наб\.?|набережная|ал\.?|аллея|пл\.?|площадь|туп\.?|тупик|линия|кв-л|квартал|мкр\.?|микрорайон)\s+/i;
 
 function stripStreetType(value: string): string {
   let rest = value.trim();
@@ -261,6 +262,7 @@ const ADDRESS_QUERY_STOP_WORDS = new Set([
   "проспект",
   "пер",
   "переулок",
+  "проезд",
   "бул",
   "бульвар",
   "ш",

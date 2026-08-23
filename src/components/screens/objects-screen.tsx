@@ -153,6 +153,7 @@ function HomeListCard({
           onOpen();
         }}
         onPointerDown={(e) => {
+          e.stopPropagation();
           if (e.button !== 0) return;
           startPress(e.clientX, e.clientY);
         }}
@@ -161,7 +162,7 @@ function HomeListCard({
         onPointerLeave={endPress}
         onPointerCancel={endPress}
         onContextMenu={(e) => e.preventDefault()}
-        className="w-full text-left select-none lg:cursor-pointer"
+        className="w-full touch-manipulation text-left select-none lg:cursor-pointer"
       >
         <GlassCard className="flex items-center gap-4 rounded-[24px] border p-4 transition-colors hover:bg-zinc-50 lg:p-5">
           <div
@@ -314,6 +315,7 @@ function RequestListCard({
           onOpen();
         }}
         onPointerDown={(e) => {
+          e.stopPropagation();
           if (e.button !== 0) return;
           startPress(e.clientX, e.clientY);
         }}
@@ -322,7 +324,7 @@ function RequestListCard({
         onPointerLeave={endPress}
         onPointerCancel={endPress}
         onContextMenu={(e) => e.preventDefault()}
-        className="w-full text-left select-none lg:cursor-pointer"
+        className="w-full touch-manipulation text-left select-none lg:cursor-pointer"
       >
         <GlassCard className="flex items-center gap-4 rounded-[24px] border p-4 transition-colors hover:bg-zinc-50 lg:p-5">
           <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[18px] bg-zinc-100 text-zinc-500">
@@ -458,6 +460,7 @@ function ExpandableHomeCard({
             onToggle();
           }}
           onPointerDown={(e) => {
+            e.stopPropagation();
             if (e.button !== 0) return;
             startPress(e.clientX, e.clientY);
           }}
@@ -466,7 +469,7 @@ function ExpandableHomeCard({
           onPointerLeave={endPress}
           onPointerCancel={endPress}
           onContextMenu={(e) => e.preventDefault()}
-          className="flex w-full items-center gap-4 p-4 text-left select-none transition-colors hover:bg-zinc-50 lg:p-5"
+          className="flex w-full touch-manipulation items-center gap-4 p-4 text-left select-none transition-colors hover:bg-zinc-50 lg:p-5"
         >
           <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[18px] bg-zinc-100 text-zinc-600">
             <BreakerIcon className="h-7 w-7" />
@@ -512,7 +515,8 @@ function ExpandableHomeCard({
                 <button
                   type="button"
                   onClick={onOpenPanel}
-                  className="flex w-full items-center gap-3 rounded-[16px] bg-white px-3 py-2.5 text-left shadow-sm transition-colors hover:bg-zinc-100"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  className="flex w-full touch-manipulation items-center gap-3 rounded-[16px] bg-white px-3 py-2.5 text-left shadow-sm transition-colors hover:bg-zinc-100"
                 >
                   <span className="flex h-10 w-10 items-center justify-center rounded-[12px] bg-amber-50 text-amber-700">
                     <BreakerIcon className="h-5 w-5" />
@@ -800,7 +804,10 @@ export function ObjectsScreen({
       );
     }
     return (
-      <div className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:gap-4 xl:grid-cols-3">
+      <div
+        className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:gap-4 xl:grid-cols-3"
+        onPointerDown={(e) => e.stopPropagation()}
+      >
         {list.map((obj, i) => (
           <motion.div
             key={obj.id}
@@ -1053,7 +1060,10 @@ export function ObjectsScreen({
             className="flex h-full min-h-0 flex-col px-5 lg:px-10"
             style={{ width: pagerWidth || "50%" }}
           >
-            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
+            <div
+              className="flex min-h-0 flex-1 touch-pan-y flex-col overflow-y-auto overscroll-contain"
+              onPointerDown={(e) => e.stopPropagation()}
+            >
               {renderList(panels, {
                 icon: <BreakerIcon className="h-10 w-10" />,
                 text: panelEmptyText,
@@ -1065,7 +1075,10 @@ export function ObjectsScreen({
             className="flex h-full min-h-0 flex-col px-5 lg:px-10"
             style={{ width: pagerWidth || "50%" }}
           >
-            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
+            <div
+              className="flex min-h-0 flex-1 touch-pan-y flex-col overflow-y-auto overscroll-contain"
+              onPointerDown={(e) => e.stopPropagation()}
+            >
               {renderList(requests, {
                 icon: <ClipboardList className="h-10 w-10" />,
                 text: "Здесь появятся заявки на помощь с электрикой.",
