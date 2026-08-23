@@ -549,10 +549,8 @@ export async function fetchHomeItems(): Promise<HomeListItem[]> {
   }
 
   const serverItems = await fetchServerHomeItems();
-  const localBeforeWrite = readLocalItems();
   const merged = mergeServerWithLocal(serverItems);
-  const final = mergeHomeItemsWithLocalState(merged, localBeforeWrite);
-  writeLocalItems(final);
+  writeLocalItems(merged);
 
   // Push local-only panels in the background — do not block the home screen.
   const serverIds = new Set(serverItems.map((item) => item.id));
@@ -564,14 +562,12 @@ export async function fetchHomeItems(): Promise<HomeListItem[]> {
       .then(async (uploaded) => {
         if (uploaded <= 0) return;
         const fresh = await fetchServerHomeItems();
-        const localSnapshot = readLocalItems();
-        const mergedFresh = mergeServerWithLocal(fresh);
-        writeLocalItems(mergeHomeItemsWithLocalState(mergedFresh, localSnapshot));
+        writeLocalItems(mergeServerWithLocal(fresh));
       })
       .catch((error) => console.error(error));
   }
 
-  return final;
+  return merged;
 }
 
 /** Force-upload every local-only panel, then return the refreshed list. */

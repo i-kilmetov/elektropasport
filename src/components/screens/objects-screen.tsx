@@ -7,14 +7,14 @@ import {
   useRef,
   useState,
   type ReactNode,
+  type PointerEvent,
+  type SyntheticEvent,
 } from "react";
 import {
   AnimatePresence,
   animate,
   motion,
   useMotionValue,
-  useTransform,
-  type PanInfo,
 } from "framer-motion";
 import { ChevronDown, ClipboardList, Menu, Plus, Wrench, Zap } from "lucide-react";
 import { BreakerIcon } from "@/components/icons/breaker-icon";
@@ -41,6 +41,7 @@ import type {
   PanelObject,
 } from "@/types";
 import { installStatusTone } from "@/types";
+import { formatPanelAddedLabel } from "@/lib/panel-list-meta";
 import { isAtPanelLimit, type PanelQuota } from "@/lib/invites";
 
 /** Hold duration before context menu — close to iOS Haptic Touch. */
@@ -48,28 +49,18 @@ const LONG_PRESS_MS = 480;
 const LIFT_DELAY_MS = 90;
 const MOVE_CANCEL_PX = 10;
 const PAGE_SPRING = { type: "spring" as const, stiffness: 380, damping: 38 };
-/** Ignore taps and tiny jitter; only a real horizontal swipe changes tabs. */
-const SWIPE_DISTANCE = 80;
-const SWIPE_VELOCITY = 700;
-const SWIPE_MIN_OFFSET = 28;
 
-function HomeListCard({
-  item,
-  lifted,
-  pressing,
-  onOpen,
+function useCardPressHandlers({
+  onShortTap,
   onContextMenu,
   onPressingChange,
 }: {
-  item: HomeListItem;
-  lifted: boolean;
-  pressing: boolean;
-  onOpen: () => void;
+  onShortTap: () => void;
   onContextMenu: () => void;
   onPressingChange: (pressing: boolean) => void;
 }) {
-  const isRequest = item.kind === "install_request";
   const longPressedRef = useRef(false);
+  const tapHandledRef = useRef(false);
   const timerRef = useRef<number | null>(null);
   const liftTimerRef = useRef<number | null>(null);
   const startPointRef = useRef<{ x: number; y: number } | null>(null);
@@ -85,14 +76,24 @@ function HomeListCard({
     }
   };
 
-  const endPress = () => {
+  const finishPress = (clientX: number, clientY: number) => {
+    const wasLongPress = longPressedRef.current;
+    const start = startPointRef.current;
     clearTimers();
     startPointRef.current = null;
     onPressingChange(false);
+    if (wasLongPress) return;
+    if (!start) return;
+    const dx = Math.abs(clientX - start.x);
+    const dy = Math.abs(clientY - start.y);
+    if (dx > MOVE_CANCEL_PX || dy > MOVE_CANCEL_PX) return;
+    tapHandledRef.current = true;
+    onShortTap();
   };
 
   const startPress = (clientX: number, clientY: number) => {
     longPressedRef.current = false;
+    tapHandledRef.current = false;
     clearTimers();
     startPointRef.current = { x: clientX, y: clientY };
     onPressingChange(false);
@@ -115,9 +116,63 @@ function HomeListCard({
     const dx = Math.abs(clientX - start.x);
     const dy = Math.abs(clientY - start.y);
     if (dx > MOVE_CANCEL_PX || dy > MOVE_CANCEL_PX) {
-      endPress();
+      clearTimers();
+      startPointRef.current = null;
+      onPressingChange(false);
     }
   };
+
+  return {
+    onClick: () => {
+      if (longPressedRef.current) {
+        longPressedRef.current = false;
+        return;
+      }
+      if (tapHandledRef.current) {
+        tapHandledRef.current = false;
+        return;
+      }
+      onShortTap();
+    },
+    onPointerDown: (e: PointerEvent<HTMLButtonElement>) => {
+      if (e.button !== 0) return;
+      startPress(e.clientX, e.clientY);
+    },
+    onPointerMove: (e: PointerEvent<HTMLButtonElement>) =>
+      onPointerMove(e.clientX, e.clientY),
+    onPointerUp: (e: PointerEvent<HTMLButtonElement>) => {
+      if (e.button !== 0) return;
+      finishPress(e.clientX, e.clientY);
+    },
+    onPointerCancel: (e: PointerEvent<HTMLButtonElement>) => {
+      if (e.button !== 0) return;
+      finishPress(e.clientX, e.clientY);
+    },
+    onContextMenu: (e: SyntheticEvent) => e.preventDefault(),
+  };
+}
+
+function HomeListCard({
+  item,
+  lifted,
+  pressing,
+  onOpen,
+  onContextMenu,
+  onPressingChange,
+}: {
+  item: HomeListItem;
+  lifted: boolean;
+  pressing: boolean;
+  onOpen: () => void;
+  onContextMenu: () => void;
+  onPressingChange: (pressing: boolean) => void;
+}) {
+  const isRequest = item.kind === "install_request";
+  const pressHandlers = useCardPressHandlers({
+    onShortTap: onOpen,
+    onContextMenu,
+    onPressingChange,
+  });
 
   const active = pressing || lifted;
 
@@ -145,23 +200,8 @@ function HomeListCard({
     >
       <button
         type="button"
-        onClick={() => {
-          if (longPressedRef.current) {
-            longPressedRef.current = false;
-            return;
-          }
-          onOpen();
-        }}
-        onPointerDown={(e) => {
-          if (e.button !== 0) return;
-          startPress(e.clientX, e.clientY);
-        }}
-        onPointerMove={(e) => onPointerMove(e.clientX, e.clientY)}
-        onPointerUp={endPress}
-        onPointerLeave={endPress}
-        onPointerCancel={endPress}
-        onContextMenu={(e) => e.preventDefault()}
-        className="w-full text-left select-none lg:cursor-pointer"
+        {...pressHandlers}
+        className="w-full touch-manipulation text-left select-none lg:cursor-pointer"
       >
         <GlassCard className="flex items-center gap-4 rounded-[24px] border p-4 transition-colors hover:bg-zinc-50 lg:p-5">
           <div
@@ -206,7 +246,7 @@ function HomeListCard({
             <p className="mt-1 text-[12px] text-zinc-400">
               {isRequest
                 ? item.createdAt
-                : `${item.breakers} устройств · ${item.lastCheck}`}
+                : `${item.breakers} устройств · добавлен ${formatPanelAddedLabel(item)}`}
             </p>
           </div>
         </GlassCard>
@@ -230,55 +270,11 @@ function RequestListCard({
   onContextMenu: () => void;
   onPressingChange: (pressing: boolean) => void;
 }) {
-  const longPressedRef = useRef(false);
-  const timerRef = useRef<number | null>(null);
-  const liftTimerRef = useRef<number | null>(null);
-  const startPointRef = useRef<{ x: number; y: number } | null>(null);
-
-  const clearTimers = () => {
-    if (timerRef.current != null) {
-      window.clearTimeout(timerRef.current);
-      timerRef.current = null;
-    }
-    if (liftTimerRef.current != null) {
-      window.clearTimeout(liftTimerRef.current);
-      liftTimerRef.current = null;
-    }
-  };
-
-  const endPress = () => {
-    clearTimers();
-    startPointRef.current = null;
-    onPressingChange(false);
-  };
-
-  const startPress = (clientX: number, clientY: number) => {
-    longPressedRef.current = false;
-    clearTimers();
-    startPointRef.current = { x: clientX, y: clientY };
-    onPressingChange(false);
-
-    liftTimerRef.current = window.setTimeout(() => {
-      onPressingChange(true);
-    }, LIFT_DELAY_MS);
-
-    timerRef.current = window.setTimeout(() => {
-      longPressedRef.current = true;
-      onPressingChange(true);
-      hapticContextMenu();
-      onContextMenu();
-    }, LONG_PRESS_MS);
-  };
-
-  const onPointerMove = (clientX: number, clientY: number) => {
-    const start = startPointRef.current;
-    if (!start) return;
-    const dx = Math.abs(clientX - start.x);
-    const dy = Math.abs(clientY - start.y);
-    if (dx > MOVE_CANCEL_PX || dy > MOVE_CANCEL_PX) {
-      endPress();
-    }
-  };
+  const pressHandlers = useCardPressHandlers({
+    onShortTap: onOpen,
+    onContextMenu,
+    onPressingChange,
+  });
 
   const active = pressing || lifted;
 
@@ -306,23 +302,8 @@ function RequestListCard({
     >
       <button
         type="button"
-        onClick={() => {
-          if (longPressedRef.current) {
-            longPressedRef.current = false;
-            return;
-          }
-          onOpen();
-        }}
-        onPointerDown={(e) => {
-          if (e.button !== 0) return;
-          startPress(e.clientX, e.clientY);
-        }}
-        onPointerMove={(e) => onPointerMove(e.clientX, e.clientY)}
-        onPointerUp={endPress}
-        onPointerLeave={endPress}
-        onPointerCancel={endPress}
-        onContextMenu={(e) => e.preventDefault()}
-        className="w-full text-left select-none lg:cursor-pointer"
+        {...pressHandlers}
+        className="w-full touch-manipulation text-left select-none lg:cursor-pointer"
       >
         <GlassCard className="flex items-center gap-4 rounded-[24px] border p-4 transition-colors hover:bg-zinc-50 lg:p-5">
           <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[18px] bg-zinc-100 text-zinc-500">
@@ -372,56 +353,12 @@ function ExpandableHomeCard({
   onContextMenu: () => void;
   onPressingChange: (pressing: boolean) => void;
 }) {
-  const longPressedRef = useRef(false);
-  const timerRef = useRef<number | null>(null);
-  const liftTimerRef = useRef<number | null>(null);
-  const startPointRef = useRef<{ x: number; y: number } | null>(null);
   const appliances = panel.appliances ?? [];
-
-  const clearTimers = () => {
-    if (timerRef.current != null) {
-      window.clearTimeout(timerRef.current);
-      timerRef.current = null;
-    }
-    if (liftTimerRef.current != null) {
-      window.clearTimeout(liftTimerRef.current);
-      liftTimerRef.current = null;
-    }
-  };
-
-  const endPress = () => {
-    clearTimers();
-    startPointRef.current = null;
-    onPressingChange(false);
-  };
-
-  const startPress = (clientX: number, clientY: number) => {
-    longPressedRef.current = false;
-    clearTimers();
-    startPointRef.current = { x: clientX, y: clientY };
-    onPressingChange(false);
-
-    liftTimerRef.current = window.setTimeout(() => {
-      onPressingChange(true);
-    }, LIFT_DELAY_MS);
-
-    timerRef.current = window.setTimeout(() => {
-      longPressedRef.current = true;
-      onPressingChange(true);
-      hapticContextMenu();
-      onContextMenu();
-    }, LONG_PRESS_MS);
-  };
-
-  const onPointerMove = (clientX: number, clientY: number) => {
-    const start = startPointRef.current;
-    if (!start) return;
-    const dx = Math.abs(clientX - start.x);
-    const dy = Math.abs(clientY - start.y);
-    if (dx > MOVE_CANCEL_PX || dy > MOVE_CANCEL_PX) {
-      endPress();
-    }
-  };
+  const pressHandlers = useCardPressHandlers({
+    onShortTap: onToggle,
+    onContextMenu,
+    onPressingChange,
+  });
 
   const active = pressing || lifted;
 
@@ -450,23 +387,8 @@ function ExpandableHomeCard({
       <GlassCard className="overflow-hidden rounded-[24px] border p-0">
         <button
           type="button"
-          onClick={() => {
-            if (longPressedRef.current) {
-              longPressedRef.current = false;
-              return;
-            }
-            onToggle();
-          }}
-          onPointerDown={(e) => {
-            if (e.button !== 0) return;
-            startPress(e.clientX, e.clientY);
-          }}
-          onPointerMove={(e) => onPointerMove(e.clientX, e.clientY)}
-          onPointerUp={endPress}
-          onPointerLeave={endPress}
-          onPointerCancel={endPress}
-          onContextMenu={(e) => e.preventDefault()}
-          className="flex w-full items-center gap-4 p-4 text-left select-none transition-colors hover:bg-zinc-50 lg:p-5"
+          {...pressHandlers}
+          className="flex w-full touch-manipulation items-center gap-4 p-4 text-left select-none transition-colors hover:bg-zinc-50 lg:cursor-pointer lg:p-5"
         >
           <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[18px] bg-zinc-100 text-zinc-600">
             <BreakerIcon className="h-7 w-7" />
@@ -671,24 +593,6 @@ export function ObjectsScreen({
   const tab1Ref = useRef<HTMLButtonElement>(null);
   const pageRef = useRef(0);
   const x = useMotionValue(0);
-  const rawTabProgress = useTransform(
-    x,
-    [0, pagerWidth > 0 ? -pagerWidth : -1],
-    [0, 1],
-  );
-  const tabProgress = useTransform(rawTabProgress, (t) =>
-    Math.min(1, Math.max(0, t)),
-  );
-  const pillLeft = useTransform(tabProgress, [0, 1], [
-    tabMetrics.left0,
-    tabMetrics.left1,
-  ]);
-  const pillWidth = useTransform(tabProgress, [0, 1], [
-    tabMetrics.width0,
-    tabMetrics.width1,
-  ]);
-  const tab0Color = useTransform(tabProgress, [0, 1], ["#18181b", "#71717a"]);
-  const tab1Color = useTransform(tabProgress, [0, 1], ["#71717a", "#18181b"]);
 
   const panels = useMemo(
     () => items.filter((item): item is PanelObject => item.kind === "panel"),
@@ -748,39 +652,12 @@ export function ObjectsScreen({
     void animate(x, -page * pagerWidth, PAGE_SPRING);
   }, [page, pagerWidth, x]);
 
-  const snapTo = (next: 0 | 1) => {
-    if (!pagerWidth) return;
-    void animate(x, -next * pagerWidth, PAGE_SPRING);
-  };
-
   const settlePage = (next: 0 | 1) => {
     pageRef.current = next;
     setPage(next);
-    snapTo(next);
-  };
-
-  const onPagerDragEnd = (_: unknown, info: PanInfo) => {
-    const current = pageRef.current as 0 | 1;
-    const { offset, velocity } = info;
-    const absOffset = Math.abs(offset.x);
-    const committed =
-      absOffset >= SWIPE_DISTANCE ||
-      (absOffset >= SWIPE_MIN_OFFSET && Math.abs(velocity.x) >= SWIPE_VELOCITY);
-
-    if (!committed) {
-      snapTo(current);
-      return;
+    if (pagerWidth) {
+      void animate(x, -next * pagerWidth, PAGE_SPRING);
     }
-
-    if (offset.x < 0 && current === 0) {
-      settlePage(1);
-      return;
-    }
-    if (offset.x > 0 && current === 1) {
-      settlePage(0);
-      return;
-    }
-    snapTo(current);
   };
 
   const renderList = (
@@ -951,36 +828,43 @@ export function ObjectsScreen({
           </button>
           <div className="relative flex rounded-full bg-zinc-100 p-1">
             {tabMetrics.width0 > 0 && (
-              <motion.div
+              <div
                 aria-hidden
-                className="pointer-events-none absolute top-1 h-[calc(100%-8px)] rounded-full bg-white shadow-sm"
-                style={{ left: pillLeft, width: pillWidth }}
+                className="pointer-events-none absolute top-1 h-[calc(100%-8px)] rounded-full bg-white shadow-sm transition-[left,width] duration-300 ease-out"
+                style={{
+                  left: page === 0 ? tabMetrics.left0 : tabMetrics.left1,
+                  width: page === 0 ? tabMetrics.width0 : tabMetrics.width1,
+                }}
               />
             )}
-            <motion.button
+            <button
               ref={tab0Ref}
               type="button"
               onClick={() => settlePage(0)}
-              style={{ color: tab0Color }}
-              className="relative z-10 rounded-full px-3 py-1.5 text-[13px] font-semibold"
+              className={cn(
+                "relative z-10 rounded-full px-3 py-1.5 text-[13px] font-semibold transition-colors duration-300",
+                page === 0 ? "text-zinc-900" : "text-zinc-500",
+              )}
             >
               Щитки
               <span className="ml-1 text-[11px] font-medium text-zinc-400">
                 {loading ? "…" : panels.length}
               </span>
-            </motion.button>
-            <motion.button
+            </button>
+            <button
               ref={tab1Ref}
               type="button"
               onClick={() => settlePage(1)}
-              style={{ color: tab1Color }}
-              className="relative z-10 rounded-full px-3 py-1.5 text-[13px] font-semibold"
+              className={cn(
+                "relative z-10 rounded-full px-3 py-1.5 text-[13px] font-semibold transition-colors duration-300",
+                page === 1 ? "text-zinc-900" : "text-zinc-500",
+              )}
             >
               Заявки
               <span className="ml-1 text-[11px] font-medium text-zinc-400">
                 {loading ? "…" : requests.length}
               </span>
-            </motion.button>
+            </button>
           </div>
           <div className="hidden items-center gap-3 lg:flex">
             {page === 0 ? (
@@ -1034,20 +918,11 @@ export function ObjectsScreen({
 
       <div ref={pagerRef} className="min-h-0 flex-1 overflow-hidden lg:hidden">
         <motion.div
-          className="flex h-full touch-pan-y"
-          drag="x"
-          dragDirectionLock
-          dragElastic={0.16}
-          dragConstraints={{
-            left: pagerWidth ? -pagerWidth : 0,
-            right: 0,
-          }}
-          dragMomentum={false}
+          className="flex h-full"
           style={{
             x,
             width: pagerWidth ? pagerWidth * 2 : "200%",
           }}
-          onDragEnd={onPagerDragEnd}
         >
           <div
             className="flex h-full min-h-0 flex-col px-5 lg:px-10"

@@ -750,13 +750,13 @@ export function AppShell() {
       setItemsError(null);
       void persistPanel(panel).catch((error) => {
         console.error(error);
-        setItems((prev) => prev.filter((item) => item.id !== id));
         setItemsError(
           error instanceof Error
             ? error.message
             : "Не удалось сохранить щиток",
         );
         if (error instanceof Error && error.name === "PanelLimitError") {
+          setItems((prev) => prev.filter((item) => item.id !== id));
           setScreen("objects");
           openPanelLimit();
         }
@@ -1056,13 +1056,13 @@ export function AppShell() {
     setItemsError(null);
     void persistPanel(copy).catch((error) => {
       console.error(error);
-      setItems((prev) => prev.filter((item) => item.id !== id));
       setItemsError(
         error instanceof Error
           ? error.message
           : "Не удалось сохранить щиток",
       );
       if (error instanceof Error && error.name === "PanelLimitError") {
+        setItems((prev) => prev.filter((item) => item.id !== id));
         openPanelLimit();
       }
     });
