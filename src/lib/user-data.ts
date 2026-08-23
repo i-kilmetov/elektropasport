@@ -315,7 +315,13 @@ export async function claimInviteToken(
 
 function enqueuePanelOp<T>(id: string, op: () => Promise<T>): Promise<T> {
   const previous = panelOps.get(id) ?? Promise.resolve();
-  const next = previous.catch(() => undefined).then(op);
+  const released = Promise.race([
+    previous.catch(() => undefined),
+    new Promise<void>((resolve) => {
+      window.setTimeout(resolve, 3_000);
+    }),
+  ]);
+  const next = released.then(op);
   panelOps.set(
     id,
     next.then(
@@ -324,6 +330,45 @@ function enqueuePanelOp<T>(id: string, op: () => Promise<T>): Promise<T> {
     ),
   );
   return next;
+}
+
+async function syncPanelPatchToServer(
+  id: string,
+  sanitized: ReturnType<typeof sanitizePanelPatch>,
+  items: HomeListItem[],
+): Promise<void> {
+  if (!canUseServer()) return;
+
+  const res = await fetchWithTimeout(`/api/panels/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders(),
+    },
+    body: JSON.stringify(sanitized),
+  });
+
+  if (!res.ok) {
+    if (res.status === 404) {
+      const local = items.find(
+        (item): item is PanelObject =>
+          item.kind === "panel" && item.id === id,
+      );
+      if (local) {
+        const createRes = await fetchWithTimeout("/api/panels", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...authHeaders(),
+          },
+          body: JSON.stringify({ panel: panelForApi(local) }),
+        });
+        if (createRes.ok) return;
+        throw new Error(await parseError(createRes));
+      }
+    }
+    throw new Error(await parseError(res));
+  }
 }
 
 async function fetchServerHomeItems(): Promise<HomeListItem[]> {
@@ -716,41 +761,7 @@ export async function persistPanelPatch(
   );
   writeLocalItems(items);
 
-  return enqueuePanelOp(id, async () => {
-    if (!canUseServer()) return;
-
-    const res = await fetchWithTimeout(`/api/panels/${encodeURIComponent(id)}`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        ...authHeaders(),
-      },
-      body: JSON.stringify(sanitized),
-    });
-
-    if (!res.ok) {
-      // Create may have failed earlier — try full upsert from local copy
-      if (res.status === 404) {
-        const local = items.find(
-          (item): item is PanelObject =>
-            item.kind === "panel" && item.id === id,
-        );
-        if (local) {
-          const createRes = await fetchWithTimeout("/api/panels", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              ...authHeaders(),
-            },
-            body: JSON.stringify({ panel: panelForApi(local) }),
-          });
-          if (createRes.ok) return;
-          throw new Error(await parseError(createRes));
-        }
-      }
-      throw new Error(await parseError(res));
-    }
-  });
+  await syncPanelPatchToServer(id, sanitized, items);
 }
 
 export async function persistDeletePanel(id: string): Promise<void> {

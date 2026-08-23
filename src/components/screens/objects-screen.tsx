@@ -57,139 +57,77 @@ const PAGE_SPRING = { type: "spring" as const, stiffness: 380, damping: 38 };
 function HomeListCard({
   item,
   lifted,
-  pressing,
   onOpen,
   onContextMenu,
-  onPressingChange,
 }: {
   item: HomeListItem;
   lifted: boolean;
-  pressing: boolean;
   onOpen: () => void;
   onContextMenu: () => void;
-  onPressingChange: (pressing: boolean) => void;
 }) {
   const isRequest = item.kind === "install_request";
-  const longPressedRef = useRef(false);
-  const openedOnPointerRef = useRef(false);
+  const longPressRef = useRef(false);
   const timerRef = useRef<number | null>(null);
-  const liftTimerRef = useRef<number | null>(null);
-  const startPointRef = useRef<{ x: number; y: number } | null>(null);
 
-  const clearTimers = () => {
+  const clearTimer = () => {
     if (timerRef.current != null) {
       window.clearTimeout(timerRef.current);
       timerRef.current = null;
     }
-    if (liftTimerRef.current != null) {
-      window.clearTimeout(liftTimerRef.current);
-      liftTimerRef.current = null;
-    }
   };
 
-  const endPress = () => {
-    clearTimers();
-    startPointRef.current = null;
-    onPressingChange(false);
-  };
-
-  const startPress = (clientX: number, clientY: number) => {
-    longPressedRef.current = false;
-    clearTimers();
-    startPointRef.current = { x: clientX, y: clientY };
-    onPressingChange(false);
-
-    liftTimerRef.current = window.setTimeout(() => {
-      onPressingChange(true);
-    }, LIFT_DELAY_MS);
-
+  const scheduleLongPress = () => {
+    longPressRef.current = false;
+    clearTimer();
     timerRef.current = window.setTimeout(() => {
-      longPressedRef.current = true;
-      onPressingChange(true);
+      longPressRef.current = true;
       hapticContextMenu();
       onContextMenu();
     }, LONG_PRESS_MS);
   };
 
-  const onPointerMove = (clientX: number, clientY: number) => {
-    const start = startPointRef.current;
-    if (!start) return;
-    const dx = Math.abs(clientX - start.x);
-    const dy = Math.abs(clientY - start.y);
-    if (dx > MOVE_CANCEL_PX || dy > MOVE_CANCEL_PX) {
-      endPress();
+  const handleActivate = () => {
+    if (longPressRef.current) {
+      longPressRef.current = false;
+      return;
     }
-  };
-
-  const finishPress = (clientX: number, clientY: number) => {
-    const wasLongPress = longPressedRef.current;
-    const start = startPointRef.current;
-    endPress();
-    if (wasLongPress || !start) return;
-    const dx = Math.abs(clientX - start.x);
-    const dy = Math.abs(clientY - start.y);
-    if (dx > MOVE_CANCEL_PX || dy > MOVE_CANCEL_PX) return;
-    openedOnPointerRef.current = true;
     onOpen();
-    window.requestAnimationFrame(() => {
-      openedOnPointerRef.current = false;
-    });
   };
-
-  const active = pressing || lifted;
 
   return (
-    <motion.div
-      animate={{
-        scale: active ? 1.02 : 1,
-        y: active ? -1 : 0,
-      }}
-      transition={{
-        type: "spring",
-        stiffness: 420,
-        damping: 28,
-        mass: 0.7,
-      }}
-      className={cn(
-        "origin-center will-change-transform",
-        active && "relative z-20",
-      )}
-      style={{
-        filter: active
-          ? "drop-shadow(0 14px 28px rgba(17,17,19,0.18))"
-          : "drop-shadow(0 0 0 rgba(0,0,0,0))",
-      }}
-    >
-    <button
-      type="button"
-      onClick={() => {
-        if (longPressedRef.current) {
-          longPressedRef.current = false;
-          return;
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={handleActivate}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          handleActivate();
         }
-        if (openedOnPointerRef.current) return;
-        onOpen();
       }}
+      onTouchStart={scheduleLongPress}
+      onTouchEnd={clearTimer}
+      onTouchMove={clearTimer}
+      onTouchCancel={clearTimer}
       onPointerDown={(e) => {
+        if (e.pointerType === "touch") return;
         if (e.button !== 0) return;
-        startPress(e.clientX, e.clientY);
+        scheduleLongPress();
       }}
-      onPointerMove={(e) => onPointerMove(e.clientX, e.clientY)}
       onPointerUp={(e) => {
-        if (e.button !== 0) return;
-        finishPress(e.clientX, e.clientY);
+        if (e.pointerType === "touch") return;
+        clearTimer();
       }}
-      onPointerLeave={(e) => {
-        if (e.button !== 0) return;
-        endPress();
-      }}
-      onPointerCancel={endPress}
+      onPointerCancel={clearTimer}
       onContextMenu={(e) => {
         e.preventDefault();
-        endPress();
+        clearTimer();
         onContextMenu();
       }}
-      className="w-full touch-manipulation text-left select-none lg:cursor-pointer"
+      className={cn(
+        "w-full touch-manipulation text-left select-none lg:cursor-pointer",
+        lifted && "relative z-20",
+      )}
     >
       <GlassCard className="flex items-center gap-4 rounded-[24px] border p-4 transition-colors hover:bg-zinc-50 lg:p-5">
         <div
@@ -238,8 +176,7 @@ function HomeListCard({
           </p>
         </div>
       </GlassCard>
-    </button>
-    </motion.div>
+    </div>
   );
 }
 
@@ -822,7 +759,6 @@ export function ObjectsScreen({
             {!homeAppliancesMode ? (
               <HomeListCard
                 item={obj}
-                pressing={pressingId === obj.id}
                 lifted={actionsItemId === obj.id}
                 onOpen={() =>
                   obj.kind === "install_request"
@@ -830,9 +766,6 @@ export function ObjectsScreen({
                     : onOpenPanel(obj.id)
                 }
                 onContextMenu={() => setActionsItemId(obj.id)}
-                onPressingChange={(next) =>
-                  setPressingId(next ? obj.id : null)
-                }
               />
             ) : obj.kind === "install_request" ? (
               <RequestListCard

@@ -110,13 +110,15 @@ import {
   persistPanelPatch,
   createPanelShare,
   fetchSharedPanel,
-  lookupHouseInsight,
 } from "@/lib/user-data";
 import {
+  electricalGuessForYear,
   groundingToHasGround,
   houseInsightToPanelSnapshot,
 } from "@/lib/house-insight";
-import { buildPanelHouseSnapshot } from "@/lib/house-insight-local";
+import { buildLocalHouseInsight, buildPanelHouseSnapshot } from "@/lib/house-insight-local";
+import { assessGroundingForYear } from "@/lib/grounding-assessment";
+import { clientLookupMoscowPassport } from "@/lib/moscow-client-lookup";
 import { syncRatingFromCharacteristics } from "@/lib/device-spec-guide";
 import { deriveRailCount } from "@/lib/panel-rails";
 import { isAtPanelLimit, isInviteToken, type PanelQuota } from "@/lib/invites";
@@ -805,39 +807,46 @@ export function AppShell() {
         ),
       );
 
-      try {
-        await persistPanelPatch(activePanelId, patch);
-        setPanelHouseSaved(true);
-        window.setTimeout(() => {
-          setPanelHousePromptOpen(false);
-          setPanelHouseSaved(false);
-        }, 1600);
-      } catch (error) {
+      setPanelHouseSaved(true);
+      setPanelHouseSaving(false);
+      window.setTimeout(() => {
+        setPanelHousePromptOpen(false);
+        setPanelHouseSaved(false);
+      }, 1600);
+
+      void persistPanelPatch(activePanelId, patch).catch((error) => {
         console.error(error);
         const message =
           error instanceof Error
             ? error.message
-            : "Не удалось сохранить данные о доме";
+            : "Не удалось сохранить адрес на сервере";
         setPanelHouseSaveError(message);
         setItemsError(message);
-        return;
-      } finally {
-        setPanelHouseSaving(false);
-      }
+      });
 
       if (isMoscow(payload.city)) {
-        void lookupHouseInsight({
-          city: payload.city,
-          address: payload.address,
-          fiasId: payload.fiasId ?? null,
+        void clientLookupMoscowPassport(payload.address, {
           street: payload.street ?? null,
           house: payload.house ?? null,
           block: payload.block ?? null,
         })
-          .then(async (insight) => {
+          .then(async (passport) => {
+            if (!passport?.buildingYear || !activePanelId) return;
+            const panelNow = items.find(
+              (item): item is PanelObject =>
+                item.kind === "panel" && item.id === activePanelId,
+            );
+            const savedAddress = passport.address || payload.address.trim();
+            const insight = buildLocalHouseInsight({
+              city: payload.city,
+              address: savedAddress,
+              fiasId: payload.fiasId,
+            });
+            insight.buildingYear = passport.buildingYear;
+            insight.moscowOpenDataUsed = true;
+            insight.electrical = electricalGuessForYear(passport.buildingYear);
+            insight.grounding = assessGroundingForYear(passport.buildingYear);
             const enriched = houseInsightToPanelSnapshot(insight);
-            const savedAddress =
-              enriched.address?.trim() || payload.address.trim();
             const enrichedGround = groundingToHasGround(
               enriched.groundingExpectation,
             );
@@ -849,7 +858,7 @@ export function AppShell() {
             };
             if (
               enrichedGround !== undefined &&
-              panel?.hasGround === undefined
+              panelNow?.hasGround === undefined
             ) {
               enrichPatch.hasGround = enrichedGround;
             }
