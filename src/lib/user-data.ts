@@ -227,12 +227,35 @@ function pickHouseSnapshot(
   if (!remote) return local;
 
   const richness = (snap: PanelHouseSnapshot) =>
+    (snap.address?.trim() && snap.address !== "Добавлен по фото" ? 15 : 0) +
     (snap.buildingYear ? 10 : 0) +
     (snap.operationYear ? 5 : 0) +
     (snap.dataSource ? 3 : 0) +
     (snap.capitalRepairMessage ? 1 : 0);
 
-  return richness(local) >= richness(remote) ? local : remote;
+  const winner = richness(local) >= richness(remote) ? local : remote;
+  const address = [winner.address, local.address, remote.address].find(
+    (value) => value?.trim() && value !== "Добавлен по фото",
+  );
+  return address ? { ...winner, address } : winner;
+}
+
+function resolvePanelAddress(
+  local: PanelObject,
+  remote: PanelObject,
+  houseSnapshot?: PanelHouseSnapshot,
+): string {
+  const candidates = [
+    houseSnapshot?.address,
+    local.address,
+    remote.address,
+    local.houseSnapshot?.address,
+    remote.houseSnapshot?.address,
+  ];
+  for (const value of candidates) {
+    if (value?.trim() && value !== "Добавлен по фото") return value.trim();
+  }
+  return local.address ?? remote.address;
 }
 
 function mergePanelHouseFields(
@@ -240,19 +263,13 @@ function mergePanelHouseFields(
   remote: PanelObject,
 ): Pick<PanelObject, "houseSnapshot" | "address" | "hasGround" | "createdAt"> {
   const houseSnapshot = pickHouseSnapshot(local.houseSnapshot, remote.houseSnapshot);
-  const address = (() => {
-    if (houseSnapshot?.address?.trim()) return houseSnapshot.address;
-    if (local.address && local.address !== "Добавлен по фото") {
-      return local.address;
-    }
-    if (remote.address && remote.address !== "Добавлен по фото") {
-      return remote.address;
-    }
-    return local.address ?? remote.address;
-  })();
+  const address = resolvePanelAddress(local, remote, houseSnapshot);
 
   return {
-    houseSnapshot,
+    houseSnapshot:
+      houseSnapshot && address && houseSnapshot.address !== address
+        ? { ...houseSnapshot, address }
+        : houseSnapshot,
     address,
     hasGround: local.hasGround ?? remote.hasGround,
     createdAt: local.createdAt ?? remote.createdAt,
@@ -331,8 +348,10 @@ export async function fetchHomeItems(): Promise<HomeListItem[]> {
   }
 
   const serverItems = await fetchServerHomeItems();
+  const localBeforeWrite = readLocalItems();
   const merged = mergeServerWithLocal(serverItems);
-  writeLocalItems(merged);
+  const final = mergeHomeItemsWithLocalState(merged, localBeforeWrite);
+  writeLocalItems(final);
 
   // Push local-only panels in the background — do not block the home screen.
   const serverIds = new Set(serverItems.map((item) => item.id));
@@ -344,12 +363,14 @@ export async function fetchHomeItems(): Promise<HomeListItem[]> {
       .then(async (uploaded) => {
         if (uploaded <= 0) return;
         const fresh = await fetchServerHomeItems();
-        writeLocalItems(mergeServerWithLocal(fresh));
+        const localSnapshot = readLocalItems();
+        const mergedFresh = mergeServerWithLocal(fresh);
+        writeLocalItems(mergeHomeItemsWithLocalState(mergedFresh, localSnapshot));
       })
       .catch((error) => console.error(error));
   }
 
-  return merged;
+  return final;
 }
 
 /** Force-upload every local-only panel, then return the refreshed list. */
@@ -511,8 +532,16 @@ export async function persistPanelPatch(
     >
   >,
 ): Promise<void> {
+  const sanitized: typeof patch = { ...patch };
+  if (
+    sanitized.address !== undefined &&
+    (!sanitized.address.trim() || sanitized.address === "Добавлен по фото")
+  ) {
+    sanitized.address = undefined;
+  }
+
   const items = readLocalItems().map((item) =>
-    item.kind === "panel" && item.id === id ? { ...item, ...patch } : item,
+    item.kind === "panel" && item.id === id ? { ...item, ...sanitized } : item,
   );
   writeLocalItems(items);
 
@@ -525,7 +554,7 @@ export async function persistPanelPatch(
         "Content-Type": "application/json",
         ...authHeaders(),
       },
-      body: JSON.stringify(patch),
+      body: JSON.stringify(sanitized),
     });
 
     if (!res.ok) {
@@ -543,7 +572,7 @@ export async function persistPanelPatch(
               "Content-Type": "application/json",
               ...authHeaders(),
             },
-            body: JSON.stringify({ panel: panelForApi({ ...local, ...patch }) }),
+            body: JSON.stringify({ panel: panelForApi({ ...local, ...sanitized }) }),
           });
           if (createRes.ok || createRes.status === 503) return;
           throw new Error(await parseError(createRes));

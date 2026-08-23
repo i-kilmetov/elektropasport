@@ -843,7 +843,7 @@ export async function updatePanel(
     UPDATE panels SET
       title = COALESCE(${patch.title ?? null}, title),
       named = COALESCE(${patch.named ?? null}, named),
-      address = COALESCE(${patch.address ?? null}, address),
+      address = COALESCE(NULLIF(BTRIM(${patch.address ?? null}), ''), address),
       safety = CASE
         WHEN ${patch.safety !== undefined} THEN ${patch.safety ?? null}
         ELSE safety

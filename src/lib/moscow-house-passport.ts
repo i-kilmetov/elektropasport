@@ -97,7 +97,7 @@ function resolveAddressColumn(
 }
 
 /** Known dommos / MKD passport tables on apidata.mos.ru (probed before full catalog scan). */
-const KNOWN_PASSPORT_DATASET_IDS = [29171, 27707, 60562];
+const KNOWN_PASSPORT_DATASET_IDS = [60562, 29171, 27707];
 
 function hasDommosYearColumn(
   columns: Array<{ name: string; caption: string }>,
@@ -214,13 +214,31 @@ async function findPassportRow(
   };
 
   if (addressColumn) {
-    const apiTokens = pickMoscowApiSearchTokens(queryKey);
-    for (const token of apiTokens) {
-      const filtered = await fetchDatasetRows(datasetId, {
-        top: 80,
-        filter: buildMoscowCellsFilter(addressColumn, token),
-      });
-      collect(filtered);
+    const seenTokens = new Set<string>();
+    const apiTokens: string[] = [];
+    for (const token of [
+      ...pickMoscowApiSearchTokens(queryKey),
+      ...pickAddressSearchTokens(address, queryKey),
+    ]) {
+      const trimmed = token.trim();
+      if (trimmed.length < 2 || seenTokens.has(trimmed)) continue;
+      seenTokens.add(trimmed);
+      apiTokens.push(trimmed);
+    }
+
+    for (let i = 0; i < apiTokens.length; i += 3) {
+      const batch = apiTokens.slice(i, i + 3);
+      const batches = await Promise.all(
+        batch.map((token) =>
+          fetchDatasetRows(datasetId, {
+            top: 120,
+            filter: buildMoscowCellsFilter(addressColumn, token),
+          }),
+        ),
+      );
+      for (const filtered of batches) {
+        collect(filtered);
+      }
       const best = pickBestPassportRow(candidates, queryKey);
       if (best) return best;
     }

@@ -167,6 +167,8 @@ function panelRailCount(
 
 const SPLASH_SEEN_KEY = "ep:splash-seen";
 
+type SplashPhase = "pending" | "show" | "done";
+
 function readSplashSeen(): boolean {
   if (isTestAppClientHost()) return true;
   try {
@@ -190,9 +192,7 @@ export function AppShell() {
     isTestAppClientHost() ? "telegram-auth" : "telegram-auth",
   );
   const [onboardingReady, setOnboardingReady] = useState(false);
-  const [splashDone, setSplashDone] = useState(
-    () => isTestAppClientHost() || readSplashSeen(),
-  );
+  const [splashPhase, setSplashPhase] = useState<SplashPhase>("pending");
   const [showAuthIntro, setShowAuthIntro] = useState(
     () => !isTestAppClientHost(),
   );
@@ -275,12 +275,25 @@ export function AppShell() {
   useLayoutEffect(() => {
     if (isTestAppClientHost() || !consumePostAuthSkipSplash()) return;
     markSplashSeen();
-    setSplashDone(true);
+    setSplashPhase("done");
     setShowAuthIntro(false);
     setOnboardingReady(true);
     if (canUseServerAuth() && !readPendingPanelShare()) {
       setScreen("objects");
     }
+  }, []);
+
+  useLayoutEffect(() => {
+    if (isTestAppClientHost()) {
+      setSplashPhase("done");
+      return;
+    }
+    if (canUseServerAuth() || readSplashSeen()) {
+      markSplashSeen();
+      setSplashPhase("done");
+      return;
+    }
+    setSplashPhase("show");
   }, []);
 
   useLayoutEffect(() => {
@@ -801,14 +814,16 @@ export function AppShell() {
         })
           .then((insight) => {
             const enriched = houseInsightToPanelSnapshot(insight);
+            const savedAddress =
+              enriched.address?.trim() || payload.address.trim();
             const enrichedGround = groundingToHasGround(
               enriched.groundingExpectation,
             );
             const enrichPatch: Partial<
               Pick<PanelObject, "houseSnapshot" | "address" | "hasGround">
             > = {
-              houseSnapshot: enriched,
-              address: enriched.address,
+              houseSnapshot: { ...enriched, address: savedAddress },
+              address: savedAddress,
             };
             if (
               enrichedGround !== undefined &&
@@ -1533,7 +1548,7 @@ export function AppShell() {
     clearPendingPanelShare();
     setShowAuthIntro(false);
     markSplashSeen();
-    setSplashDone(true);
+    setSplashPhase("done");
     void openSharedPanel(token);
   }, [itemsLoading, onboardingReady, openSharedPanel]);
 
@@ -1557,13 +1572,19 @@ export function AppShell() {
     );
   }
 
-  if (!splashDone) {
+  if (splashPhase === "pending") {
+    return (
+      <div className="relative h-[var(--app-height,100dvh)] w-full overflow-hidden bg-[var(--bg)]" />
+    );
+  }
+
+  if (splashPhase === "show") {
     return (
       <BrandSplash
         bootReady={onboardingReady && !itemsLoading}
         onComplete={() => {
           markSplashSeen();
-          setSplashDone(true);
+          setSplashPhase("done");
         }}
       />
     );
@@ -1571,7 +1592,7 @@ export function AppShell() {
 
   if (!onboardingReady) {
     return (
-      <div className="relative h-[var(--app-height,100dvh)] w-full overflow-hidden bg-black text-white" />
+      <div className="relative h-[var(--app-height,100dvh)] w-full overflow-hidden bg-[var(--bg)]" />
     );
   }
 

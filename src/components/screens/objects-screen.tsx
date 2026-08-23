@@ -187,6 +187,18 @@ function HomeListCard({
     >
       <button
         type="button"
+        onClick={() => {
+          if (longPressedRef.current) {
+            longPressedRef.current = false;
+            return;
+          }
+          if (openedRef.current) return;
+          openedRef.current = true;
+          onOpen();
+          window.setTimeout(() => {
+            openedRef.current = false;
+          }, 350);
+        }}
         onPointerDown={(e) => {
           e.stopPropagation();
           if (e.button !== 0) return;

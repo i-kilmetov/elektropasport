@@ -501,9 +501,28 @@ export function BrandAuthIntro({
   const revealedPoints = Math.min(revealStep, AUTH_VALUE_POINTS.length);
   const showFooter = revealStep >= AUTH_VALUE_POINTS.length + 1;
 
+  useEffect(() => {
+    const html = document.documentElement;
+    const body = document.body;
+    const prevHtmlOverflow = html.style.overflow;
+    const prevBodyOverflow = body.style.overflow;
+    const prevHtmlOverscroll = html.style.overscrollBehavior;
+    const prevBodyOverscroll = body.style.overscrollBehavior;
+    html.style.overflow = "hidden";
+    body.style.overflow = "hidden";
+    html.style.overscrollBehavior = "none";
+    body.style.overscrollBehavior = "none";
+    return () => {
+      html.style.overflow = prevHtmlOverflow;
+      body.style.overflow = prevBodyOverflow;
+      html.style.overscrollBehavior = prevHtmlOverscroll;
+      body.style.overscrollBehavior = prevBodyOverscroll;
+    };
+  }, []);
+
   return (
     <div
-      className="fixed inset-0 z-[200] flex flex-col overflow-hidden px-5"
+      className="fixed inset-0 z-[200] flex flex-col overflow-hidden px-5 touch-none"
       style={{
         backgroundColor: BRAND_YELLOW,
         height: "var(--app-height, 100dvh)",
@@ -552,7 +571,7 @@ export function BrandAuthIntro({
 
       {layoutExpanded && (
         <>
-          <div className="flex min-h-0 flex-1 flex-col justify-center overflow-y-auto overscroll-contain py-[min(1rem,2vh)] [-webkit-overflow-scrolling:touch]">
+          <div className="flex min-h-0 flex-1 flex-col justify-center overflow-hidden py-[min(1rem,2vh)]">
             <AuthValuePoints revealedCount={revealedPoints} />
           </div>
 
