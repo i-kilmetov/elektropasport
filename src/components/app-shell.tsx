@@ -57,6 +57,7 @@ import {
 } from "@/components/ui/waitlist-sheet";
 import { PanelHouseAddressSheet } from "@/components/ui/panel-house-address-sheet";
 import { PdConsentGate } from "@/components/ui/pd-consent-gate";
+import { SchemeErrorBoundary } from "@/components/ui/scheme-error-boundary";
 import { fetchPdConsentStatus } from "@/lib/pd-consent-client";
 import { clearSchemeTourSeen } from "@/lib/scheme-onboarding";
 import {
@@ -101,7 +102,6 @@ import {
   fetchMasterRequestPanel,
   fetchPanelQuota,
   getCachedHomeItems,
-  mergeHomeItemsWithLocalState,
   persistDeleteInstallRequest,
   persistDeletePanel,
   persistInstallRequest,
@@ -513,7 +513,7 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
 
         if (cancelled) return;
 
-        setItems((prev) => mergeHomeItemsWithLocalState(loaded, prev));
+        setItems(loaded);
         if (masterProfile?.isMaster) setIsMaster(true);
         setIsAdmin(Boolean(admin));
         if (claimed) setQuota(claimed);
@@ -905,28 +905,48 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
 
   const openPanel = useCallback(
     (id: string) => {
-      const panel =
-        items.find(
-          (item): item is PanelObject =>
-            item.kind === "panel" && item.id === id,
-        ) ??
-        getCachedHomeItems().find(
-          (item): item is PanelObject =>
-            item.kind === "panel" && item.id === id,
+      try {
+        const panel =
+          items.find(
+            (item): item is PanelObject =>
+              item.kind === "panel" && item.id === id,
+          ) ??
+          getCachedHomeItems().find(
+            (item): item is PanelObject =>
+              item.kind === "panel" && item.id === id,
+          );
+        if (!panel) {
+          setItemsError("Не удалось открыть щиток — данные не найдены");
+          return;
+        }
+        const nextDevices = Array.isArray(panel.devices) ? panel.devices : [];
+        setItemsError(null);
+        setSharedPreview(null);
+        setSchemeTourPending(false);
+        setActivePanelId(panel.id);
+        setAskNameOnBack(false);
+        setPhotoDataUrl(
+          typeof panel.photoDataUrl === "string" ? panel.photoDataUrl : null,
         );
-      setSharedPreview(null);
-      setActivePanelId(id);
-      setAskNameOnBack(false);
-      setPhotoDataUrl(panel?.photoDataUrl ?? null);
-      setDevices(panel?.devices ?? null);
-      setSafetyScore(
-        panel?.phases && panel.powerKw?.trim() && typeof panel.safety === "number"
-          ? panel.safety
-          : null,
-      );
-      setLinesCount(panel?.linesCount ?? null);
-      setRailCount(panelRailCount(panel));
-      setScreen("scheme");
+        setDevices(nextDevices);
+        setSafetyScore(
+          panel.phases &&
+            panel.powerKw?.trim() &&
+            typeof panel.safety === "number"
+            ? panel.safety
+            : null,
+        );
+        setLinesCount(panel.linesCount ?? null);
+        setRailCount(panelRailCount({ ...panel, devices: nextDevices }));
+        setScreen("scheme");
+      } catch (error) {
+        console.error("openPanel failed", id, error);
+        setItemsError(
+          error instanceof Error
+            ? `Не удалось открыть щиток: ${error.message}`
+            : "Не удалось открыть щиток",
+        );
+      }
     },
     [items],
   );
@@ -1858,55 +1878,66 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
             />
           )}
           {screen === "scheme" && (
-            <SchemeScreen
-              key={
-                sharedPreview
-                  ? `share-${sharedPreview.token}`
-                  : (activePanelId ?? "scheme")
-              }
-              title={activePanel?.title ?? "Щиток"}
-              panelId={activePanelId}
-              photoDataUrl={activePanel?.photoDataUrl ?? photoDataUrl}
-              askNameOnBack={askNameOnBack}
-              sharedPreview={Boolean(sharedPreview)}
+            <SchemeErrorBoundary
+              key={`scheme-boundary-${activePanelId ?? sharedPreview?.token ?? "x"}`}
+              panelTitle={activePanel?.title}
               onBack={() => {
                 setSharedPreview(null);
                 go(masterViewRequest ? "request-details" : "objects");
               }}
-              onSaveShared={
-                sharedPreview && !sharedPreview.token
-                  ? undefined
-                  : saveSharedPanel
-              }
-              onShare={shareActivePanel}
-              onRename={renamePanel}
-              onDelete={deletePanel}
-              onAssignCircuit={assignCircuitLabel}
-              onAssignCircuits={assignCircuitLabels}
-              onUpdateDeviceSticker={updateDeviceSticker}
-              onUpdateDeviceCharacteristic={updateDeviceCharacteristic}
-              onUpdateDeviceIdentity={updateDeviceIdentity}
-              onUpdateWires={sharedPreview ? undefined : updatePanelWires}
-              onAssessSafety={assessPanelSafety}
-              onCallMaster={startCallMaster}
-              devices={devices ?? undefined}
-              wires={activePanel?.wires}
-              safetyScore={safetyScore}
-              phases={activePanel?.phases}
-              powerKw={activePanel?.powerKw}
-              hasGround={activePanel?.hasGround}
-              houseSnapshot={activePanel?.houseSnapshot}
-              onEditHouse={
-                sharedPreview ? undefined : () => setPanelHousePromptOpen(true)
-              }
-              railCount={railCount ?? undefined}
-              canUseTerminals={
-                Boolean(masterViewRequest) ||
-                ((isMaster || isAdmin) && masterMode)
-              }
-              startOnboarding={schemeTourPending && !sharedPreview}
-              onOnboardingDone={handleSchemeOnboardingDone}
-            />
+            >
+              <SchemeScreen
+                key={
+                  sharedPreview
+                    ? `share-${sharedPreview.token}`
+                    : (activePanelId ?? "scheme")
+                }
+                title={activePanel?.title ?? "Щиток"}
+                panelId={activePanelId}
+                photoDataUrl={activePanel?.photoDataUrl ?? photoDataUrl}
+                askNameOnBack={askNameOnBack}
+                sharedPreview={Boolean(sharedPreview)}
+                onBack={() => {
+                  setSharedPreview(null);
+                  go(masterViewRequest ? "request-details" : "objects");
+                }}
+                onSaveShared={
+                  sharedPreview && !sharedPreview.token
+                    ? undefined
+                    : saveSharedPanel
+                }
+                onShare={shareActivePanel}
+                onRename={renamePanel}
+                onDelete={deletePanel}
+                onAssignCircuit={assignCircuitLabel}
+                onAssignCircuits={assignCircuitLabels}
+                onUpdateDeviceSticker={updateDeviceSticker}
+                onUpdateDeviceCharacteristic={updateDeviceCharacteristic}
+                onUpdateDeviceIdentity={updateDeviceIdentity}
+                onUpdateWires={sharedPreview ? undefined : updatePanelWires}
+                onAssessSafety={assessPanelSafety}
+                onCallMaster={startCallMaster}
+                devices={devices ?? undefined}
+                wires={activePanel?.wires}
+                safetyScore={safetyScore}
+                phases={activePanel?.phases}
+                powerKw={activePanel?.powerKw}
+                hasGround={activePanel?.hasGround}
+                houseSnapshot={activePanel?.houseSnapshot}
+                onEditHouse={
+                  sharedPreview
+                    ? undefined
+                    : () => setPanelHousePromptOpen(true)
+                }
+                railCount={railCount ?? undefined}
+                canUseTerminals={
+                  Boolean(masterViewRequest) ||
+                  ((isMaster || isAdmin) && masterMode)
+                }
+                startOnboarding={schemeTourPending && !sharedPreview}
+                onOnboardingDone={handleSchemeOnboardingDone}
+              />
+            </SchemeErrorBoundary>
           )}
           {screen === "no-panel-options" && (
             <NoPanelOptionsScreen

@@ -1675,8 +1675,8 @@ export function SchemeScreen({
   startOnboarding?: boolean;
   onOnboardingDone?: () => void;
 }) {
-  const devices = devicesProp ?? [];
-  const wires = wiresProp ?? [];
+  const devices = Array.isArray(devicesProp) ? devicesProp : [];
+  const wires = Array.isArray(wiresProp) ? wiresProp : [];
   const networkParamsFilled = Boolean(phases && powerKw?.trim());
 
   const [identifyContext, setIdentifyContext] = useState<IdentifyContext | null>(

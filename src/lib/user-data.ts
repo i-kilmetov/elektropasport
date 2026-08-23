@@ -474,6 +474,34 @@ function mergePanelHouseFields(
   };
 }
 
+function panelDataScore(panel: PanelObject): number {
+  const devices = Array.isArray(panel.devices) ? panel.devices.length : 0;
+  return (
+    devices * 10 +
+    (panel.photoDataUrl ? 5 : 0) +
+    (panel.houseSnapshot ? 3 : 0) +
+    (panel.wires?.length ?? 0)
+  );
+}
+
+function dedupeHomeItems(items: HomeListItem[]): HomeListItem[] {
+  const byId = new Map<string, HomeListItem>();
+  for (const item of items) {
+    const existing = byId.get(item.id);
+    if (!existing) {
+      byId.set(item.id, item);
+      continue;
+    }
+    if (existing.kind === "panel" && item.kind === "panel") {
+      byId.set(
+        item.id,
+        panelDataScore(item) >= panelDataScore(existing) ? item : existing,
+      );
+    }
+  }
+  return sortHomeItemsByRecency([...byId.values()]);
+}
+
 /** Keep in-memory house/address edits when a stale fetch completes. */
 export function mergeHomeItemsWithLocalState(
   fetched: HomeListItem[],
@@ -493,7 +521,7 @@ export function mergeHomeItemsWithLocalState(
     if (!fetchedIds.has(item.id)) merged.push(item);
   }
 
-  return sortHomeItemsByRecency(merged);
+  return dedupeHomeItems(merged);
 }
 
 function mergeServerWithLocal(serverItems: HomeListItem[]): HomeListItem[] {
@@ -537,7 +565,7 @@ function mergeServerWithLocal(serverItems: HomeListItem[]): HomeListItem[] {
 
   // Never drop local-only panels if the server does not have them yet.
   const orphans = localItems.filter((item) => !serverIds.has(item.id));
-  return sortHomeItemsByRecency([...mergedServer, ...orphans]);
+  return dedupeHomeItems([...mergedServer, ...orphans]);
 }
 
 export async function fetchHomeItems(): Promise<HomeListItem[]> {

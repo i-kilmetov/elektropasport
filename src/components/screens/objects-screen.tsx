@@ -53,72 +53,78 @@ function HomeListCard({
   onContextMenu: () => void;
 }) {
   const isRequest = item.kind === "install_request";
+  const panel = !isRequest && item.kind === "panel" ? item : null;
 
   return (
-    <GlassCard className="relative flex items-center gap-2 rounded-[24px] border p-4 transition-colors hover:bg-zinc-50 lg:gap-4 lg:p-5">
+    <div className="relative">
       <button
         type="button"
         onClick={onOpen}
-        className="flex min-w-0 flex-1 items-center gap-4 text-left touch-manipulation select-none lg:cursor-pointer"
+        className="block w-full touch-manipulation text-left select-none lg:cursor-pointer"
       >
-        <div
-          className={cn(
-            "flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[18px] bg-zinc-100",
-            isRequest ? "text-zinc-500" : "text-zinc-600",
-          )}
-        >
-          {isRequest ? (
-            <ClipboardList className="h-6 w-6" />
-          ) : (
-            <BreakerIcon className="h-7 w-7" />
-          )}
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="mb-0.5 flex items-center justify-between gap-2">
-            <h2 className="truncate text-[17px] font-semibold text-zinc-900">
-              {isRequest && item.publicCode ? item.publicCode : item.title}
-            </h2>
+        <GlassCard className="flex items-center gap-4 rounded-[24px] border p-4 pr-14 transition-colors hover:bg-zinc-50 lg:p-5 lg:pr-14">
+          <div
+            className={cn(
+              "flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[18px] bg-zinc-100",
+              isRequest ? "text-zinc-500" : "text-zinc-600",
+            )}
+          >
             {isRequest ? (
-              <span
-                className={cn(
-                  "shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium",
-                  installStatusTone(item.status).badge,
-                )}
-              >
-                {item.statusLabel}
-              </span>
+              <ClipboardList className="h-6 w-6" />
             ) : (
-              <span className="shrink-0 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
-                {item.phases &&
-                item.powerKw?.trim() &&
-                typeof item.safety === "number"
-                  ? `${item.safety}%`
-                  : "—"}
-              </span>
+              <BreakerIcon className="h-7 w-7" />
             )}
           </div>
-          <p className="truncate text-[13px] text-zinc-500">
-            {isRequest ? item.subtitle : item.address}
-          </p>
-          <p className="mt-1 text-[12px] text-zinc-400">
-            {isRequest
-              ? item.createdAt
-              : `${(item as PanelObject).breakers} устройств · добавлен ${formatPanelAddedLabel(item as PanelObject)}`}
-          </p>
-        </div>
+          <div className="min-w-0 flex-1">
+            <div className="mb-0.5 flex items-center justify-between gap-2">
+              <h2 className="truncate text-[17px] font-semibold text-zinc-900">
+                {isRequest && item.publicCode ? item.publicCode : item.title}
+              </h2>
+              {isRequest ? (
+                <span
+                  className={cn(
+                    "shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium",
+                    installStatusTone(item.status).badge,
+                  )}
+                >
+                  {item.statusLabel}
+                </span>
+              ) : (
+                <span className="shrink-0 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
+                  {panel?.phases &&
+                  panel.powerKw?.trim() &&
+                  typeof panel.safety === "number"
+                    ? `${panel.safety}%`
+                    : "—"}
+                </span>
+              )}
+            </div>
+            <p className="truncate text-[13px] text-zinc-500">
+              {isRequest ? item.subtitle : item.address}
+            </p>
+            <p className="mt-1 text-[12px] text-zinc-400">
+              {isRequest
+                ? item.createdAt
+                : panel
+                  ? `${panel.breakers} устройств · добавлен ${formatPanelAddedLabel(panel)}`
+                  : ""}
+            </p>
+          </div>
+        </GlassCard>
       </button>
       <button
         type="button"
         aria-label="Действия с карточкой"
         onClick={(event) => {
+          event.preventDefault();
           event.stopPropagation();
           onContextMenu();
         }}
-        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700"
+        className="absolute top-1/2 right-3 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700"
       >
         <MoreHorizontal className="h-5 w-5" />
       </button>
-    </GlassCard>
+    </div>
   );
 }
 
@@ -409,10 +415,17 @@ export function ObjectsScreen({
   const tab0Ref = useRef<HTMLButtonElement>(null);
   const tab1Ref = useRef<HTMLButtonElement>(null);
 
-  const panels = useMemo(
-    () => items.filter((item): item is PanelObject => item.kind === "panel"),
-    [items],
-  );
+  const panels = useMemo(() => {
+    const seen = new Set<string>();
+    const result: PanelObject[] = [];
+    for (const item of items) {
+      if (item.kind !== "panel") continue;
+      if (seen.has(item.id)) continue;
+      seen.add(item.id);
+      result.push(item);
+    }
+    return result;
+  }, [items]);
   const requests = useMemo(
     () =>
       items.filter(
@@ -470,13 +483,8 @@ export function ObjectsScreen({
     }
     return (
       <div className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:gap-4 xl:grid-cols-3">
-        {list.map((obj, i) => (
-          <motion.div
-            key={obj.id}
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.04 * i }}
-          >
+        {list.map((obj) => (
+          <div key={obj.id}>
             {!homeAppliancesMode ? (
               <HomeListCard
                 item={obj}
@@ -507,7 +515,7 @@ export function ObjectsScreen({
                 onContextMenu={() => setActionsItemId(obj.id)}
               />
             )}
-          </motion.div>
+          </div>
         ))}
       </div>
     );
@@ -680,20 +688,7 @@ export function ObjectsScreen({
         </p>
       )}
 
-      <div className="hidden min-h-0 flex-1 overflow-y-auto px-10 pb-10 lg:flex lg:flex-col">
-        {page === 0
-          ? renderList(panels, {
-              icon: <BreakerIcon className="h-10 w-10" />,
-              text: panelEmptyText,
-              framed: true,
-            })
-          : renderList(requests, {
-              icon: <ClipboardList className="h-10 w-10" />,
-              text: "Здесь появятся заявки на помощь с электрикой.",
-            })}
-      </div>
-
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-2 lg:hidden">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-2 lg:px-10 lg:pb-10">
         {page === 0
           ? renderList(panels, {
               icon: <BreakerIcon className="h-10 w-10" />,
