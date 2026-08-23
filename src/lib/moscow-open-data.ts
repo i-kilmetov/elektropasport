@@ -34,6 +34,25 @@ export type MosFetchResult<T> = {
   error?: string;
 };
 
+function describeMoscowNetworkError(error: unknown): string {
+  if (!(error instanceof Error)) return "network_error";
+
+  const parts = [error.message];
+  if (error.cause instanceof Error) parts.push(error.cause.message);
+  const combined = parts.join(" ").toLowerCase();
+
+  if (
+    combined.includes("econnreset") ||
+    combined.includes("socket disconnected") ||
+    combined.includes("before secure tls") ||
+    combined.includes("fetch failed")
+  ) {
+    return "geo_blocked_or_unreachable";
+  }
+
+  return error.message;
+}
+
 async function mosFetchRaw(
   path: string,
   searchParams?: Record<string, string | number | undefined>,
@@ -77,7 +96,7 @@ async function mosFetchRaw(
     return {
       data: null,
       status: 0,
-      error: error instanceof Error ? error.message : "network_error",
+      error: describeMoscowNetworkError(error),
     };
   }
 }
@@ -199,11 +218,32 @@ export async function probeMoscowOpenDataApi(): Promise<{
   ok: boolean;
   status: number;
   error?: string;
+  proxyConfigured: boolean;
 }> {
   const result = await mosFetchRaw("/datasets", { $top: 1, foreign: "false" });
   return {
     ok: result.status === 200 && Array.isArray(result.data),
     status: result.status,
     error: result.error,
+    proxyConfigured: Boolean(process.env.MOS_DATA_HTTPS_PROXY?.trim()),
   };
+}
+
+export function moscowApiHint(apiProbe?: {
+  ok: boolean;
+  error?: string;
+  proxyConfigured?: boolean;
+}): string {
+  if (!isMoscowOpenDataConfigured()) {
+    return "MOS_DATA_API_KEY не задан на сервере (Vercel → Environment Variables).";
+  }
+  if (apiProbe?.ok) {
+    return "Ключ принят API data.mos.ru.";
+  }
+  if (apiProbe?.error === "geo_blocked_or_unreachable") {
+    return apiProbe.proxyConfigured
+      ? "Прокси задан, но apidata.mos.ru всё ещё недоступен — проверьте MOS_DATA_HTTPS_PROXY."
+      : "Ключ задан, но apidata.mos.ru недоступен с сервера Vercel (часто блокирует зарубежные IP). Добавьте MOS_DATA_HTTPS_PROXY с HTTPS-прокси в РФ или перенесите lookup на российский хостинг.";
+  }
+  return "Ключ задан, но API не отвечает — проверьте MOS_DATA_API_KEY и redeploy.";
 }

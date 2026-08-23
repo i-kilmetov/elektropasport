@@ -1,6 +1,7 @@
 import { authErrorResponse, requireTelegramUser } from "@/lib/telegram-auth";
 import {
   isMoscowOpenDataConfigured,
+  moscowApiHint,
   probeMoscowOpenDataApi,
 } from "@/lib/moscow-open-data";
 import { lookupMoscowHousePassportWithDebug } from "@/lib/moscow-house-passport";
@@ -48,11 +49,7 @@ export async function GET(request: Request) {
             operationYear: samplePassport.operationYear,
           }
         : null,
-      hint: configured
-        ? apiProbe?.ok
-          ? "Ключ принят API data.mos.ru."
-          : "Ключ задан, но API не отвечает — проверьте значение MOS_DATA_API_KEY и redeploy."
-        : "MOS_DATA_API_KEY не задан на сервере (Vercel → Environment Variables).",
+      hint: moscowApiHint(apiProbe),
     });
   } catch (error) {
     return authErrorResponse(error);

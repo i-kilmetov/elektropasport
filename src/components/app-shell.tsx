@@ -116,7 +116,7 @@ import {
   groundingToHasGround,
   houseInsightToPanelSnapshot,
 } from "@/lib/house-insight";
-import { buildPanelHouseSnapshot } from "@/lib/house-insight-lookup";
+import { buildPanelHouseSnapshot } from "@/lib/house-insight-local";
 import { syncRatingFromCharacteristics } from "@/lib/device-spec-guide";
 import { deriveRailCount } from "@/lib/panel-rails";
 import { isAtPanelLimit, isInviteToken, type PanelQuota } from "@/lib/invites";
@@ -797,15 +797,6 @@ export function AppShell() {
         patch.hasGround = groundPrefill;
       }
 
-      const nextPanel: PanelObject | null = panel
-        ? {
-            ...panel,
-            ...patch,
-            address: snapshot.address,
-            houseSnapshot: snapshot,
-          }
-        : null;
-
       setItems((prev) =>
         prev.map((item) =>
           item.kind === "panel" && item.id === activePanelId
@@ -816,11 +807,7 @@ export function AppShell() {
 
       try {
         await persistPanelPatch(activePanelId, patch);
-        if (nextPanel) {
-          await persistPanel(nextPanel);
-        }
         setPanelHouseSaved(true);
-        setPanelHouseSaving(false);
         window.setTimeout(() => {
           setPanelHousePromptOpen(false);
           setPanelHouseSaved(false);
@@ -833,8 +820,9 @@ export function AppShell() {
             : "Не удалось сохранить данные о доме";
         setPanelHouseSaveError(message);
         setItemsError(message);
-        setPanelHouseSaving(false);
         return;
+      } finally {
+        setPanelHouseSaving(false);
       }
 
       if (isMoscow(payload.city)) {

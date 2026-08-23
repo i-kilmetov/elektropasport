@@ -24,6 +24,30 @@ const LOCAL_KEY = "elektropasport:home-items";
 /** In-flight ops per panel id so rename/delete wait for create. */
 const panelOps = new Map<string, Promise<unknown>>();
 
+const PANEL_FETCH_TIMEOUT_MS = 45_000;
+
+async function fetchWithTimeout(
+  input: RequestInfo | URL,
+  init?: RequestInit,
+  timeoutMs = PANEL_FETCH_TIMEOUT_MS,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(input, {
+      ...init,
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error("Превышено время ожидания сервера");
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
+}
+
 function canUseServer(): boolean {
   return canUseServerAuth();
 }
@@ -618,7 +642,7 @@ export async function persistPanel(panel: PanelObject): Promise<void> {
 
     if (!canUseServer()) return;
 
-    const res = await fetch("/api/panels", {
+    const res = await fetchWithTimeout("/api/panels", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -695,7 +719,7 @@ export async function persistPanelPatch(
   return enqueuePanelOp(id, async () => {
     if (!canUseServer()) return;
 
-    const res = await fetch(`/api/panels/${encodeURIComponent(id)}`, {
+    const res = await fetchWithTimeout(`/api/panels/${encodeURIComponent(id)}`, {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
@@ -712,7 +736,7 @@ export async function persistPanelPatch(
             item.kind === "panel" && item.id === id,
         );
         if (local) {
-          const createRes = await fetch("/api/panels", {
+          const createRes = await fetchWithTimeout("/api/panels", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -735,7 +759,7 @@ export async function persistDeletePanel(id: string): Promise<void> {
 
     if (!canUseServer()) return;
 
-    const res = await fetch(`/api/panels/${encodeURIComponent(id)}`, {
+    const res = await fetchWithTimeout(`/api/panels/${encodeURIComponent(id)}`, {
       method: "DELETE",
       headers: authHeaders(),
     });
