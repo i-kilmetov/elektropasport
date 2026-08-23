@@ -47,9 +47,24 @@ export function getCachedHomeItems(): HomeListItem[] {
 
 function writeLocalItems(items: HomeListItem[]): void {
   try {
-    localStorage.setItem(LOCAL_KEY, JSON.stringify(sortHomeItemsByRecency(items)));
-  } catch {
-    // Quota / private mode — ignore
+    // Photos as data URLs blow past localStorage quotas and silently drop saves.
+    const slim = items.map((item) => {
+      if (item.kind !== "panel") return item;
+      return {
+        ...item,
+        photoDataUrl: undefined,
+        appliances: item.appliances?.map((appliance) => ({
+          ...appliance,
+          photoDataUrl: undefined,
+        })),
+      };
+    });
+    localStorage.setItem(
+      LOCAL_KEY,
+      JSON.stringify(sortHomeItemsByRecency(slim)),
+    );
+  } catch (error) {
+    console.error("Failed to write home items cache", error);
   }
 }
 
@@ -690,7 +705,6 @@ export async function persistPanelPatch(
     });
 
     if (!res.ok) {
-      if (res.status === 503) return;
       // Create may have failed earlier — try full upsert from local copy
       if (res.status === 404) {
         const local = items.find(
@@ -706,7 +720,7 @@ export async function persistPanelPatch(
             },
             body: JSON.stringify({ panel: panelForApi(local) }),
           });
-          if (createRes.ok || createRes.status === 503) return;
+          if (createRes.ok) return;
           throw new Error(await parseError(createRes));
         }
       }

@@ -57,123 +57,119 @@ const PAGE_SPRING = { type: "spring" as const, stiffness: 380, damping: 38 };
 function HomeListCard({
   item,
   lifted,
-  pressing,
   onOpen,
   onContextMenu,
-  onPressingChange,
 }: {
   item: HomeListItem;
   lifted: boolean;
-  pressing: boolean;
   onOpen: () => void;
   onContextMenu: () => void;
-  onPressingChange: (pressing: boolean) => void;
 }) {
   const isRequest = item.kind === "install_request";
   const longPressedRef = useRef(false);
   const longPressTimerRef = useRef<number | null>(null);
+  const startPointRef = useRef<{ x: number; y: number } | null>(null);
 
-  const clearLongPress = () => {
+  const clearLongPressTimer = () => {
     if (longPressTimerRef.current != null) {
       window.clearTimeout(longPressTimerRef.current);
       longPressTimerRef.current = null;
     }
-    onPressingChange(false);
+    startPointRef.current = null;
   };
 
-  const active = pressing || lifted;
-
   return (
-    <div
-      className={cn(
-        "origin-center transition-transform duration-150",
-        active && "relative z-20 scale-[1.03] -translate-y-0.5",
-      )}
-      style={{
-        filter: active
-          ? "drop-shadow(0 14px 28px rgba(17,17,19,0.18))"
-          : "drop-shadow(0 0 0 rgba(0,0,0,0))",
-      }}
-    >
-      <button
-        type="button"
-        onClick={() => {
-          if (longPressedRef.current) {
-            longPressedRef.current = false;
-            return;
-          }
-          onOpen();
-        }}
-        onPointerDown={(e) => {
-          e.stopPropagation();
-          if (e.button !== 0) return;
+    <button
+      type="button"
+      onClick={() => {
+        if (longPressedRef.current) {
           longPressedRef.current = false;
-          onPressingChange(true);
-          longPressTimerRef.current = window.setTimeout(() => {
-            longPressedRef.current = true;
-            hapticContextMenu();
-            onContextMenu();
-            onPressingChange(true);
-          }, LONG_PRESS_MS);
-        }}
-        onPointerUp={clearLongPress}
-        onPointerLeave={clearLongPress}
-        onPointerCancel={clearLongPress}
-        onContextMenu={(e) => {
-          e.preventDefault();
+          return;
+        }
+        onOpen();
+      }}
+      onPointerDown={(e) => {
+        if (e.button !== 0) return;
+        longPressedRef.current = false;
+        startPointRef.current = { x: e.clientX, y: e.clientY };
+        clearLongPressTimer();
+        longPressTimerRef.current = window.setTimeout(() => {
+          longPressedRef.current = true;
+          hapticContextMenu();
           onContextMenu();
-        }}
-        className="w-full touch-manipulation text-left select-none lg:cursor-pointer"
-      >
-        <GlassCard className="flex items-center gap-4 rounded-[24px] border p-4 transition-colors hover:bg-zinc-50 lg:p-5">
-          <div
-            className={cn(
-              "flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[18px] bg-zinc-100",
-              isRequest ? "text-zinc-500" : "text-zinc-600",
-            )}
-          >
+        }, LONG_PRESS_MS);
+      }}
+      onPointerMove={(e) => {
+        const start = startPointRef.current;
+        if (!start) return;
+        if (
+          Math.abs(e.clientX - start.x) > MOVE_CANCEL_PX ||
+          Math.abs(e.clientY - start.y) > MOVE_CANCEL_PX
+        ) {
+          clearLongPressTimer();
+        }
+      }}
+      onPointerUp={clearLongPressTimer}
+      onPointerCancel={clearLongPressTimer}
+      onPointerLeave={clearLongPressTimer}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        clearLongPressTimer();
+        onContextMenu();
+      }}
+      className={cn(
+        "w-full touch-manipulation text-left select-none lg:cursor-pointer",
+        lifted && "relative z-20 opacity-90",
+      )}
+    >
+      <GlassCard className="flex items-center gap-4 rounded-[24px] border p-4 transition-colors hover:bg-zinc-50 lg:p-5">
+        <div
+          className={cn(
+            "flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[18px] bg-zinc-100",
+            isRequest ? "text-zinc-500" : "text-zinc-600",
+          )}
+        >
+          {isRequest ? (
+            <ClipboardList className="h-6 w-6" />
+          ) : (
+            <BreakerIcon className="h-7 w-7" />
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="mb-0.5 flex items-center justify-between gap-2">
+            <h2 className="truncate text-[17px] font-semibold text-zinc-900">
+              {isRequest && item.publicCode ? item.publicCode : item.title}
+            </h2>
             {isRequest ? (
-              <ClipboardList className="h-6 w-6" />
+              <span
+                className={cn(
+                  "shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium",
+                  installStatusTone(item.status).badge,
+                )}
+              >
+                {item.statusLabel}
+              </span>
             ) : (
-              <BreakerIcon className="h-7 w-7" />
+              <span className="shrink-0 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
+                {item.phases &&
+                item.powerKw?.trim() &&
+                typeof item.safety === "number"
+                  ? `${item.safety}%`
+                  : "—"}
+              </span>
             )}
           </div>
-          <div className="min-w-0 flex-1">
-            <div className="mb-0.5 flex items-center justify-between gap-2">
-              <h2 className="truncate text-[17px] font-semibold text-zinc-900">
-                {isRequest && item.publicCode ? item.publicCode : item.title}
-              </h2>
-              {isRequest ? (
-                <span
-                  className={cn(
-                    "shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium",
-                    installStatusTone(item.status).badge,
-                  )}
-                >
-                  {item.statusLabel}
-                </span>
-              ) : (
-                <span className="shrink-0 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
-                  {item.phases &&
-                  item.powerKw?.trim() &&
-                  typeof item.safety === "number"
-                    ? `${item.safety}%`
-                    : "—"}
-                </span>
-              )}
-            </div>
-            <p className="truncate text-[13px] text-zinc-500">
-              {isRequest ? item.subtitle : item.address}
-            </p>
-            <p className="mt-1 text-[12px] text-zinc-400">
-              {isRequest
-                ? item.createdAt
-                : `${item.breakers} устройств · добавлен ${formatPanelAddedLabel(item as PanelObject)}`}
-            </p>
-          </div>
-        </GlassCard>
-      </button>
-    </div>
+          <p className="truncate text-[13px] text-zinc-500">
+            {isRequest ? item.subtitle : item.address}
+          </p>
+          <p className="mt-1 text-[12px] text-zinc-400">
+            {isRequest
+              ? item.createdAt
+              : `${item.breakers} устройств · добавлен ${formatPanelAddedLabel(item as PanelObject)}`}
+          </p>
+        </div>
+      </GlassCard>
+    </button>
   );
 }
 
@@ -753,7 +749,6 @@ export function ObjectsScreen({
             {!homeAppliancesMode ? (
               <HomeListCard
                 item={obj}
-                pressing={pressingId === obj.id}
                 lifted={actionsItemId === obj.id}
                 onOpen={() =>
                   obj.kind === "install_request"
@@ -761,9 +756,6 @@ export function ObjectsScreen({
                     : onOpenPanel(obj.id)
                 }
                 onContextMenu={() => setActionsItemId(obj.id)}
-                onPressingChange={(next) =>
-                  setPressingId(next ? obj.id : null)
-                }
               />
             ) : obj.kind === "install_request" ? (
               <RequestListCard

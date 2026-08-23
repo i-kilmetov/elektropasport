@@ -845,6 +845,7 @@ export async function updatePanel(
     patch.houseSnapshot !== undefined
       ? JSON.stringify(patch.houseSnapshot)
       : null;
+  const shouldUpdateSnapshot = patch.houseSnapshot !== undefined;
   const rows = (await sql`
     UPDATE panels SET
       title = COALESCE(${patch.title ?? null}, title),
@@ -863,7 +864,10 @@ export async function updatePanel(
       phases = COALESCE(${patch.phases ?? null}, phases),
       power_kw = COALESCE(${patch.powerKw ?? null}, power_kw),
       has_ground = COALESCE(${patch.hasGround ?? null}, has_ground),
-      house_snapshot = COALESCE(${houseSnapshotJson}::jsonb, house_snapshot),
+      house_snapshot = CASE
+        WHEN ${shouldUpdateSnapshot} THEN ${houseSnapshotJson}::jsonb
+        ELSE house_snapshot
+      END,
       updated_at = NOW()
     WHERE id = ${id} AND telegram_user_id = ${telegramUserId}
     RETURNING

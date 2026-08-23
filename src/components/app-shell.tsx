@@ -218,6 +218,10 @@ export function AppShell() {
   const [schemeTourPending, setSchemeTourPending] = useState(false);
   const [panelHousePromptOpen, setPanelHousePromptOpen] = useState(false);
   const [panelHouseSaving, setPanelHouseSaving] = useState(false);
+  const [panelHouseSaved, setPanelHouseSaved] = useState(false);
+  const [panelHouseSaveError, setPanelHouseSaveError] = useState<string | null>(
+    null,
+  );
   const [pdConsentReady, setPdConsentReady] = useState(false);
   const [pdConsentChecked, setPdConsentChecked] = useState(false);
   const [sharedPreview, setSharedPreview] = useState<{
@@ -764,7 +768,7 @@ export function AppShell() {
   }, [activePanelId, items, sharedPreview]);
 
   const savePanelHouseInsight = useCallback(
-    (payload: {
+    async (payload: {
       city: string;
       address: string;
       fiasId?: string;
@@ -774,6 +778,8 @@ export function AppShell() {
     }) => {
       if (!activePanelId) return;
       setPanelHouseSaving(true);
+      setPanelHouseSaveError(null);
+      setPanelHouseSaved(false);
 
       const snapshot = buildPanelHouseSnapshot(payload);
       const groundPrefill = groundingToHasGround(snapshot.groundingExpectation);
@@ -791,6 +797,15 @@ export function AppShell() {
         patch.hasGround = groundPrefill;
       }
 
+      const nextPanel: PanelObject | null = panel
+        ? {
+            ...panel,
+            ...patch,
+            address: snapshot.address,
+            houseSnapshot: snapshot,
+          }
+        : null;
+
       setItems((prev) =>
         prev.map((item) =>
           item.kind === "panel" && item.id === activePanelId
@@ -798,17 +813,29 @@ export function AppShell() {
             : item,
         ),
       );
-      setPanelHousePromptOpen(false);
-      setPanelHouseSaving(false);
 
-      void persistPanelPatch(activePanelId, patch).catch((error) => {
+      try {
+        await persistPanelPatch(activePanelId, patch);
+        if (nextPanel) {
+          await persistPanel(nextPanel);
+        }
+        setPanelHouseSaved(true);
+        setPanelHouseSaving(false);
+        window.setTimeout(() => {
+          setPanelHousePromptOpen(false);
+          setPanelHouseSaved(false);
+        }, 1600);
+      } catch (error) {
         console.error(error);
-        setItemsError(
+        const message =
           error instanceof Error
             ? error.message
-            : "Не удалось сохранить данные о доме",
-        );
-      });
+            : "Не удалось сохранить данные о доме";
+        setPanelHouseSaveError(message);
+        setItemsError(message);
+        setPanelHouseSaving(false);
+        return;
+      }
 
       if (isMoscow(payload.city)) {
         void lookupHouseInsight({
@@ -819,7 +846,7 @@ export function AppShell() {
           house: payload.house ?? null,
           block: payload.block ?? null,
         })
-          .then((insight) => {
+          .then(async (insight) => {
             const enriched = houseInsightToPanelSnapshot(insight);
             const savedAddress =
               enriched.address?.trim() || payload.address.trim();
@@ -845,9 +872,11 @@ export function AppShell() {
                   : item,
               ),
             );
-            void persistPanelPatch(activePanelId, enrichPatch).catch(
-              (error) => console.error(error),
-            );
+            try {
+              await persistPanelPatch(activePanelId, enrichPatch);
+            } catch (error) {
+              console.error(error);
+            }
           })
           .catch((error) => console.error(error));
       }
@@ -2217,10 +2246,15 @@ export function AppShell() {
             <PanelHouseAddressSheet
               open={panelHousePromptOpen}
               saving={panelHouseSaving}
-              onClose={() => setPanelHousePromptOpen(false)}
-              onConfirm={(payload) => {
-                void savePanelHouseInsight(payload);
+              saved={panelHouseSaved}
+              error={panelHouseSaveError}
+              onClose={() => {
+                if (panelHouseSaving) return;
+                setPanelHousePromptOpen(false);
+                setPanelHouseSaved(false);
+                setPanelHouseSaveError(null);
               }}
+              onConfirm={(payload) => savePanelHouseInsight(payload)}
             />
           )}
         </AnimatePresence>
