@@ -34,6 +34,7 @@ async function suggestFromDaData(query: string, city: string) {
       from_bound: { value: "street" },
       to_bound: { value: "flat" },
     }),
+    signal: AbortSignal.timeout(10_000),
   });
 
   if (!res.ok) {
@@ -75,7 +76,7 @@ export async function POST(request: Request) {
       return Response.json({ error: "Укажите город" }, { status: 400 });
     }
 
-    return suggestFromDaData(query, city);
+    return await suggestFromDaData(query, city);
   } catch (error) {
     return authErrorResponse(error);
   }

@@ -9,7 +9,7 @@ import {
   hasHouse,
   type AddressSuggestion,
 } from "@/lib/dadata";
-import { suggestAddresses } from "@/lib/user-data";
+import { suggestAddresses } from "@/lib/address-suggest-client";
 import { cn } from "@/lib/utils";
 
 export function AddressSuggestField({
@@ -47,6 +47,7 @@ export function AddressSuggestField({
   useEffect(() => {
     if (pickingRef.current) {
       pickingRef.current = false;
+      setLoading(false);
       return;
     }
     const query = value.trim();

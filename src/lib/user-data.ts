@@ -1253,3 +1253,19 @@ export async function persistFeedback(payload: {
     }
   }
 }
+
+export async function persistResearchSurvey(
+  answers: Record<string, string | string[]>,
+): Promise<void> {
+  const res = await fetch("/api/research-survey", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders(),
+    },
+    body: JSON.stringify({ answers }),
+  });
+  if (!res.ok) {
+    throw new Error(await parseError(res));
+  }
+}

@@ -6,7 +6,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type MutableRefObject,
   type ReactNode,
 } from "react";
 import {
@@ -15,6 +14,7 @@ import {
   motion,
   useMotionValue,
   useTransform,
+  type PanInfo,
 } from "framer-motion";
 import { ChevronDown, ClipboardList, Menu, Plus, Wrench, Zap } from "lucide-react";
 import { BreakerIcon } from "@/components/icons/breaker-icon";
@@ -42,141 +42,176 @@ import type {
 } from "@/types";
 import { installStatusTone } from "@/types";
 import { isAtPanelLimit, type PanelQuota } from "@/lib/invites";
-import {
-  formatPanelActivityLabel,
-  formatPanelAddedLabel,
-  panelSortTime,
-} from "@/lib/panel-list-meta";
 
 /** Hold duration before context menu — close to iOS Haptic Touch. */
 const LONG_PRESS_MS = 480;
 const LIFT_DELAY_MS = 90;
 const MOVE_CANCEL_PX = 10;
 const PAGE_SPRING = { type: "spring" as const, stiffness: 380, damping: 38 };
+/** Ignore taps and tiny jitter; only a real horizontal swipe changes tabs. */
+const SWIPE_DISTANCE = 80;
+const SWIPE_VELOCITY = 700;
+const SWIPE_MIN_OFFSET = 28;
 
 function HomeListCard({
   item,
   lifted,
+  pressing,
   onOpen,
   onContextMenu,
+  onPressingChange,
 }: {
   item: HomeListItem;
   lifted: boolean;
+  pressing: boolean;
   onOpen: () => void;
   onContextMenu: () => void;
+  onPressingChange: (pressing: boolean) => void;
 }) {
   const isRequest = item.kind === "install_request";
-  const longPressRef = useRef(false);
+  const longPressedRef = useRef(false);
   const timerRef = useRef<number | null>(null);
+  const liftTimerRef = useRef<number | null>(null);
+  const startPointRef = useRef<{ x: number; y: number } | null>(null);
 
-  const clearTimer = () => {
+  const clearTimers = () => {
     if (timerRef.current != null) {
       window.clearTimeout(timerRef.current);
       timerRef.current = null;
     }
+    if (liftTimerRef.current != null) {
+      window.clearTimeout(liftTimerRef.current);
+      liftTimerRef.current = null;
+    }
   };
 
-  const scheduleLongPress = () => {
-    longPressRef.current = false;
-    clearTimer();
+  const endPress = () => {
+    clearTimers();
+    startPointRef.current = null;
+    onPressingChange(false);
+  };
+
+  const startPress = (clientX: number, clientY: number) => {
+    longPressedRef.current = false;
+    clearTimers();
+    startPointRef.current = { x: clientX, y: clientY };
+    onPressingChange(false);
+
+    liftTimerRef.current = window.setTimeout(() => {
+      onPressingChange(true);
+    }, LIFT_DELAY_MS);
+
     timerRef.current = window.setTimeout(() => {
-      longPressRef.current = true;
+      longPressedRef.current = true;
+      onPressingChange(true);
       hapticContextMenu();
       onContextMenu();
     }, LONG_PRESS_MS);
   };
 
-  const handleActivate = () => {
-    if (longPressRef.current) {
-      longPressRef.current = false;
-      return;
+  const onPointerMove = (clientX: number, clientY: number) => {
+    const start = startPointRef.current;
+    if (!start) return;
+    const dx = Math.abs(clientX - start.x);
+    const dy = Math.abs(clientY - start.y);
+    if (dx > MOVE_CANCEL_PX || dy > MOVE_CANCEL_PX) {
+      endPress();
     }
-    onOpen();
   };
 
+  const active = pressing || lifted;
+
   return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={handleActivate}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          handleActivate();
-        }
+    <motion.div
+      animate={{
+        scale: active ? 1.055 : 1,
+        y: active ? -2 : 0,
       }}
-      onTouchStart={scheduleLongPress}
-      onTouchEnd={clearTimer}
-      onTouchMove={clearTimer}
-      onTouchCancel={clearTimer}
-      onPointerDown={(e) => {
-        if (e.pointerType === "touch") return;
-        if (e.button !== 0) return;
-        scheduleLongPress();
-      }}
-      onPointerUp={(e) => {
-        if (e.pointerType === "touch") return;
-        clearTimer();
-      }}
-      onPointerCancel={clearTimer}
-      onContextMenu={(e) => {
-        e.preventDefault();
-        clearTimer();
-        onContextMenu();
+      transition={{
+        type: "spring",
+        stiffness: 420,
+        damping: 28,
+        mass: 0.7,
       }}
       className={cn(
-        "w-full touch-manipulation text-left select-none lg:cursor-pointer",
-        lifted && "relative z-20",
+        "origin-center will-change-transform",
+        active && "relative z-20",
       )}
+      style={{
+        filter: active
+          ? "drop-shadow(0 14px 28px rgba(17,17,19,0.18))"
+          : "drop-shadow(0 0 0 rgba(0,0,0,0))",
+      }}
     >
-      <GlassCard className="flex items-center gap-4 rounded-[24px] border p-4 transition-colors hover:bg-zinc-50 lg:p-5">
-        <div
-          className={cn(
-            "flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[18px] bg-zinc-100",
-            isRequest ? "text-zinc-500" : "text-zinc-600",
-          )}
-        >
-          {isRequest ? (
-            <ClipboardList className="h-6 w-6" />
-          ) : (
-            <BreakerIcon className="h-7 w-7" />
-          )}
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="mb-0.5 flex items-center justify-between gap-2">
-            <h2 className="truncate text-[17px] font-semibold text-zinc-900">
-              {isRequest && item.publicCode ? item.publicCode : item.title}
-            </h2>
+      <button
+        type="button"
+        onClick={() => {
+          if (longPressedRef.current) {
+            longPressedRef.current = false;
+            return;
+          }
+          onOpen();
+        }}
+        onPointerDown={(e) => {
+          if (e.button !== 0) return;
+          startPress(e.clientX, e.clientY);
+        }}
+        onPointerMove={(e) => onPointerMove(e.clientX, e.clientY)}
+        onPointerUp={endPress}
+        onPointerLeave={endPress}
+        onPointerCancel={endPress}
+        onContextMenu={(e) => e.preventDefault()}
+        className="w-full text-left select-none lg:cursor-pointer"
+      >
+        <GlassCard className="flex items-center gap-4 rounded-[24px] border p-4 transition-colors hover:bg-zinc-50 lg:p-5">
+          <div
+            className={cn(
+              "flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[18px] bg-zinc-100",
+              isRequest ? "text-zinc-500" : "text-zinc-600",
+            )}
+          >
             {isRequest ? (
-              <span
-                className={cn(
-                  "shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium",
-                  installStatusTone(item.status).badge,
-                )}
-              >
-                {item.statusLabel}
-              </span>
+              <ClipboardList className="h-6 w-6" />
             ) : (
-              <span className="shrink-0 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
-                {item.phases &&
-                item.powerKw?.trim() &&
-                typeof item.safety === "number"
-                  ? `${item.safety}%`
-                  : "—"}
-              </span>
+              <BreakerIcon className="h-7 w-7" />
             )}
           </div>
-          <p className="truncate text-[13px] text-zinc-500">
-            {isRequest ? item.subtitle : item.address}
-          </p>
-          <p className="mt-1 text-[12px] text-zinc-400">
-            {isRequest
-              ? item.createdAt
-              : `${item.breakers} устройств · добавлен ${formatPanelAddedLabel(item as PanelObject)}`}
-          </p>
-        </div>
-      </GlassCard>
-    </div>
+          <div className="min-w-0 flex-1">
+            <div className="mb-0.5 flex items-center justify-between gap-2">
+              <h2 className="truncate text-[17px] font-semibold text-zinc-900">
+                {isRequest && item.publicCode ? item.publicCode : item.title}
+              </h2>
+              {isRequest ? (
+                <span
+                  className={cn(
+                    "shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium",
+                    installStatusTone(item.status).badge,
+                  )}
+                >
+                  {item.statusLabel}
+                </span>
+              ) : (
+                <span className="shrink-0 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
+                  {item.phases &&
+                  item.powerKw?.trim() &&
+                  typeof item.safety === "number"
+                    ? `${item.safety}%`
+                    : "—"}
+                </span>
+              )}
+            </div>
+            <p className="truncate text-[13px] text-zinc-500">
+              {isRequest ? item.subtitle : item.address}
+            </p>
+            <p className="mt-1 text-[12px] text-zinc-400">
+              {isRequest
+                ? item.createdAt
+                : `${item.breakers} устройств · ${item.lastCheck}`}
+            </p>
+          </div>
+        </GlassCard>
+      </button>
+    </motion.div>
   );
 }
 
@@ -279,7 +314,6 @@ function RequestListCard({
           onOpen();
         }}
         onPointerDown={(e) => {
-          e.stopPropagation();
           if (e.button !== 0) return;
           startPress(e.clientX, e.clientY);
         }}
@@ -288,7 +322,7 @@ function RequestListCard({
         onPointerLeave={endPress}
         onPointerCancel={endPress}
         onContextMenu={(e) => e.preventDefault()}
-        className="w-full touch-manipulation text-left select-none lg:cursor-pointer"
+        className="w-full text-left select-none lg:cursor-pointer"
       >
         <GlassCard className="flex items-center gap-4 rounded-[24px] border p-4 transition-colors hover:bg-zinc-50 lg:p-5">
           <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[18px] bg-zinc-100 text-zinc-500">
@@ -424,7 +458,6 @@ function ExpandableHomeCard({
             onToggle();
           }}
           onPointerDown={(e) => {
-            e.stopPropagation();
             if (e.button !== 0) return;
             startPress(e.clientX, e.clientY);
           }}
@@ -433,7 +466,7 @@ function ExpandableHomeCard({
           onPointerLeave={endPress}
           onPointerCancel={endPress}
           onContextMenu={(e) => e.preventDefault()}
-          className="flex w-full touch-manipulation items-center gap-4 p-4 text-left select-none transition-colors hover:bg-zinc-50 lg:p-5"
+          className="flex w-full items-center gap-4 p-4 text-left select-none transition-colors hover:bg-zinc-50 lg:p-5"
         >
           <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[18px] bg-zinc-100 text-zinc-600">
             <BreakerIcon className="h-7 w-7" />
@@ -454,8 +487,8 @@ function ExpandableHomeCard({
             <p className="truncate text-[13px] text-zinc-500">{panel.address}</p>
             <p className="mt-1 text-[12px] text-zinc-400">
               {appliances.length > 0
-                ? `${appliances.length} приборов · обновлён ${formatPanelActivityLabel(panel.lastCheck)}`
-                : `${panel.breakers} устройств · добавлен ${formatPanelAddedLabel(panel)}`}
+                ? `${appliances.length} приборов · ${panel.lastCheck}`
+                : `Щиток · ${panel.lastCheck}`}
             </p>
           </div>
           <ChevronDown
@@ -479,8 +512,7 @@ function ExpandableHomeCard({
                 <button
                   type="button"
                   onClick={onOpenPanel}
-                  onPointerDown={(e) => e.stopPropagation()}
-                  className="flex w-full touch-manipulation items-center gap-3 rounded-[16px] bg-white px-3 py-2.5 text-left shadow-sm transition-colors hover:bg-zinc-100"
+                  className="flex w-full items-center gap-3 rounded-[16px] bg-white px-3 py-2.5 text-left shadow-sm transition-colors hover:bg-zinc-100"
                 >
                   <span className="flex h-10 w-10 items-center justify-center rounded-[12px] bg-amber-50 text-amber-700">
                     <BreakerIcon className="h-5 w-5" />
@@ -659,10 +691,7 @@ export function ObjectsScreen({
   const tab1Color = useTransform(tabProgress, [0, 1], ["#71717a", "#18181b"]);
 
   const panels = useMemo(
-    () =>
-      items
-        .filter((item): item is PanelObject => item.kind === "panel")
-        .sort((a, b) => panelSortTime(b) - panelSortTime(a)),
+    () => items.filter((item): item is PanelObject => item.kind === "panel"),
     [items],
   );
   const requests = useMemo(
@@ -730,6 +759,30 @@ export function ObjectsScreen({
     snapTo(next);
   };
 
+  const onPagerDragEnd = (_: unknown, info: PanInfo) => {
+    const current = pageRef.current as 0 | 1;
+    const { offset, velocity } = info;
+    const absOffset = Math.abs(offset.x);
+    const committed =
+      absOffset >= SWIPE_DISTANCE ||
+      (absOffset >= SWIPE_MIN_OFFSET && Math.abs(velocity.x) >= SWIPE_VELOCITY);
+
+    if (!committed) {
+      snapTo(current);
+      return;
+    }
+
+    if (offset.x < 0 && current === 0) {
+      settlePage(1);
+      return;
+    }
+    if (offset.x > 0 && current === 1) {
+      settlePage(0);
+      return;
+    }
+    snapTo(current);
+  };
+
   const renderList = (
     list: HomeListItem[],
     empty: { icon: ReactNode; text: string; framed?: boolean },
@@ -748,17 +801,17 @@ export function ObjectsScreen({
     }
     return (
       <div className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:gap-4 xl:grid-cols-3">
-        {list.map((obj, index) => (
+        {list.map((obj, i) => (
           <motion.div
             key={obj.id}
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.04 * index }}
-            className={index === 0 ? "scroll-mt-2" : undefined}
+            transition={{ delay: 0.04 * i }}
           >
             {!homeAppliancesMode ? (
               <HomeListCard
                 item={obj}
+                pressing={pressingId === obj.id}
                 lifted={actionsItemId === obj.id}
                 onOpen={() =>
                   obj.kind === "install_request"
@@ -766,6 +819,9 @@ export function ObjectsScreen({
                     : onOpenPanel(obj.id)
                 }
                 onContextMenu={() => setActionsItemId(obj.id)}
+                onPressingChange={(next) =>
+                  setPressingId(next ? obj.id : null)
+                }
               />
             ) : obj.kind === "install_request" ? (
               <RequestListCard
@@ -963,7 +1019,7 @@ export function ObjectsScreen({
         </p>
       )}
 
-      <div className="hidden min-h-0 flex-1 overflow-y-auto px-10 pb-10 pt-1 lg:flex lg:flex-col">
+      <div className="hidden min-h-0 flex-1 overflow-y-auto px-10 pb-10 lg:flex lg:flex-col">
         {page === 0
           ? renderList(panels, {
               icon: <BreakerIcon className="h-10 w-10" />,
@@ -978,17 +1034,26 @@ export function ObjectsScreen({
 
       <div ref={pagerRef} className="min-h-0 flex-1 overflow-hidden lg:hidden">
         <motion.div
-          className="flex h-full"
+          className="flex h-full touch-pan-y"
+          drag="x"
+          dragDirectionLock
+          dragElastic={0.16}
+          dragConstraints={{
+            left: pagerWidth ? -pagerWidth : 0,
+            right: 0,
+          }}
+          dragMomentum={false}
           style={{
             x,
             width: pagerWidth ? pagerWidth * 2 : "200%",
           }}
+          onDragEnd={onPagerDragEnd}
         >
           <div
             className="flex h-full min-h-0 flex-col px-5 lg:px-10"
             style={{ width: pagerWidth || "50%" }}
           >
-            <div className="flex min-h-0 flex-1 touch-pan-y flex-col overflow-y-auto overscroll-contain pt-2">
+            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
               {renderList(panels, {
                 icon: <BreakerIcon className="h-10 w-10" />,
                 text: panelEmptyText,
@@ -1000,7 +1065,7 @@ export function ObjectsScreen({
             className="flex h-full min-h-0 flex-col px-5 lg:px-10"
             style={{ width: pagerWidth || "50%" }}
           >
-            <div className="flex min-h-0 flex-1 touch-pan-y flex-col overflow-y-auto overscroll-contain pt-2">
+            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
               {renderList(requests, {
                 icon: <ClipboardList className="h-10 w-10" />,
                 text: "Здесь появятся заявки на помощь с электрикой.",
