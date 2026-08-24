@@ -17,9 +17,9 @@ const buttonVariants = cva(
           "border border-black/10 bg-transparent text-zinc-900 hover:bg-zinc-50",
       },
       size: {
-        default: "h-14 px-6 rounded-[20px]",
-        sm: "h-11 px-4 rounded-[16px] text-[15px]",
-        lg: "h-16 px-8 rounded-[20px] text-[18px]",
+        default: "h-14 px-6 rounded-full",
+        sm: "h-11 px-4 rounded-full text-[15px]",
+        lg: "h-16 px-8 rounded-full text-[18px]",
         icon: "h-11 w-11 rounded-full",
       },
     },

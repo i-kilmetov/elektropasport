@@ -30,6 +30,7 @@ type Phase = "gate" | "pick" | "ready" | "play";
 
 /** Same devices as on the scheme miniature (без шин PE/N). */
 function playDevices(panel: PanelObject): Device[] {
+  if (!Array.isArray(panel.devices)) return [];
   return groupDevicesByRail(panel.devices, panel.railCount).flat();
 }
 
@@ -358,11 +359,11 @@ export function PanelGameScreen({
             собирает приборы именно с вашего щитка.
           </p>
           {onAddPanel ? (
-            <Button className="mt-6 w-full max-w-sm" onClick={onAddPanel}>
+            <Button className="mt-6 w-full max-w-sm rounded-full" onClick={onAddPanel}>
               Добавить щиток
             </Button>
           ) : (
-            <Button className="mt-6 w-full max-w-sm" onClick={onBack}>
+            <Button className="mt-6 w-full max-w-sm rounded-full" onClick={onBack}>
               К щиткам
             </Button>
           )}

@@ -1422,6 +1422,7 @@ export async function getPublicStats(): Promise<{
   usersCount: number;
   panelsCount: number;
   mastersCount: number;
+  dataEpoch: string | null;
 }> {
   const sql = getSql();
   await ensureSchema();
@@ -1435,10 +1436,12 @@ export async function getPublicStats(): Promise<{
     SELECT COUNT(DISTINCT telegram_user_id)::int AS count
     FROM master_applications
   `) as Array<{ count: number }>;
+  const dataEpoch = await getDataEpoch();
   return {
     usersCount: usersRow?.count ?? 0,
     panelsCount: panelsRow?.count ?? 0,
     mastersCount: mastersRow?.count ?? 0,
+    dataEpoch,
   };
 }
 

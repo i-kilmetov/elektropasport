@@ -4,6 +4,7 @@ import type { HomeListItem, InstallRequest, PanelObject } from "@/types";
 import {
   authHeaders,
   canUseServerAuth,
+  invalidateBrowserSessionIfNeeded,
 } from "@/lib/client-auth";
 import {
   BASE_PANEL_LIMIT,
@@ -242,6 +243,13 @@ function panelForApi(panel: PanelObject): PanelObject {
   };
 }
 
+export class AuthSessionExpiredError extends Error {
+  constructor(message = "Сессия истекла — войдите снова") {
+    super(message);
+    this.name = "AuthSessionExpiredError";
+  }
+}
+
 async function parseError(res: Response): Promise<string> {
   try {
     const data = (await res.json()) as { error?: string };
@@ -249,6 +257,14 @@ async function parseError(res: Response): Promise<string> {
   } catch {
     return `Ошибка ${res.status}`;
   }
+}
+
+async function rejectUnlessOk(res: Response): Promise<Response> {
+  if (res.ok) return res;
+  if (invalidateBrowserSessionIfNeeded(res)) {
+    throw new AuthSessionExpiredError(await parseError(res));
+  }
+  throw new Error(await parseError(res));
 }
 
 function normalizeQuota(quota: PanelQuota): PanelQuota {
@@ -281,7 +297,7 @@ export async function fetchPanelQuota(): Promise<PanelQuota> {
   });
   if (!res.ok) {
     if (res.status === 503) return localPanelQuota(readLocalItems());
-    throw new Error(await parseError(res));
+    await rejectUnlessOk(res);
   }
   const data = (await res.json()) as { quota?: PanelQuota };
   if (!data.quota) return localPanelQuota(readLocalItems());
@@ -378,6 +394,9 @@ async function fetchServerHomeItems(): Promise<{
 
   if (!res.ok) {
     if (res.status === 503) return { items: readLocalItems(), dataEpoch: null };
+    if (invalidateBrowserSessionIfNeeded(res)) {
+      throw new AuthSessionExpiredError(await parseError(res));
+    }
     throw new Error(await parseError(res));
   }
 
@@ -401,7 +420,26 @@ function applyServerDataEpoch(dataEpoch: string | null): boolean {
     localStorage.setItem(DATA_EPOCH_KEY, dataEpoch);
     // Server was wiped or epoch advanced — drop local orphans that would re-upload.
     writeLocalItems([]);
+    try {
+      localStorage.removeItem("elektropasport:user-profile");
+      localStorage.removeItem("elektropasport:panel-snake");
+    } catch {
+      // ignore
+    }
     return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Public stats include data epoch — works without login. */
+export async function syncDataEpochFromServer(): Promise<boolean> {
+  if (typeof window === "undefined") return false;
+  try {
+    const res = await fetch("/api/stats", { cache: "no-store" });
+    if (!res.ok) return false;
+    const data = (await res.json()) as { dataEpoch?: string | null };
+    return applyServerDataEpoch(data.dataEpoch ?? null);
   } catch {
     return false;
   }
@@ -636,6 +674,7 @@ export async function fetchHomeItems(): Promise<HomeListItem[]> {
     serverItems = remote.items;
     dataEpoch = remote.dataEpoch;
   } catch (error) {
+    if (error instanceof AuthSessionExpiredError) throw error;
     // Server is down — return whatever we have locally so the UI is not empty.
     if (localBefore.length > 0) return localBefore;
     throw error;

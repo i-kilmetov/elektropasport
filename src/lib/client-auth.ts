@@ -74,6 +74,28 @@ export function clearBrowserSession(): void {
   }
 }
 
+/** Drop cached panels/requests/profile after server wipe or logout. */
+export function clearLocalAppData(): void {
+  clearBrowserSession();
+  try {
+    localStorage.removeItem("elektropasport:home-items");
+    localStorage.removeItem("elektropasport:data-epoch");
+    localStorage.removeItem("elektropasport:user-profile");
+    localStorage.removeItem("elektropasport:panel-snake");
+  } catch {
+    // private mode
+  }
+}
+
+/** Browser OAuth session expired or revoked — Mini App initData is unaffected. */
+export function invalidateBrowserSessionIfNeeded(response: Response): boolean {
+  if (response.status !== 401) return false;
+  if (isTelegramMiniApp()) return false;
+  if (!getBrowserSessionToken()) return false;
+  clearLocalAppData();
+  return true;
+}
+
 /** Whether API calls can be authenticated (Mini App or browser session). */
 export function canUseServerAuth(): boolean {
   return Boolean(getInitData() || getBrowserSessionToken());

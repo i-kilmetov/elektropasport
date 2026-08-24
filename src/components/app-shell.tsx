@@ -95,6 +95,7 @@ import {
   type LeadServiceType,
 } from "@/lib/lead-services";
 import {
+  AuthSessionExpiredError,
   claimInviteToken,
   fetchHomeItems,
   fetchIsAdmin,
@@ -112,6 +113,7 @@ import {
   createPanelShare,
   fetchSharedPanel,
   recordInviteLinkOpen,
+  syncDataEpochFromServer,
 } from "@/lib/user-data";
 import {
   electricalGuessForYear,
@@ -473,7 +475,8 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const cached = getCachedHomeItems();
+      const epochWiped = await syncDataEpochFromServer().catch(() => false);
+      const cached = epochWiped ? [] : getCachedHomeItems();
       if (cached.length > 0) {
         setItems(cached);
         setItemsLoading(false);
@@ -491,7 +494,7 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
         const authed = canUseServerAuth();
         if (!authed) {
           if (!cancelled) {
-            setItems(cached);
+            setItems(epochWiped ? [] : cached);
             setItemsLoading(false);
           }
           return;
@@ -525,13 +528,20 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
         else if (nextQuota) setQuota(nextQuota);
       } catch (error) {
         if (!cancelled) {
+          if (error instanceof AuthSessionExpiredError) {
+            setItems([]);
+            setItemsError(null);
+            setShowAuthIntro(true);
+            setSplashPhase("done");
+            markSplashSeen();
+            return;
+          }
           const msg =
             error instanceof Error
               ? error.message
               : "Не удалось загрузить данные";
           setItemsError(msg);
-          // Keep cached items visible so the screen is not empty on transient errors.
-          const fallback = getCachedHomeItems();
+          const fallback = epochWiped ? [] : getCachedHomeItems();
           if (fallback.length > 0) {
             setItems(fallback);
           }
@@ -1691,7 +1701,8 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
     screen === "master-success" ||
     screen === "master-not-found" ||
     screen === "admin" ||
-    screen === "research-survey";
+    screen === "research-survey" ||
+    screen === "panel-game";
   const wideLayout =
     screen === "objects" ||
     screen === "scheme" ||
@@ -1802,6 +1813,7 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
                 setMainMenuOpen(false);
               }}
               onMenuSelect={(id) => {
+                setMainMenuOpen(false);
                 if (id === "profile") go("profile");
                 if (id === "game") go("panel-game");
                 if (id === "school") {
@@ -2203,14 +2215,19 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
             />
           )}
           {screen === "panel-game" && (
-            <PanelGameScreen
-              key="panel-game"
-              panels={items.filter(
-                (item): item is PanelObject => item.kind === "panel",
-              )}
+            <SchemeErrorBoundary
               onBack={() => go("objects")}
-              onAddPanel={() => requireTelegramAuth("add-panel")}
-            />
+              panelTitle="Игра"
+            >
+              <PanelGameScreen
+                key="panel-game"
+                panels={items.filter(
+                  (item): item is PanelObject => item.kind === "panel",
+                )}
+                onBack={() => go("objects")}
+                onAddPanel={() => requireTelegramAuth("add-panel")}
+              />
+            </SchemeErrorBoundary>
           )}
           {screen === "feedback" && (
             <FeedbackScreen key="feedback" onBack={() => go("objects")} />

@@ -693,7 +693,7 @@ export function ObjectsScreen({
           <div className="hidden items-center gap-3 lg:flex">
             {page === 0 ? (
               homeAppliancesMode ? (
-                <Button className="h-11 px-5" onClick={handlePrimaryAdd}>
+                <Button className="h-11 rounded-full px-5" onClick={handlePrimaryAdd}>
                   <Plus className="h-5 w-5" />
                   Добавить
                 </Button>
@@ -713,7 +713,7 @@ export function ObjectsScreen({
                 </>
               )
             ) : (
-              <Button className="h-11 px-5" onClick={onHelpElectrical}>
+              <Button className="h-11 rounded-full px-5" onClick={onHelpElectrical}>
                 Помочь с электрикой
               </Button>
             )}
@@ -743,7 +743,7 @@ export function ObjectsScreen({
       <div className="shrink-0 border-t border-black/[0.06] bg-[var(--bg)] px-5 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))] lg:hidden">
         {page === 0 ? (
           homeAppliancesMode ? (
-            <Button className="w-full" onClick={handlePrimaryAdd}>
+            <Button className="w-full rounded-full" onClick={handlePrimaryAdd}>
               <Plus className="h-5 w-5" />
               Добавить
             </Button>
@@ -763,7 +763,7 @@ export function ObjectsScreen({
             </div>
           )
         ) : (
-          <Button className="w-full" onClick={onHelpElectrical}>
+          <Button className="w-full rounded-full" onClick={onHelpElectrical}>
             Помочь с электрикой
           </Button>
         )}
