@@ -38,7 +38,7 @@ import { buildInviteUrl } from "@/lib/panel-share";
 let schemaReady: Promise<void> | null = null;
 
 /** Bump when DDL below changes so cold starts re-run migrations once. */
-const SCHEMA_VERSION = "2026-08-23-c";
+const SCHEMA_VERSION = "2026-08-24-a";
 
 export async function ensureSchema(): Promise<void> {
   if (!schemaReady) {
@@ -349,6 +349,19 @@ export async function ensureSchema(): Promise<void> {
       await sql`
         ALTER TABLE users
         ADD COLUMN IF NOT EXISTS pd_consent_version TEXT
+      `;
+      await sql`
+        ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS panel_limit_unlocked BOOLEAN NOT NULL DEFAULT FALSE
+      `;
+      await sql`
+        UPDATE users
+        SET panel_limit_unlocked = TRUE
+        WHERE panel_limit_unlocked = FALSE
+          AND telegram_id IN (
+            SELECT DISTINCT inviter_telegram_id
+            FROM invite_events
+          )
       `;
       await sql`
         CREATE TABLE IF NOT EXISTS waitlist (
@@ -779,20 +792,20 @@ export async function insertPanel(
       ${panel.title},
       ${panel.address},
       ${panel.lastCheck},
-      ${panel.breakers},
-      ${panel.safety},
+      ${panel.breakers}::int,
+      ${panel.safety ?? null}::int,
       ${devicesJson}::jsonb,
-      ${panel.linesCount ?? null},
-      ${panel.photoDataUrl ?? null},
-      ${panel.named ?? false},
-      ${panel.phases ?? null},
-      ${panel.powerKw ?? null},
-      ${panel.hasGround ?? null},
+      ${panel.linesCount ?? null}::int,
+      ${panel.photoDataUrl ?? null}::text,
+      ${panel.named ?? false}::boolean,
+      ${panel.phases ?? null}::text,
+      ${panel.powerKw ?? null}::text,
+      ${panel.hasGround ?? null}::boolean,
       ${houseSnapshotJson}::jsonb,
-      ${panel.railCount ?? null},
+      ${panel.railCount ?? null}::int,
       ${wiresJson}::jsonb,
       ${appliancesJson}::jsonb,
-      ${panel.sourceShareToken ?? null},
+      ${panel.sourceShareToken ?? null}::text,
       ${createdAt}::timestamptz,
       NOW()
     )
@@ -871,41 +884,44 @@ export async function updatePanel(
   >,
 ): Promise<PanelObject | null> {
   const sql = getSql();
-  const title = patch.title ?? null;
-  const named = patch.named ?? null;
+  const existing = await getPanelByOwner(telegramUserId, id);
+  if (!existing) return null;
+
+  const title = patch.title !== undefined ? patch.title : existing.title;
+  const named =
+    patch.named !== undefined ? Boolean(patch.named) : Boolean(existing.named);
   const address =
-    patch.address && patch.address.trim() && patch.address !== "Добавлен по фото"
+    patch.address !== undefined &&
+    patch.address.trim() &&
+    patch.address !== "Добавлен по фото"
       ? patch.address.trim()
-      : null;
-  const safety = patch.safety ?? null;
-  const phases = patch.phases ?? null;
-  const powerKw = patch.powerKw ?? null;
-  const hasGround = patch.hasGround ?? null;
-  const houseSnapshotJson =
+      : existing.address;
+  const safety =
+    patch.safety !== undefined ? patch.safety : (existing.safety ?? null);
+  const phases =
+    patch.phases !== undefined ? patch.phases : (existing.phases ?? null);
+  const powerKw =
+    patch.powerKw !== undefined ? patch.powerKw : (existing.powerKw ?? null);
+  const hasGround =
+    patch.hasGround !== undefined
+      ? patch.hasGround
+      : (existing.hasGround ?? null);
+  const houseSnapshot =
     patch.houseSnapshot !== undefined
-      ? JSON.stringify(sanitizeJsonValue(patch.houseSnapshot))
-      : null;
-  const shouldUpdateSnapshot = patch.houseSnapshot !== undefined;
+      ? patch.houseSnapshot
+      : (existing.houseSnapshot ?? null);
+  const houseSnapshotJson = JSON.stringify(sanitizeJsonValue(houseSnapshot));
+
   const rows = (await sql`
     UPDATE panels SET
-      title = COALESCE(${title}, title),
-      named = COALESCE(${named}, named),
-      address = CASE
-        WHEN ${address} IS NOT NULL
-        THEN ${address}
-        ELSE address
-      END,
-      safety = CASE
-        WHEN ${patch.safety !== undefined} THEN ${safety}
-        ELSE safety
-      END,
-      phases = COALESCE(${phases}, phases),
-      power_kw = COALESCE(${powerKw}, power_kw),
-      has_ground = COALESCE(${hasGround}, has_ground),
-      house_snapshot = CASE
-        WHEN ${shouldUpdateSnapshot} THEN ${houseSnapshotJson}::jsonb
-        ELSE house_snapshot
-      END,
+      title = ${title}::text,
+      named = ${named}::boolean,
+      address = ${address}::text,
+      safety = ${safety}::int,
+      phases = ${phases}::text,
+      power_kw = ${powerKw}::text,
+      has_ground = ${hasGround}::boolean,
+      house_snapshot = ${houseSnapshotJson}::jsonb,
       updated_at = NOW()
     WHERE id = ${id} AND telegram_user_id = ${telegramUserId}
     RETURNING
@@ -1368,6 +1384,26 @@ async function countCreditedInvites(telegramUserId: number): Promise<number> {
   return row?.count ?? 0;
 }
 
+async function countInviteEvents(telegramUserId: number): Promise<number> {
+  const sql = getSql();
+  const [row] = (await sql`
+    SELECT COUNT(*)::int AS count
+    FROM invite_events
+    WHERE inviter_telegram_id = ${telegramUserId}
+  `) as Array<{ count: number }>;
+  return row?.count ?? 0;
+}
+
+async function markPanelLimitUnlocked(telegramUserId: number): Promise<void> {
+  const sql = getSql();
+  await sql`
+    UPDATE users
+    SET panel_limit_unlocked = TRUE
+    WHERE telegram_id = ${telegramUserId}
+      AND panel_limit_unlocked = FALSE
+  `;
+}
+
 async function getOrCreateInviteToken(telegramUserId: number): Promise<string> {
   const sql = getSql();
   const [existing] = (await sql`
@@ -1427,15 +1463,35 @@ export async function getPanelQuota(
   telegramUserId: number,
 ): Promise<PanelQuota> {
   await ensureSchema();
-  const [panelCount, creditedInvites, inviteToken, events] = await Promise.all([
-    countUserPanels(telegramUserId),
-    countCreditedInvites(telegramUserId),
-    getOrCreateInviteToken(telegramUserId),
-    listInviteEvents(telegramUserId),
-  ]);
+  const [panelCount, creditedInvites, invitees, inviteToken, events, unlockedRow] =
+    await Promise.all([
+      countUserPanels(telegramUserId),
+      countCreditedInvites(telegramUserId),
+      countInviteEvents(telegramUserId),
+      getOrCreateInviteToken(telegramUserId),
+      listInviteEvents(telegramUserId),
+      (async () => {
+        const sql = getSql();
+        const [row] = (await sql`
+          SELECT panel_limit_unlocked
+          FROM users
+          WHERE telegram_id = ${telegramUserId}
+          LIMIT 1
+        `) as Array<{ panel_limit_unlocked: boolean | null }>;
+        return Boolean(row?.panel_limit_unlocked);
+      })(),
+    ]);
 
-  const unlimited = hasUnlockedPanelLimit(creditedInvites);
-  const panelLimit = panelLimitForInvites(creditedInvites);
+  const unlimited =
+    unlockedRow ||
+    invitees >= 1 ||
+    hasUnlockedPanelLimit(creditedInvites);
+  if (unlimited && !unlockedRow) {
+    await markPanelLimitUnlocked(telegramUserId);
+  }
+  const panelLimit = unlimited
+    ? Number.MAX_SAFE_INTEGER
+    : panelLimitForInvites(creditedInvites);
   return {
     panelCount,
     panelLimit,
@@ -1496,6 +1552,7 @@ export async function claimInvite(
         )
         ON CONFLICT (inviter_telegram_id, invitee_telegram_id) DO NOTHING
       `;
+      await markPanelLimitUnlocked(inviterId);
     }
   }
 
