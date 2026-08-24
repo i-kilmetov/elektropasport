@@ -111,6 +111,7 @@ import {
   persistPanelPatch,
   createPanelShare,
   fetchSharedPanel,
+  recordInviteLinkOpen,
 } from "@/lib/user-data";
 import {
   electricalGuessForYear,
@@ -482,6 +483,11 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
       setItemsError(null);
 
       try {
+        const invite = getTelegramStartParam();
+        if (isInviteToken(invite)) {
+          void recordInviteLinkOpen(invite);
+        }
+
         const authed = canUseServerAuth();
         if (!authed) {
           if (!cancelled) {
@@ -491,7 +497,6 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
           return;
         }
 
-        const invite = getTelegramStartParam();
         const claimPromise = isInviteToken(invite)
           ? claimInviteToken(invite).catch((error) => {
               console.error(error);

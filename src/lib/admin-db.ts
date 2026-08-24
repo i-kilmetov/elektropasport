@@ -1,5 +1,6 @@
-import { ensureSchema, getSql, DbError } from "@/lib/db";
+import { ensureSchema, getSql, DbError, getPanelById } from "@/lib/db";
 import { ownerAdminTelegramId } from "@/lib/admin";
+import type { PanelObject } from "@/types";
 
 export type AdminPerson = {
   telegramId: number;
@@ -54,6 +55,40 @@ export type AdminApplicationRow = {
   isMaster: boolean;
 };
 
+export type AdminPanelRow = {
+  id: string;
+  telegramUserId: number;
+  ownerName: string;
+  ownerUsername: string;
+  title: string;
+  address: string;
+  safety: number | null;
+  breakers: number;
+  deviceCount: number;
+  createdAt: string;
+};
+
+export type AdminInviteEdge = {
+  inviterId: number;
+  inviterName: string;
+  inviterUsername: string;
+  inviteeId: number;
+  inviteeName: string;
+  inviteeUsername: string;
+  outcome: "credited" | "already_member";
+  createdAt: string;
+};
+
+export type AdminInvitePending = {
+  id: string;
+  inviterId: number;
+  inviterName: string;
+  inviterUsername: string;
+  inviteToken: string;
+  openedAt: string;
+  visitorKey: string;
+};
+
 export type AdminDashboardData = {
   isOwner: boolean;
   ownerTelegramId: number | null;
@@ -63,6 +98,8 @@ export type AdminDashboardData = {
     requestsCount: number;
     mastersCount: number;
     applicationsCount: number;
+    creditedInvites: number;
+    pendingInviteOpens: number;
     byStatus: Record<string, number>;
     requestsByCity: Array<{ city: string; count: number }>;
     mastersByCity: Array<{ city: string; count: number }>;
@@ -72,6 +109,9 @@ export type AdminDashboardData = {
   requests: AdminRequestRow[];
   masters: AdminMasterRow[];
   applications: AdminApplicationRow[];
+  panels: AdminPanelRow[];
+  inviteEdges: AdminInviteEdge[];
+  invitePending: AdminInvitePending[];
 };
 
 function personName(first?: string | null, last?: string | null, fallback = "—") {
@@ -92,6 +132,8 @@ export async function getAdminDashboard(
     requestsCountRow,
     mastersCountRow,
     applicationsCountRow,
+    creditedInvitesRow,
+    pendingInviteOpensRow,
     statusRows,
     requestCityRows,
     masterCityRows,
@@ -99,12 +141,21 @@ export async function getAdminDashboard(
     requestRows,
     masterRows,
     applicationRows,
+    panelRows,
+    inviteEdgeRows,
+    invitePendingRows,
   ] = await Promise.all([
     sql`SELECT COUNT(*)::int AS count FROM users` as unknown as Promise<Array<{ count: number }>>,
     sql`SELECT COUNT(*)::int AS count FROM panels` as unknown as Promise<Array<{ count: number }>>,
     sql`SELECT COUNT(*)::int AS count FROM install_requests` as unknown as Promise<Array<{ count: number }>>,
     sql`SELECT COUNT(*)::int AS count FROM users WHERE role = 'master'` as unknown as Promise<Array<{ count: number }>>,
     sql`SELECT COUNT(*)::int AS count FROM master_applications` as unknown as Promise<Array<{ count: number }>>,
+    sql`SELECT COUNT(*)::int AS count FROM invite_events WHERE outcome = 'credited'` as unknown as Promise<Array<{ count: number }>>,
+    sql`
+      SELECT COUNT(*)::int AS count
+      FROM invite_link_hits
+      WHERE claimed_at IS NULL
+    ` as unknown as Promise<Array<{ count: number }>>,
     sql`
       SELECT status, COUNT(*)::int AS count
       FROM install_requests
@@ -238,6 +289,75 @@ export async function getAdminDashboard(
         role: string | null;
       }>
     >,
+    sql`
+      SELECT
+        p.id, p.telegram_user_id, p.title, p.address, p.safety, p.breakers,
+        p.created_at, u.first_name, u.last_name, u.username,
+        COALESCE(jsonb_array_length(p.devices), 0)::int AS device_count
+      FROM panels p
+      LEFT JOIN users u ON u.telegram_id = p.telegram_user_id
+      ORDER BY p.created_at DESC
+      LIMIT 200
+    ` as unknown as Promise<
+      Array<{
+        id: string;
+        telegram_user_id: string | number;
+        title: string;
+        address: string;
+        safety: number | null;
+        breakers: number;
+        created_at: string;
+        first_name: string | null;
+        last_name: string | null;
+        username: string | null;
+        device_count: number;
+      }>
+    >,
+    sql`
+      SELECT
+        e.inviter_telegram_id, e.invitee_telegram_id, e.outcome, e.created_at,
+        iu.first_name AS inviter_first, iu.last_name AS inviter_last, iu.username AS inviter_username,
+        eu.first_name AS invitee_first, eu.last_name AS invitee_last, eu.username AS invitee_username
+      FROM invite_events e
+      LEFT JOIN users iu ON iu.telegram_id = e.inviter_telegram_id
+      LEFT JOIN users eu ON eu.telegram_id = e.invitee_telegram_id
+      ORDER BY e.created_at DESC
+      LIMIT 300
+    ` as unknown as Promise<
+      Array<{
+        inviter_telegram_id: string | number;
+        invitee_telegram_id: string | number;
+        outcome: string;
+        created_at: string;
+        inviter_first: string | null;
+        inviter_last: string | null;
+        inviter_username: string | null;
+        invitee_first: string | null;
+        invitee_last: string | null;
+        invitee_username: string | null;
+      }>
+    >,
+    sql`
+      SELECT
+        h.id, h.invite_token, h.inviter_telegram_id, h.visitor_key, h.opened_at,
+        u.first_name, u.last_name, u.username
+      FROM invite_link_hits h
+      LEFT JOIN users u ON u.telegram_id = h.inviter_telegram_id
+      WHERE h.claimed_at IS NULL
+      ORDER BY h.opened_at DESC
+      LIMIT 200
+    ` as unknown as Promise<
+      Array<{
+        id: string;
+        invite_token: string;
+        inviter_telegram_id: string | number;
+        visitor_key: string;
+        opened_at: string;
+        first_name: string | null;
+        last_name: string | null;
+        username: string | null;
+      }>
+    >,
   ]);
 
   const byStatus: Record<string, number> = {
@@ -292,6 +412,8 @@ export async function getAdminDashboard(
       requestsCount: requestsCountRow[0]?.count ?? 0,
       mastersCount: mastersCountRow[0]?.count ?? 0,
       applicationsCount: applicationsCountRow[0]?.count ?? 0,
+      creditedInvites: creditedInvitesRow[0]?.count ?? 0,
+      pendingInviteOpens: pendingInviteOpensRow[0]?.count ?? 0,
       byStatus,
       requestsByCity: requestCityRows,
       mastersByCity: masterCityRows,
@@ -336,6 +458,37 @@ export async function getAdminDashboard(
       about: row.about_text ?? "",
       createdAt: row.created_at,
       isMaster: row.role === "master",
+    })),
+    panels: panelRows.map((row) => ({
+      id: row.id,
+      telegramUserId: Number(row.telegram_user_id),
+      ownerName: personName(row.first_name, row.last_name, "Без имени"),
+      ownerUsername: row.username ?? "",
+      title: row.title,
+      address: row.address,
+      safety: row.safety,
+      breakers: Number(row.breakers ?? 0),
+      deviceCount: Number(row.device_count ?? 0),
+      createdAt: row.created_at,
+    })),
+    inviteEdges: inviteEdgeRows.map((row) => ({
+      inviterId: Number(row.inviter_telegram_id),
+      inviterName: personName(row.inviter_first, row.inviter_last, "—"),
+      inviterUsername: row.inviter_username ?? "",
+      inviteeId: Number(row.invitee_telegram_id),
+      inviteeName: personName(row.invitee_first, row.invitee_last, "—"),
+      inviteeUsername: row.invitee_username ?? "",
+      outcome: row.outcome === "credited" ? "credited" : "already_member",
+      createdAt: row.created_at,
+    })),
+    invitePending: invitePendingRows.map((row) => ({
+      id: row.id,
+      inviterId: Number(row.inviter_telegram_id),
+      inviterName: personName(row.first_name, row.last_name, "—"),
+      inviterUsername: row.username ?? "",
+      inviteToken: row.invite_token,
+      openedAt: row.opened_at,
+      visitorKey: row.visitor_key,
     })),
   };
 }
@@ -393,4 +546,25 @@ export async function adminSetRequestStatus(
     RETURNING id
   `) as Array<{ id: string }>;
   if (!row) throw new DbError("Заявка не найдена", 404);
+}
+
+export async function adminDeleteRequest(requestId: string): Promise<void> {
+  const sql = getSql();
+  await ensureSchema();
+  await sql`DELETE FROM master_feedback WHERE request_id = ${requestId}`;
+  await sql`DELETE FROM master_dispatch_messages WHERE request_id = ${requestId}`;
+  await sql`DELETE FROM sbp_payments WHERE request_id = ${requestId}`;
+  const [row] = (await sql`
+    DELETE FROM install_requests
+    WHERE id = ${requestId}
+    RETURNING id
+  `) as Array<{ id: string }>;
+  if (!row) throw new DbError("Заявка не найдена", 404);
+}
+
+export async function getAdminPanel(panelId: string): Promise<PanelObject> {
+  await ensureSchema();
+  const panel = await getPanelById(panelId);
+  if (!panel) throw new DbError("Щиток не найден", 404);
+  return panel;
 }

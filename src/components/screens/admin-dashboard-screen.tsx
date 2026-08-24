@@ -9,6 +9,8 @@ import {
   Loader2,
   MapPin,
   Shield,
+  Trash2,
+  UserPlus,
   UserRound,
   Users,
   Wrench,
@@ -17,23 +19,39 @@ import {
 import { BrandLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
+import { SchemeScreen } from "@/components/screens/scheme-screen";
 import type { AdminDashboardData } from "@/lib/admin-db";
 import {
   adminAddAdmin,
+  adminDeleteRequest,
   adminRemoveAdmin,
   adminSetRequestStatus,
   adminSetRole,
   fetchAdminDashboard,
+  fetchAdminPanel,
 } from "@/lib/user-data";
-import { installStatusLabels, type InstallRequestStatus } from "@/types";
+import {
+  installStatusLabels,
+  type InstallRequestStatus,
+  type PanelObject,
+} from "@/types";
 import { cn } from "@/lib/utils";
 
-type Section = "overview" | "users" | "requests" | "masters" | "admins";
+type Section =
+  | "overview"
+  | "users"
+  | "panels"
+  | "requests"
+  | "invites"
+  | "masters"
+  | "admins";
 
 const SECTIONS: Array<{ id: Section; title: string; icon: typeof Shield }> = [
   { id: "overview", title: "Обзор", icon: LayoutDashboard },
   { id: "users", title: "Пользователи", icon: Users },
+  { id: "panels", title: "Щитки", icon: Zap },
   { id: "requests", title: "Заявки", icon: ClipboardList },
+  { id: "invites", title: "Приглашения", icon: UserPlus },
   { id: "masters", title: "Мастера", icon: Wrench },
   { id: "admins", title: "Администраторы", icon: Shield },
 ];
@@ -53,6 +71,8 @@ export function AdminDashboardScreen({ onBack }: { onBack: () => void }) {
   const [statusFilter, setStatusFilter] = useState("all");
   const [userQuery, setUserQuery] = useState("");
   const [newAdminId, setNewAdminId] = useState("");
+  const [viewPanel, setViewPanel] = useState<PanelObject | null>(null);
+  const [panelLoading, setPanelLoading] = useState(false);
 
   const reload = useCallback(async () => {
     const next = await fetchAdminDashboard();
@@ -209,6 +229,29 @@ export function AdminDashboardScreen({ onBack }: { onBack: () => void }) {
                   onQuery={setUserQuery}
                 />
               )}
+              {section === "panels" && (
+                <PanelsSection
+                  panels={data.panels}
+                  busy={busy}
+                  panelLoading={panelLoading}
+                  onOpen={async (id) => {
+                    setPanelLoading(true);
+                    setError(null);
+                    try {
+                      const panel = await fetchAdminPanel(id);
+                      setViewPanel(panel);
+                    } catch (err) {
+                      setError(
+                        err instanceof Error
+                          ? err.message
+                          : "Не удалось открыть щиток",
+                      );
+                    } finally {
+                      setPanelLoading(false);
+                    }
+                  }}
+                />
+              )}
               {section === "requests" && (
                 <RequestsSection
                   data={data}
@@ -222,8 +265,12 @@ export function AdminDashboardScreen({ onBack }: { onBack: () => void }) {
                   onStatusChange={(id, status) =>
                     run(`req-${id}`, () => adminSetRequestStatus(id, status))
                   }
+                  onDelete={(id) =>
+                    run(`del-req-${id}`, () => adminDeleteRequest(id))
+                  }
                 />
               )}
+              {section === "invites" && <InvitesSection data={data} />}
               {section === "masters" && (
                 <MastersSection
                   data={data}
@@ -260,6 +307,28 @@ export function AdminDashboardScreen({ onBack }: { onBack: () => void }) {
           )}
         </div>
       </div>
+
+      {viewPanel && (
+        <div className="fixed inset-0 z-50 flex flex-col bg-[#f4f5f7]">
+          <SchemeScreen
+            title={viewPanel.title}
+            panelId={viewPanel.id}
+            photoDataUrl={viewPanel.photoDataUrl}
+            sharedPreview
+            onBack={() => setViewPanel(null)}
+            onRename={() => undefined}
+            onDelete={() => undefined}
+            devices={viewPanel.devices}
+            wires={viewPanel.wires}
+            safetyScore={viewPanel.safety}
+            phases={viewPanel.phases}
+            powerKw={viewPanel.powerKw}
+            hasGround={viewPanel.hasGround}
+            railCount={viewPanel.railCount}
+            houseSnapshot={viewPanel.houseSnapshot}
+          />
+        </div>
+      )}
     </motion.section>
   );
 }
@@ -273,9 +342,9 @@ function Overview({
 }) {
   const stats = [
     { label: "Пользователи", value: data.stats.usersCount, icon: Users, section: "users" as const },
-    { label: "Щитки", value: data.stats.panelsCount, icon: Zap, section: "users" as const },
+    { label: "Щитки", value: data.stats.panelsCount, icon: Zap, section: "panels" as const },
     { label: "Заявки", value: data.stats.requestsCount, icon: ClipboardList, section: "requests" as const },
-    { label: "Мастера", value: data.stats.mastersCount, icon: Wrench, section: "masters" as const },
+    { label: "Приглашения", value: data.stats.creditedInvites, icon: UserPlus, section: "invites" as const },
   ];
   const maxRequestCity = Math.max(
     ...data.stats.requestsByCity.map((row) => row.count),
@@ -490,6 +559,7 @@ function RequestsSection({
   rows,
   busy,
   onStatusChange,
+  onDelete,
 }: {
   data: AdminDashboardData;
   cities: string[];
@@ -500,6 +570,7 @@ function RequestsSection({
   rows: AdminDashboardData["requests"];
   busy: string | null;
   onStatusChange: (id: string, status: InstallRequestStatus) => void;
+  onDelete: (id: string) => void;
 }) {
   return (
     <div className="mx-auto w-full max-w-[1200px] space-y-4">
@@ -540,7 +611,7 @@ function RequestsSection({
         </div>
       </div>
       <GlassCard className="overflow-x-auto p-0">
-        <table className="w-full min-w-[980px] text-left text-[13px]">
+        <table className="w-full min-w-[1040px] text-left text-[13px]">
           <thead className="bg-zinc-50 text-zinc-500">
             <tr>
               <th className="px-4 py-3 font-medium">Код</th>
@@ -549,6 +620,7 @@ function RequestsSection({
               <th className="px-4 py-3 font-medium">Работа</th>
               <th className="px-4 py-3 font-medium">Мастер</th>
               <th className="px-4 py-3 font-medium">Статус</th>
+              <th className="px-4 py-3 font-medium"> </th>
             </tr>
           </thead>
           <tbody>
@@ -596,6 +668,25 @@ function RequestsSection({
                     ))}
                   </select>
                 </td>
+                <td className="px-4 py-3">
+                  <button
+                    type="button"
+                    disabled={busy === `del-req-${item.id}`}
+                    onClick={() => {
+                      if (
+                        confirm(
+                          `Удалить заявку ${item.publicCode || item.id}?`,
+                        )
+                      ) {
+                        onDelete(item.id);
+                      }
+                    }}
+                    className="inline-flex h-9 items-center gap-1.5 rounded-[10px] border border-rose-200 bg-rose-50 px-2.5 text-[12px] font-medium text-rose-700 hover:bg-rose-100"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Удалить
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -603,6 +694,210 @@ function RequestsSection({
         {rows.length === 0 && (
           <p className="px-4 py-8 text-center text-[14px] text-zinc-400">
             Нет заявок по фильтру
+          </p>
+        )}
+      </GlassCard>
+    </div>
+  );
+}
+
+function PanelsSection({
+  panels,
+  busy,
+  panelLoading,
+  onOpen,
+}: {
+  panels: AdminDashboardData["panels"];
+  busy: string | null;
+  panelLoading: boolean;
+  onOpen: (id: string) => void;
+}) {
+  return (
+    <div className="mx-auto w-full max-w-[1200px] space-y-4">
+      <div>
+        <h2 className="text-[28px] font-semibold tracking-tight text-zinc-950">
+          Щитки
+        </h2>
+        <p className="mt-1 text-[15px] text-zinc-500">
+          {panels.length} последних · откройте схему любого пользователя
+        </p>
+      </div>
+      <GlassCard className="overflow-x-auto p-0">
+        <table className="w-full min-w-[860px] text-left text-[13px]">
+          <thead className="bg-zinc-50 text-zinc-500">
+            <tr>
+              <th className="px-4 py-3 font-medium">Щиток</th>
+              <th className="px-4 py-3 font-medium">Владелец</th>
+              <th className="px-4 py-3 font-medium">Адрес</th>
+              <th className="px-4 py-3 font-medium">Безопасность</th>
+              <th className="px-4 py-3 font-medium"> </th>
+            </tr>
+          </thead>
+          <tbody>
+            {panels.map((item) => (
+              <tr key={item.id} className="border-t border-black/6">
+                <td className="px-4 py-3">
+                  <div className="font-medium text-zinc-900">{item.title}</div>
+                  <div className="text-zinc-400">
+                    {item.deviceCount} устройств · {item.breakers} автоматов
+                  </div>
+                </td>
+                <td className="px-4 py-3">
+                  <div className="font-medium text-zinc-900">{item.ownerName}</div>
+                  <div className="tabular-nums text-zinc-400">
+                    {item.telegramUserId}
+                    {item.ownerUsername ? ` · @${item.ownerUsername}` : ""}
+                  </div>
+                </td>
+                <td className="max-w-[240px] px-4 py-3 text-zinc-600">
+                  {item.address || "—"}
+                </td>
+                <td className="px-4 py-3 tabular-nums text-zinc-700">
+                  {item.safety != null ? `${item.safety}%` : "—"}
+                </td>
+                <td className="px-4 py-3">
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={panelLoading || busy != null}
+                    onClick={() => onOpen(item.id)}
+                  >
+                    Схема
+                  </Button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {panels.length === 0 && (
+          <p className="px-4 py-8 text-center text-[14px] text-zinc-400">
+            Щитков пока нет
+          </p>
+        )}
+      </GlassCard>
+    </div>
+  );
+}
+
+function InvitesSection({ data }: { data: AdminDashboardData }) {
+  return (
+    <div className="mx-auto w-full max-w-[1200px] space-y-6">
+      <div>
+        <h2 className="text-[28px] font-semibold tracking-tight text-zinc-950">
+          Приглашения
+        </h2>
+        <p className="mt-1 text-[15px] text-zinc-500">
+          Кто кого привёл · {data.stats.creditedInvites} засчитанных ·{" "}
+          {data.stats.pendingInviteOpens} открыли ссылку, но ещё не вошли
+        </p>
+      </div>
+
+      <GlassCard className="p-5">
+        <h3 className="mb-3 text-[16px] font-semibold text-zinc-900">
+          Открыли ссылку, но не авторизовались
+        </h3>
+        <p className="mb-4 text-[13px] text-zinc-500">
+          Фиксируется при открытии invite-ссылки до входа в сервис.
+        </p>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[720px] text-left text-[13px]">
+            <thead className="text-zinc-400">
+              <tr>
+                <th className="pb-2 font-medium">Кто пригласил</th>
+                <th className="pb-2 font-medium">Токен</th>
+                <th className="pb-2 font-medium">Открыто</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.invitePending.map((row) => (
+                <tr key={row.id} className="border-t border-black/6">
+                  <td className="py-2.5">
+                    <div className="font-medium text-zinc-900">
+                      {row.inviterName}
+                    </div>
+                    <div className="tabular-nums text-zinc-400">
+                      {row.inviterId}
+                      {row.inviterUsername ? ` · @${row.inviterUsername}` : ""}
+                    </div>
+                  </td>
+                  <td className="py-2.5 font-mono text-[12px] text-zinc-600">
+                    {row.inviteToken}
+                  </td>
+                  <td className="py-2.5 text-zinc-600">
+                    {new Date(row.openedAt).toLocaleString("ru-RU")}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {data.invitePending.length === 0 && (
+            <p className="py-4 text-[13px] text-zinc-400">
+              Пока нет незавершённых переходов по ссылкам
+            </p>
+          )}
+        </div>
+      </GlassCard>
+
+      <GlassCard className="overflow-x-auto p-0">
+        <div className="border-b border-black/6 px-5 py-4">
+          <h3 className="text-[16px] font-semibold text-zinc-900">
+            Зарегистрированные приглашения
+          </h3>
+        </div>
+        <table className="w-full min-w-[860px] text-left text-[13px]">
+          <thead className="bg-zinc-50 text-zinc-500">
+            <tr>
+              <th className="px-4 py-3 font-medium">Пригласил</th>
+              <th className="px-4 py-3 font-medium">Пришёл</th>
+              <th className="px-4 py-3 font-medium">Статус</th>
+              <th className="px-4 py-3 font-medium">Когда</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.inviteEdges.map((row) => (
+              <tr
+                key={`${row.inviterId}-${row.inviteeId}`}
+                className="border-t border-black/6"
+              >
+                <td className="px-4 py-3">
+                  <div className="font-medium text-zinc-900">
+                    {row.inviterName}
+                  </div>
+                  <div className="tabular-nums text-zinc-400">
+                    {row.inviterId}
+                    {row.inviterUsername ? ` · @${row.inviterUsername}` : ""}
+                  </div>
+                </td>
+                <td className="px-4 py-3">
+                  <div className="font-medium text-zinc-900">
+                    {row.inviteeName}
+                  </div>
+                  <div className="tabular-nums text-zinc-400">
+                    {row.inviteeId}
+                    {row.inviteeUsername ? ` · @${row.inviteeUsername}` : ""}
+                  </div>
+                </td>
+                <td className="px-4 py-3">
+                  {row.outcome === "credited" ? (
+                    <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[12px] font-medium text-emerald-700">
+                      Новый пользователь
+                    </span>
+                  ) : (
+                    <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[12px] font-medium text-zinc-600">
+                      Уже был в сервисе
+                    </span>
+                  )}
+                </td>
+                <td className="px-4 py-3 text-zinc-600">
+                  {new Date(row.createdAt).toLocaleString("ru-RU")}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {data.inviteEdges.length === 0 && (
+          <p className="px-4 py-8 text-center text-[14px] text-zinc-400">
+            Пока никто никого не пригласил
           </p>
         )}
       </GlassCard>

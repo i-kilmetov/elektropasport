@@ -367,19 +367,44 @@ async function syncPanelPatchToServer(
   }
 }
 
-async function fetchServerHomeItems(): Promise<HomeListItem[]> {
+async function fetchServerHomeItems(): Promise<{
+  items: HomeListItem[];
+  dataEpoch: string | null;
+}> {
   const res = await fetch("/api/items", {
     headers: authHeaders(),
     cache: "no-store",
   });
 
   if (!res.ok) {
-    if (res.status === 503) return readLocalItems();
+    if (res.status === 503) return { items: readLocalItems(), dataEpoch: null };
     throw new Error(await parseError(res));
   }
 
-  const data = (await res.json()) as { items: HomeListItem[] };
-  return Array.isArray(data.items) ? data.items : [];
+  const data = (await res.json()) as {
+    items: HomeListItem[];
+    dataEpoch?: string | null;
+  };
+  return {
+    items: Array.isArray(data.items) ? data.items : [],
+    dataEpoch: data.dataEpoch ?? null,
+  };
+}
+
+const DATA_EPOCH_KEY = "elektropasport:data-epoch";
+
+function applyServerDataEpoch(dataEpoch: string | null): boolean {
+  if (!dataEpoch || typeof window === "undefined") return false;
+  try {
+    const prev = localStorage.getItem(DATA_EPOCH_KEY);
+    if (prev === dataEpoch) return false;
+    localStorage.setItem(DATA_EPOCH_KEY, dataEpoch);
+    // Server was wiped or epoch advanced — drop local orphans that would re-upload.
+    writeLocalItems([]);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -605,20 +630,31 @@ export async function fetchHomeItems(): Promise<HomeListItem[]> {
   const localBefore = readLocalItems();
 
   let serverItems: HomeListItem[];
+  let dataEpoch: string | null;
   try {
-    serverItems = await fetchServerHomeItems();
+    const remote = await fetchServerHomeItems();
+    serverItems = remote.items;
+    dataEpoch = remote.dataEpoch;
   } catch (error) {
     // Server is down — return whatever we have locally so the UI is not empty.
     if (localBefore.length > 0) return localBefore;
     throw error;
   }
 
+  const wipedLocal = applyServerDataEpoch(dataEpoch);
+  const localForMerge = wipedLocal ? [] : localBefore;
+  if (wipedLocal) {
+    // After a factory wipe, trust the empty server — do not resurrect local cache.
+    writeLocalItems(serverItems);
+    return serverItems;
+  }
+
   const merged = mergeServerWithLocal(serverItems);
 
   // Safety: never replace a populated cache with fewer items unless the server
   // actually returned data (empty server response = likely transient error).
-  if (merged.length === 0 && localBefore.length > 0 && serverItems.length === 0) {
-    return localBefore;
+  if (merged.length === 0 && localForMerge.length > 0 && serverItems.length === 0) {
+    return localForMerge;
   }
 
   writeLocalItems(merged);
@@ -636,7 +672,7 @@ export async function fetchHomeItems(): Promise<HomeListItem[]> {
       .then(async ([uploadedPanels, uploadedRequests]) => {
         if (uploadedPanels + uploadedRequests <= 0) return;
         const fresh = await fetchServerHomeItems();
-        writeLocalItems(mergeServerWithLocal(fresh));
+        writeLocalItems(mergeServerWithLocal(fresh.items));
       })
       .catch((err) => console.error(err));
   }
@@ -653,7 +689,7 @@ export async function syncLocalPanelsToServer(): Promise<{
     return { uploaded: 0, items: readLocalItems() };
   }
   const before = await fetchServerHomeItems();
-  const uploaded = await uploadLocalOnlyPanels(before);
+  const uploaded = await uploadLocalOnlyPanels(before.items);
   const items = await fetchHomeItems();
   return { uploaded, items };
 }
@@ -1187,6 +1223,61 @@ export async function adminSetRequestStatus(
     body: JSON.stringify({ status }),
   });
   if (!res.ok) throw new Error(await parseError(res));
+}
+
+export async function adminDeleteRequest(requestId: string): Promise<void> {
+  const res = await fetch(`/api/admin/requests/${encodeURIComponent(requestId)}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+}
+
+export async function fetchAdminPanel(
+  panelId: string,
+): Promise<import("@/types").PanelObject> {
+  const res = await fetch(`/api/admin/panels/${encodeURIComponent(panelId)}`, {
+    headers: authHeaders(),
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  const data = (await res.json()) as { panel: import("@/types").PanelObject };
+  return data.panel;
+}
+
+const VISITOR_KEY = "elektropasport:visitor-key";
+
+export function getOrCreateVisitorKey(): string {
+  if (typeof window === "undefined") return "server";
+  try {
+    const existing = localStorage.getItem(VISITOR_KEY)?.trim();
+    if (existing) return existing;
+    const next =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `v_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    localStorage.setItem(VISITOR_KEY, next);
+    return next;
+  } catch {
+    return `v_${Date.now()}`;
+  }
+}
+
+export async function recordInviteLinkOpen(token: string): Promise<void> {
+  if (!isInviteToken(token)) return;
+  try {
+    await fetch("/api/invites/hit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        token,
+        visitorKey: getOrCreateVisitorKey(),
+      }),
+      keepalive: true,
+    });
+  } catch {
+    // best-effort analytics
+  }
 }
 
 /* ───── Master system ───── */

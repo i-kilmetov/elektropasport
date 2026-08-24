@@ -5,6 +5,7 @@ import {
 import {
   dbErrorResponse,
   ensureSchema,
+  getDataEpoch,
   listHomeItems,
   upsertUser,
 } from "@/lib/db";
@@ -14,8 +15,11 @@ export async function GET(request: Request) {
     const user = requireTelegramUser(request);
     await ensureSchema();
     await upsertUser(user);
-    const items = await listHomeItems(user.telegramId);
-    return Response.json({ items });
+    const [items, dataEpoch] = await Promise.all([
+      listHomeItems(user.telegramId),
+      getDataEpoch(),
+    ]);
+    return Response.json({ items, dataEpoch });
   } catch (error) {
     const db = dbErrorResponse(error);
     if (db) return db;

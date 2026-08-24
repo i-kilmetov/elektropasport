@@ -38,9 +38,11 @@ import { buildInviteUrl } from "@/lib/panel-share";
 let schemaReady: Promise<void> | null = null;
 
 /** Bump when DDL below changes so cold starts re-run migrations once. */
-const SCHEMA_VERSION = "2026-08-24-c";
+const SCHEMA_VERSION = "2026-08-25-a";
 /** One-shot data wipe flag — never re-run after it is written. */
-const FRESH_START_KEY = "fresh_start_2026_08_24";
+const FRESH_START_KEY = "fresh_start_2026_08_25";
+/** Bumped on each factory wipe so clients drop localStorage orphans. */
+const DATA_EPOCH_KEY = "data_epoch";
 
 export async function ensureSchema(): Promise<void> {
   if (!schemaReady) {
@@ -258,6 +260,22 @@ export async function ensureSchema(): Promise<void> {
         ON invite_events (inviter_telegram_id, created_at DESC)
       `;
       await sql`
+        CREATE TABLE IF NOT EXISTS invite_link_hits (
+          id TEXT PRIMARY KEY,
+          invite_token TEXT NOT NULL,
+          inviter_telegram_id BIGINT NOT NULL REFERENCES users(telegram_id) ON DELETE CASCADE,
+          visitor_key TEXT NOT NULL,
+          opened_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          claimed_at TIMESTAMPTZ,
+          invitee_telegram_id BIGINT,
+          UNIQUE (invite_token, visitor_key)
+        )
+      `;
+      await sql`
+        CREATE INDEX IF NOT EXISTS invite_link_hits_inviter_opened_idx
+        ON invite_link_hits (inviter_telegram_id, opened_at DESC)
+      `;
+      await sql`
         ALTER TABLE install_requests
         ADD COLUMN IF NOT EXISTS payment_status TEXT
       `;
@@ -391,6 +409,7 @@ export async function ensureSchema(): Promise<void> {
       if (!freshStart) {
         await sql`
           TRUNCATE TABLE
+            invite_link_hits,
             invite_events,
             panel_shares,
             master_feedback,
@@ -404,10 +423,16 @@ export async function ensureSchema(): Promise<void> {
             users
           RESTART IDENTITY CASCADE
         `;
+        const wipedAt = new Date().toISOString();
         await sql`
           INSERT INTO schema_meta (key, value)
-          VALUES (${FRESH_START_KEY}, ${new Date().toISOString()})
+          VALUES (${FRESH_START_KEY}, ${wipedAt})
           ON CONFLICT (key) DO NOTHING
+        `;
+        await sql`
+          INSERT INTO schema_meta (key, value)
+          VALUES (${DATA_EPOCH_KEY}, ${wipedAt})
+          ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
         `;
         console.info("Database wiped to fresh start:", FRESH_START_KEY);
       }
@@ -983,6 +1008,21 @@ export async function getPanelByOwner(
       has_ground, house_snapshot, rail_count, wires, appliances, source_share_token, created_at
     FROM panels
     WHERE id = ${id} AND telegram_user_id = ${telegramUserId}
+    LIMIT 1
+  `) as PanelRow[];
+  return rows[0] ? rowToPanel(rows[0]) : null;
+}
+
+export async function getPanelById(id: string): Promise<PanelObject | null> {
+  const sql = getSql();
+  await ensureSchema();
+  const rows = (await sql`
+    SELECT
+      id, type, title, address, last_check, breakers, safety,
+      devices, lines_count, photo_data_url, named, phases, power_kw,
+      has_ground, house_snapshot, rail_count, wires, appliances, source_share_token, created_at
+    FROM panels
+    WHERE id = ${id}
     LIMIT 1
   `) as PanelRow[];
   return rows[0] ? rowToPanel(rows[0]) : null;
@@ -1582,10 +1622,68 @@ export async function claimInvite(
       if (outcome === "credited") {
         await markPanelLimitUnlocked(inviterId);
       }
+      await sql`
+        UPDATE invite_link_hits
+        SET
+          claimed_at = COALESCE(claimed_at, NOW()),
+          invitee_telegram_id = COALESCE(invitee_telegram_id, ${invitee.telegramId})
+        WHERE invite_token = ${token}
+          AND (
+            invitee_telegram_id IS NULL
+            OR invitee_telegram_id = ${invitee.telegramId}
+          )
+      `;
     }
   }
 
   return getPanelQuota(invitee.telegramId);
+}
+
+export async function getDataEpoch(): Promise<string | null> {
+  const sql = getSql();
+  await ensureSchema();
+  try {
+    const [row] = (await sql`
+      SELECT value FROM schema_meta WHERE key = ${DATA_EPOCH_KEY} LIMIT 1
+    `) as Array<{ value: string }>;
+    return row?.value ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function recordInviteLinkHit(
+  token: string,
+  visitorKey: string,
+): Promise<{ ok: boolean }> {
+  const sql = getSql();
+  await ensureSchema();
+  const key = visitorKey.trim().slice(0, 80);
+  if (!key) return { ok: false };
+
+  const [inviter] = (await sql`
+    SELECT telegram_id
+    FROM users
+    WHERE invite_token = ${token}
+    LIMIT 1
+  `) as Array<{ telegram_id: string | number }>;
+  if (!inviter) return { ok: false };
+
+  const id = `ih_${crypto.randomUUID().replace(/-/g, "").slice(0, 16)}`;
+  await sql`
+    INSERT INTO invite_link_hits (
+      id, invite_token, inviter_telegram_id, visitor_key, opened_at
+    )
+    VALUES (
+      ${id},
+      ${token},
+      ${Number(inviter.telegram_id)},
+      ${key},
+      NOW()
+    )
+    ON CONFLICT (invite_token, visitor_key) DO NOTHING
+  `;
+  return { ok: true };
 }
 
 /* ───── Master system ───── */
