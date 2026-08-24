@@ -510,7 +510,7 @@ export function ServiceDocsPage() {
                 headers={["URL", "Назначение"]}
                 rows={[
                   ["/", "Приложение"],
-                  ["/docs", "Эта документация"],
+                  ["/docs", "Внутренняя документация (Telegram → пароль)"],
                   ["/job", "Лендинг «стать мастером»"],
                   ["/research", "Опрос"],
                   ["/moscow-status", "Диагностика open data Москвы"],

@@ -14,10 +14,12 @@ export function TelegramAuthScreen({
   pendingAction,
   onBack,
   minimal = false,
+  returnTo,
 }: {
   pendingAction?: "add-panel" | "no-panel" | "call-master" | "help-electrical";
   onBack?: () => void;
   minimal?: boolean;
+  returnTo?: string;
 }) {
   const [starting, setStarting] = useState(false);
   const [consent, setConsent] = useState(false);
@@ -33,7 +35,7 @@ export function TelegramAuthScreen({
     if (!consent) return;
     setLoginError(null);
     setStarting(true);
-    void beginTelegramLogin().catch((error) => {
+    void beginTelegramLogin(returnTo).catch((error) => {
       setStarting(false);
       setLoginError(
         error instanceof Error ? error.message : "Не удалось начать вход",

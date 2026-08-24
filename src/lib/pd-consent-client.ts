@@ -1,13 +1,25 @@
 "use client";
 
+import { POST_AUTH_NEXT_KEY, safeAuthNextPath } from "@/lib/auth-flow";
+
 /** Set PD consent cookie, then open Telegram OAuth. */
-export async function beginTelegramLogin(): Promise<void> {
+export async function beginTelegramLogin(next?: string): Promise<void> {
   const res = await fetch("/api/auth/consent", {
     method: "POST",
     credentials: "include",
   });
   if (!res.ok) {
     throw new Error("Не удалось сохранить согласие");
+  }
+  try {
+    const path = safeAuthNextPath(next);
+    if (path === "/") {
+      sessionStorage.removeItem(POST_AUTH_NEXT_KEY);
+    } else {
+      sessionStorage.setItem(POST_AUTH_NEXT_KEY, path);
+    }
+  } catch {
+    // ignore
   }
   window.location.assign("/api/auth/telegram/start");
 }

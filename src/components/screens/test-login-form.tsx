@@ -8,9 +8,13 @@ import { Button } from "@/components/ui/button";
 export function TestLoginForm({
   next = "/",
   onSuccess,
+  title = "Тестовая среда",
+  description = "test.tokom.ru — здесь проверяются новые функции до релиза на основной сайт.",
 }: {
   next?: string;
   onSuccess?: () => void;
+  title?: string;
+  description?: string;
 }) {
   const router = useRouter();
   const [password, setPassword] = useState("");
@@ -56,11 +60,10 @@ export function TestLoginForm({
         </div>
         <div className="rounded-[28px] border border-black/8 bg-white p-6 shadow-sm">
           <h1 className="mb-1 text-center text-[20px] font-semibold text-zinc-900">
-            Тестовая среда
+            {title}
           </h1>
           <p className="mb-6 text-center text-[14px] leading-relaxed text-zinc-500">
-            test.tokom.ru — здесь проверяются новые функции до релиза на
-            основной сайт.
+            {description}
           </p>
           <form onSubmit={onSubmit} className="space-y-4">
             <label className="block">

@@ -28,7 +28,7 @@ import {
   validateTelegramIdToken,
 } from "@/lib/telegram-oauth";
 import { resolveRequestOrigin } from "@/lib/app-url";
-import { POST_AUTH_SKIP_SPLASH_KEY } from "@/lib/auth-flow";
+import { POST_AUTH_NEXT_KEY, POST_AUTH_SKIP_SPLASH_KEY } from "@/lib/auth-flow";
 
 function parseLoginParams(url: URL): TelegramLoginWidgetData | null {
   const id = url.searchParams.get("id");
@@ -71,12 +71,23 @@ function sessionHtml(user: ValidatedTelegramUser, token: string): string {
 </head>
 <body>
   <script>
+    var next = '/';
     try {
       localStorage.setItem('elektropasport:auth-token', '${escapeJsString(token)}');
       localStorage.setItem('elektropasport:auth-user', '${escapeJsString(userJson)}');
       sessionStorage.setItem('${POST_AUTH_SKIP_SPLASH_KEY}', '1');
+      next = sessionStorage.getItem('${POST_AUTH_NEXT_KEY}') || '/';
+      sessionStorage.removeItem('${POST_AUTH_NEXT_KEY}');
+      if (
+        next.charAt(0) !== '/' ||
+        next.charAt(1) === '/' ||
+        next.indexOf('\\\\') !== -1 ||
+        next.indexOf('://') !== -1
+      ) {
+        next = '/';
+      }
     } catch (e) {}
-    window.location.replace('/');
+    window.location.replace(next);
   </script>
 </body>
 </html>`;

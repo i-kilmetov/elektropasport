@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { DocsAccessGate } from "@/components/docs/docs-access-gate";
 import { ServiceDocsPage } from "@/components/docs/service-docs-page";
 
 export const metadata: Metadata = {
@@ -9,5 +10,9 @@ export const metadata: Metadata = {
 };
 
 export default function DocsPage() {
-  return <ServiceDocsPage />;
+  return (
+    <DocsAccessGate>
+      <ServiceDocsPage />
+    </DocsAccessGate>
+  );
 }

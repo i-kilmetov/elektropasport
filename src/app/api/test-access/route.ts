@@ -3,8 +3,29 @@ import {
   TEST_SITE_COOKIE,
   signTestSiteCookie,
   testSitePasswordConfigured,
+  verifyTestSiteCookie,
   verifyTestSitePassword,
 } from "@/lib/test-site-auth";
+
+export async function GET(request: Request) {
+  if (!testSitePasswordConfigured()) {
+    return NextResponse.json({ ok: false, configured: false }, { status: 503 });
+  }
+  const cookieHeader = request.headers.get("cookie") ?? "";
+  const match = cookieHeader
+    .split(";")
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(`${TEST_SITE_COOKIE}=`));
+  const raw = match?.slice(`${TEST_SITE_COOKIE}=`.length) ?? "";
+  let cookie = raw;
+  try {
+    cookie = decodeURIComponent(raw);
+  } catch {
+    // keep raw
+  }
+  const ok = await verifyTestSiteCookie(cookie);
+  return NextResponse.json({ ok, configured: true });
+}
 
 export async function POST(request: Request) {
   if (!testSitePasswordConfigured()) {
