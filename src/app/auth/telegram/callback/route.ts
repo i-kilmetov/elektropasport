@@ -27,7 +27,7 @@ import {
   readOAuthCookie,
   validateTelegramIdToken,
 } from "@/lib/telegram-oauth";
-import { resolveRequestOrigin } from "@/lib/app-url";
+import { resolveOAuthOrigin, resolveRequestOrigin } from "@/lib/app-url";
 import { POST_AUTH_NEXT_KEY, POST_AUTH_SKIP_SPLASH_KEY } from "@/lib/auth-flow";
 
 function parseLoginParams(url: URL): TelegramLoginWidgetData | null {
@@ -124,7 +124,9 @@ async function finishLogin(
   return new NextResponse(sessionHtml(user, token), {
     headers: {
       "Content-Type": "text/html; charset=utf-8",
-      "Set-Cookie": oauthCookieHeader(null),
+      "Set-Cookie": oauthCookieHeader(null, {
+        domain: new URL(resolveRequestOrigin(request)).host,
+      }),
     },
   });
 }
@@ -143,7 +145,7 @@ export async function GET(request: Request) {
 
       const clientId = getTelegramClientId();
       const clientSecret = getTelegramClientSecret();
-      const redirectUri = `${resolveRequestOrigin(request)}/auth/telegram/callback`;
+      const redirectUri = `${resolveOAuthOrigin(request)}/auth/telegram/callback`;
       const idToken = await exchangeAuthorizationCode({
         code,
         redirectUri,

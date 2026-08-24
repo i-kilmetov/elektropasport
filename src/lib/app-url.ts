@@ -28,6 +28,24 @@ export function resolveRequestOrigin(request: Request): string {
 }
 
 /**
+ * Origin for Telegram OIDC redirect_uri.
+ * Apex and www must map to the same registered URL in BotFather
+ * (currently https://tokom.ru/... — www alone returns "redirect_uri required").
+ */
+export function resolveOAuthOrigin(request: Request): string {
+  const origin = resolveRequestOrigin(request);
+  try {
+    const host = new URL(origin).host.toLowerCase();
+    if (host === "www.tokom.ru" || host === "tokom.ru") {
+      return PRODUCTION_APP_URL;
+    }
+  } catch {
+    // fall through
+  }
+  return origin;
+}
+
+/**
  * Prefer an explicit env override, then the current request / Vercel URL,
  * then the public tokom.ru domain.
  * Use for links, webhooks, payments — not for OAuth cookie/redirect host.

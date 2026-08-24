@@ -85,12 +85,19 @@ export function parseOAuthCookie(raw: string | undefined): OAuthPkceState | null
   }
 }
 
-export function oauthCookieHeader(value: OAuthPkceState | null): string {
+export function oauthCookieHeader(
+  value: OAuthPkceState | null,
+  options?: { domain?: string },
+): string {
+  const host = options?.domain?.replace(/^\./, "").toLowerCase() ?? "";
+  // Only share across apex/www of production — never leak to test.tokom.ru.
+  const domainAttr =
+    host === "tokom.ru" || host === "www.tokom.ru" ? "; Domain=.tokom.ru" : "";
   if (!value) {
-    return `${OAUTH_COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`;
+    return `${OAUTH_COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0${domainAttr}`;
   }
   const encoded = encodeURIComponent(serializeOAuthCookie(value));
-  return `${OAUTH_COOKIE}=${encoded}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=600`;
+  return `${OAUTH_COOKIE}=${encoded}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=600${domainAttr}`;
 }
 
 export function readOAuthCookie(request: Request): OAuthPkceState | null {

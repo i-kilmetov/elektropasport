@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { resolveRequestOrigin } from "@/lib/app-url";
+import { resolveOAuthOrigin, resolveRequestOrigin } from "@/lib/app-url";
 import {
   buildLegacyAuthUrl,
   buildOidcAuthUrl,
@@ -16,9 +16,11 @@ export async function GET(request: Request) {
     return NextResponse.redirect(new URL("/?auth_error=config", request.url));
   }
 
-  // Must match the host that sets the PKCE cookie (not NEXT_PUBLIC_APP_URL).
-  const origin = resolveRequestOrigin(request);
-  const redirectUri = `${origin}/auth/telegram/callback`;
+  // Must match BotFather Redirect URI allowlist (https://tokom.ru/...),
+  // even when the browser is on www.tokom.ru.
+  const oauthOrigin = resolveOAuthOrigin(request);
+  const browserHost = new URL(resolveRequestOrigin(request)).host;
+  const redirectUri = `${oauthOrigin}/auth/telegram/callback`;
 
   if (canUseOidcLogin()) {
     const pkce = createPkcePair();
@@ -30,14 +32,17 @@ export async function GET(request: Request) {
     });
 
     const response = NextResponse.redirect(authUrl);
-    response.headers.set("Set-Cookie", oauthCookieHeader(pkce));
+    response.headers.set(
+      "Set-Cookie",
+      oauthCookieHeader(pkce, { domain: browserHost }),
+    );
     return response;
   }
 
   // Legacy Telegram Login page with QR (no Client Secret required).
   const authUrl = buildLegacyAuthUrl({
     botId: clientId,
-    origin,
+    origin: oauthOrigin,
     returnTo: redirectUri,
   });
   return NextResponse.redirect(authUrl);
