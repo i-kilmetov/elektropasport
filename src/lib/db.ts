@@ -38,7 +38,9 @@ import { buildInviteUrl } from "@/lib/panel-share";
 let schemaReady: Promise<void> | null = null;
 
 /** Bump when DDL below changes so cold starts re-run migrations once. */
-const SCHEMA_VERSION = "2026-08-24-b";
+const SCHEMA_VERSION = "2026-08-24-c";
+/** One-shot data wipe flag — never re-run after it is written. */
+const FRESH_START_KEY = "fresh_start_2026_08_24";
 
 export async function ensureSchema(): Promise<void> {
   if (!schemaReady) {
@@ -378,6 +380,38 @@ export async function ensureSchema(): Promise<void> {
           UNIQUE (list, email)
         )
       `;
+
+      // One-time factory reset requested for clean testing.
+      const [freshStart] = (await sql`
+        SELECT value
+        FROM schema_meta
+        WHERE key = ${FRESH_START_KEY}
+        LIMIT 1
+      `) as Array<{ value: string }>;
+      if (!freshStart) {
+        await sql`
+          TRUNCATE TABLE
+            invite_events,
+            panel_shares,
+            master_feedback,
+            master_dispatch_messages,
+            sbp_payments,
+            install_requests,
+            panels,
+            master_applications,
+            waitlist,
+            request_code_counters,
+            users
+          RESTART IDENTITY CASCADE
+        `;
+        await sql`
+          INSERT INTO schema_meta (key, value)
+          VALUES (${FRESH_START_KEY}, ${new Date().toISOString()})
+          ON CONFLICT (key) DO NOTHING
+        `;
+        console.info("Database wiped to fresh start:", FRESH_START_KEY);
+      }
+
       await sql`
         INSERT INTO schema_meta (key, value)
         VALUES ('version', ${SCHEMA_VERSION})
