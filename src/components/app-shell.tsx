@@ -520,11 +520,16 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
         else if (nextQuota) setQuota(nextQuota);
       } catch (error) {
         if (!cancelled) {
-          setItemsError(
+          const msg =
             error instanceof Error
               ? error.message
-              : "Не удалось загрузить данные",
-          );
+              : "Не удалось загрузить данные";
+          setItemsError(msg);
+          // Keep cached items visible so the screen is not empty on transient errors.
+          const fallback = getCachedHomeItems();
+          if (fallback.length > 0) {
+            setItems(fallback);
+          }
         }
       } finally {
         if (!cancelled) setItemsLoading(false);

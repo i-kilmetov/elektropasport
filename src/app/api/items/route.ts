@@ -17,6 +17,15 @@ export async function GET(request: Request) {
     const items = await listHomeItems(user.telegramId);
     return Response.json({ items });
   } catch (error) {
-    return dbErrorResponse(error) ?? authErrorResponse(error);
+    const db = dbErrorResponse(error);
+    if (db) return db;
+    if (error instanceof Error && error.name !== "AuthError") {
+      console.error("GET /api/items", error);
+      return Response.json(
+        { error: error.message || "Не удалось загрузить данные" },
+        { status: 500 },
+      );
+    }
+    return authErrorResponse(error);
   }
 }

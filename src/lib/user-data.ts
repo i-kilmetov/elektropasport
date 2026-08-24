@@ -603,13 +603,30 @@ export async function fetchHomeItems(): Promise<HomeListItem[]> {
     return readLocalItems();
   }
 
-  const serverItems = await fetchServerHomeItems();
+  const localBefore = readLocalItems();
+
+  let serverItems: HomeListItem[];
+  try {
+    serverItems = await fetchServerHomeItems();
+  } catch (error) {
+    // Server is down — return whatever we have locally so the UI is not empty.
+    if (localBefore.length > 0) return localBefore;
+    throw error;
+  }
+
   const merged = mergeServerWithLocal(serverItems);
+
+  // Safety: never replace a populated cache with fewer items unless the server
+  // actually returned data (empty server response = likely transient error).
+  if (merged.length === 0 && localBefore.length > 0 && serverItems.length === 0) {
+    return localBefore;
+  }
+
   writeLocalItems(merged);
 
   // Push local-only items in the background — do not block the home screen.
   const serverIds = new Set(serverItems.map((item) => item.id));
-  const hasOrphans = readLocalItems().some(
+  const hasOrphans = merged.some(
     (item) => !serverIds.has(item.id),
   );
   if (hasOrphans) {
@@ -622,7 +639,7 @@ export async function fetchHomeItems(): Promise<HomeListItem[]> {
         const fresh = await fetchServerHomeItems();
         writeLocalItems(mergeServerWithLocal(fresh));
       })
-      .catch((error) => console.error(error));
+      .catch((err) => console.error(err));
   }
 
   return merged;
