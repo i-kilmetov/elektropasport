@@ -657,6 +657,10 @@ function rowToPanel(row: PanelRow): PanelObject {
   };
 }
 
+function sanitizeJsonValue<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
 function rowToRequest(row: RequestRow): InstallRequest {
   const rawStatus = row.status;
   const status: InstallRequestStatus =
@@ -754,16 +758,14 @@ export async function insertPanel(
   if (!existing) {
     await assertCanAddPanel(telegramUserId);
   }
-  // Do not persist huge photo data URLs — they break serverless body/DB limits.
-  const devicesJson = JSON.stringify(panel.devices ?? []);
-  const wiresJson = JSON.stringify(panel.wires ?? []);
+  const devicesJson = JSON.stringify(sanitizeJsonValue(panel.devices ?? []));
+  const wiresJson = JSON.stringify(sanitizeJsonValue(panel.wires ?? []));
   const appliancesJson = JSON.stringify(
-    (panel.appliances ?? []).map((item) => ({
-      ...item,
-      photoDataUrl: undefined,
-    })),
+    sanitizeJsonValue(panel.appliances ?? []),
   );
-  const houseSnapshotJson = JSON.stringify(panel.houseSnapshot ?? null);
+  const houseSnapshotJson = JSON.stringify(
+    sanitizeJsonValue(panel.houseSnapshot ?? null),
+  );
   const createdAt = panel.createdAt ?? new Date().toISOString();
   await sql`
     INSERT INTO panels (
@@ -781,7 +783,7 @@ export async function insertPanel(
       ${panel.safety},
       ${devicesJson}::jsonb,
       ${panel.linesCount ?? null},
-      ${null},
+      ${panel.photoDataUrl ?? null},
       ${panel.named ?? false},
       ${panel.phases ?? null},
       ${panel.powerKw ?? null},
@@ -806,21 +808,49 @@ export async function insertPanel(
       last_check = EXCLUDED.last_check,
       breakers = EXCLUDED.breakers,
       safety = EXCLUDED.safety,
-      devices = EXCLUDED.devices,
-      lines_count = EXCLUDED.lines_count,
+      devices = CASE
+        WHEN EXCLUDED.devices IS NOT NULL AND jsonb_array_length(EXCLUDED.devices) > 0
+        THEN EXCLUDED.devices
+        ELSE panels.devices
+      END,
+      lines_count = COALESCE(EXCLUDED.lines_count, panels.lines_count),
+      photo_data_url = COALESCE(EXCLUDED.photo_data_url, panels.photo_data_url),
       named = EXCLUDED.named,
       phases = EXCLUDED.phases,
       power_kw = EXCLUDED.power_kw,
-      has_ground = EXCLUDED.has_ground,
+      has_ground = COALESCE(EXCLUDED.has_ground, panels.has_ground),
       house_snapshot = COALESCE(EXCLUDED.house_snapshot, panels.house_snapshot),
-      rail_count = EXCLUDED.rail_count,
-      wires = EXCLUDED.wires,
-      appliances = EXCLUDED.appliances,
-      source_share_token = EXCLUDED.source_share_token,
+      rail_count = COALESCE(EXCLUDED.rail_count, panels.rail_count),
+      wires = CASE
+        WHEN EXCLUDED.wires IS NOT NULL AND jsonb_array_length(EXCLUDED.wires) > 0
+        THEN EXCLUDED.wires
+        ELSE panels.wires
+      END,
+      appliances = CASE
+        WHEN EXCLUDED.appliances IS NOT NULL AND jsonb_array_length(EXCLUDED.appliances) > 0
+        THEN EXCLUDED.appliances
+        ELSE panels.appliances
+      END,
+      source_share_token = COALESCE(EXCLUDED.source_share_token, panels.source_share_token),
       updated_at = NOW()
     WHERE panels.telegram_user_id = ${telegramUserId}
   `;
-  return { ...panel, photoDataUrl: undefined };
+  return {
+    ...panel,
+    devices:
+      Array.isArray(panel.devices) && panel.devices.length > 0
+        ? panel.devices
+        : existing?.devices,
+    wires:
+      Array.isArray(panel.wires) && panel.wires.length > 0
+        ? panel.wires
+        : existing?.wires,
+    appliances:
+      Array.isArray(panel.appliances) && panel.appliances.length > 0
+        ? panel.appliances
+        : existing?.appliances,
+    photoDataUrl: panel.photoDataUrl ?? existing?.photoDataUrl,
+  };
 }
 
 export async function updatePanel(
@@ -841,29 +871,37 @@ export async function updatePanel(
   >,
 ): Promise<PanelObject | null> {
   const sql = getSql();
+  const title = patch.title ?? null;
+  const named = patch.named ?? null;
+  const address =
+    patch.address && patch.address.trim() && patch.address !== "Добавлен по фото"
+      ? patch.address.trim()
+      : null;
+  const safety = patch.safety ?? null;
+  const phases = patch.phases ?? null;
+  const powerKw = patch.powerKw ?? null;
+  const hasGround = patch.hasGround ?? null;
   const houseSnapshotJson =
     patch.houseSnapshot !== undefined
-      ? JSON.stringify(patch.houseSnapshot)
+      ? JSON.stringify(sanitizeJsonValue(patch.houseSnapshot))
       : null;
   const shouldUpdateSnapshot = patch.houseSnapshot !== undefined;
   const rows = (await sql`
     UPDATE panels SET
-      title = COALESCE(${patch.title ?? null}, title),
-      named = COALESCE(${patch.named ?? null}, named),
+      title = COALESCE(${title}, title),
+      named = COALESCE(${named}, named),
       address = CASE
-        WHEN ${patch.address ?? null} IS NOT NULL
-          AND BTRIM(${patch.address ?? null}) <> ''
-          AND ${patch.address ?? null} <> 'Добавлен по фото'
-        THEN ${patch.address}
+        WHEN ${address} IS NOT NULL
+        THEN ${address}
         ELSE address
       END,
       safety = CASE
-        WHEN ${patch.safety !== undefined} THEN ${patch.safety ?? null}
+        WHEN ${patch.safety !== undefined} THEN ${safety}
         ELSE safety
       END,
-      phases = COALESCE(${patch.phases ?? null}, phases),
-      power_kw = COALESCE(${patch.powerKw ?? null}, power_kw),
-      has_ground = COALESCE(${patch.hasGround ?? null}, has_ground),
+      phases = COALESCE(${phases}, phases),
+      power_kw = COALESCE(${powerKw}, power_kw),
+      has_ground = COALESCE(${hasGround}, has_ground),
       house_snapshot = CASE
         WHEN ${shouldUpdateSnapshot} THEN ${houseSnapshotJson}::jsonb
         ELSE house_snapshot

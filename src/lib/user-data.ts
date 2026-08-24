@@ -235,7 +235,6 @@ function sanitizePanelPatch(
 function panelForApi(panel: PanelObject): PanelObject {
   return {
     ...panel,
-    photoDataUrl: undefined,
     appliances: panel.appliances?.map((item) => ({
       ...item,
       photoDataUrl: undefined,
