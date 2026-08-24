@@ -9,7 +9,7 @@ export function parseTelegramStartCommand(text?: string | null): string | null {
   return match?.[1]?.trim() || null;
 }
 
-export const RESEARCH_SURVEY_TOTAL_STEPS = 16;
+export const RESEARCH_SURVEY_TOTAL_STEPS = 18;
 
 export type SurveyQuestionKind = "single" | "multi" | "text";
 
@@ -71,6 +71,32 @@ const questions: Record<string, SurveyQuestion> = {
     required: true,
     title: "Вы пользуетесь электричеством?",
     options: [{ id: "yes", label: "Да" }],
+  },
+  q_sex: {
+    id: "q_sex",
+    kind: "single",
+    required: true,
+    title: "Ваш пол?",
+    options: [
+      { id: "male", label: "Мужской" },
+      { id: "female", label: "Женский" },
+      { id: "prefer_not", label: "Предпочитаю не указывать" },
+    ],
+  },
+  q_age: {
+    id: "q_age",
+    kind: "single",
+    required: true,
+    title: "Сколько вам лет?",
+    options: [
+      { id: "18_24", label: "18–24" },
+      { id: "25_34", label: "25–34" },
+      { id: "35_44", label: "35–44" },
+      { id: "45_54", label: "45–54" },
+      { id: "55_64", label: "55–64" },
+      { id: "65_plus", label: "65 и старше" },
+      { id: "prefer_not", label: "Предпочитаю не указывать" },
+    ],
   },
   q2: {
     id: "q2",
@@ -405,7 +431,9 @@ export function nextSurveyStep(
   stepId: string,
   answers: SurveyAnswers,
 ): string | "done" {
-  if (stepId === "q1") return "q2";
+  if (stepId === "q1") return "q_sex";
+  if (stepId === "q_sex") return "q_age";
+  if (stepId === "q_age") return "q2";
   if (stepId === "q2") return "q3";
   if (stepId === "q3") return "q4";
   if (stepId === "q4") return "q5";
@@ -454,6 +482,14 @@ export function validateSurveyAnswers(answers: unknown): SurveyValidation {
   const data = answers as SurveyAnswers;
   if (asString(data.q1) !== "yes") {
     return { ok: false, error: "Не заполнен первый вопрос" };
+  }
+  const sex = getSurveyQuestion("q_sex", data);
+  if (!sex.options?.some((option) => option.id === asString(data.q_sex))) {
+    return { ok: false, error: "Укажите пол" };
+  }
+  const age = getSurveyQuestion("q_age", data);
+  if (!age.options?.some((option) => option.id === asString(data.q_age))) {
+    return { ok: false, error: "Укажите возраст" };
   }
   if (asString(data.q2) !== "apartment" && asString(data.q2) !== "house") {
     return { ok: false, error: "Выберите тип жилья" };
@@ -507,6 +543,8 @@ export const SURVEY_SHEET_HEADERS = [
   "first_name",
   "branch",
   "q1",
+  "q_sex",
+  "q_age",
   "q2",
   "q3",
   "q4",
@@ -524,6 +562,8 @@ export const SURVEY_SHEET_HEADERS = [
   "q16",
   "q17_city",
   "q1_id",
+  "q_sex_id",
+  "q_age_id",
   "q2_id",
   "q3_id",
   "q4_id",
@@ -564,6 +604,8 @@ export function buildSurveySheetRow(input: {
       input.firstName ?? "",
       branch,
       formatAnswerLabel("q1", answers),
+      formatAnswerLabel("q_sex", answers),
+      formatAnswerLabel("q_age", answers),
       formatAnswerLabel("q2", answers),
       formatAnswerLabel("q3", answers),
       formatAnswerLabel("q4", answers),
@@ -581,6 +623,8 @@ export function buildSurveySheetRow(input: {
       formatAnswerLabel("q16", answers),
       asString(answers.q17).trim(),
       ids("q1"),
+      ids("q_sex"),
+      ids("q_age"),
       ids("q2"),
       ids("q3"),
       ids("q4"),

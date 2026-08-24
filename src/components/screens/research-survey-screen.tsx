@@ -141,9 +141,13 @@ export function ResearchSurveyScreen() {
     setDone(false);
     setError(null);
     setSubmitting(false);
-    setHistory(["q1"]);
+    setHistory(["q1", "q_sex", "q_age"]);
     setStepId("q2");
-    setAnswers({ q1: "yes" });
+    setAnswers((prev) => ({
+      q1: "yes",
+      q_sex: prev.q_sex,
+      q_age: prev.q_age,
+    }));
     setMultiDraft([]);
     setTextDraft("");
   };
