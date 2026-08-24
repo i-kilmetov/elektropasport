@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { BRAND_YELLOW } from "@/components/brand-logo";
+import { TelegramAppIcon } from "@/components/icons/telegram-app-icon";
 import { Button } from "@/components/ui/button";
 import { beginTelegramLogin } from "@/lib/pd-consent-client";
 import {
@@ -316,6 +317,8 @@ export function BrandAuthIntro({
   const animation = useLogoAnimation(bootReady);
   const [starting, setStarting] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
+  const [logoWidth, setLogoWidth] = useState(0);
+  const logoRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const html = document.documentElement;
@@ -336,6 +339,21 @@ export function BrandAuthIntro({
     };
   }, []);
 
+  useEffect(() => {
+    const node = logoRef.current;
+    if (!node) return;
+
+    const measure = () => setLogoWidth(node.offsetWidth);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    window.addEventListener("resize", measure);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [animation.restRevealed]);
+
   const handleLogin = () => {
     setLoginError(null);
     setStarting(true);
@@ -350,45 +368,52 @@ export function BrandAuthIntro({
 
   return (
     <div
-      className="fixed inset-0 z-[200] flex touch-none flex-col items-center justify-center overflow-hidden px-5"
+      className="fixed inset-0 z-[200] flex touch-none flex-col items-center overflow-hidden px-5"
       style={{
         backgroundColor: BRAND_YELLOW,
         height: "var(--app-height, 100dvh)",
+        paddingBottom: "max(1.75rem, env(safe-area-inset-bottom))",
       }}
       aria-label="Током — вход"
     >
-      <div className="flex w-full max-w-sm flex-col items-center">
-        <BrandMark
-          tagline={BOOT_TAGLINE}
-          taglineVisible={animation.taglineVisible}
-          stripesPulsing={animation.stripesPulsing}
-          restRevealed={animation.restRevealed}
-        />
-
-        <motion.div
-          className="mt-10 w-full"
-          initial={false}
-          animate={{
-            opacity: animation.loginVisible ? 1 : 0,
-            y: animation.loginVisible ? 0 : 12,
-          }}
-          transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
-        >
-          <Button
-            type="button"
-            className="mx-auto h-14 min-h-14 w-full rounded-full bg-[#111113] px-6 text-[16px] text-white hover:bg-zinc-800"
-            disabled={!animation.loginVisible || starting}
-            onClick={handleLogin}
-          >
-            {starting ? "Открываем Telegram…" : "Войти"}
-          </Button>
-          {loginError && (
-            <p className="mt-3 text-center text-[13px] text-red-700">
-              {loginError}
-            </p>
-          )}
-        </motion.div>
+      <div className="flex min-h-0 flex-1 items-center justify-center">
+        <div ref={logoRef} className="w-max">
+          <BrandMark
+            tagline=""
+            taglineVisible={false}
+            stripesPulsing={animation.stripesPulsing}
+            restRevealed={animation.restRevealed}
+          />
+        </div>
       </div>
+
+      <motion.div
+        className="mx-auto w-full shrink-0 pb-2"
+        style={{
+          maxWidth: logoWidth > 0 ? logoWidth : undefined,
+        }}
+        initial={false}
+        animate={{
+          opacity: animation.loginVisible && logoWidth > 0 ? 1 : 0,
+          y: animation.loginVisible && logoWidth > 0 ? 0 : 12,
+        }}
+        transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
+      >
+        <Button
+          type="button"
+          className="mx-auto flex h-14 min-h-14 w-full gap-2.5 rounded-full bg-[#111113] px-6 text-[16px] text-white hover:bg-zinc-800"
+          disabled={!animation.loginVisible || starting || logoWidth <= 0}
+          onClick={handleLogin}
+        >
+          <TelegramAppIcon className="h-6 w-6 shrink-0 text-current" />
+          {starting ? "Открываем Telegram…" : "Войти через Telegram"}
+        </Button>
+        {loginError && (
+          <p className="mt-3 text-center text-[13px] text-red-700">
+            {loginError}
+          </p>
+        )}
+      </motion.div>
     </div>
   );
 }
