@@ -6,7 +6,6 @@ import { ArrowLeft } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import { TelegramAppIcon } from "@/components/icons/telegram-app-icon";
 import { Button } from "@/components/ui/button";
-import { PdConsentCheckbox } from "@/components/ui/pd-consent-checkbox";
 import { beginTelegramLogin } from "@/lib/pd-consent-client";
 import { GlassCard } from "@/components/ui/glass-card";
 
@@ -22,7 +21,6 @@ export function TelegramAuthScreen({
   returnTo?: string;
 }) {
   const [starting, setStarting] = useState(false);
-  const [consent, setConsent] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -32,7 +30,6 @@ export function TelegramAuthScreen({
   }, [pendingAction]);
 
   const handleLogin = () => {
-    if (!consent) return;
     setLoginError(null);
     setStarting(true);
     void beginTelegramLogin(returnTo).catch((error) => {
@@ -89,7 +86,7 @@ export function TelegramAuthScreen({
 
           <Button
             className="w-full gap-2"
-            disabled={starting || !consent}
+            disabled={starting}
             onClick={handleLogin}
           >
             {starting ? (
@@ -97,16 +94,11 @@ export function TelegramAuthScreen({
             ) : (
               <>
                 <TelegramAppIcon className="h-5 w-5 text-current" />
-                Войти через Telegram
+                Войти
               </>
             )}
           </Button>
 
-          <PdConsentCheckbox
-            checked={consent}
-            onChange={setConsent}
-            className="flex cursor-pointer items-start gap-3 rounded-[16px] border border-black/8 bg-zinc-50 p-3 text-left"
-          />
           {loginError && (
             <p className="text-[13px] text-red-600">{loginError}</p>
           )}

@@ -539,8 +539,7 @@ export function ServiceDocsPage() {
               <H3>Браузер</H3>
               <Ul>
                 <li>
-                  Сначала согласие ПДн → cookie <Code>ep_pd_consent</Code> (1 час)
-                  и/или запись в <Code>users.pd_consent_*</Code>.
+                  На экране входа только логотип и кнопка «Войти» (без галочки).
                 </li>
                 <li>
                   <Code>GET /api/auth/telegram/start</Code> → oauth.telegram.org.
@@ -548,6 +547,11 @@ export function ServiceDocsPage() {
                 <li>
                   Callback кладёт в localStorage токен сессии (
                   <Code>elektropasport:auth-token</Code>) и пользователя.
+                </li>
+                <li>
+                  После входа показывается окно согласия на ПДн и cookie (
+                  <Code>PdConsentGate</Code>) →{" "}
+                  <Code>POST /api/auth/consent</Code>.
                 </li>
                 <li>
                   API: <Code>Authorization: Bearer &lt;token&gt;</Code>. Токен —

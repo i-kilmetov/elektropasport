@@ -11,8 +11,8 @@ export function PdConsentLabel({ id }: { id?: string }) {
         rel="noopener noreferrer"
       >
         согласие на обработку персональных данных
-      </Link>{" "}
-      и принимаю{" "}
+      </Link>
+      , принимаю{" "}
       <Link
         href="/legal/privacy"
         className="font-medium text-zinc-800 underline-offset-2 hover:underline"
@@ -29,8 +29,8 @@ export function PdConsentLabel({ id }: { id?: string }) {
         rel="noopener noreferrer"
       >
         пользовательское соглашение
-      </Link>{" "}
-      и{" "}
+      </Link>
+      ,{" "}
       <Link
         href="/legal/offer"
         className="font-medium text-zinc-800 underline-offset-2 hover:underline"
@@ -38,8 +38,9 @@ export function PdConsentLabel({ id }: { id?: string }) {
         rel="noopener noreferrer"
       >
         публичную оферту
-      </Link>
-      .
+      </Link>{" "}
+      и соглашаюсь на использование файлов cookie, необходимых для работы сервиса
+      и входа через Telegram.
     </span>
   );
 }
