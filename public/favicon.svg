@@ -1,12 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" shape-rendering="crispEdges">
   <rect width="512" height="512" fill="#D3DA00"/>
   <g fill="#111113">
-    <!-- top stripe (short) -->
-    <rect x="236" y="92" width="40" height="34" rx="4"/>
-    <!-- bottom stripe (wider) -->
-    <rect x="186" y="140" width="140" height="34" rx="4"/>
-    <!-- Letter Т (geometric) -->
-    <path d="M148 210h216v48H308v162h-104V258H148z"/>
+    <rect x="227" y="46" width="58" height="48"/>
+    <rect x="166" y="142" width="180" height="48"/>
+    <rect x="115" y="238" width="283" height="48"/>
+    <rect x="232" y="286" width="48" height="180"/>
   </g>
 </svg>
