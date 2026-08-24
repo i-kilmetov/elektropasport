@@ -19,13 +19,17 @@ export async function GET(request: Request) {
   } catch (error) {
     const db = dbErrorResponse(error);
     if (db) return db;
-    if (error instanceof Error && error.name !== "AuthError") {
-      console.error("GET /api/items", error);
-      return Response.json(
-        { error: error.message || "Не удалось загрузить данные" },
-        { status: 500 },
-      );
+    const msg =
+      error instanceof Error ? error.message : String(error);
+    const name =
+      error instanceof Error ? error.name : "Unknown";
+    console.error("GET /api/items", name, msg, error);
+    if (error instanceof Error && error.name === "AuthError") {
+      return authErrorResponse(error);
     }
-    return authErrorResponse(error);
+    return Response.json(
+      { error: `${name}: ${msg}` },
+      { status: 500 },
+    );
   }
 }

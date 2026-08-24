@@ -40,7 +40,14 @@ export async function PATCH(request: Request, context: RouteContext) {
     }
     return Response.json({ panel });
   } catch (error) {
-    return dbErrorResponse(error) ?? authErrorResponse(error);
+    const db = dbErrorResponse(error);
+    if (db) return db;
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("PATCH /api/panels/[id]", msg, error);
+    if (error instanceof Error && error.name === "AuthError") {
+      return authErrorResponse(error);
+    }
+    return Response.json({ error: `Ошибка сохранения: ${msg}` }, { status: 500 });
   }
 }
 
@@ -57,6 +64,13 @@ export async function DELETE(request: Request, context: RouteContext) {
     }
     return Response.json({ ok: true });
   } catch (error) {
-    return dbErrorResponse(error) ?? authErrorResponse(error);
+    const db = dbErrorResponse(error);
+    if (db) return db;
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("DELETE /api/panels/[id]", msg, error);
+    if (error instanceof Error && error.name === "AuthError") {
+      return authErrorResponse(error);
+    }
+    return Response.json({ error: msg }, { status: 500 });
   }
 }
