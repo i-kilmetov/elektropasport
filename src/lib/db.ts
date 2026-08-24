@@ -38,7 +38,7 @@ import { buildInviteUrl } from "@/lib/panel-share";
 let schemaReady: Promise<void> | null = null;
 
 /** Bump when DDL below changes so cold starts re-run migrations once. */
-const SCHEMA_VERSION = "2026-08-24-a";
+const SCHEMA_VERSION = "2026-08-24-b";
 
 export async function ensureSchema(): Promise<void> {
   if (!schemaReady) {
@@ -354,13 +354,18 @@ export async function ensureSchema(): Promise<void> {
         ALTER TABLE users
         ADD COLUMN IF NOT EXISTS panel_limit_unlocked BOOLEAN NOT NULL DEFAULT FALSE
       `;
+      // Only a credited invite (new registrant) unlocks the panel limit.
+      await sql`
+        UPDATE users
+        SET panel_limit_unlocked = FALSE
+      `;
       await sql`
         UPDATE users
         SET panel_limit_unlocked = TRUE
-        WHERE panel_limit_unlocked = FALSE
-          AND telegram_id IN (
+        WHERE telegram_id IN (
             SELECT DISTINCT inviter_telegram_id
             FROM invite_events
+            WHERE outcome = 'credited'
           )
       `;
       await sql`
@@ -1384,16 +1389,6 @@ async function countCreditedInvites(telegramUserId: number): Promise<number> {
   return row?.count ?? 0;
 }
 
-async function countInviteEvents(telegramUserId: number): Promise<number> {
-  const sql = getSql();
-  const [row] = (await sql`
-    SELECT COUNT(*)::int AS count
-    FROM invite_events
-    WHERE inviter_telegram_id = ${telegramUserId}
-  `) as Array<{ count: number }>;
-  return row?.count ?? 0;
-}
-
 async function markPanelLimitUnlocked(telegramUserId: number): Promise<void> {
   const sql = getSql();
   await sql`
@@ -1463,11 +1458,10 @@ export async function getPanelQuota(
   telegramUserId: number,
 ): Promise<PanelQuota> {
   await ensureSchema();
-  const [panelCount, creditedInvites, invitees, inviteToken, events, unlockedRow] =
+  const [panelCount, creditedInvites, inviteToken, events, unlockedRow] =
     await Promise.all([
       countUserPanels(telegramUserId),
       countCreditedInvites(telegramUserId),
-      countInviteEvents(telegramUserId),
       getOrCreateInviteToken(telegramUserId),
       listInviteEvents(telegramUserId),
       (async () => {
@@ -1482,11 +1476,10 @@ export async function getPanelQuota(
       })(),
     ]);
 
+  // Unlock only when at least one invitee was a brand-new registrant.
   const unlimited =
-    unlockedRow ||
-    invitees >= 1 ||
-    hasUnlockedPanelLimit(creditedInvites);
-  if (unlimited && !unlockedRow) {
+    unlockedRow || hasUnlockedPanelLimit(creditedInvites);
+  if (hasUnlockedPanelLimit(creditedInvites) && !unlockedRow) {
     await markPanelLimitUnlocked(telegramUserId);
   }
   const panelLimit = unlimited
@@ -1552,7 +1545,9 @@ export async function claimInvite(
         )
         ON CONFLICT (inviter_telegram_id, invitee_telegram_id) DO NOTHING
       `;
-      await markPanelLimitUnlocked(inviterId);
+      if (outcome === "credited") {
+        await markPanelLimitUnlocked(inviterId);
+      }
     }
   }
 

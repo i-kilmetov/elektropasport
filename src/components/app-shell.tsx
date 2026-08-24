@@ -2174,6 +2174,10 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
             <ProfileScreen
               key="profile"
               panelsUnlimited={Boolean(quota?.unlimited)}
+              inviteCount={quota?.events.length ?? 0}
+              onOpenInvites={() => {
+                void refreshQuota().then(() => openPanelLimit());
+              }}
               isAdmin={isAdmin}
               onOpenAdmin={() => go("admin")}
               onBack={() => go("objects")}

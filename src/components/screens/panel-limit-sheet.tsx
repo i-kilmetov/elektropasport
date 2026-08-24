@@ -43,6 +43,7 @@ export function PanelLimitSheet({
 }) {
   const [shareOpen, setShareOpen] = useState(false);
   const canInvite = Boolean(quota.inviteUrl);
+  const unlocked = Boolean(quota.unlimited);
 
   return (
     <Portal>
@@ -64,11 +65,12 @@ export function PanelLimitSheet({
           <div className="mb-4 flex items-start justify-between gap-3">
             <div>
               <h2 className="text-[20px] font-semibold text-zinc-900">
-                Пригласите человека
+                {unlocked ? "Лимит щитков снят" : "Пригласите человека"}
               </h2>
               <p className="mt-1 text-[13px] text-zinc-500">
-                {quota.panelCount} из {BASE_PANEL_LIMIT}{" "}
-                {panelWord(BASE_PANEL_LIMIT)} без приглашения
+                {unlocked
+                  ? "Можно добавлять любое количество щитков"
+                  : `${quota.panelCount} из ${BASE_PANEL_LIMIT} ${panelWord(BASE_PANEL_LIMIT)} без приглашения`}
               </p>
             </div>
             <button
@@ -81,34 +83,39 @@ export function PanelLimitSheet({
             </button>
           </div>
 
-          <ul className="space-y-3">
-            {points.map((point) => (
-              <li key={point.text} className="flex gap-3">
-                <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] bg-zinc-100 text-zinc-700">
-                  <point.icon className="h-4 w-4" />
-                </span>
-                <p className="pt-1 text-[15px] leading-relaxed text-zinc-600">
-                  {point.text}
-                </p>
-              </li>
-            ))}
-          </ul>
+          {!unlocked && (
+            <ul className="space-y-3">
+              {points.map((point) => (
+                <li key={point.text} className="flex gap-3">
+                  <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] bg-zinc-100 text-zinc-700">
+                    <point.icon className="h-4 w-4" />
+                  </span>
+                  <p className="pt-1 text-[15px] leading-relaxed text-zinc-600">
+                    {point.text}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
 
           {canInvite && (
-            <Button className="mt-5 w-full" onClick={() => setShareOpen(true)}>
+            <Button
+              className={unlocked ? "mt-1 w-full" : "mt-5 w-full"}
+              onClick={() => setShareOpen(true)}
+            >
               <UserPlus className="h-5 w-5" />
               Пригласить пользователя
             </Button>
           )}
 
-          <div className="mt-6">
+          <div className={unlocked ? "mt-5" : "mt-6"}>
             <h3 className="mb-2 text-[14px] font-medium text-zinc-600">
-              Приглашения
+              Приглашённые
             </h3>
             {quota.events.length === 0 ? (
               <p className="text-[13px] leading-relaxed text-zinc-400">
-                Пока никто не открыл вашу ссылку. Когда человек зайдёт в
-                приложение, лимит щитков снимется.
+                Пока никто не открыл вашу ссылку. Когда новый человек зайдёт в
+                приложение по вашей ссылке, лимит щитков снимется.
               </p>
             ) : (
               <ul className="divide-y divide-black/[0.06] overflow-hidden rounded-[20px] border border-black/8 bg-zinc-50">
@@ -119,6 +126,11 @@ export function PanelLimitSheet({
                         <p className="truncate text-[15px] font-medium text-zinc-900">
                           {event.name}
                         </p>
+                        {event.username && (
+                          <p className="mt-0.5 truncate text-[12px] text-zinc-400">
+                            @{event.username}
+                          </p>
+                        )}
                         <p
                           className={cn(
                             "mt-0.5 text-[13px] leading-relaxed",
@@ -128,8 +140,8 @@ export function PanelLimitSheet({
                           )}
                         >
                           {event.outcome === "credited"
-                            ? "Засчитано, лимит щитков снят"
-                            : "Уже пользуется сервисом, лимит не снят"}
+                            ? "Новый пользователь — лимит снят"
+                            : "Уже был в сервисе — лимит не снят"}
                         </p>
                       </div>
                       <span className="shrink-0 text-[12px] text-zinc-400">

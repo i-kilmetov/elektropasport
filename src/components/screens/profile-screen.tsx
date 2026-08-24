@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, Check, Infinity, Mail, Phone, Shield } from "lucide-react";
+import { ArrowLeft, Check, ChevronRight, Infinity, Mail, Phone, Shield, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { GlassCard } from "@/components/ui/glass-card";
@@ -44,12 +44,16 @@ export function ProfileScreen({
   onBack,
   onLoggedOut,
   panelsUnlimited = false,
+  inviteCount = 0,
+  onOpenInvites,
   isAdmin = false,
   onOpenAdmin,
 }: {
   onBack: () => void;
   onLoggedOut?: () => void;
   panelsUnlimited?: boolean;
+  inviteCount?: number;
+  onOpenInvites?: () => void;
   isAdmin?: boolean;
   onOpenAdmin?: () => void;
 }) {
@@ -208,7 +212,46 @@ export function ProfileScreen({
           )}
         </div>
 
-        {panelsUnlimited && (
+        {onOpenInvites ? (
+          <button
+            type="button"
+            onClick={onOpenInvites}
+            className="w-full text-left"
+          >
+            <GlassCard className="flex gap-3 p-4 transition active:scale-[0.99]">
+              <span
+                className={
+                  panelsUnlimited
+                    ? "flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-emerald-500/12 text-emerald-700"
+                    : "flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-[#6B8AFD]/12 text-[#6B8AFD]"
+                }
+              >
+                {panelsUnlimited ? (
+                  <Infinity className="h-5 w-5" />
+                ) : (
+                  <UserPlus className="h-5 w-5" />
+                )}
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <div className="min-w-0 flex-1 text-[15px] font-semibold text-zinc-900">
+                    {panelsUnlimited
+                      ? "Безлимит на щитки"
+                      : "Снять лимит на щитки"}
+                  </div>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-zinc-400" />
+                </div>
+                <p className="mt-1 text-[13px] leading-relaxed text-zinc-500">
+                  {panelsUnlimited
+                    ? inviteCount > 0
+                      ? `Ограничение снято. Приглашено: ${inviteCount}`
+                      : "Можно добавлять любое количество щитков — ограничение снято."
+                    : "Пригласите нового пользователя, чтобы добавлять щитки без ограничений."}
+                </p>
+              </div>
+            </GlassCard>
+          </button>
+        ) : panelsUnlimited ? (
           <GlassCard className="flex gap-3 p-4">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-emerald-500/12 text-emerald-700">
               <Infinity className="h-5 w-5" />
@@ -222,7 +265,7 @@ export function ProfileScreen({
               </p>
             </div>
           </GlassCard>
-        )}
+        ) : null}
 
         <GlassCard className="overflow-hidden p-0">
           <label className="block px-4 py-3">
