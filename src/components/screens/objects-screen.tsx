@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -12,7 +13,6 @@ import {
   ChevronDown,
   ClipboardList,
   Menu,
-  MoreHorizontal,
   Plus,
   Wrench,
   Zap,
@@ -43,6 +43,55 @@ import { installStatusTone } from "@/types";
 import { formatPanelAddedLabel } from "@/lib/panel-list-meta";
 import { isAtPanelLimit, type PanelQuota } from "@/lib/invites";
 
+const LONG_PRESS_MS = 480;
+const MOVE_CANCEL_PX = 10;
+
+function useLongPressAction(onLongPress: () => void) {
+  const timerRef = useRef<number | null>(null);
+  const startPointRef = useRef<{ x: number; y: number } | null>(null);
+  const longPressedRef = useRef(false);
+
+  const clear = () => {
+    if (timerRef.current != null) {
+      window.clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    startPointRef.current = null;
+  };
+
+  useEffect(() => clear, []);
+
+  return {
+    longPressedRef,
+    bind: {
+      onPointerDown: (event: React.PointerEvent<HTMLElement>) => {
+        if (event.button !== 0) return;
+        longPressedRef.current = false;
+        startPointRef.current = { x: event.clientX, y: event.clientY };
+        timerRef.current = window.setTimeout(() => {
+          longPressedRef.current = true;
+          onLongPress();
+        }, LONG_PRESS_MS);
+      },
+      onPointerMove: (event: React.PointerEvent<HTMLElement>) => {
+        const start = startPointRef.current;
+        if (!start) return;
+        const dx = Math.abs(event.clientX - start.x);
+        const dy = Math.abs(event.clientY - start.y);
+        if (dx > MOVE_CANCEL_PX || dy > MOVE_CANCEL_PX) {
+          clear();
+        }
+      },
+      onPointerUp: () => clear(),
+      onPointerCancel: () => clear(),
+      onContextMenu: (event: React.MouseEvent<HTMLElement>) => {
+        event.preventDefault();
+        onLongPress();
+      },
+    },
+  };
+}
+
 function HomeListCard({
   item,
   onOpen,
@@ -54,15 +103,22 @@ function HomeListCard({
 }) {
   const isRequest = item.kind === "install_request";
   const panel = !isRequest && item.kind === "panel" ? item : null;
+  const longPress = useLongPressAction(onContextMenu);
 
   return (
-    <div className="relative">
+    <div className="relative" {...longPress.bind}>
       <button
         type="button"
-        onClick={onOpen}
+        onClick={() => {
+          if (longPress.longPressedRef.current) {
+            longPress.longPressedRef.current = false;
+            return;
+          }
+          onOpen();
+        }}
         className="block w-full touch-manipulation text-left select-none lg:cursor-pointer"
       >
-        <GlassCard className="flex items-center gap-4 rounded-[24px] border p-4 pr-14 transition-colors hover:bg-zinc-50 lg:p-5 lg:pr-14">
+        <GlassCard className="flex items-center gap-4 rounded-[24px] border p-4 transition-colors hover:bg-zinc-50 lg:p-5">
           <div
             className={cn(
               "flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[18px] bg-zinc-100",
@@ -112,18 +168,6 @@ function HomeListCard({
           </div>
         </GlassCard>
       </button>
-      <button
-        type="button"
-        aria-label="Действия с карточкой"
-        onClick={(event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          onContextMenu();
-        }}
-        className="absolute top-1/2 right-3 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700"
-      >
-        <MoreHorizontal className="h-5 w-5" />
-      </button>
     </div>
   );
 }
@@ -137,11 +181,21 @@ function RequestListCard({
   onOpen: () => void;
   onContextMenu: () => void;
 }) {
+  const longPress = useLongPressAction(onContextMenu);
   return (
-    <GlassCard className="relative flex items-center gap-2 rounded-[24px] border p-4 transition-colors hover:bg-zinc-50 lg:gap-4 lg:p-5">
+    <GlassCard
+      className="relative flex items-center gap-2 rounded-[24px] border p-4 transition-colors hover:bg-zinc-50 lg:gap-4 lg:p-5"
+      {...longPress.bind}
+    >
       <button
         type="button"
-        onClick={onOpen}
+        onClick={() => {
+          if (longPress.longPressedRef.current) {
+            longPress.longPressedRef.current = false;
+            return;
+          }
+          onOpen();
+        }}
         className="flex min-w-0 flex-1 items-center gap-4 text-left touch-manipulation select-none lg:cursor-pointer"
       >
         <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[18px] bg-zinc-100 text-zinc-500">
@@ -165,17 +219,6 @@ function RequestListCard({
           <p className="mt-1 text-[12px] text-zinc-400">{item.createdAt}</p>
         </div>
       </button>
-      <button
-        type="button"
-        aria-label="Действия с карточкой"
-        onClick={(event) => {
-          event.stopPropagation();
-          onContextMenu();
-        }}
-        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700"
-      >
-        <MoreHorizontal className="h-5 w-5" />
-      </button>
     </GlassCard>
   );
 }
@@ -196,13 +239,20 @@ function ExpandableHomeCard({
   onContextMenu: () => void;
 }) {
   const appliances = panel.appliances ?? [];
+  const longPress = useLongPressAction(onContextMenu);
 
   return (
-    <GlassCard className="overflow-hidden rounded-[24px] border p-0">
+    <GlassCard className="overflow-hidden rounded-[24px] border p-0" {...longPress.bind}>
       <div className="relative flex items-center">
         <button
           type="button"
-          onClick={onToggle}
+          onClick={() => {
+            if (longPress.longPressedRef.current) {
+              longPress.longPressedRef.current = false;
+              return;
+            }
+            onToggle();
+          }}
           className="flex min-w-0 flex-1 touch-manipulation items-center gap-4 p-4 text-left select-none transition-colors hover:bg-zinc-50 lg:cursor-pointer lg:p-5"
         >
           <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[18px] bg-zinc-100 text-zinc-600">
@@ -234,17 +284,6 @@ function ExpandableHomeCard({
               expanded && "rotate-180",
             )}
           />
-        </button>
-        <button
-          type="button"
-          aria-label="Действия с карточкой"
-          onClick={(event) => {
-            event.stopPropagation();
-            onContextMenu();
-          }}
-          className="mr-3 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700"
-        >
-          <MoreHorizontal className="h-5 w-5" />
         </button>
       </div>
 

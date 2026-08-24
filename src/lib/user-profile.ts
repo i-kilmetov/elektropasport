@@ -14,6 +14,7 @@ export type UserProfile = {
 };
 
 const PROFILE_KEY = "elektropasport:user-profile";
+const PENDING_PROFILE_KEY = "elektropasport:user-profile-pending";
 
 function splitLegacyDisplayName(value: unknown): {
   firstName?: string;
@@ -81,6 +82,44 @@ function writeLocalProfile(profile: UserProfile): UserProfile {
   return next;
 }
 
+function markPendingProfile(profile: UserProfile): void {
+  try {
+    localStorage.setItem(PENDING_PROFILE_KEY, JSON.stringify(sanitizeProfile(profile)));
+  } catch {
+    // private mode
+  }
+}
+
+function readPendingProfile(): UserProfile {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = localStorage.getItem(PENDING_PROFILE_KEY);
+    if (!raw) return {};
+    return sanitizeProfile(JSON.parse(raw) as UserProfile & { displayName?: string });
+  } catch {
+    return {};
+  }
+}
+
+function clearPendingProfile(): void {
+  try {
+    localStorage.removeItem(PENDING_PROFILE_KEY);
+  } catch {
+    // private mode
+  }
+}
+
+function mergeProfiles(primary: UserProfile, secondary: UserProfile): UserProfile {
+  return sanitizeProfile({
+    firstName: primary.firstName ?? secondary.firstName,
+    lastName: primary.lastName ?? secondary.lastName,
+    birthDate: primary.birthDate ?? secondary.birthDate,
+    phoneDigits: primary.phoneDigits ?? secondary.phoneDigits,
+    email: primary.email ?? secondary.email,
+    avatarId: primary.avatarId ?? secondary.avatarId,
+  });
+}
+
 export function getUserProfile(): UserProfile {
   if (typeof window === "undefined") return {};
   try {
@@ -131,7 +170,7 @@ async function parseError(res: Response): Promise<string> {
 
 /** Load profile from server (and migrate local-only data once if needed). */
 export async function syncUserProfileFromServer(): Promise<UserProfile> {
-  const local = getUserProfile();
+  const local = mergeProfiles(getUserProfile(), readPendingProfile());
   if (!canUseServerAuth()) return local;
 
   try {
@@ -146,13 +185,22 @@ export async function syncUserProfileFromServer(): Promise<UserProfile> {
 
     const data = (await res.json()) as { profile?: UserProfile };
     const remote = sanitizeProfile(data.profile ?? {});
+    const merged = mergeProfiles(remote, local);
+    const remoteMissingLocalData =
+      (local.birthDate && local.birthDate !== remote.birthDate) ||
+      (local.phoneDigits && local.phoneDigits !== remote.phoneDigits) ||
+      (local.email && local.email !== remote.email) ||
+      (local.avatarId && local.avatarId !== remote.avatarId) ||
+      (local.firstName && local.firstName !== remote.firstName) ||
+      (local.lastName && local.lastName !== remote.lastName);
 
-    if (!profileHasData(remote) && profileHasData(local)) {
-      return persistUserProfile(local);
+    if (remoteMissingLocalData && profileHasData(merged)) {
+      return persistUserProfile(merged);
     }
 
-    if (profileHasData(remote)) {
-      return writeLocalProfile(remote);
+    if (profileHasData(merged)) {
+      clearPendingProfile();
+      return writeLocalProfile(merged);
     }
 
     // Seed empty profile from Telegram session names (common after domain move).
@@ -188,26 +236,36 @@ export async function persistUserProfile(
 ): Promise<UserProfile> {
   const next = writeLocalProfile(profile);
   if (!canUseServerAuth()) return next;
+  try {
+    const res = await fetch("/api/profile", {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeaders(),
+      },
+      body: JSON.stringify(next),
+      keepalive: true,
+    });
 
-  const res = await fetch("/api/profile", {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-      ...authHeaders(),
-    },
-    body: JSON.stringify(next),
-  });
+    if (!res.ok) {
+      if (res.status === 503) {
+        markPendingProfile(next);
+        return next;
+      }
+      throw new Error(await parseError(res));
+    }
 
-  if (!res.ok) {
-    if (res.status === 503) return next;
-    throw new Error(await parseError(res));
+    clearPendingProfile();
+    const data = (await res.json()) as { profile?: UserProfile };
+    if (data.profile) {
+      return writeLocalProfile(data.profile);
+    }
+    return next;
+  } catch (error) {
+    markPendingProfile(next);
+    if (error instanceof Error) throw error;
+    throw new Error("Не удалось сохранить профиль");
   }
-
-  const data = (await res.json()) as { profile?: UserProfile };
-  if (data.profile) {
-    return writeLocalProfile(data.profile);
-  }
-  return next;
 }
 
 export function formatPhoneDigits(digits: string): string {

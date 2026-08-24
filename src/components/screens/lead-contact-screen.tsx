@@ -169,10 +169,14 @@ export function LeadContactScreen({
     if (!canSubmit) return;
     const name = getTelegramUserName();
     setDisplayName(name);
-    void persistUserProfile({
-      ...getUserProfile(),
-      phoneDigits: digits,
-    }).catch((error) => console.error(error));
+    try {
+      await persistUserProfile({
+        ...getUserProfile(),
+        phoneDigits: digits,
+      });
+    } catch (error) {
+      console.error(error);
+    }
 
     if (variant === "master") {
       hapticNotification("success");

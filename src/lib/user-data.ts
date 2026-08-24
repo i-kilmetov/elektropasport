@@ -417,6 +417,36 @@ async function uploadLocalOnlyPanels(
   return uploaded;
 }
 
+async function uploadLocalOnlyInstallRequests(
+  serverItems: HomeListItem[],
+): Promise<number> {
+  const serverIds = new Set(serverItems.map((item) => item.id));
+  const orphans = readLocalItems().filter(
+    (item): item is InstallRequest =>
+      item.kind === "install_request" && !serverIds.has(item.id),
+  );
+  if (orphans.length === 0) return 0;
+
+  let uploaded = 0;
+  for (const request of orphans) {
+    try {
+      const res = await fetch("/api/install-requests", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeaders(),
+        },
+        body: JSON.stringify({ request }),
+        keepalive: true,
+      });
+      if (res.ok) uploaded += 1;
+    } catch {
+      // keep local copy — do not wipe
+    }
+  }
+  return uploaded;
+}
+
 function pickHouseSnapshot(
   local?: PanelHouseSnapshot,
   remote?: PanelHouseSnapshot,
@@ -577,15 +607,18 @@ export async function fetchHomeItems(): Promise<HomeListItem[]> {
   const merged = mergeServerWithLocal(serverItems);
   writeLocalItems(merged);
 
-  // Push local-only panels in the background — do not block the home screen.
+  // Push local-only items in the background — do not block the home screen.
   const serverIds = new Set(serverItems.map((item) => item.id));
   const hasOrphans = readLocalItems().some(
-    (item) => item.kind === "panel" && !serverIds.has(item.id),
+    (item) => !serverIds.has(item.id),
   );
   if (hasOrphans) {
-    void uploadLocalOnlyPanels(serverItems)
-      .then(async (uploaded) => {
-        if (uploaded <= 0) return;
+    void Promise.all([
+      uploadLocalOnlyPanels(serverItems),
+      uploadLocalOnlyInstallRequests(serverItems),
+    ])
+      .then(async ([uploadedPanels, uploadedRequests]) => {
+        if (uploadedPanels + uploadedRequests <= 0) return;
         const fresh = await fetchServerHomeItems();
         writeLocalItems(mergeServerWithLocal(fresh));
       })
