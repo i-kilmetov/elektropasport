@@ -1,8 +1,27 @@
 import { SignJWT, importPKCS8 } from "jose";
 
+function firstEnv(names: string[]): string | undefined {
+  for (const name of names) {
+    const value = process.env[name]?.trim();
+    if (value) return value;
+  }
+  return undefined;
+}
+
+function googleSheetsWebhookUrl(): string | undefined {
+  return firstEnv([
+    "GOOGLE_SHEETS_WEBHOOK_URL",
+    "GOOGLE_SHEET_WEBHOOK_URL",
+  ]);
+}
+
+function googleSheetsWebhookSecret(): string | undefined {
+  return firstEnv(["GOOGLE_SHEETS_WEBHOOK_SECRET"]);
+}
+
 export function isGoogleSheetsConfigured(): boolean {
   return Boolean(
-    process.env.GOOGLE_SHEETS_WEBHOOK_URL?.trim() ||
+    googleSheetsWebhookUrl() ||
       (process.env.GOOGLE_SHEETS_ID?.trim() && googleServiceAccount()),
   );
 }
@@ -42,7 +61,7 @@ export async function appendGoogleSheetRow(input: {
   headers: string[];
   values: string[];
 }): Promise<void> {
-  const webhook = process.env.GOOGLE_SHEETS_WEBHOOK_URL?.trim();
+  const webhook = googleSheetsWebhookUrl();
   if (webhook) {
     await appendViaWebhook(webhook, input);
     return;
@@ -81,24 +100,68 @@ export async function appendGoogleSheetRow(input: {
   }
 }
 
+function looksLikeGoogleLogin(body: string): boolean {
+  const sample = body.slice(0, 2000).toLowerCase();
+  return (
+    sample.includes("<html") ||
+    sample.includes("sign in") ||
+    sample.includes("accounts.google.com")
+  );
+}
+
 async function appendViaWebhook(
   url: string,
   input: { headers: string[]; values: string[] },
 ): Promise<void> {
   const res = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    // text/plain avoids Apps Script dropping JSON bodies on the auth redirect
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
     body: JSON.stringify({
-      secret: process.env.GOOGLE_SHEETS_WEBHOOK_SECRET?.trim() || undefined,
+      secret: googleSheetsWebhookSecret(),
       headers: input.headers,
       values: input.values,
     }),
     redirect: "follow",
   });
 
+  const text = await res.text();
+  if (looksLikeGoogleLogin(text)) {
+    throw new Error(
+      "Google не записал строку: в Apps Script доступ должен быть Anyone (не Google-аккаунт), URL — …/exec, после правок — New version",
+    );
+  }
+
+  let parsed: { ok?: boolean; error?: string } | null = null;
+  try {
+    parsed = JSON.parse(text) as { ok?: boolean; error?: string };
+  } catch {
+    parsed = null;
+  }
+
   if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Google Sheets webhook failed: ${res.status} ${text}`);
+    throw new Error(
+      `Google Sheets webhook failed: ${res.status} ${text.slice(0, 240)}`,
+    );
+  }
+
+  if (parsed?.ok === false) {
+    if (parsed.error === "forbidden") {
+      throw new Error(
+        "Не совпал SECRET вебхука Google Sheets с GOOGLE_SHEETS_WEBHOOK_SECRET",
+      );
+    }
+    if (parsed.error === "empty_body") {
+      throw new Error(
+        "Apps Script получил пустое тело. Проверьте, что деплой — Web app, URL оканчивается на /exec",
+      );
+    }
+    if (parsed.error === "no_spreadsheet" || String(parsed.error).includes("no_spreadsheet")) {
+      throw new Error(
+        "Скрипт не привязан к таблице. Откройте Apps Script из самой Google Sheet или задайте SHEET_ID",
+      );
+    }
+    throw new Error(`Google Sheets webhook: ${parsed.error || "ошибка"}`);
   }
 }
 

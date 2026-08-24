@@ -34,6 +34,12 @@ function displayName(user: ValidatedTelegramUser | null): string {
   return `id ${user.telegramId}`;
 }
 
+export async function GET() {
+  return Response.json({
+    sheetsConfigured: isGoogleSheetsConfigured(),
+  });
+}
+
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as { answers?: unknown };
@@ -58,9 +64,26 @@ export async function POST(request: Request) {
     });
 
     const stored: string[] = [];
-    if (isGoogleSheetsConfigured()) {
+    if (!isGoogleSheetsConfigured()) {
+      return Response.json(
+        {
+          error:
+            "Таблица не подключена: в Vercel Production добавьте GOOGLE_SHEETS_WEBHOOK_URL (ссылка …/exec) и сделайте Redeploy",
+        },
+        { status: 503 },
+      );
+    }
+
+    try {
       await appendGoogleSheetRow(row);
       stored.push("sheets");
+    } catch (error) {
+      console.error("Research survey sheets failed", error);
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Не удалось записать ответы в Google Sheets";
+      return Response.json({ error: message }, { status: 502 });
     }
 
     try {
@@ -76,16 +99,6 @@ export async function POST(request: Request) {
       stored.push("telegram");
     } catch (error) {
       console.error("Research survey telegram notify failed", error);
-    }
-
-    if (stored.length === 0) {
-      return Response.json(
-        {
-          error:
-            "Приём анкет ещё не настроен: добавьте GOOGLE_SHEETS_WEBHOOK_URL или сервисный аккаунт Google Sheets",
-        },
-        { status: 503 },
-      );
     }
 
     return Response.json({ ok: true, stored }, { status: 201 });
