@@ -3,6 +3,10 @@
 import { motion } from "framer-motion";
 import { ArrowLeft, Home, MessageCircle, Wrench } from "lucide-react";
 import {
+  brandChoiceClasses,
+  LEAD_SERVICE_VARIANTS,
+} from "@/lib/brand-choice-card";
+import {
   formatRub,
   getLeadServiceOptions,
   masterLabelingPriceRub,
@@ -11,6 +15,16 @@ import {
   type LeadServiceType,
 } from "@/lib/lead-services";
 import { cn } from "@/lib/utils";
+
+const SERVICE_ICONS: Record<
+  LeadServiceType,
+  typeof MessageCircle | typeof Home | typeof Wrench
+> = {
+  online_consultation: MessageCircle,
+  master_home_visit: Home,
+  master_labeling: Wrench,
+  other: Wrench,
+};
 
 export function LeadServiceScreen({
   city,
@@ -63,9 +77,12 @@ export function LeadServiceScreen({
 
       <div className="flex flex-col gap-4">
         {options.map((option, i) => {
-          const isOnline = option.id === "online_consultation";
-          const isHomeVisit = option.id === "master_home_visit";
+          const variant =
+            LEAD_SERVICE_VARIANTS[option.id] ?? ("white" as const);
+          const style = brandChoiceClasses[variant];
+          const Icon = SERVICE_ICONS[option.id];
           const isLabeling = option.id === "master_labeling";
+
           return (
             <motion.button
               key={option.id}
@@ -79,39 +96,22 @@ export function LeadServiceScreen({
               <div
                 className={cn(
                   "overflow-hidden rounded-[28px] border p-5 shadow-[0_12px_32px_rgba(17,17,19,0.06)]",
-                  isOnline && "border-indigo-100 bg-indigo-50 text-indigo-950",
-                  isHomeVisit &&
-                    "border-emerald-100 bg-emerald-50 text-emerald-950",
-                  isLabeling && "border-teal-100 bg-teal-50 text-teal-950",
-                  !isOnline &&
-                    !isHomeVisit &&
-                    !isLabeling &&
-                    "border-black/8 bg-white text-zinc-900",
+                  style.card,
                 )}
               >
                 <div className="mb-3 flex items-start justify-between gap-3">
                   <div
                     className={cn(
                       "flex h-11 w-11 items-center justify-center rounded-2xl",
-                      isOnline && "bg-indigo-100 text-indigo-700",
-                      isHomeVisit && "bg-emerald-100 text-emerald-700",
-                      isLabeling && "bg-teal-100 text-teal-700",
+                      style.icon,
                     )}
                   >
-                    {isOnline ? (
-                      <MessageCircle className="h-5 w-5" />
-                    ) : isHomeVisit ? (
-                      <Home className="h-5 w-5" />
-                    ) : (
-                      <Wrench className="h-5 w-5" />
-                    )}
+                    <Icon className="h-5 w-5" strokeWidth={1.75} />
                   </div>
                   <div
                     className={cn(
                       "flex items-center gap-2 rounded-full px-3 py-1 text-[13px] font-bold tabular-nums",
-                      isOnline && "bg-white/80 text-indigo-800",
-                      isHomeVisit && "bg-white/80 text-emerald-800",
-                      isLabeling && "bg-white/80 text-teal-800",
+                      style.price,
                     )}
                   >
                     {option.struckPriceLabel && (
@@ -125,20 +125,13 @@ export function LeadServiceScreen({
                 <div className="text-[20px] font-bold leading-snug tracking-tight">
                   {option.title}
                 </div>
-                <p
-                  className={cn(
-                    "mt-2 text-[14px] leading-relaxed",
-                    isOnline && "text-indigo-950/70",
-                    isHomeVisit && "text-emerald-950/70",
-                    isLabeling && "text-teal-950/70",
-                  )}
-                >
+                <p className={cn("mt-2 text-[14px] leading-relaxed", style.body)}>
                   {option.description}
                 </p>
 
                 {isLabeling && modules && (
-                  <div className="mt-4 rounded-[20px] bg-white/80 p-3">
-                    <p className="text-[13px] font-medium text-teal-900/80">
+                  <div className={cn("mt-4 rounded-[20px] p-3", style.inset)}>
+                    <p className="text-[13px] font-medium opacity-80">
                       В вашем щитке {modules}{" "}
                       {modules % 10 === 1 && modules % 100 !== 11
                         ? "модуль"
@@ -148,7 +141,7 @@ export function LeadServiceScreen({
                           ? "модуля"
                           : "модулей"}
                     </p>
-                    <p className="mt-1 text-[15px] font-semibold text-teal-950">
+                    <p className="mt-1 text-[15px] font-semibold">
                       {modules} × {formatRub(MODULE_LABELING_PRICE_RUB)} ={" "}
                       {formatRub(masterLabelingPriceRub(modules))}
                     </p>

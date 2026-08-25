@@ -3,9 +3,10 @@
 import { motion } from "framer-motion";
 import { ArrowLeft } from "lucide-react";
 import {
-  NoPanelSetupArt,
-  noPanelCardVisual,
-} from "@/components/icons/no-panel-setup-art";
+  brandChoiceClasses,
+  NO_PANEL_CARD_TITLES,
+  NO_PANEL_CARD_VARIANTS,
+} from "@/lib/brand-choice-card";
 import { noPanelSetups, type NoPanelSetupId } from "@/lib/no-panel-setups";
 import { cn } from "@/lib/utils";
 
@@ -41,7 +42,10 @@ export function NoPanelOptionsScreen({
 
       <div className="grid min-h-0 flex-1 grid-cols-2 gap-3">
         {noPanelSetups.map((setup, i) => {
-          const visual = noPanelCardVisual(setup.id);
+          const variant = NO_PANEL_CARD_VARIANTS[setup.id];
+          const style = brandChoiceClasses[variant];
+          const Icon = setup.icon;
+
           return (
             <motion.button
               key={setup.id}
@@ -51,18 +55,25 @@ export function NoPanelOptionsScreen({
               transition={{ delay: 0.05 * i }}
               onClick={() => onSelect(setup.id)}
               className={cn(
-                "flex min-h-[230px] flex-col overflow-hidden rounded-[28px] border border-black/[0.04] p-3 text-left shadow-[0_8px_24px_rgba(17,17,19,0.06)] transition-transform active:scale-[0.98]",
-                visual.bg,
+                "flex min-h-[210px] flex-col overflow-hidden rounded-[28px] border p-3 text-left shadow-[0_8px_24px_rgba(17,17,19,0.06)] transition-transform active:scale-[0.98]",
+                style.card,
               )}
             >
-              <div className="flex min-h-0 flex-1 items-center justify-center">
-                <NoPanelSetupArt id={setup.id} className="h-full max-h-[120px] w-full" />
+              <div className="flex min-h-0 flex-1 items-center justify-center py-2">
+                <span
+                  className={cn(
+                    "flex h-16 w-16 items-center justify-center rounded-[20px]",
+                    style.icon,
+                  )}
+                >
+                  <Icon className="h-8 w-8" strokeWidth={1.75} />
+                </span>
               </div>
               <div className="mt-1 px-1 pb-1">
                 <div className="text-[15px] font-bold leading-snug tracking-tight">
-                  {visual.title}
+                  {NO_PANEL_CARD_TITLES[setup.id]}
                 </div>
-                <p className="mt-1 text-[12px] font-medium leading-snug opacity-70">
+                <p className={cn("mt-1 text-[12px] font-medium leading-snug", style.body)}>
                   {setup.subtitle}
                 </p>
               </div>
