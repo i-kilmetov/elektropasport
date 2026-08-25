@@ -51,8 +51,8 @@ export async function POST(request: Request) {
   let bootstrap = false;
   if (!keyed) {
     const total = await countIcecatCatalog().catch(() => -1);
-    // Allow unauthenticated re-sync while catalog is still empty / tiny (bootstrap).
-    if (total < 0 || total > 100) {
+    // Allow unauthenticated re-sync while catalog bootstrap is incomplete.
+    if (total < 0 || total > 50_000) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
     bootstrap = true;
@@ -89,13 +89,13 @@ export async function GET(request: Request) {
 
   const keyed = setupKeyAuthorized(request);
   const total = await countIcecatCatalog().catch(() => null);
-  if (!keyed && !(total !== null && total <= 100)) {
+  if (!keyed && !(total !== null && total <= 50_000)) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
   return Response.json({
     syncConfigured: isIcecatCatalogSyncConfigured(),
     catalogProducts: total,
-    bootstrapAllowed: total !== null && total <= 100,
-    hint: "POST this URL with x-setup-key (or while catalog is still tiny) to sync Open Icecat index",
+    bootstrapAllowed: total !== null && total <= 50_000,
+    hint: "POST this URL with x-setup-key (or while catalog bootstrap is open) to sync Open Icecat index",
   });
 }

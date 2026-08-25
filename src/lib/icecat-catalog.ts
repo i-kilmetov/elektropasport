@@ -34,10 +34,7 @@ const CATEGORY_KIND_RULES: Array<{
     kind: "boiler",
     match: /\bwater heaters?\b|\bboilers?\b|\bcalorifiers?\b/i,
   },
-  {
-    kind: "tv",
-    match: /\btvs?\b|\btelevisions?\b|\bLED\b|\bLCD\b|\bOLED\b|\bQLED\b|\bplasma\b/i,
-  },
+  { kind: "tv", match: /\btelevisions?\b|\b(?:LED|LCD|OLED|QLED|Plasma)\s*TVs?\b|\bCRT TVs?\b/i },
   {
     kind: "heater",
     match: /\bspace heaters?\b|\bconvectors?\b|\bradiators?\b|\bfan heaters?\b/i,
@@ -270,7 +267,7 @@ function mapIndexRow(
   if (!kind) return null;
 
   const supplierId = (header.iSupplier >= 0 ? cols[header.iSupplier] : cols[4]) ?? "";
-  const brandName = suppliers.get(supplierId) ?? (supplierId ? `Brand ${supplierId}` : "");
+  const brandName = suppliers.get(supplierId)?.trim() ?? "";
   if (!brandName) return null;
 
   let productId = (header.iProductId >= 0 ? cols[header.iProductId] : cols[1]) ?? "";
