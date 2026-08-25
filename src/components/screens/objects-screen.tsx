@@ -33,6 +33,7 @@ import { ItemActionsSheet } from "@/components/ui/item-actions-sheet";
 import { NameDialog } from "@/components/ui/name-dialog";
 import {
   applianceKindIcon,
+  applianceKindLabel,
   formatAppliancePower,
 } from "@/lib/home-appliances";
 import { cn } from "@/lib/utils";
@@ -251,53 +252,54 @@ function ExpandableHomeCard({
       className="overflow-hidden rounded-[24px] border p-0"
       {...longPress.bind}
     >
-      <div className="relative flex items-center">
-        <button
-          type="button"
-          onClick={() => {
-            if (longPress.longPressedRef.current) {
-              longPress.longPressedRef.current = false;
-              return;
-            }
-            onOpenPanel();
-          }}
-          className="flex min-w-0 flex-1 touch-manipulation items-center gap-4 p-4 text-left select-none transition-colors hover:bg-zinc-50 lg:cursor-pointer lg:p-5"
-        >
-          <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[18px] bg-zinc-100 text-zinc-600">
-            <BreakerIcon className="h-7 w-7" />
+      <button
+        type="button"
+        onClick={() => {
+          if (longPress.longPressedRef.current) {
+            longPress.longPressedRef.current = false;
+            return;
+          }
+          onOpenPanel();
+        }}
+        className="flex w-full min-w-0 touch-manipulation items-center gap-4 p-4 text-left select-none transition-colors hover:bg-zinc-50 lg:cursor-pointer lg:p-5"
+      >
+        <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[18px] bg-zinc-100 text-zinc-600">
+          <BreakerIcon className="h-7 w-7" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="mb-0.5 flex items-center justify-between gap-2">
+            <h2 className="truncate text-[17px] font-semibold text-zinc-900">
+              {panel.title}
+            </h2>
+            <span className="shrink-0 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
+              {panel.phases &&
+              panel.powerKw?.trim() &&
+              typeof panel.safety === "number"
+                ? `${panel.safety}%`
+                : "—"}
+            </span>
           </div>
-          <div className="min-w-0 flex-1">
-            <div className="mb-0.5 flex items-center justify-between gap-2">
-              <h2 className="truncate text-[17px] font-semibold text-zinc-900">
-                {panel.title}
-              </h2>
-              <span className="shrink-0 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
-                {panel.phases &&
-                panel.powerKw?.trim() &&
-                typeof panel.safety === "number"
-                  ? `${panel.safety}%`
-                  : "—"}
-              </span>
-            </div>
-            <p className="truncate text-[13px] text-zinc-500">{panel.address}</p>
-            <p className="mt-1 text-[12px] text-zinc-400">
-              {`${panel.breakers} устройств · добавлен ${formatPanelAddedLabel(panel)}`}
-            </p>
-          </div>
-        </button>
+          <p className="truncate text-[13px] text-zinc-500">{panel.address}</p>
+          <p className="mt-1 text-[12px] text-zinc-400">
+            {`${panel.breakers} устройств · добавлен ${formatPanelAddedLabel(panel)}`}
+          </p>
+        </div>
+      </button>
+
+      <div className="flex justify-center border-t border-black/[0.04] px-4 pb-2.5 pt-1.5">
         <button
           type="button"
           onClick={(e) => {
             e.stopPropagation();
             onToggle();
           }}
-          className="mr-3 flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-black/8 bg-zinc-100 text-zinc-600 transition-colors hover:bg-zinc-200"
+          className="flex h-7 w-7 items-center justify-center rounded-full border border-black/8 bg-zinc-100 text-zinc-500 transition-colors hover:bg-zinc-200 hover:text-zinc-700"
           aria-expanded={expanded}
           aria-label={expanded ? "Скрыть технику" : "Показать технику"}
         >
           <ChevronDown
             className={cn(
-              "h-5 w-5 transition-transform",
+              "h-3.5 w-3.5 transition-transform",
               expanded && "rotate-180",
             )}
           />
@@ -316,6 +318,7 @@ function ExpandableHomeCard({
             <div className="divide-y divide-black/[0.06] border-t border-black/[0.06] bg-white">
               {appliances.map((appliance) => {
                 const Icon = applianceKindIcon(appliance.kind);
+                const kindLabel = applianceKindLabel(appliance.kind);
                 const brand = appliance.brand?.trim() || appliance.title;
                 const model = appliance.model?.trim();
                 return (
@@ -323,22 +326,26 @@ function ExpandableHomeCard({
                     key={appliance.id}
                     type="button"
                     onClick={() => onOpenAppliance(appliance.id)}
-                    className="flex w-full items-center gap-3 rounded-none px-4 py-3 text-left transition-colors hover:bg-zinc-50"
+                    className="flex w-full items-center gap-2.5 rounded-none px-4 py-2 text-left transition-colors hover:bg-zinc-50"
                   >
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-none bg-zinc-100 text-zinc-600">
-                      <Icon className="h-5 w-5" />
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] bg-zinc-100 text-zinc-600">
+                      <Icon className="h-4 w-4" />
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[14px] font-semibold text-zinc-900">
+                      <span className="block truncate text-[13px] font-semibold text-zinc-900">
+                        <span className="font-medium text-zinc-500">
+                          {kindLabel}
+                        </span>
+                        <span className="text-zinc-300"> · </span>
                         {brand}
                       </span>
                       {model && (
-                        <span className="block truncate text-[12px] text-zinc-500">
+                        <span className="block truncate text-[11px] text-zinc-500">
                           {model}
                         </span>
                       )}
                     </span>
-                    <span className="shrink-0 text-[13px] font-semibold tabular-nums text-zinc-700">
+                    <span className="shrink-0 text-[12px] font-semibold tabular-nums text-zinc-700">
                       {formatAppliancePower(appliance.powerW)}
                     </span>
                   </button>
@@ -348,7 +355,7 @@ function ExpandableHomeCard({
               <button
                 type="button"
                 onClick={onAddAppliance}
-                className="w-full rounded-none px-4 py-3 text-center text-[14px] font-medium text-zinc-500 underline decoration-zinc-300 underline-offset-4 transition-colors hover:text-zinc-800"
+                className="w-full rounded-none px-4 py-2 text-center text-[13px] font-medium text-zinc-500 underline decoration-zinc-300 underline-offset-4 transition-colors hover:text-zinc-800"
               >
                 Добавить
               </button>
