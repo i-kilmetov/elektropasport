@@ -3,17 +3,35 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { ArrowLeft, Loader2, MapPin, Navigation } from "lucide-react";
+import { AddressSuggestField } from "@/components/ui/address-suggest-field";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
 import {
   geolocateAddress,
   requestUserGeolocation,
 } from "@/lib/address-suggest-client";
-import type { GeolocatedAddress } from "@/lib/dadata";
+import { hasHouse, type AddressSuggestion, type GeolocatedAddress } from "@/lib/dadata";
 import { hapticImpact, hapticNotification } from "@/lib/haptics";
-import { normalizeCityName } from "@/lib/lead-services";
+import { isMoscow, normalizeCityName } from "@/lib/lead-services";
 
 type Phase = "requesting" | "resolving" | "confirm" | "error";
+
+function toSuggestion(address: GeolocatedAddress): AddressSuggestion {
+  return {
+    value: address.value,
+    unrestrictedValue: address.unrestrictedValue,
+    fiasId: address.fiasId,
+    houseFiasId: address.houseFiasId,
+    streetFiasId: address.streetFiasId,
+    fiasLevel: address.fiasLevel,
+    house: address.house,
+    street: address.street,
+    flat: address.flat,
+    block: address.block,
+    building: address.building,
+    city: address.city,
+  };
+}
 
 export function GeoAddressScreen({
   onBack,
@@ -32,12 +50,29 @@ export function GeoAddressScreen({
   const [phase, setPhase] = useState<Phase>("requesting");
   const [error, setError] = useState<string | null>(null);
   const [address, setAddress] = useState<GeolocatedAddress | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [query, setQuery] = useState("");
+  const [selected, setSelected] = useState<AddressSuggestion | null>(null);
+  const [lookupFailed, setLookupFailed] = useState(false);
   const startedRef = useRef(false);
+
+  const cityLabel = address ? normalizeCityName(address.city) : "";
+  const useMoscow = address ? isMoscow(cityLabel) : false;
+  const trimmed = query.trim();
+  const editReady =
+    (selected != null &&
+      selected.value === trimmed &&
+      hasHouse(selected)) ||
+    (lookupFailed && trimmed.length >= 8);
 
   const runLocate = useCallback(async () => {
     setPhase("requesting");
     setError(null);
     setAddress(null);
+    setEditing(false);
+    setQuery("");
+    setSelected(null);
+    setLookupFailed(false);
     try {
       const coords = await requestUserGeolocation();
       setPhase("resolving");
@@ -60,6 +95,29 @@ export function GeoAddressScreen({
     void runLocate();
   }, [runLocate]);
 
+  const beginManualEdit = () => {
+    if (!address) {
+      onManual();
+      return;
+    }
+    setQuery(address.value);
+    setSelected(toSuggestion(address));
+    setLookupFailed(false);
+    setEditing(true);
+    hapticImpact("light");
+  };
+
+  const confirmEdited = () => {
+    if (!address || !editReady) return;
+    hapticImpact("medium");
+    onConfirm({
+      city: cityLabel,
+      address: selected?.value ?? trimmed,
+      fiasId: selected?.fiasId,
+      houseFiasId: selected?.houseFiasId ?? selected?.fiasId,
+    });
+  };
+
   return (
     <motion.section
       initial={{ opacity: 0, x: 40 }}
@@ -80,11 +138,17 @@ export function GeoAddressScreen({
       </header>
 
       <h2 className="mb-2 text-[26px] font-bold tracking-tight text-zinc-900">
-        {phase === "confirm" ? "Это ваш адрес?" : "Определяем адрес"}
+        {phase === "confirm"
+          ? editing
+            ? "Уточните адрес"
+            : "Это ваш адрес?"
+          : "Определяем адрес"}
       </h2>
       <p className="mb-5 text-[15px] leading-relaxed text-zinc-600">
         {phase === "confirm"
-          ? "Проверьте, верно ли определился дом по геопозиции."
+          ? editing
+            ? "Исправьте адрес, если геопозиция определилась неточно."
+            : "Проверьте, верно ли определился дом по геопозиции."
           : "Разрешите доступ к геопозиции — подставим адрес автоматически."}
       </p>
 
@@ -108,22 +172,53 @@ export function GeoAddressScreen({
         </GlassCard>
       )}
 
-      {phase === "confirm" && address && (
-        <GlassCard className="space-y-4 p-5">
-          <div className="flex items-start gap-3">
-            <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-zinc-700">
-              <MapPin className="h-5 w-5" />
-            </span>
-            <div className="min-w-0">
-              <p className="text-[13px] font-medium text-zinc-500">
-                {normalizeCityName(address.city)}
-              </p>
-              <p className="mt-1 text-[17px] font-semibold leading-snug text-zinc-900">
-                {address.value}
-              </p>
+      {phase === "confirm" && address && !editing && (
+        <button
+          type="button"
+          onClick={beginManualEdit}
+          className="w-full text-left"
+          aria-label="Исправить адрес"
+        >
+          <GlassCard className="space-y-4 p-5 transition-colors active:bg-zinc-50/80">
+            <div className="flex items-start gap-3">
+              <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-zinc-700">
+                <MapPin className="h-5 w-5" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-[13px] font-medium text-zinc-500">
+                  {cityLabel}
+                </p>
+                <p className="mt-1 text-[17px] font-semibold leading-snug text-zinc-900">
+                  {address.value}
+                </p>
+                <p className="mt-2 text-[13px] text-zinc-500">
+                  Нажмите, чтобы исправить
+                </p>
+              </div>
             </div>
-          </div>
-        </GlassCard>
+          </GlassCard>
+        </button>
+      )}
+
+      {phase === "confirm" && address && editing && (
+        <AddressSuggestField
+          city={cityLabel}
+          value={query}
+          source={useMoscow ? "moscow" : "dadata"}
+          houseOnly
+          onChange={(next) => {
+            setQuery(next);
+            if (selected && next.trim() !== selected.value) {
+              setSelected(null);
+            }
+          }}
+          onSelect={(item) => {
+            setSelected(item);
+            setLookupFailed(false);
+          }}
+          onLookupError={(message) => setLookupFailed(Boolean(message))}
+          placeholder="Улица, дом"
+        />
       )}
 
       {phase === "error" && (
@@ -138,7 +233,7 @@ export function GeoAddressScreen({
       )}
 
       <div className="mt-auto space-y-3 pt-6">
-        {phase === "confirm" && address && (
+        {phase === "confirm" && address && !editing && (
           <>
             <Button
               className="w-full rounded-full"
@@ -146,7 +241,7 @@ export function GeoAddressScreen({
               onClick={() => {
                 hapticImpact("medium");
                 onConfirm({
-                  city: normalizeCityName(address.city),
+                  city: cityLabel,
                   address: address.value,
                   fiasId: address.fiasId,
                   houseFiasId: address.houseFiasId ?? address.fiasId,
@@ -159,9 +254,30 @@ export function GeoAddressScreen({
               className="w-full rounded-full"
               variant="secondary"
               size="lg"
-              onClick={onManual}
+              onClick={beginManualEdit}
             >
               Указать вручную
+            </Button>
+          </>
+        )}
+
+        {phase === "confirm" && address && editing && (
+          <>
+            <Button
+              className="w-full rounded-full"
+              size="lg"
+              disabled={!editReady}
+              onClick={confirmEdited}
+            >
+              Продолжить
+            </Button>
+            <Button
+              className="w-full rounded-full"
+              variant="secondary"
+              size="lg"
+              onClick={() => setEditing(false)}
+            >
+              Отмена
             </Button>
           </>
         )}
