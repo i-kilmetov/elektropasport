@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -16,11 +16,26 @@ import {
   isCatalogApplianceKind,
   type CatalogApplianceKind,
 } from "@/lib/home-appliances";
-import type { HomeAppliance, PanelObject } from "@/types";
+import { buildEprelPublicUrl } from "@/lib/appliance-catalog-enrichment";
+import type {
+  ApplianceManual,
+  ApplianceSpec,
+  HomeAppliance,
+  PanelObject,
+} from "@/types";
 import { cn } from "@/lib/utils";
 
 const selectClassName =
   "h-12 w-full rounded-[16px] border border-black/8 bg-zinc-50 px-3 text-[15px] text-zinc-900 outline-none disabled:opacity-50";
+
+type EprelEnrichment = {
+  configured: boolean;
+  publicUrl: string | null;
+  specs: ApplianceSpec[];
+  manuals: ApplianceManual[];
+  energyClass?: string;
+  matched: boolean;
+};
 
 export function AddApplianceSheet({
   panels,
@@ -55,6 +70,8 @@ export function AddApplianceSheet({
       : (panels[0]?.id ?? ""),
   );
   const [error, setError] = useState<string | null>(null);
+  const [eprel, setEprel] = useState<EprelEnrichment | null>(null);
+  const [eprelLoading, setEprelLoading] = useState(false);
 
   const brands = useMemo(
     () => (kind ? catalogBrandsForKind(kind) : []),
@@ -66,6 +83,73 @@ export function AddApplianceSheet({
   );
   const selectedModel = modelId ? findCatalogModel(modelId) : undefined;
 
+  useEffect(() => {
+    if (!selectedModel) {
+      setEprel(null);
+      setEprelLoading(false);
+      return;
+    }
+
+    const publicUrl = buildEprelPublicUrl(
+      selectedModel.kind,
+      selectedModel.brand,
+      selectedModel.model,
+    );
+    let cancelled = false;
+    setEprelLoading(true);
+    setEprel(null);
+
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const params = new URLSearchParams({
+            kind: selectedModel.kind,
+            brand: selectedModel.brand,
+            model: selectedModel.model,
+          });
+          const res = await fetch(`/api/eprel/search?${params.toString()}`, {
+            cache: "no-store",
+          });
+          const data = (await res.json()) as {
+            configured?: boolean;
+            publicUrl?: string | null;
+            hit?: {
+              energyClass?: string;
+              specs?: ApplianceSpec[];
+              manuals?: ApplianceManual[];
+            } | null;
+          };
+          if (cancelled) return;
+          const hit = data.hit;
+          setEprel({
+            configured: Boolean(data.configured),
+            publicUrl: data.publicUrl ?? publicUrl,
+            specs: hit?.specs?.length ? hit.specs : [],
+            manuals: hit?.manuals?.length ? hit.manuals : [],
+            energyClass: hit?.energyClass,
+            matched: Boolean(hit),
+          });
+        } catch {
+          if (cancelled) return;
+          setEprel({
+            configured: false,
+            publicUrl,
+            specs: [],
+            manuals: [],
+            matched: false,
+          });
+        } finally {
+          if (!cancelled) setEprelLoading(false);
+        }
+      })();
+    }, 180);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [selectedModel]);
+
   const save = () => {
     if (!panelId) {
       setError("Сначала добавьте щиток.");
@@ -76,6 +160,31 @@ export function AddApplianceSheet({
       setError("Выберите модель из каталога.");
       return;
     }
+
+    const manuals: ApplianceManual[] = [
+      { title: "Инструкция", url: entry.instructionUrl },
+      { title: "Руководство по эксплуатации", url: entry.manualUrl },
+    ];
+    const eprelPublic =
+      eprel?.publicUrl ??
+      buildEprelPublicUrl(entry.kind, entry.brand, entry.model);
+    if (eprel?.manuals?.length) {
+      manuals.push(...eprel.manuals);
+    } else if (eprelPublic) {
+      manuals.push({ title: "Карточка EPREL (ЕС)", url: eprelPublic });
+    }
+
+    const powerSpec: ApplianceSpec = {
+      label: "Максимальная мощность",
+      value: `${Math.round(entry.maxPowerW)} Вт`,
+    };
+    const specs: ApplianceSpec[] = eprel?.specs?.length
+      ? [
+          powerSpec,
+          ...eprel.specs.filter((spec) => !/мощност|power/i.test(spec.label)),
+        ]
+      : entry.specs;
+
     const appliance: HomeAppliance = {
       id: initialAppliance?.id ?? createApplianceId(),
       kind: entry.kind,
@@ -84,11 +193,8 @@ export function AddApplianceSheet({
       model: entry.model,
       powerW: entry.maxPowerW,
       catalogId: entry.id,
-      specs: entry.specs,
-      manuals: [
-        { title: "Инструкция", url: entry.instructionUrl },
-        { title: "Руководство по эксплуатации", url: entry.manualUrl },
-      ],
+      specs,
+      manuals,
       createdAt: initialAppliance?.createdAt ?? new Date().toISOString(),
     };
     onSave(panelId, appliance);
@@ -261,12 +367,27 @@ export function AddApplianceSheet({
 
           <div className="shrink-0 border-t border-black/[0.06] px-5 py-4 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
             {selectedModel && (
-              <p className="mb-3 text-center text-[13px] text-zinc-500">
-                {selectedModel.brand} {selectedModel.model} · до{" "}
-                <span className="font-semibold text-zinc-800">
-                  {formatAppliancePower(selectedModel.maxPowerW)}
-                </span>
-              </p>
+              <div className="mb-3 space-y-1 text-center text-[13px] text-zinc-500">
+                <p>
+                  {selectedModel.brand} {selectedModel.model} · до{" "}
+                  <span className="font-semibold text-zinc-800">
+                    {formatAppliancePower(selectedModel.maxPowerW)}
+                  </span>
+                </p>
+                {eprelLoading && <p>Проверяем EPREL…</p>}
+                {!eprelLoading && eprel?.matched && (
+                  <p className="text-emerald-700">
+                    Найдено в EPREL
+                    {eprel.energyClass ? ` · класс ${eprel.energyClass}` : ""}
+                  </p>
+                )}
+                {!eprelLoading &&
+                  eprel &&
+                  !eprel.matched &&
+                  eprel.configured && (
+                    <p>В EPREL точного совпадения нет — берём каталог Tokom</p>
+                  )}
+              </div>
             )}
             {error && (
               <p className="mb-2 text-center text-[13px] text-rose-600">
