@@ -1,9 +1,13 @@
 import type { LucideIcon } from "lucide-react";
 import {
+  AirVent,
   CookingPot,
+  Droplets,
   Flame,
+  Heater,
   Microwave,
   Refrigerator,
+  Tv,
   WashingMachine,
   Wind,
   Zap,
@@ -76,6 +80,8 @@ export function applianceKindIcon(
       return Refrigerator;
     case "washer":
       return WashingMachine;
+    case "dishwasher":
+      return Droplets;
     case "dryer":
       return Wind;
     case "microwave":
@@ -84,6 +90,14 @@ export function applianceKindIcon(
       return Flame;
     case "hob":
       return CookingPot;
+    case "ac":
+      return AirVent;
+    case "boiler":
+      return Droplets;
+    case "tv":
+      return Tv;
+    case "heater":
+      return Heater;
     default:
       return Zap;
   }
