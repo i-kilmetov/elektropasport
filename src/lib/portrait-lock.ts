@@ -1,6 +1,9 @@
 "use client";
 
-/** Best-effort portrait lock for phones (PWA / supported browsers). */
+/**
+ * Best-effort portrait lock for phones (PWA / supported browsers).
+ * CSS landscape blocker is applied in globals.css as a fallback.
+ */
 export function lockPortraitOrientation(): () => void {
   if (typeof window === "undefined") return () => undefined;
 
@@ -17,6 +20,10 @@ export function lockPortraitOrientation(): () => void {
   };
 
   tryLock();
+  // Re-try after a user gesture — some browsers only allow lock then.
+  const onGesture = () => tryLock();
+  window.addEventListener("pointerdown", onGesture, { once: true });
+  window.addEventListener("touchstart", onGesture, { once: true });
 
   const onChange = () => {
     const type = orientation?.type ?? "";
@@ -31,6 +38,8 @@ export function lockPortraitOrientation(): () => void {
   return () => {
     orientation?.removeEventListener?.("change", onChange);
     window.removeEventListener("orientationchange", tryLock);
+    window.removeEventListener("pointerdown", onGesture);
+    window.removeEventListener("touchstart", onGesture);
     try {
       orientation?.unlock?.();
     } catch {

@@ -793,7 +793,7 @@ export function ObjectsScreen({
                     onClick={onBecomeMaster}
                     className="text-[14px] font-medium text-zinc-500 underline decoration-zinc-300 underline-offset-4 transition-colors hover:text-zinc-800"
                   >
-                    Я электрик, могу помогать другим
+                    Я электрик
                   </button>
                 )}
                 <Button className="h-11 rounded-full px-5" onClick={onHelpElectrical}>
@@ -855,7 +855,7 @@ export function ObjectsScreen({
                 onClick={onBecomeMaster}
                 className="w-full text-center text-[15px] font-medium text-zinc-500 underline decoration-zinc-300 underline-offset-4 transition-colors hover:text-zinc-800"
               >
-                Я электрик, могу помогать другим
+                Я электрик
               </button>
             )}
           </div>

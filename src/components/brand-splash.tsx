@@ -505,7 +505,7 @@ export function BrandLaunchWaitlist({
       }}
       aria-label="Током — подписка на открытие"
     >
-      <div className="flex min-h-0 flex-1 items-center justify-center">
+      <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-5">
         <div ref={logoRef} className="w-max">
           <BrandMark
             tagline=""
@@ -514,6 +514,18 @@ export function BrandLaunchWaitlist({
             restRevealed={animation.restRevealed}
           />
         </div>
+        <motion.p
+          className="max-w-[18rem] text-center text-[15px] font-medium leading-snug text-[#111113]/90"
+          style={{ fontFamily: "var(--font-geologica)" }}
+          initial={false}
+          animate={{
+            opacity: animation.restRevealed ? 1 : 0,
+            y: animation.restRevealed ? 0 : 8,
+          }}
+          transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
+        >
+          Ведутся электромонтажные работы. Скоро откроемся
+        </motion.p>
       </div>
 
       <motion.div
@@ -533,37 +545,42 @@ export function BrandLaunchWaitlist({
             Спасибо! Сообщим об открытии
           </div>
         ) : (
-          <form
-            className="mx-auto flex h-14 min-h-14 w-full items-center gap-2 rounded-full bg-[#111113] px-2"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void submit();
-            }}
-          >
-            <input
-              type="email"
-              name="email"
-              autoComplete="email"
-              inputMode="email"
-              placeholder="Email для новости об открытии"
-              value={email}
-              disabled={
-                !animation.loginVisible || submitting || logoWidth <= 0
-              }
-              onChange={(event) => setEmail(event.target.value)}
-              className="h-full min-w-0 flex-1 rounded-full bg-transparent px-4 text-[15px] text-white outline-none placeholder:text-white/55 disabled:opacity-60"
-              aria-label="Email для новости об открытии"
-            />
-            <button
-              type="submit"
-              disabled={
-                !animation.loginVisible || submitting || logoWidth <= 0
-              }
-              className="shrink-0 rounded-full bg-white px-4 py-2 text-[14px] font-semibold text-[#111113] disabled:opacity-60"
+          <div className="space-y-2">
+            <p className="text-center text-[14px] font-medium text-[#111113]/85">
+              Сообщить об открытии
+            </p>
+            <form
+              className="mx-auto flex h-14 min-h-14 w-full items-center gap-2 rounded-full bg-[#111113] px-2"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void submit();
+              }}
             >
-              {submitting ? "…" : "OK"}
-            </button>
-          </form>
+              <input
+                type="email"
+                name="email"
+                autoComplete="email"
+                inputMode="email"
+                placeholder="name@example.com"
+                value={email}
+                disabled={
+                  !animation.loginVisible || submitting || logoWidth <= 0
+                }
+                onChange={(event) => setEmail(event.target.value)}
+                className="h-full min-w-0 flex-1 rounded-full bg-transparent px-4 text-[15px] text-white outline-none placeholder:text-white/55 disabled:opacity-60"
+                aria-label="Email"
+              />
+              <button
+                type="submit"
+                disabled={
+                  !animation.loginVisible || submitting || logoWidth <= 0
+                }
+                className="shrink-0 rounded-full bg-white px-4 py-2 text-[14px] font-semibold text-[#111113] disabled:opacity-60"
+              >
+                {submitting ? "…" : "OK"}
+              </button>
+            </form>
+          </div>
         )}
         {error && (
           <p className="mt-3 text-center text-[13px] text-red-700">{error}</p>

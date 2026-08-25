@@ -4,6 +4,7 @@ import {
 } from "@/lib/telegram-auth";
 import {
   dbErrorResponse,
+  deleteUserAccount,
   ensureSchema,
   getStoredUserProfile,
   updateStoredUserProfile,
@@ -18,6 +19,7 @@ function normalizeProfile(body: {
   birthDate?: unknown;
   phoneDigits?: unknown;
   email?: unknown;
+  notifyFeatures?: unknown;
   avatarId?: unknown;
 }): StoredUserProfile {
   let firstName =
@@ -29,7 +31,6 @@ function normalizeProfile(body: {
       ? body.lastName.trim() || undefined
       : undefined;
 
-  // Backward compatibility for older clients that sent a single displayName.
   if (!firstName && !lastName && typeof body.displayName === "string") {
     const full = body.displayName.trim();
     if (full) {
@@ -62,6 +63,10 @@ function normalizeProfile(body: {
         ? body.phoneDigits.replace(/\D/g, "").slice(0, 10) || undefined
         : undefined,
     email,
+    notifyFeatures:
+      typeof body.notifyFeatures === "boolean"
+        ? body.notifyFeatures
+        : undefined,
     avatarId:
       typeof body.avatarId === "string"
         ? body.avatarId.trim() || undefined
@@ -88,12 +93,30 @@ export async function PUT(request: Request) {
     await upsertUser(user);
 
     const body = (await request.json()) as Record<string, unknown>;
-    const profile = await updateStoredUserProfile(
-      user.telegramId,
-      normalizeProfile(body),
-    );
+    const current = await getStoredUserProfile(user.telegramId);
+    const next = normalizeProfile(body);
+    const profile = await updateStoredUserProfile(user.telegramId, {
+      ...current,
+      ...next,
+      // Preserve notifyFeatures when client omits the field.
+      notifyFeatures:
+        typeof body.notifyFeatures === "boolean"
+          ? body.notifyFeatures
+          : current.notifyFeatures,
+    });
 
     return Response.json({ profile });
+  } catch (error) {
+    return dbErrorResponse(error) ?? authErrorResponse(error);
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const user = requireTelegramUser(request);
+    await ensureSchema();
+    await deleteUserAccount(user.telegramId);
+    return Response.json({ ok: true });
   } catch (error) {
     return dbErrorResponse(error) ?? authErrorResponse(error);
   }

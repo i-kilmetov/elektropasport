@@ -9,6 +9,7 @@ export type UserProfile = {
   /** 10 digits without country code */
   phoneDigits?: string;
   email?: string;
+  notifyFeatures?: boolean;
   /** Schematic avatar id */
   avatarId?: string;
 };
@@ -66,6 +67,9 @@ function sanitizeProfile(parsed: Partial<UserProfile> & { displayName?: string }
       next.email = email.slice(0, 120);
     }
   }
+  if (typeof parsed.notifyFeatures === "boolean") {
+    next.notifyFeatures = parsed.notifyFeatures;
+  }
   if (typeof parsed.avatarId === "string" && parsed.avatarId.trim()) {
     next.avatarId = parsed.avatarId.trim();
   }
@@ -116,6 +120,7 @@ function mergeProfiles(primary: UserProfile, secondary: UserProfile): UserProfil
     birthDate: primary.birthDate ?? secondary.birthDate,
     phoneDigits: primary.phoneDigits ?? secondary.phoneDigits,
     email: primary.email ?? secondary.email,
+    notifyFeatures: primary.notifyFeatures ?? secondary.notifyFeatures,
     avatarId: primary.avatarId ?? secondary.avatarId,
   });
 }

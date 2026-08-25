@@ -2,13 +2,22 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, Check, ChevronRight, Infinity, Mail, Phone, Shield, UserPlus } from "lucide-react";
+import {
+  ArrowLeft,
+  Check,
+  ChevronRight,
+  Infinity,
+  Mail,
+  Phone,
+  Shield,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Portal } from "@/components/ui/portal";
 import {
-  clearBrowserSession,
+  authHeaders,
+  clearLocalAppData,
   isTelegramMiniApp,
 } from "@/lib/client-auth";
 import { hapticNotification } from "@/lib/haptics";
@@ -25,18 +34,18 @@ import {
 type ProfileDraft = {
   firstName: string;
   lastName: string;
-  birthDate: string;
   digits: string;
   email: string;
+  notifyFeatures: boolean;
 };
 
 function sameDraft(a: ProfileDraft, b: ProfileDraft): boolean {
   return (
     a.firstName.trim() === b.firstName.trim() &&
     a.lastName.trim() === b.lastName.trim() &&
-    a.birthDate === b.birthDate &&
     a.digits === b.digits &&
-    a.email.trim().toLowerCase() === b.email.trim().toLowerCase()
+    a.email.trim().toLowerCase() === b.email.trim().toLowerCase() &&
+    a.notifyFeatures === b.notifyFeatures
   );
 }
 
@@ -72,9 +81,9 @@ export function ProfileScreen({
     () => ({
       firstName: initial.firstName ?? telegramDefaults.firstName,
       lastName: initial.lastName ?? telegramDefaults.lastName,
-      birthDate: initial.birthDate ?? "",
       digits: initial.phoneDigits ?? "",
       email: initial.email ?? "",
+      notifyFeatures: Boolean(initial.notifyFeatures),
     }),
     [initial, telegramDefaults],
   );
@@ -82,6 +91,8 @@ export function ProfileScreen({
   const [draft, setDraft] = useState<ProfileDraft>(initialDraft);
   const [baseline, setBaseline] = useState<ProfileDraft>(initialDraft);
   const [logoutOpen, setLogoutOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [saveFlash, setSaveFlash] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -102,9 +113,9 @@ export function ProfileScreen({
         const next: ProfileDraft = {
           firstName: profile.firstName ?? telegramDefaults.firstName,
           lastName: profile.lastName ?? telegramDefaults.lastName,
-          birthDate: profile.birthDate ?? "",
           digits: profile.phoneDigits ?? "",
           email: profile.email ?? "",
+          notifyFeatures: Boolean(profile.notifyFeatures),
         };
         setDraft(next);
         setBaseline(next);
@@ -126,16 +137,16 @@ export function ProfileScreen({
         ...getUserProfile(),
         firstName: draft.firstName.trim() || undefined,
         lastName: draft.lastName.trim() || undefined,
-        birthDate: draft.birthDate || undefined,
         phoneDigits: draft.digits || undefined,
         email: draft.email.trim().toLowerCase() || undefined,
+        notifyFeatures: draft.notifyFeatures,
       });
       const next: ProfileDraft = {
         firstName: saved.firstName ?? telegramDefaults.firstName,
         lastName: saved.lastName ?? telegramDefaults.lastName,
-        birthDate: saved.birthDate ?? "",
         digits: saved.phoneDigits ?? "",
         email: saved.email ?? "",
+        notifyFeatures: Boolean(saved.notifyFeatures),
       };
       setDraft(next);
       setBaseline(next);
@@ -160,13 +171,45 @@ export function ProfileScreen({
   );
 
   const logout = () => {
-    clearBrowserSession();
+    clearLocalAppData();
     hapticNotification("success");
     if (onLoggedOut) {
       onLoggedOut();
       return;
     }
     window.location.assign("/");
+  };
+
+  const deleteAccount = async () => {
+    if (deleting) return;
+    setDeleting(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/profile", {
+        method: "DELETE",
+        headers: authHeaders(),
+      });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(data.error || "Не удалось удалить аккаунт");
+      }
+      clearLocalAppData();
+      hapticNotification("success");
+      setDeleteOpen(false);
+      if (onLoggedOut) {
+        onLoggedOut();
+        return;
+      }
+      window.location.assign("/");
+    } catch (err) {
+      hapticNotification("error");
+      setError(
+        err instanceof Error ? err.message : "Не удалось удалить аккаунт",
+      );
+      setDeleteOpen(false);
+    } finally {
+      setDeleting(false);
+    }
   };
 
   return (
@@ -180,7 +223,7 @@ export function ProfileScreen({
         <button
           type="button"
           onClick={onBack}
-          disabled={saving}
+          disabled={saving || deleting}
           className="flex h-11 w-11 items-center justify-center rounded-full border border-black/8 bg-zinc-100 text-zinc-900 disabled:opacity-40"
           aria-label="Назад"
         >
@@ -212,59 +255,47 @@ export function ProfileScreen({
           )}
         </div>
 
-        {onOpenInvites ? (
-          <button
-            type="button"
-            onClick={onOpenInvites}
-            className="w-full text-left"
-          >
-            <GlassCard className="flex gap-3 p-4 transition active:scale-[0.99]">
-              <span
-                className={
-                  panelsUnlimited
-                    ? "flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-emerald-500/12 text-emerald-700"
-                    : "flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-[#6B8AFD]/12 text-[#6B8AFD]"
-                }
-              >
-                {panelsUnlimited ? (
+        {panelsUnlimited ? (
+          onOpenInvites ? (
+            <button
+              type="button"
+              onClick={onOpenInvites}
+              className="w-full text-left"
+            >
+              <GlassCard className="flex gap-3 p-4 transition active:scale-[0.99]">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-emerald-500/12 text-emerald-700">
                   <Infinity className="h-5 w-5" />
-                ) : (
-                  <UserPlus className="h-5 w-5" />
-                )}
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <div className="min-w-0 flex-1 text-[15px] font-semibold text-zinc-900">
-                    {panelsUnlimited
-                      ? "Безлимит на щитки"
-                      : "Снять лимит на щитки"}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <div className="min-w-0 flex-1 text-[15px] font-semibold text-zinc-900">
+                      Безлимит на щитки
+                    </div>
+                    <ChevronRight className="h-4 w-4 shrink-0 text-zinc-400" />
                   </div>
-                  <ChevronRight className="h-4 w-4 shrink-0 text-zinc-400" />
+                  <p className="mt-1 text-[13px] leading-relaxed text-zinc-500">
+                    {inviteCount > 0
+                      ? `Ограничение снято. Приглашено: ${inviteCount}`
+                      : "Можно добавлять любое количество щитков — ограничение снято."}
+                  </p>
+                </div>
+              </GlassCard>
+            </button>
+          ) : (
+            <GlassCard className="flex gap-3 p-4">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-emerald-500/12 text-emerald-700">
+                <Infinity className="h-5 w-5" />
+              </span>
+              <div>
+                <div className="text-[15px] font-semibold text-zinc-900">
+                  Безлимит на щитки
                 </div>
                 <p className="mt-1 text-[13px] leading-relaxed text-zinc-500">
-                  {panelsUnlimited
-                    ? inviteCount > 0
-                      ? `Ограничение снято. Приглашено: ${inviteCount}`
-                      : "Можно добавлять любое количество щитков — ограничение снято."
-                    : "Пригласите нового пользователя, чтобы добавлять щитки без ограничений."}
+                  Можно добавлять любое количество щитков — ограничение снято.
                 </p>
               </div>
             </GlassCard>
-          </button>
-        ) : panelsUnlimited ? (
-          <GlassCard className="flex gap-3 p-4">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-emerald-500/12 text-emerald-700">
-              <Infinity className="h-5 w-5" />
-            </span>
-            <div>
-              <div className="text-[15px] font-semibold text-zinc-900">
-                Безлимит на щитки
-              </div>
-              <p className="mt-1 text-[13px] leading-relaxed text-zinc-500">
-                Можно добавлять любое количество щитков — ограничение снято.
-              </p>
-            </div>
-          </GlassCard>
+          )
         ) : null}
 
         <GlassCard className="overflow-hidden p-0">
@@ -306,26 +337,6 @@ export function ProfileScreen({
           <GlassCard className="space-y-4 overflow-hidden p-4">
             <label className="block min-w-0">
               <span className="mb-1.5 block text-[13px] text-zinc-500">
-                Дата рождения
-              </span>
-              <span className="flex h-12 min-w-0 items-center overflow-hidden rounded-[16px] border border-black/8 bg-zinc-50 px-3 focus-within:border-zinc-300">
-                <input
-                  type="date"
-                  value={draft.birthDate}
-                  onChange={(e) =>
-                    setDraft((prev) => ({ ...prev, birthDate: e.target.value }))
-                  }
-                  className="h-full w-full min-w-0 border-0 bg-transparent p-0 text-[15px] leading-none text-zinc-900 outline-none"
-                />
-              </span>
-              <span className="mt-1.5 block text-[12px] leading-relaxed text-zinc-400">
-                Нам интересно знать возраст наших пользователей, но со своей
-                стороны мы будем стараться радовать вас в день рождения.
-              </span>
-            </label>
-
-            <label className="block min-w-0">
-              <span className="mb-1.5 block text-[13px] text-zinc-500">
                 Номер телефона
               </span>
               <span className="flex h-12 min-w-0 items-center gap-2 rounded-[16px] border border-black/8 bg-zinc-50 px-3 focus-within:border-zinc-300">
@@ -350,7 +361,7 @@ export function ProfileScreen({
               </span>
             </label>
 
-            <label className="block min-w-0">
+            <div className="block min-w-0">
               <span className="mb-1.5 block text-[13px] text-zinc-500">
                 Электронная почта
               </span>
@@ -371,10 +382,23 @@ export function ProfileScreen({
                   className="h-full min-w-0 flex-1 bg-transparent text-[15px] text-zinc-900 outline-none placeholder:text-zinc-400"
                 />
               </span>
-              <span className="mt-1.5 block text-[12px] leading-relaxed text-zinc-400">
-                Подставляется в подписки на школу и уведомления о новых функциях.
-              </span>
-            </label>
+              <label className="mt-3 flex cursor-pointer items-start gap-2.5">
+                <input
+                  type="checkbox"
+                  checked={draft.notifyFeatures}
+                  onChange={(e) =>
+                    setDraft((prev) => ({
+                      ...prev,
+                      notifyFeatures: e.target.checked,
+                    }))
+                  }
+                  className="mt-0.5 h-4 w-4 shrink-0 rounded border-black/20 accent-zinc-900"
+                />
+                <span className="text-[13px] leading-snug text-zinc-700">
+                  Сообщать о новых функциях
+                </span>
+              </label>
+            </div>
           </GlassCard>
         </div>
       </div>
@@ -388,7 +412,7 @@ export function ProfileScreen({
         {dirty && (
           <Button
             className="w-full"
-            disabled={saving || loading}
+            disabled={saving || loading || deleting}
             onClick={() => void save()}
           >
             {saving ? "Сохраняем…" : "Сохранить"}
@@ -397,7 +421,7 @@ export function ProfileScreen({
         {isAdmin && onOpenAdmin && (
           <button
             type="button"
-            disabled={saving}
+            disabled={saving || deleting}
             onClick={onOpenAdmin}
             className="flex w-full items-center gap-3 rounded-[20px] border border-black/8 bg-zinc-50 px-4 py-3.5 text-left transition-colors hover:bg-zinc-100 disabled:opacity-40"
           >
@@ -418,12 +442,20 @@ export function ProfileScreen({
           <Button
             className="w-full"
             variant="secondary"
-            disabled={saving}
+            disabled={saving || deleting}
             onClick={() => setLogoutOpen(true)}
           >
             Выйти из аккаунта
           </Button>
         )}
+        <Button
+          className="w-full text-rose-600 hover:bg-rose-50"
+          variant="secondary"
+          disabled={saving || deleting}
+          onClick={() => setDeleteOpen(true)}
+        >
+          Удалить аккаунт
+        </Button>
       </div>
 
       <AnimatePresence>
@@ -438,6 +470,24 @@ export function ProfileScreen({
             onConfirm={() => {
               setLogoutOpen(false);
               logout();
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {deleteOpen && (
+          <ConfirmDialog
+            title="Удалить аккаунт?"
+            description="После удаления аккаунта все ваши данные, включая добавленные щитки и заявки, будут безвозвратно удалены на этом сайте."
+            confirmLabel={deleting ? "Удаляем…" : "Удалить"}
+            cancelLabel="Отмена"
+            danger
+            onCancel={() => {
+              if (!deleting) setDeleteOpen(false);
+            }}
+            onConfirm={() => {
+              void deleteAccount();
             }}
           />
         )}

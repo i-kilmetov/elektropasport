@@ -39,7 +39,7 @@ import { buildInviteUrl } from "@/lib/panel-share";
 let schemaReady: Promise<void> | null = null;
 
 /** Bump when DDL below changes so cold starts re-run migrations once. */
-const SCHEMA_VERSION = "2026-08-25-icecat-catalog";
+const SCHEMA_VERSION = "2026-08-25-profile-notify-delete";
 /** One-shot data wipe flag — never re-run after it is written. */
 const FRESH_START_KEY = "fresh_start_2026_08_25_b";
 /** Bumped on each factory wipe so clients drop localStorage orphans. */
@@ -397,6 +397,10 @@ export async function ensureSchema(): Promise<void> {
       `;
       await sql`
         ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS notify_features BOOLEAN NOT NULL DEFAULT FALSE
+      `;
+      await sql`
+        ALTER TABLE users
         ADD COLUMN IF NOT EXISTS pd_consent_at TIMESTAMPTZ
       `;
       await sql`
@@ -590,6 +594,7 @@ export type StoredUserProfile = {
   birthDate?: string;
   phoneDigits?: string;
   email?: string;
+  notifyFeatures?: boolean;
   avatarId?: string;
 };
 
@@ -622,6 +627,7 @@ export async function getStoredUserProfile(
       birth_date,
       phone_digits,
       email,
+      notify_features,
       avatar_id
     FROM users
     WHERE telegram_id = ${telegramUserId}
@@ -634,6 +640,7 @@ export async function getStoredUserProfile(
     birth_date: string | null;
     phone_digits: string | null;
     email: string | null;
+    notify_features: boolean | null;
     avatar_id: string | null;
   }>;
 
@@ -657,6 +664,7 @@ export async function getStoredUserProfile(
     birthDate: row.birth_date ?? undefined,
     phoneDigits: row.phone_digits ?? undefined,
     email: row.email?.trim() || undefined,
+    notifyFeatures: Boolean(row.notify_features),
     avatarId: row.avatar_id ?? undefined,
   };
 }
@@ -677,6 +685,7 @@ export async function updateStoredUserProfile(
     profile.phoneDigits?.replace(/\D/g, "").slice(0, 10) || null;
   const email = profile.email?.trim().toLowerCase() || null;
   const avatarId = profile.avatarId?.trim() || null;
+  const notifyFeatures = Boolean(profile.notifyFeatures);
 
   await sql`
     UPDATE users
@@ -687,6 +696,7 @@ export async function updateStoredUserProfile(
       birth_date = ${birthDate},
       phone_digits = ${phoneDigits},
       email = ${email},
+      notify_features = ${notifyFeatures},
       avatar_id = ${avatarId},
       updated_at = NOW()
     WHERE telegram_id = ${telegramUserId}
@@ -698,8 +708,24 @@ export async function updateStoredUserProfile(
     birthDate: birthDate ?? undefined,
     phoneDigits: phoneDigits ?? undefined,
     email: email ?? undefined,
+    notifyFeatures,
     avatarId: avatarId ?? undefined,
   };
+}
+
+/** Delete this environment's user row (CASCADE removes panels, requests, etc.). */
+export async function deleteUserAccount(telegramUserId: number): Promise<void> {
+  const sql = getSql();
+  await ensureSchema();
+  await sql`
+    UPDATE waitlist
+    SET telegram_user_id = NULL
+    WHERE telegram_user_id = ${telegramUserId}
+  `;
+  await sql`
+    DELETE FROM users
+    WHERE telegram_id = ${telegramUserId}
+  `;
 }
 
 type PanelRow = {

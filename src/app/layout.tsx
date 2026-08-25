@@ -42,6 +42,9 @@ export const viewport: Viewport = {
   userScalable: false,
   viewportFit: "cover",
   themeColor: "#f7f7f8",
+  // Hint browsers / PWAs to stay in portrait where supported.
+  // @ts-expect-error orientation is supported by Next Viewport in practice
+  orientation: "portrait",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
