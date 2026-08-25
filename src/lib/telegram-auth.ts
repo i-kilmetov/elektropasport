@@ -1,4 +1,9 @@
 import { createHash, createHmac, timingSafeEqual } from "crypto";
+import {
+  appEnvFromRequest,
+  toStorageTelegramId,
+  type AppEnv,
+} from "@/lib/app-env";
 import { verifySessionToken } from "@/lib/session-token";
 
 export type TelegramWebAppUser = {
@@ -10,11 +15,26 @@ export type TelegramWebAppUser = {
 };
 
 export type ValidatedTelegramUser = {
+  /** Environment-scoped id used as DB primary key (negated on test). */
   telegramId: number;
+  appEnv?: AppEnv;
   firstName?: string;
   lastName?: string;
   username?: string;
 };
+
+function withStorageId(
+  user: Omit<ValidatedTelegramUser, "telegramId" | "appEnv"> & {
+    telegramId: number;
+  },
+  env: AppEnv,
+): ValidatedTelegramUser {
+  return {
+    ...user,
+    appEnv: env,
+    telegramId: toStorageTelegramId(user.telegramId, env),
+  };
+}
 
 const MAX_AUTH_AGE_SEC = 60 * 60 * 24; // 24 hours
 
@@ -96,6 +116,7 @@ export function getBotToken(): string {
 }
 
 export function requireTelegramUser(request: Request): ValidatedTelegramUser {
+  const env = appEnvFromRequest(request);
   const botToken = getBotToken();
 
   const initData = extractInitData(request);
@@ -103,18 +124,28 @@ export function requireTelegramUser(request: Request): ValidatedTelegramUser {
     if (!botToken) {
       throw new AuthError("BOT_TOKEN не настроен на сервере", 503);
     }
-    return validateTelegramInitData(initData, botToken);
+    return withStorageId(validateTelegramInitData(initData, botToken), env);
   }
 
   const bearer = extractBearerToken(request);
   if (bearer) {
     const session = verifySessionToken(bearer);
-    return {
-      telegramId: session.telegramId,
-      firstName: session.firstName,
-      lastName: session.lastName,
-      username: session.username,
-    };
+    const sessionEnv = session.appEnv ?? "prod";
+    if (sessionEnv !== env) {
+      throw new AuthError(
+        "Сессия другого окружения — войдите снова",
+        401,
+      );
+    }
+    return withStorageId(
+      {
+        telegramId: session.telegramId,
+        firstName: session.firstName,
+        lastName: session.lastName,
+        username: session.username,
+      },
+      env,
+    );
   }
 
   throw new AuthError("Требуется авторизация через Telegram", 401);

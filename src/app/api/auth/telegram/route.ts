@@ -4,21 +4,37 @@ import {
   requireTelegramUser,
   validateTelegramLoginWidget,
   type TelegramLoginWidgetData,
+  type ValidatedTelegramUser,
 } from "@/lib/telegram-auth";
+import {
+  appEnvFromRequest,
+  isTestAppHost,
+  toStorageTelegramId,
+  toTelegramChatId,
+} from "@/lib/app-env";
 import { signSessionToken } from "@/lib/session-token";
 import { dbErrorResponse, ensureSchema, upsertUser } from "@/lib/db";
 import {
   getTelegramClientId,
   validateTelegramIdToken,
 } from "@/lib/telegram-oauth";
+import { resolveRequestOrigin } from "@/lib/app-url";
 
 export async function POST(request: Request) {
   try {
+    const host = new URL(resolveRequestOrigin(request)).host;
+    if (!isTestAppHost(host)) {
+      return Response.json(
+        { error: "Вход временно закрыт. Оставьте email на главной." },
+        { status: 403 },
+      );
+    }
+
     const body = (await request.json()) as TelegramLoginWidgetData & {
       id_token?: string;
     };
 
-    let user;
+    let user: ValidatedTelegramUser;
     if (body.id_token) {
       const clientId = getTelegramClientId();
       if (!clientId) {
@@ -39,11 +55,20 @@ export async function POST(request: Request) {
       user = validateTelegramLoginWidget(body, botToken);
     }
 
+    const env = appEnvFromRequest(request);
+    const realTelegramId = toTelegramChatId(user.telegramId);
+    const storageUser: ValidatedTelegramUser = {
+      ...user,
+      telegramId: toStorageTelegramId(realTelegramId, env),
+      appEnv: env,
+    };
+
     await ensureSchema();
-    await upsertUser(user);
+    await upsertUser(storageUser);
 
     const token = signSessionToken({
-      telegramId: user.telegramId,
+      telegramId: realTelegramId,
+      appEnv: env,
       firstName: user.firstName,
       lastName: user.lastName,
       username: user.username,
@@ -52,7 +77,7 @@ export async function POST(request: Request) {
     return Response.json({
       token,
       user: {
-        telegramId: user.telegramId,
+        telegramId: realTelegramId,
         firstName: user.firstName,
         lastName: user.lastName,
         username: user.username,
@@ -66,7 +91,12 @@ export async function POST(request: Request) {
 export async function GET(request: Request) {
   try {
     const user = requireTelegramUser(request);
-    return Response.json({ user });
+    return Response.json({
+      user: {
+        ...user,
+        telegramId: toTelegramChatId(user.telegramId),
+      },
+    });
   } catch (error) {
     return authErrorResponse(error);
   }

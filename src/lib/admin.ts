@@ -11,7 +11,7 @@ export function ownerAdminTelegramId(): number | null {
 
 export async function isPlatformAdmin(telegramId: number): Promise<boolean> {
   const owner = ownerAdminTelegramId();
-  if (owner != null && telegramId === owner) return true;
+  if (owner != null && Math.abs(telegramId) === Math.abs(owner)) return true;
   const sql = getSql();
   await ensureSchema();
   const [row] = (await sql`
@@ -28,8 +28,8 @@ export async function listAdminTelegramIds(): Promise<number[]> {
     SELECT telegram_id FROM users WHERE is_admin = TRUE
   `) as Array<{ telegram_id: string | number }>;
   const ids = new Set<number>();
-  if (owner != null) ids.add(owner);
-  for (const row of rows) ids.add(Number(row.telegram_id));
+  if (owner != null) ids.add(Math.abs(owner));
+  for (const row of rows) ids.add(Math.abs(Number(row.telegram_id)));
   return [...ids];
 }
 

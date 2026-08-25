@@ -1,10 +1,13 @@
 import { createHmac } from "crypto";
+import type { AppEnv } from "@/lib/app-env";
 import { AuthError } from "@/lib/telegram-auth";
 
 const SESSION_TTL_SEC = 60 * 60 * 24 * 30;
 
 export type SessionPayload = {
   telegramId: number;
+  /** Real Telegram user id (positive). */
+  appEnv?: AppEnv;
   firstName?: string;
   lastName?: string;
   username?: string;
@@ -26,10 +29,14 @@ function getSecret(): string {
 }
 
 export function signSessionToken(
-  user: Omit<SessionPayload, "exp">,
+  user: Omit<SessionPayload, "exp"> & { appEnv: AppEnv },
 ): string {
+  if (!isPlausibleTelegramUserId(user.telegramId)) {
+    throw new AuthError("Некорректный Telegram user id");
+  }
   const payload: SessionPayload = {
     ...user,
+    telegramId: Math.abs(user.telegramId),
     exp: Math.floor(Date.now() / 1000) + SESSION_TTL_SEC,
   };
   const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
@@ -66,5 +73,9 @@ export function verifySessionToken(token: string): SessionPayload {
     throw new AuthError("Сессия истекла — войдите снова");
   }
 
-  return payload;
+  return {
+    ...payload,
+    telegramId: Math.abs(payload.telegramId),
+    appEnv: payload.appEnv === "test" ? "test" : "prod",
+  };
 }

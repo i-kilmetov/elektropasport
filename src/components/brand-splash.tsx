@@ -417,3 +417,158 @@ export function BrandAuthIntro({
     </div>
   );
 }
+
+function isValidEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+}
+
+/** Production pre-launch screen: email waitlist instead of Telegram login. */
+export function BrandLaunchWaitlist({
+  bootReady = true,
+}: {
+  bootReady?: boolean;
+}) {
+  const animation = useLogoAnimation(bootReady);
+  const [email, setEmail] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [done, setDone] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [logoWidth, setLogoWidth] = useState(0);
+  const logoRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const html = document.documentElement;
+    const body = document.body;
+    const prevHtmlOverflow = html.style.overflow;
+    const prevBodyOverflow = body.style.overflow;
+    const prevHtmlOverscroll = html.style.overscrollBehavior;
+    const prevBodyOverscroll = body.style.overscrollBehavior;
+    html.style.overflow = "hidden";
+    body.style.overflow = "hidden";
+    html.style.overscrollBehavior = "none";
+    body.style.overscrollBehavior = "none";
+    return () => {
+      html.style.overflow = prevHtmlOverflow;
+      body.style.overflow = prevBodyOverflow;
+      html.style.overscrollBehavior = prevHtmlOverscroll;
+      body.style.overscrollBehavior = prevBodyOverscroll;
+    };
+  }, []);
+
+  useEffect(() => {
+    const node = logoRef.current;
+    if (!node) return;
+    const measure = () => setLogoWidth(node.offsetWidth);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    window.addEventListener("resize", measure);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [animation.restRevealed]);
+
+  const submit = async () => {
+    setError(null);
+    const value = email.trim().toLowerCase();
+    if (!isValidEmail(value)) {
+      setError("Введите корректный email");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/waitlist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ list: "launch", email: value }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) {
+        throw new Error(data.error || "Не удалось отправить");
+      }
+      setDone(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не удалось отправить");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-[200] flex touch-none flex-col items-center overflow-hidden px-5"
+      style={{
+        backgroundColor: BRAND_YELLOW,
+        height: "var(--app-height, 100dvh)",
+        paddingBottom: "max(1.75rem, env(safe-area-inset-bottom))",
+      }}
+      aria-label="Током — подписка на открытие"
+    >
+      <div className="flex min-h-0 flex-1 items-center justify-center">
+        <div ref={logoRef} className="w-max">
+          <BrandMark
+            tagline=""
+            taglineVisible={false}
+            stripesPulsing={animation.stripesPulsing}
+            restRevealed={animation.restRevealed}
+          />
+        </div>
+      </div>
+
+      <motion.div
+        className="mx-auto w-full shrink-0 pb-2"
+        style={{
+          maxWidth: logoWidth > 0 ? logoWidth : undefined,
+        }}
+        initial={false}
+        animate={{
+          opacity: animation.loginVisible && logoWidth > 0 ? 1 : 0,
+          y: animation.loginVisible && logoWidth > 0 ? 0 : 12,
+        }}
+        transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
+      >
+        {done ? (
+          <div className="mx-auto flex h-14 min-h-14 w-full items-center justify-center rounded-full bg-[#111113] px-6 text-[16px] text-white">
+            Спасибо! Сообщим об открытии
+          </div>
+        ) : (
+          <form
+            className="mx-auto flex h-14 min-h-14 w-full items-center gap-2 rounded-full bg-[#111113] px-2"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void submit();
+            }}
+          >
+            <input
+              type="email"
+              name="email"
+              autoComplete="email"
+              inputMode="email"
+              placeholder="Email для новости об открытии"
+              value={email}
+              disabled={
+                !animation.loginVisible || submitting || logoWidth <= 0
+              }
+              onChange={(event) => setEmail(event.target.value)}
+              className="h-full min-w-0 flex-1 rounded-full bg-transparent px-4 text-[15px] text-white outline-none placeholder:text-white/55 disabled:opacity-60"
+              aria-label="Email для новости об открытии"
+            />
+            <button
+              type="submit"
+              disabled={
+                !animation.loginVisible || submitting || logoWidth <= 0
+              }
+              className="shrink-0 rounded-full bg-white px-4 py-2 text-[14px] font-semibold text-[#111113] disabled:opacity-60"
+            >
+              {submitting ? "…" : "OK"}
+            </button>
+          </form>
+        )}
+        {error && (
+          <p className="mt-3 text-center text-[13px] text-red-700">{error}</p>
+        )}
+      </motion.div>
+    </div>
+  );
+}

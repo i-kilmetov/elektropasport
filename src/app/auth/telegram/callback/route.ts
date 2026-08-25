@@ -5,6 +5,12 @@ import {
   type TelegramLoginWidgetData,
   type ValidatedTelegramUser,
 } from "@/lib/telegram-auth";
+import {
+  appEnvFromRequest,
+  isTestAppHost,
+  toStorageTelegramId,
+  toTelegramChatId,
+} from "@/lib/app-env";
 import { signSessionToken } from "@/lib/session-token";
 import {
   ensureSchema,
@@ -99,20 +105,36 @@ async function finishLogin(
   user: ValidatedTelegramUser,
   request: Request,
 ): Promise<NextResponse> {
+  const host = new URL(resolveRequestOrigin(request)).host;
+  if (!isTestAppHost(host)) {
+    return NextResponse.redirect(new URL("/?auth_error=closed", request.url));
+  }
+
+  const env = appEnvFromRequest(request);
+  const realTelegramId = toTelegramChatId(user.telegramId);
+  const storageUser: ValidatedTelegramUser = {
+    ...user,
+    telegramId: toStorageTelegramId(realTelegramId, env),
+    appEnv: env,
+  };
+
   await ensureSchema();
-  await upsertUser(user);
+  await upsertUser(storageUser);
 
   const consentVersion = readPdConsentCookie(request);
   if (isPdConsentCookieValid(consentVersion)) {
-    await recordUserPdConsent(user.telegramId, PD_CONSENT_VERSION);
+    await recordUserPdConsent(storageUser.telegramId, PD_CONSENT_VERSION);
   }
 
-  const alreadyConsented = await userHasPdConsent(user.telegramId);
+  const alreadyConsented = await userHasPdConsent(storageUser.telegramId);
 
-  // Keep profile display name in sync when Telegram provides one and profile is empty.
-  const existing = await getStoredUserProfile(user.telegramId);
-  if (!existing.firstName && !existing.lastName && (user.firstName || user.lastName)) {
-    await updateStoredUserProfile(user.telegramId, {
+  const existing = await getStoredUserProfile(storageUser.telegramId);
+  if (
+    !existing.firstName &&
+    !existing.lastName &&
+    (user.firstName || user.lastName)
+  ) {
+    await updateStoredUserProfile(storageUser.telegramId, {
       ...existing,
       firstName: user.firstName,
       lastName: user.lastName,
@@ -120,12 +142,20 @@ async function finishLogin(
   }
 
   const token = signSessionToken({
-    telegramId: user.telegramId,
+    telegramId: realTelegramId,
+    appEnv: env,
     firstName: user.firstName,
     lastName: user.lastName,
     username: user.username,
   });
-  const response = new NextResponse(sessionHtml(user, token), {
+  const displayUser: ValidatedTelegramUser = {
+    telegramId: realTelegramId,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    username: user.username,
+    appEnv: env,
+  };
+  const response = new NextResponse(sessionHtml(displayUser, token), {
     headers: { "Content-Type": "text/html; charset=utf-8" },
   });
   response.headers.append(

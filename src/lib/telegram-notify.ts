@@ -493,6 +493,20 @@ export async function notifyAdminResearchSurvey(payload: {
   });
 }
 
+export async function notifyAdminLaunchWaitlist(payload: {
+  email: string;
+}): Promise<void> {
+  await sendToAdmins({
+    text: [
+      "📬 Подписка на открытие Током",
+      "",
+      `Email: ${payload.email}`,
+      `Время: ${new Date().toLocaleString("ru-RU", { timeZone: "Europe/Moscow" })} (МСК)`,
+    ].join("\n"),
+    disable_web_page_preview: true,
+  });
+}
+
 export async function notifyAdminFeedbackAttachment(payload: {
   file: Blob;
   filename: string;

@@ -3,18 +3,11 @@ export const TEST_SITE_INACTIVITY_MS = 10 * 60 * 1000;
 const TEST_SITE_COOKIE_VALUE = "ok";
 
 function authSecret(): string | null {
-  return (
-    process.env.TEST_SITE_PASSWORD?.trim() ||
-    process.env.TELEGRAM_SETUP_KEY?.trim() ||
-    null
-  );
+  return process.env.TEST_SITE_PASSWORD?.trim() || null;
 }
 
 export function testSitePasswordConfigured(): boolean {
-  return Boolean(
-    process.env.TEST_SITE_PASSWORD?.trim() ||
-      process.env.TELEGRAM_SETUP_KEY?.trim(),
-  );
+  return Boolean(process.env.TEST_SITE_PASSWORD?.trim());
 }
 
 function bytesEqual(a: Uint8Array, b: Uint8Array): boolean {
@@ -64,9 +57,7 @@ export async function verifyTestSiteCookie(
 }
 
 export function verifyTestSitePassword(password: string): boolean {
-  const expected =
-    process.env.TEST_SITE_PASSWORD?.trim() ||
-    process.env.TELEGRAM_SETUP_KEY?.trim();
+  const expected = process.env.TEST_SITE_PASSWORD?.trim();
   if (!expected) return false;
   const enc = new TextEncoder();
   return bytesEqual(enc.encode(password), enc.encode(expected));

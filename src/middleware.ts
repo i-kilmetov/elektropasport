@@ -30,9 +30,9 @@ function isTestPublicPath(pathname: string): boolean {
 }
 
 /**
- * elektropasport.vercel.app and tokom.ru are the same deployment + same DB.
- * test.tokom.ru uses the same deployment but gates access with an admin password
- * and enables unreleased home-appliances UI.
+ * elektropasport.vercel.app and tokom.ru are the same deployment.
+ * test.tokom.ru shares the UI but gates access with TEST_SITE_PASSWORD,
+ * then Telegram login. User data is isolated per host (test vs prod).
  */
 export async function middleware(request: NextRequest) {
   const host = request.headers.get("host")?.split(":")[0]?.toLowerCase();

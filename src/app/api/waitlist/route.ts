@@ -9,10 +9,13 @@ import {
   getSql,
   upsertUser,
 } from "@/lib/db";
+import { notifyAdminLaunchWaitlist } from "@/lib/telegram-notify";
 
 function isValidEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
+
+const WAITLIST_KINDS = new Set(["school", "terminals", "launch"]);
 
 export async function POST(request: Request) {
   try {
@@ -21,7 +24,9 @@ export async function POST(request: Request) {
       email?: unknown;
     };
     const list =
-      body.list === "school" || body.list === "terminals" ? body.list : null;
+      typeof body.list === "string" && WAITLIST_KINDS.has(body.list)
+        ? body.list
+        : null;
     const email =
       typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
 
@@ -65,6 +70,14 @@ export async function POST(request: Request) {
         telegram_user_id = COALESCE(EXCLUDED.telegram_user_id, waitlist.telegram_user_id),
         created_at = waitlist.created_at
     `;
+
+    if (list === "launch") {
+      try {
+        await notifyAdminLaunchWaitlist({ email });
+      } catch (error) {
+        console.error("notifyAdminLaunchWaitlist", error);
+      }
+    }
 
     return Response.json({ ok: true });
   } catch (error) {

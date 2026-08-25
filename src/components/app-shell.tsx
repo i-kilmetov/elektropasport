@@ -154,15 +154,15 @@ import type {
   PanelWire,
 } from "@/types";
 import { installStatusLabels } from "@/types";
-import { BrandAuthIntro, BrandSplash } from "@/components/brand-splash";
+import { BrandAuthIntro, BrandLaunchWaitlist, BrandSplash } from "@/components/brand-splash";
 import { useHomeAppliancesEnabled } from "@/hooks/use-home-appliances-enabled";
-import { isTestAppHost } from "@/lib/app-env";
-import { TEST_SITE_INACTIVITY_MS } from "@/lib/test-site-auth";
+import { isProductionLaunchWaitlistHost } from "@/lib/app-env";
 import { cn } from "@/lib/utils";
 
-function isTestAppClientHost(): boolean {
+function isProdLaunchWaitlistClient(): boolean {
   return (
-    typeof window !== "undefined" && isTestAppHost(window.location.hostname)
+    typeof window !== "undefined" &&
+    isProductionLaunchWaitlistHost(window.location.hostname)
   );
 }
 
@@ -255,7 +255,6 @@ const SPLASH_SEEN_PERSIST_KEY = "ep:splash-seen-persist";
 type SplashPhase = "pending" | "show" | "done";
 
 function readSplashSeen(): boolean {
-  if (isTestAppClientHost()) return true;
   try {
     if (localStorage.getItem(SPLASH_SEEN_PERSIST_KEY) === "1") return true;
     return sessionStorage.getItem(SPLASH_SEEN_KEY) === "1";
@@ -284,7 +283,7 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
     forceResearchSurvey ? "done" : "pending",
   );
   const [showAuthIntro, setShowAuthIntro] = useState(
-    () => !forceResearchSurvey && !isTestAppClientHost(),
+    () => !forceResearchSurvey,
   );
   const [items, setItems] = useState<HomeListItem[]>(() => getCachedHomeItems());
   const [itemsLoading, setItemsLoading] = useState(
@@ -368,7 +367,7 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
 
   /** After Telegram OAuth return — home with skeletons, not boot splash. */
   useLayoutEffect(() => {
-    if (isTestAppClientHost() || !consumePostAuthSkipSplash()) return;
+    if (isProdLaunchWaitlistClient() || !consumePostAuthSkipSplash()) return;
     markSplashSeen();
     setSplashPhase("done");
     setShowAuthIntro(false);
@@ -387,7 +386,7 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
       setShowAuthIntro(false);
       return;
     }
-    if (isTestAppClientHost()) {
+    if (isProdLaunchWaitlistClient()) {
       setSplashPhase("done");
       return;
     }
@@ -470,14 +469,8 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
       } catch {
         // ignore
       }
-      if (isTestAppClientHost()) {
-        setScreen("telegram-auth");
-      } else {
-        setScreen("telegram-auth");
-        setShowAuthIntro(true);
-      }
-    } else if (isTestAppClientHost()) {
       setScreen("telegram-auth");
+      setShowAuthIntro(true);
     } else {
       setScreen("telegram-auth");
       setShowAuthIntro(true);
@@ -488,50 +481,13 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
   /** App UI (home, scheme, …) only after Telegram auth. */
   useEffect(() => {
     if (!onboardingReady) return;
+    if (isProdLaunchWaitlistClient()) return;
     if (canUseServerAuth() || isTelegramMiniApp()) return;
-    const allowed: AppScreen[] = isTestAppClientHost()
-      ? ["telegram-auth", "research-survey"]
-      : ["telegram-auth", "research-survey"];
+    const allowed: AppScreen[] = ["telegram-auth", "research-survey"];
     if (!allowed.includes(screen)) {
       setScreen("telegram-auth");
     }
   }, [onboardingReady, screen]);
-
-  /** Clear test-site cookie after idle timeout on the staging host. */
-  useEffect(() => {
-    if (!isTestAppClientHost()) return;
-
-    let lastActivity = Date.now();
-    const touchActivity = () => {
-      lastActivity = Date.now();
-    };
-    const activityEvents = [
-      "mousemove",
-      "mousedown",
-      "keydown",
-      "touchstart",
-      "scroll",
-      "click",
-    ] as const;
-
-    for (const event of activityEvents) {
-      window.addEventListener(event, touchActivity, { passive: true });
-    }
-
-    const interval = window.setInterval(() => {
-      if (Date.now() - lastActivity < TEST_SITE_INACTIVITY_MS) return;
-      void fetch("/api/test-access", { method: "DELETE" }).finally(() => {
-        window.location.assign("/test-login");
-      });
-    }, 30_000);
-
-    return () => {
-      for (const event of activityEvents) {
-        window.removeEventListener(event, touchActivity);
-      }
-      window.clearInterval(interval);
-    };
-  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -1789,9 +1745,14 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
     void openSharedPanel(token);
   }, [itemsLoading, onboardingReady, openSharedPanel]);
 
+  if (isProdLaunchWaitlistClient() && !surveyLaunch) {
+    return (
+      <BrandLaunchWaitlist bootReady={onboardingReady && !itemsLoading} />
+    );
+  }
+
   if (
     showAuthIntro &&
-    !isTestAppClientHost() &&
     !canUseServerAuth() &&
     !isTelegramMiniApp() &&
     !surveyLaunch
@@ -2018,16 +1979,11 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
             <TelegramAuthScreen
               key="telegram-auth"
               pendingAction={pendingAuthAction ?? undefined}
-              minimal={isTestAppClientHost()}
-              onBack={
-                isTestAppClientHost()
-                  ? undefined
-                  : () => {
-                      setPendingAuthAction(null);
-                      sessionStorage.removeItem("ep_pending_auth_action");
-                      setShowAuthIntro(true);
-                    }
-              }
+              onBack={() => {
+                setPendingAuthAction(null);
+                sessionStorage.removeItem("ep_pending_auth_action");
+                setShowAuthIntro(true);
+              }}
             />
           )}
           {screen === "photo" && (

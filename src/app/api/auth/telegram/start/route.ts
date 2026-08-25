@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isTestAppHost } from "@/lib/app-env";
 import { resolveOAuthOrigin, resolveRequestOrigin } from "@/lib/app-url";
 import {
   buildLegacyAuthUrl,
@@ -11,15 +12,18 @@ import {
 } from "@/lib/telegram-oauth";
 
 export async function GET(request: Request) {
+  const browserHost = new URL(resolveRequestOrigin(request)).host;
+  if (!isTestAppHost(browserHost)) {
+    return NextResponse.redirect(new URL("/?auth_error=closed", request.url));
+  }
+
   const clientId = getTelegramClientId();
   if (!clientId) {
     return NextResponse.redirect(new URL("/?auth_error=config", request.url));
   }
 
-  // Must match BotFather Redirect URI allowlist (https://tokom.ru/...),
-  // even when the browser is on www.tokom.ru.
+  // test.tokom.ru uses its own origin (must be in BotFather allowlist).
   const oauthOrigin = resolveOAuthOrigin(request);
-  const browserHost = new URL(resolveRequestOrigin(request)).host;
   const redirectUri = `${oauthOrigin}/auth/telegram/callback`;
 
   if (canUseOidcLogin()) {
@@ -39,7 +43,6 @@ export async function GET(request: Request) {
     return response;
   }
 
-  // Legacy Telegram Login page with QR (no Client Secret required).
   const authUrl = buildLegacyAuthUrl({
     botId: clientId,
     origin: oauthOrigin,
