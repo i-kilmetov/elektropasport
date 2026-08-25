@@ -13,6 +13,8 @@ export type ApplianceEnrichmentResult = {
   energyClass?: string;
   specs: ApplianceSpec[];
   manuals: ApplianceManual[];
+  icecatStatus?: string;
+  icecatDetail?: string;
 };
 
 /**
@@ -35,7 +37,7 @@ export async function enrichApplianceProduct(options: {
   const icecat = await searchIcecatProduct({
     brand: options.brand,
     model: options.model,
-    lang: "ru",
+    lang: "RU",
   });
 
   if (icecat.hit) {
@@ -46,6 +48,8 @@ export async function enrichApplianceProduct(options: {
       publicUrl: icecat.hit.sourceUrl ?? publicUrl,
       specs: icecat.hit.specs,
       manuals: icecat.hit.manuals,
+      icecatStatus: icecat.status,
+      icecatDetail: icecat.detail,
     };
   }
 
@@ -64,24 +68,20 @@ export async function enrichApplianceProduct(options: {
         energyClass: eprel.hit.energyClass,
         specs: eprel.hit.specs,
         manuals: eprel.hit.manuals,
+        icecatStatus: icecat.status,
+        icecatDetail: icecat.detail,
       };
     }
-    return {
-      configured: true,
-      provider: null,
-      matched: false,
-      publicUrl,
-      specs: [],
-      manuals: [],
-    };
   }
 
   return {
-    configured: icecat.configured,
+    configured: icecat.configured || isEprelConfigured(),
     provider: null,
     matched: false,
     publicUrl,
     specs: [],
     manuals: [],
+    icecatStatus: icecat.status,
+    icecatDetail: icecat.detail,
   };
 }

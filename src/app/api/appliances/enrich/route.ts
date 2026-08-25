@@ -23,6 +23,8 @@ export async function GET(request: Request) {
       configured: result.configured,
       provider: result.provider,
       publicUrl: result.publicUrl,
+      icecatStatus: result.icecatStatus,
+      icecatDetail: result.icecatDetail,
       hit: result.matched
         ? {
             energyClass: result.energyClass,
