@@ -290,11 +290,46 @@ export class AuthSessionExpiredError extends Error {
 
 async function parseError(res: Response): Promise<string> {
   try {
-    const data = (await res.json()) as { error?: string };
-    return data.error || `Ошибка ${res.status}`;
+    const data = (await res.json()) as { error?: unknown; message?: unknown };
+    return formatErrorMessage(data.error ?? data.message, `Ошибка ${res.status}`);
   } catch {
     return `Ошибка ${res.status}`;
   }
+}
+
+/** Coerce API/unknown throwables into a readable Russian string (never "[object Object]"). */
+export function formatErrorMessage(
+  error: unknown,
+  fallback = "Неизвестная ошибка",
+): string {
+  if (error == null) return fallback;
+  if (typeof error === "string") {
+    const trimmed = error.trim();
+    return trimmed && trimmed !== "[object Object]" ? trimmed : fallback;
+  }
+  if (error instanceof Error) {
+    const msg = error.message?.trim();
+    if (msg && msg !== "[object Object]") return msg;
+    return fallback;
+  }
+  if (typeof error === "object") {
+    const record = error as Record<string, unknown>;
+    for (const key of ["message", "error", "detail", "description"] as const) {
+      const value = record[key];
+      if (typeof value === "string" && value.trim()) return value.trim();
+      if (value && typeof value === "object") {
+        const nested = formatErrorMessage(value, "");
+        if (nested) return nested;
+      }
+    }
+    try {
+      const json = JSON.stringify(error);
+      if (json && json !== "{}" && json !== "null") return json.slice(0, 240);
+    } catch {
+      // ignore
+    }
+  }
+  return fallback;
 }
 
 async function rejectUnlessOk(res: Response): Promise<Response> {

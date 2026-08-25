@@ -140,3 +140,26 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     break-inside: avoid;
   }
 }
+
+/* Phones: block landscape use when OS won't lock orientation. */
+@media screen and (orientation: landscape) and (max-height: 500px) {
+  body::after {
+    content: "Поверните телефон вертикально";
+    position: fixed;
+    inset: 0;
+    z-index: 99999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    text-align: center;
+    font-size: 18px;
+    font-weight: 600;
+    color: #111113;
+    background: #f7f7f8;
+  }
+
+  body > * {
+    visibility: hidden !important;
+  }
+}

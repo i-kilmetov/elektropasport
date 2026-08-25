@@ -1000,19 +1000,22 @@ export async function updatePanel(
   const nextDevices =
     Array.isArray(patch.devices) && patch.devices.length > 0
       ? patch.devices
-      : (existing.devices ?? []);
+      : null;
   const nextWires =
-    Array.isArray(patch.wires) && patch.wires.length > 0
-      ? patch.wires
-      : (existing.wires ?? []);
+    Array.isArray(patch.wires) && patch.wires.length > 0 ? patch.wires : null;
   const nextAppliances =
-    patch.appliances !== undefined
-      ? patch.appliances ?? []
-      : (existing.appliances ?? []);
+    patch.appliances !== undefined ? (patch.appliances ?? []) : null;
 
-  const devicesJson = JSON.stringify(sanitizeJsonValue(nextDevices));
-  const wiresJson = JSON.stringify(sanitizeJsonValue(nextWires));
-  const appliancesJson = JSON.stringify(sanitizeJsonValue(nextAppliances));
+  const devicesJson =
+    nextDevices != null
+      ? JSON.stringify(sanitizeJsonValue(nextDevices))
+      : null;
+  const wiresJson =
+    nextWires != null ? JSON.stringify(sanitizeJsonValue(nextWires)) : null;
+  const appliancesJson =
+    nextAppliances != null
+      ? JSON.stringify(sanitizeJsonValue(nextAppliances))
+      : null;
 
   const rows = (await sql`
     UPDATE panels SET
@@ -1028,21 +1031,9 @@ export async function updatePanel(
       house_snapshot = ${houseSnapshotJson}::jsonb,
       lines_count = ${linesCount}::int,
       rail_count = ${railCount}::int,
-      devices = CASE
-        WHEN ${Array.isArray(patch.devices) && patch.devices.length > 0}::boolean
-        THEN ${devicesJson}::jsonb
-        ELSE panels.devices
-      END,
-      wires = CASE
-        WHEN ${Array.isArray(patch.wires) && patch.wires.length > 0}::boolean
-        THEN ${wiresJson}::jsonb
-        ELSE panels.wires
-      END,
-      appliances = CASE
-        WHEN ${patch.appliances !== undefined}::boolean
-        THEN ${appliancesJson}::jsonb
-        ELSE panels.appliances
-      END,
+      devices = COALESCE(${devicesJson}::jsonb, panels.devices),
+      wires = COALESCE(${wiresJson}::jsonb, panels.wires),
+      appliances = COALESCE(${appliancesJson}::jsonb, panels.appliances),
       updated_at = NOW()
     WHERE id = ${id} AND telegram_user_id = ${telegramUserId}
     RETURNING

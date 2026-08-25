@@ -2,6 +2,7 @@
 
 import { useEffect, type ReactNode } from "react";
 import { initTelegramMock } from "@/lib/telegram";
+import { lockPortraitOrientation } from "@/lib/portrait-lock";
 
 /**
  * Boots Telegram Mini App SDK when available.
@@ -49,6 +50,7 @@ export function TelegramProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     initTelegramMock();
     let unbindHeight = bindAppHeight();
+    const unlockPortrait = lockPortraitOrientation();
 
     void (async () => {
       try {
@@ -89,7 +91,10 @@ export function TelegramProvider({ children }: { children: ReactNode }) {
       }
     })();
 
-    return () => unbindHeight();
+    return () => {
+      unbindHeight();
+      unlockPortrait();
+    };
   }, []);
 
   return <>{children}</>;

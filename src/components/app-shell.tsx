@@ -114,6 +114,7 @@ import {
   createPanelShare,
   fetchPanelById,
   fetchSharedPanel,
+  formatErrorMessage,
   recordInviteLinkOpen,
   syncDataEpochFromServer,
 } from "@/lib/user-data";
@@ -1877,9 +1878,10 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
                           .catch((error) => {
                             console.error(error);
                             setItemsError(
-                              error instanceof Error
-                                ? error.message
-                                : "Не удалось сохранить технику",
+                              formatErrorMessage(
+                                error,
+                                "Не удалось сохранить технику",
+                              ),
                             );
                           });
                         return next;
