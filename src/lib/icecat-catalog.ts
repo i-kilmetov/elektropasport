@@ -1,4 +1,6 @@
-import { gunzipSync } from "node:zlib";
+import { createInterface } from "node:readline";
+import { Readable } from "node:stream";
+import { createGunzip, gunzipSync } from "node:zlib";
 import type { CatalogApplianceKind } from "@/lib/appliance-catalog-enrichment";
 import { ensureSchema } from "@/lib/db";
 import { getSql } from "@/lib/sql-client";
@@ -67,7 +69,7 @@ export function isIcecatCatalogSyncConfigured(): boolean {
   return Boolean(icecatUsername() && icecatPassword());
 }
 
-async function downloadGunzipText(url: string): Promise<string> {
+function icecatDownloadHeaders(): Record<string, string> {
   const auth = icecatAuthHeader();
   if (!auth) {
     throw new Error(
@@ -82,8 +84,14 @@ async function downloadGunzipText(url: string): Promise<string> {
   const contentToken = process.env.ICECAT_CONTENT_TOKEN?.trim();
   if (apiToken) headers["api-token"] = apiToken;
   if (contentToken) headers["content-token"] = contentToken;
+  return headers;
+}
 
-  const res = await fetch(url, { headers, cache: "no-store" });
+async function downloadGunzipText(url: string): Promise<string> {
+  const res = await fetch(url, {
+    headers: icecatDownloadHeaders(),
+    cache: "no-store",
+  });
   if (!res.ok) {
     const body = await res.text().catch(() => "");
     throw new Error(
@@ -96,6 +104,30 @@ async function downloadGunzipText(url: string): Promise<string> {
   } catch {
     return buf.toString("utf8");
   }
+}
+
+async function openIcecatGunzipLines(
+  url: string,
+): Promise<AsyncIterable<string>> {
+  const res = await fetch(url, {
+    headers: icecatDownloadHeaders(),
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(
+      `Icecat download failed ${res.status} ${url}: ${body.slice(0, 180)}`,
+    );
+  }
+  if (!res.body) {
+    throw new Error(`Icecat download returned empty body: ${url}`);
+  }
+  const nodeIn = Readable.fromWeb(
+    res.body as import("node:stream/web").ReadableStream,
+  );
+  const gunzip = createGunzip();
+  nodeIn.on("error", (err) => gunzip.destroy(err));
+  return createInterface({ input: nodeIn.pipe(gunzip), crlfDelay: Infinity });
 }
 
 function parseCategoriesToKindMap(xml: string): Map<string, CatalogApplianceKind> {
@@ -165,125 +197,177 @@ function splitCsvLine(line: string): string[] {
   return out.map((v) => v.trim());
 }
 
-function parseIndexCsv(
-  csv: string,
+async function flushProductBatch(
+  batch: IcecatCatalogProduct[],
+): Promise<void> {
+  if (batch.length === 0) return;
+  const sql = getSql();
+  // Neon HTTP: one round-trip per row is too slow; chunk small parallel groups.
+  const parallel = 25;
+  for (let i = 0; i < batch.length; i += parallel) {
+    const slice = batch.slice(i, i + parallel);
+    await Promise.all(
+      slice.map(
+        (p) => sql`
+          INSERT INTO icecat_appliance_products (
+            icecat_id, kind, brand, product_code, model_name, on_market, updated_at
+          ) VALUES (
+            ${p.id}, ${p.kind}, ${p.brand}, ${p.productCode}, ${p.modelName}, TRUE, NOW()
+          )
+          ON CONFLICT (icecat_id) DO UPDATE SET
+            kind = EXCLUDED.kind,
+            brand = EXCLUDED.brand,
+            product_code = EXCLUDED.product_code,
+            model_name = EXCLUDED.model_name,
+            on_market = TRUE,
+            updated_at = NOW()
+        `,
+      ),
+    );
+  }
+}
+
+function mapIndexRow(
+  cols: string[],
+  header: {
+    iProductId: number;
+    iSupplier: number;
+    iProdId: number;
+    iCat: number;
+    iModel: number;
+    iOnMarket: number;
+  },
   catKind: Map<string, CatalogApplianceKind>,
   suppliers: Map<string, string>,
-): IcecatCatalogProduct[] {
-  const lines = csv.split(/\r?\n/).filter(Boolean);
-  if (lines.length < 2) return [];
-  const header = splitCsvLine(lines[0]!).map((h) => h.toLowerCase());
-  const idx = (names: string[]) =>
-    header.findIndex((h) => names.includes(h));
+): IcecatCatalogProduct | null {
+  const catid =
+    (header.iCat >= 0 ? cols[header.iCat] : cols[6])?.replace(/\D/g, "") ?? "";
+  const kind = catKind.get(catid);
+  if (!kind) return null;
 
-  const iProductId = idx(["product_id", "productid", "icecat_id", "path"]);
-  const iSupplier = idx(["supplier_id", "supplierid"]);
-  const iProdId = idx(["prod_id", "product_code", "productcode"]);
-  const iCat = idx(["catid", "category_id", "cat_id"]);
-  const iModel = idx(["model_name", "modelname", "name"]);
-  const iOnMarket = idx(["on_market", "onmarket"]);
+  const supplierId = (header.iSupplier >= 0 ? cols[header.iSupplier] : cols[4]) ?? "";
+  if (!suppliers.has(supplierId)) return null;
+  const brandName = suppliers.get(supplierId)!;
 
-  // XML-derived CSV sometimes uses different order; try positional fallbacks
-  // Common Open CSV: path,product_id,updated,quality,supplier_id,prod_id,catid,on_market,...,model_name
-  const products: IcecatCatalogProduct[] = [];
-  const seen = new Set<string>();
-
-  for (let li = 1; li < lines.length; li += 1) {
-    const cols = splitCsvLine(lines[li]!);
-    const catid =
-      (iCat >= 0 ? cols[iCat] : cols[6])?.replace(/\D/g, "") ?? "";
-    const kind = catKind.get(catid);
-    if (!kind) continue;
-
-    const supplierId = (iSupplier >= 0 ? cols[iSupplier] : cols[4]) ?? "";
-    const brand = suppliers.get(supplierId) || supplierId;
-    if (!brand || /^\d+$/.test(brand) && !suppliers.has(supplierId)) {
-      // skip unresolved numeric-only brands
-      if (!suppliers.has(supplierId)) continue;
-    }
-
-    let productId = (iProductId >= 0 ? cols[iProductId] : cols[1]) ?? "";
-    if (productId.includes("/")) {
-      // path like /export/.../12345.xml
-      const m = productId.match(/(\d+)\.xml/i);
-      productId = m?.[1] ?? productId;
-    }
-    productId = productId.replace(/\D/g, "") || productId;
-    if (!productId) continue;
-
-    const productCode = (
-      (iProdId >= 0 ? cols[iProdId] : cols[5]) ?? ""
-    ).trim();
-    const modelName = (
-      (iModel >= 0 ? cols[iModel] : cols[9] ?? cols[8] ?? productCode) ??
-      productCode
-    ).trim();
-    if (!productCode && !modelName) continue;
-
-    const onMarketRaw = (iOnMarket >= 0 ? cols[iOnMarket] : cols[7]) ?? "1";
-    if (onMarketRaw === "0" || onMarketRaw.toLowerCase() === "false") continue;
-
-    const brandName = suppliers.get(supplierId) ?? brand;
-    const key = `${kind}|${brandName}|${productCode}|${productId}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-
-    products.push({
-      id: productId,
-      kind,
-      brand: brandName,
-      productCode: productCode || modelName,
-      modelName: modelName || productCode,
-    });
+  let productId = (header.iProductId >= 0 ? cols[header.iProductId] : cols[1]) ?? "";
+  if (productId.includes("/")) {
+    const m = productId.match(/(\d+)\.xml/i);
+    productId = m?.[1] ?? productId;
   }
-  return products;
+  productId = productId.replace(/\D/g, "") || productId;
+  if (!productId) return null;
+
+  const productCode = (
+    (header.iProdId >= 0 ? cols[header.iProdId] : cols[5]) ?? ""
+  ).trim();
+  const modelName = (
+    (header.iModel >= 0 ? cols[header.iModel] : cols[9] ?? cols[8] ?? productCode) ??
+    productCode
+  ).trim();
+  if (!productCode && !modelName) return null;
+
+  const onMarketRaw =
+    (header.iOnMarket >= 0 ? cols[header.iOnMarket] : cols[7]) ?? "1";
+  if (onMarketRaw === "0" || onMarketRaw.toLowerCase() === "false") return null;
+
+  return {
+    id: productId,
+    kind,
+    brand: brandName,
+    productCode: productCode || modelName,
+    modelName: modelName || productCode,
+  };
 }
 
 export async function syncIcecatApplianceCatalog(): Promise<{
   categories: number;
   suppliers: number;
   products: number;
+  scannedLines: number;
   byKind: Record<string, number>;
 }> {
   await ensureSchema();
   const sql = getSql();
+  const syncStartedAt = new Date().toISOString();
 
-  const [categoriesXml, suppliersXml, indexCsv] = await Promise.all([
+  const [categoriesXml, suppliersXml] = await Promise.all([
     downloadGunzipText(`${REFS_BASE}/CategoriesList.xml.gz`),
     downloadGunzipText(`${REFS_BASE}/SuppliersList.xml.gz`),
-    downloadGunzipText(INDEX_URL),
   ]);
 
   const catKind = parseCategoriesToKindMap(categoriesXml);
   const suppliers = parseSuppliers(suppliersXml);
-  const products = parseIndexCsv(indexCsv, catKind, suppliers);
+  if (catKind.size === 0) {
+    throw new Error(
+      "Icecat CategoriesList разобран, но подходящих категорий техники не найдено",
+    );
+  }
+  if (suppliers.size === 0) {
+    throw new Error("Icecat SuppliersList пуст или не разобран");
+  }
 
-  await sql`DELETE FROM icecat_appliance_products`;
+  const lines = await openIcecatGunzipLines(INDEX_URL);
+  let headerParsed = false;
+  let header = {
+    iProductId: -1,
+    iSupplier: -1,
+    iProdId: -1,
+    iCat: -1,
+    iModel: -1,
+    iOnMarket: -1,
+  };
+  let scannedLines = 0;
+  let products = 0;
+  const byKind: Record<string, number> = {};
+  const seen = new Set<string>();
+  let batch: IcecatCatalogProduct[] = [];
 
-  const chunkSize = 200;
-  for (let i = 0; i < products.length; i += chunkSize) {
-    const chunk = products.slice(i, i + chunkSize);
-    for (const p of chunk) {
-      await sql`
-        INSERT INTO icecat_appliance_products (
-          icecat_id, kind, brand, product_code, model_name, on_market, updated_at
-        ) VALUES (
-          ${p.id}, ${p.kind}, ${p.brand}, ${p.productCode}, ${p.modelName}, TRUE, NOW()
-        )
-        ON CONFLICT (icecat_id) DO UPDATE SET
-          kind = EXCLUDED.kind,
-          brand = EXCLUDED.brand,
-          product_code = EXCLUDED.product_code,
-          model_name = EXCLUDED.model_name,
-          updated_at = NOW()
-      `;
+  for await (const line of lines) {
+    if (!line) continue;
+    scannedLines += 1;
+    if (!headerParsed) {
+      const cols = splitCsvLine(line).map((h) => h.toLowerCase());
+      const idx = (names: string[]) => cols.findIndex((h) => names.includes(h));
+      header = {
+        iProductId: idx(["product_id", "productid", "icecat_id", "path"]),
+        iSupplier: idx(["supplier_id", "supplierid"]),
+        iProdId: idx(["prod_id", "product_code", "productcode"]),
+        iCat: idx(["catid", "category_id", "cat_id"]),
+        iModel: idx(["model_name", "modelname", "name"]),
+        iOnMarket: idx(["on_market", "onmarket"]),
+      };
+      headerParsed = true;
+      continue;
+    }
+
+    const product = mapIndexRow(
+      splitCsvLine(line),
+      header,
+      catKind,
+      suppliers,
+    );
+    if (!product) continue;
+    const key = `${product.kind}|${product.brand}|${product.productCode}|${product.id}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    batch.push(product);
+    byKind[product.kind] = (byKind[product.kind] ?? 0) + 1;
+    products += 1;
+
+    if (batch.length >= 200) {
+      await flushProductBatch(batch);
+      batch = [];
     }
   }
 
-  const byKind: Record<string, number> = {};
-  for (const p of products) {
-    byKind[p.kind] = (byKind[p.kind] ?? 0) + 1;
+  if (batch.length > 0) {
+    await flushProductBatch(batch);
   }
+
+  await sql`
+    DELETE FROM icecat_appliance_products
+    WHERE updated_at < ${syncStartedAt}::timestamptz
+  `;
 
   await sql`
     INSERT INTO schema_meta (key, value)
@@ -294,7 +378,8 @@ export async function syncIcecatApplianceCatalog(): Promise<{
   return {
     categories: catKind.size,
     suppliers: suppliers.size,
-    products: products.length,
+    products,
+    scannedLines,
     byKind,
   };
 }
