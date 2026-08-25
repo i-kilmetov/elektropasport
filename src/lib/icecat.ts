@@ -96,7 +96,7 @@ function manualsFromData(data: Record<string, unknown>): ApplianceManual[] {
   const general = data.GeneralInfo;
   if (general && typeof general === "object") {
     const pdf = asString((general as Record<string, unknown>).ManualPDFURL);
-    if (pdf) manuals.push({ title: "Руководство (Icecat)", url: pdf });
+    if (pdf) manuals.push({ title: "Руководство", url: pdf });
   }
 
   const multimedia = data.Multimedia;
@@ -271,7 +271,7 @@ function hitFromPayload(
   }
 
   if (!manuals.some((m) => m.url.includes("icecat"))) {
-    manuals.push({ title: "Карточка Icecat", url: sourceUrl });
+    manuals.push({ title: "Карточка товара", url: sourceUrl });
   }
 
   return {
