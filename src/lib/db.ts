@@ -219,6 +219,10 @@ export async function ensureSchema(): Promise<void> {
         ADD COLUMN IF NOT EXISTS appliances JSONB
       `;
       await sql`
+        ALTER TABLE panels
+        ADD COLUMN IF NOT EXISTS appliances_updated_at TIMESTAMPTZ
+      `;
+      await sql`
         CREATE TABLE IF NOT EXISTS panel_shares (
           token TEXT PRIMARY KEY,
           panel_id TEXT NOT NULL,
@@ -668,6 +672,7 @@ type PanelRow = {
   rail_count: number | null;
   wires: PanelWire[] | null;
   appliances: HomeAppliance[] | null;
+  appliances_updated_at: string | null;
   source_share_token: string | null;
   created_at: string;
 };
@@ -729,6 +734,7 @@ function rowToPanel(row: PanelRow): PanelObject {
         : undefined,
     wires: Array.isArray(row.wires) ? row.wires : undefined,
     appliances: Array.isArray(row.appliances) ? row.appliances : undefined,
+    appliancesUpdatedAt: row.appliances_updated_at ?? undefined,
     sourceShareToken: row.source_share_token ?? undefined,
     createdAt: row.created_at,
   };
@@ -795,7 +801,7 @@ export async function listHomeItems(
     SELECT
       id, type, title, address, last_check, breakers, safety,
       devices, lines_count, photo_data_url, named, phases, power_kw,
-      has_ground, house_snapshot, rail_count, wires, appliances, source_share_token, created_at
+      has_ground, house_snapshot, rail_count, wires, appliances, appliances_updated_at, source_share_token, created_at
     FROM panels
     WHERE telegram_user_id = ${telegramUserId}
   `) as PanelRow[];
@@ -840,6 +846,7 @@ export async function insertPanel(
   const appliancesJson = JSON.stringify(
     sanitizeJsonValue(panel.appliances ?? []),
   );
+  const appliancesUpdatedAt = panel.appliancesUpdatedAt ?? null;
   const houseSnapshotJson = JSON.stringify(
     sanitizeJsonValue(panel.houseSnapshot ?? null),
   );
@@ -848,7 +855,8 @@ export async function insertPanel(
     INSERT INTO panels (
       id, telegram_user_id, type, title, address, last_check, breakers, safety,
       devices, lines_count, photo_data_url, named, phases, power_kw,
-      has_ground, house_snapshot, rail_count, wires, appliances, source_share_token, created_at, updated_at
+      has_ground, house_snapshot, rail_count, wires, appliances, appliances_updated_at,
+      source_share_token, created_at, updated_at
     ) VALUES (
       ${panel.id},
       ${telegramUserId},
@@ -869,6 +877,7 @@ export async function insertPanel(
       ${panel.railCount ?? null}::int,
       ${wiresJson}::jsonb,
       ${appliancesJson}::jsonb,
+      ${appliancesUpdatedAt}::timestamptz,
       ${panel.sourceShareToken ?? null}::text,
       ${createdAt}::timestamptz,
       NOW()
@@ -904,14 +913,44 @@ export async function insertPanel(
         ELSE panels.wires
       END,
       appliances = CASE
-        WHEN EXCLUDED.appliances IS NOT NULL AND jsonb_array_length(EXCLUDED.appliances) > 0
+        WHEN EXCLUDED.appliances_updated_at IS NOT NULL
+          AND (
+            panels.appliances_updated_at IS NULL
+            OR EXCLUDED.appliances_updated_at >= panels.appliances_updated_at
+          )
+        THEN EXCLUDED.appliances
+        WHEN EXCLUDED.appliances IS NOT NULL
+          AND jsonb_typeof(EXCLUDED.appliances) = 'array'
+          AND jsonb_array_length(EXCLUDED.appliances) > 0
+          AND panels.appliances_updated_at IS NULL
+          AND (
+            panels.appliances IS NULL
+            OR jsonb_array_length(COALESCE(panels.appliances, '[]'::jsonb)) = 0
+          )
         THEN EXCLUDED.appliances
         ELSE panels.appliances
+      END,
+      appliances_updated_at = CASE
+        WHEN EXCLUDED.appliances_updated_at IS NOT NULL
+          AND (
+            panels.appliances_updated_at IS NULL
+            OR EXCLUDED.appliances_updated_at >= panels.appliances_updated_at
+          )
+        THEN EXCLUDED.appliances_updated_at
+        ELSE panels.appliances_updated_at
       END,
       source_share_token = COALESCE(EXCLUDED.source_share_token, panels.source_share_token),
       updated_at = NOW()
     WHERE panels.telegram_user_id = ${telegramUserId}
   `;
+  const appliances =
+    panel.appliancesUpdatedAt &&
+    (!existing?.appliancesUpdatedAt ||
+      panel.appliancesUpdatedAt >= existing.appliancesUpdatedAt)
+      ? (panel.appliances ?? [])
+      : Array.isArray(panel.appliances) && panel.appliances.length > 0
+        ? panel.appliances
+        : existing?.appliances;
   return {
     ...panel,
     devices:
@@ -922,10 +961,13 @@ export async function insertPanel(
       Array.isArray(panel.wires) && panel.wires.length > 0
         ? panel.wires
         : existing?.wires,
-    appliances:
-      Array.isArray(panel.appliances) && panel.appliances.length > 0
-        ? panel.appliances
-        : existing?.appliances,
+    appliances,
+    appliancesUpdatedAt:
+      panel.appliancesUpdatedAt &&
+      (!existing?.appliancesUpdatedAt ||
+        panel.appliancesUpdatedAt >= existing.appliancesUpdatedAt)
+        ? panel.appliancesUpdatedAt
+        : existing?.appliancesUpdatedAt ?? panel.appliancesUpdatedAt,
     photoDataUrl: panel.photoDataUrl ?? existing?.photoDataUrl,
   };
 }
@@ -945,6 +987,7 @@ export async function updatePanel(
       | "hasGround"
       | "houseSnapshot"
       | "appliances"
+      | "appliancesUpdatedAt"
       | "devices"
       | "wires"
       | "breakers"
@@ -1003,8 +1046,11 @@ export async function updatePanel(
       : null;
   const nextWires =
     Array.isArray(patch.wires) && patch.wires.length > 0 ? patch.wires : null;
-  const nextAppliances =
-    patch.appliances !== undefined ? (patch.appliances ?? []) : null;
+  const writingAppliances = patch.appliances !== undefined;
+  const nextAppliances = writingAppliances ? (patch.appliances ?? []) : null;
+  const appliancesUpdatedAt = writingAppliances
+    ? (patch.appliancesUpdatedAt ?? new Date().toISOString())
+    : null;
 
   const devicesJson =
     nextDevices != null
@@ -1033,13 +1079,20 @@ export async function updatePanel(
       rail_count = ${railCount}::int,
       devices = COALESCE(${devicesJson}::jsonb, panels.devices),
       wires = COALESCE(${wiresJson}::jsonb, panels.wires),
-      appliances = COALESCE(${appliancesJson}::jsonb, panels.appliances),
+      appliances = CASE
+        WHEN ${writingAppliances}::boolean THEN ${appliancesJson}::jsonb
+        ELSE panels.appliances
+      END,
+      appliances_updated_at = CASE
+        WHEN ${writingAppliances}::boolean THEN ${appliancesUpdatedAt}::timestamptz
+        ELSE panels.appliances_updated_at
+      END,
       updated_at = NOW()
     WHERE id = ${id} AND telegram_user_id = ${telegramUserId}
     RETURNING
       id, type, title, address, last_check, breakers, safety,
       devices, lines_count, photo_data_url, named, phases, power_kw,
-      has_ground, house_snapshot, rail_count, wires, appliances, source_share_token, created_at
+      has_ground, house_snapshot, rail_count, wires, appliances, appliances_updated_at, source_share_token, created_at
   `) as PanelRow[];
   return rows[0] ? rowToPanel(rows[0]) : null;
 }
@@ -1053,7 +1106,7 @@ export async function getPanelByOwner(
     SELECT
       id, type, title, address, last_check, breakers, safety,
       devices, lines_count, photo_data_url, named, phases, power_kw,
-      has_ground, house_snapshot, rail_count, wires, appliances, source_share_token, created_at
+      has_ground, house_snapshot, rail_count, wires, appliances, appliances_updated_at, source_share_token, created_at
     FROM panels
     WHERE id = ${id} AND telegram_user_id = ${telegramUserId}
     LIMIT 1
@@ -1068,7 +1121,7 @@ export async function getPanelById(id: string): Promise<PanelObject | null> {
     SELECT
       id, type, title, address, last_check, breakers, safety,
       devices, lines_count, photo_data_url, named, phases, power_kw,
-      has_ground, house_snapshot, rail_count, wires, appliances, source_share_token, created_at
+      has_ground, house_snapshot, rail_count, wires, appliances, appliances_updated_at, source_share_token, created_at
     FROM panels
     WHERE id = ${id}
     LIMIT 1
@@ -1086,7 +1139,7 @@ export async function getPanelForMasterRequest(
       panels.id, panels.type, panels.title, panels.address, panels.last_check,
       panels.breakers, panels.safety, panels.devices, panels.lines_count,
       panels.photo_data_url, panels.named, panels.phases, panels.power_kw,
-      panels.has_ground, panels.house_snapshot, panels.rail_count, panels.wires, panels.appliances,
+      panels.has_ground, panels.house_snapshot, panels.rail_count, panels.wires, panels.appliances, panels.appliances_updated_at,
       panels.source_share_token, panels.created_at
     FROM install_requests
     JOIN panels ON panels.id = install_requests.panel_id
@@ -1128,7 +1181,7 @@ export async function getSharedPanel(token: string): Promise<{
       panels.id, panels.type, panels.title, panels.address, panels.last_check,
       panels.breakers, panels.safety, panels.devices, panels.lines_count,
       panels.photo_data_url, panels.named, panels.phases, panels.power_kw,
-      panels.has_ground, panels.house_snapshot, panels.rail_count, panels.wires, panels.appliances,
+      panels.has_ground, panels.house_snapshot, panels.rail_count, panels.wires, panels.appliances, panels.appliances_updated_at,
       panels.source_share_token, panels.created_at,
       panel_shares.owner_telegram_id
     FROM panel_shares

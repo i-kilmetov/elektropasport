@@ -57,6 +57,7 @@ export async function PATCH(request: Request, context: RouteContext) {
         | "hasGround"
         | "houseSnapshot"
         | "appliances"
+        | "appliancesUpdatedAt"
         | "devices"
         | "wires"
         | "breakers"
@@ -79,7 +80,16 @@ export async function PATCH(request: Request, context: RouteContext) {
 
     const panel = await updatePanel(user.telegramId, id, {
       ...body,
-      ...(appliances !== undefined ? { appliances } : {}),
+      ...(appliances !== undefined
+        ? {
+            appliances,
+            appliancesUpdatedAt:
+              typeof body.appliancesUpdatedAt === "string" &&
+              body.appliancesUpdatedAt.trim()
+                ? body.appliancesUpdatedAt
+                : new Date().toISOString(),
+          }
+        : {}),
     });
     if (!panel) {
       return Response.json({ error: "Щиток не найден" }, { status: 404 });

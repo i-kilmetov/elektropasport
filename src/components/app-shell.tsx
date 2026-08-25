@@ -115,6 +115,7 @@ import {
   fetchPanelById,
   fetchSharedPanel,
   formatErrorMessage,
+  mergeAppliancesUnion,
   recordInviteLinkOpen,
   syncDataEpochFromServer,
 } from "@/lib/user-data";
@@ -173,6 +174,46 @@ function panelRailCount(
     return Math.min(4, Math.max(panel.railCount, derived));
   }
   return derived;
+}
+
+function pickLivePanelFields(
+  live: PanelObject,
+  remote: PanelObject,
+): Pick<
+  PanelObject,
+  "photoDataUrl" | "devices" | "appliances" | "appliancesUpdatedAt"
+> {
+  const liveAt = live.appliancesUpdatedAt
+    ? Date.parse(live.appliancesUpdatedAt)
+    : 0;
+  const remoteAt = remote.appliancesUpdatedAt
+    ? Date.parse(remote.appliancesUpdatedAt)
+    : 0;
+  if (liveAt > remoteAt) {
+    return {
+      photoDataUrl: remote.photoDataUrl || live.photoDataUrl,
+      devices:
+        (remote.devices?.length ?? 0) > 0 ? remote.devices : live.devices,
+      appliances: live.appliances,
+      appliancesUpdatedAt: live.appliancesUpdatedAt,
+    };
+  }
+  if (remoteAt > liveAt) {
+    return {
+      photoDataUrl: remote.photoDataUrl || live.photoDataUrl,
+      devices:
+        (remote.devices?.length ?? 0) > 0 ? remote.devices : live.devices,
+      appliances: remote.appliances,
+      appliancesUpdatedAt: remote.appliancesUpdatedAt,
+    };
+  }
+  return {
+    photoDataUrl: remote.photoDataUrl || live.photoDataUrl,
+    devices: (remote.devices?.length ?? 0) > 0 ? remote.devices : live.devices,
+    appliances: mergeAppliancesUnion(remote.appliances, live.appliances),
+    appliancesUpdatedAt:
+      remote.appliancesUpdatedAt ?? live.appliancesUpdatedAt,
+  };
 }
 
 const SPLASH_SEEN_KEY = "ep:splash-seen";
@@ -982,17 +1023,20 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
           .then((remote) => {
             if (!remote) return;
             setItems((prev) => {
+              const live = prev.find(
+                (item): item is PanelObject =>
+                  item.kind === "panel" && item.id === remote.id,
+              );
+              const merged = live
+                ? {
+                    ...remote,
+                    ...pickLivePanelFields(live, remote),
+                  }
+                : remote;
               const exists = prev.some((item) => item.id === remote.id);
-              if (!exists) return [remote, ...prev];
+              if (!exists) return [merged, ...prev];
               return prev.map((item) =>
-                item.kind === "panel" && item.id === remote.id
-                  ? {
-                      ...remote,
-                      photoDataUrl:
-                        remote.photoDataUrl ||
-                        (item.kind === "panel" ? item.photoDataUrl : undefined),
-                    }
-                  : item,
+                item.kind === "panel" && item.id === remote.id ? merged : item,
               );
             });
             const remoteDevices = Array.isArray(remote.devices)
@@ -1836,56 +1880,67 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
               onAddAppliance={
                 homeAppliancesEnabled
                   ? (panelId, appliance) => {
-                      setItems((prev) => {
-                        const panel = prev.find(
-                          (item): item is PanelObject =>
-                            item.kind === "panel" && item.id === panelId,
-                        );
-                        const nextAppliances = [
-                          ...(panel?.appliances ?? []),
-                          appliance,
-                        ];
-                        const next = prev.map((item) => {
-                          if (item.kind !== "panel" || item.id !== panelId) {
-                            return item;
-                          }
-                          return {
-                            ...item,
-                            appliances: nextAppliances,
-                            lastCheck: "сегодня",
-                          };
+                      const panel = items.find(
+                        (item): item is PanelObject =>
+                          item.kind === "panel" && item.id === panelId,
+                      );
+                      const previousAppliances = panel?.appliances ?? [];
+                      const nextAppliances = [...previousAppliances, appliance];
+                      setItems((prev) =>
+                        prev.map((item) =>
+                          item.kind === "panel" && item.id === panelId
+                            ? {
+                                ...item,
+                                appliances: nextAppliances,
+                                appliancesUpdatedAt: new Date().toISOString(),
+                                lastCheck: "сегодня",
+                              }
+                            : item,
+                        ),
+                      );
+                      void persistPanelAppliances(panelId, nextAppliances)
+                        .then((saved) => {
+                          if (!saved) return;
+                          setItems((current) =>
+                            current.map((item) => {
+                              if (item.kind !== "panel" || item.id !== saved.id) {
+                                return item;
+                              }
+                              const savedList = saved.appliances ?? [];
+                              const keepList =
+                                savedList.length >= nextAppliances.length
+                                  ? savedList
+                                  : nextAppliances;
+                              return {
+                                ...item,
+                                ...saved,
+                                photoDataUrl:
+                                  saved.photoDataUrl || item.photoDataUrl,
+                                appliances: keepList,
+                                appliancesUpdatedAt:
+                                  saved.appliancesUpdatedAt ??
+                                  item.appliancesUpdatedAt,
+                              };
+                            }),
+                          );
+                          setItemsError(null);
+                        })
+                        .catch((error) => {
+                          console.error(error);
+                          setItems((current) =>
+                            current.map((item) =>
+                              item.kind === "panel" && item.id === panelId
+                                ? { ...item, appliances: previousAppliances }
+                                : item,
+                            ),
+                          );
+                          setItemsError(
+                            formatErrorMessage(
+                              error,
+                              "Не удалось сохранить технику",
+                            ),
+                          );
                         });
-                        void persistPanelAppliances(panelId, nextAppliances)
-                          .then((saved) => {
-                            if (!saved) return;
-                            setItems((current) =>
-                              current.map((item) =>
-                                item.kind === "panel" && item.id === saved.id
-                                  ? {
-                                      ...saved,
-                                      photoDataUrl:
-                                        saved.photoDataUrl ||
-                                        (item.kind === "panel"
-                                          ? item.photoDataUrl
-                                          : undefined),
-                                      appliances:
-                                        saved.appliances ?? nextAppliances,
-                                    }
-                                  : item,
-                              ),
-                            );
-                          })
-                          .catch((error) => {
-                            console.error(error);
-                            setItemsError(
-                              formatErrorMessage(
-                                error,
-                                "Не удалось сохранить технику",
-                              ),
-                            );
-                          });
-                        return next;
-                      });
                     }
                   : undefined
               }
@@ -1974,10 +2029,120 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
                 <ApplianceDetailScreen
                   key={`appliance-${appliance.id}`}
                   homeTitle={panel?.title}
+                  panel={panel!}
                   appliance={appliance}
                   onBack={() => {
                     setActiveApplianceId(null);
                     go("objects");
+                  }}
+                  onReplace={(next) => {
+                    const panelId = panel!.id;
+                    const previousAppliances = panel!.appliances ?? [];
+                    const nextAppliances = previousAppliances.map((item) =>
+                      item.id === next.id ? next : item,
+                    );
+                    setItems((prev) =>
+                      prev.map((item) =>
+                        item.kind === "panel" && item.id === panelId
+                          ? {
+                              ...item,
+                              appliances: nextAppliances,
+                              appliancesUpdatedAt: new Date().toISOString(),
+                              lastCheck: "сегодня",
+                            }
+                          : item,
+                      ),
+                    );
+                    void persistPanelAppliances(panelId, nextAppliances)
+                      .then((saved) => {
+                        if (!saved) return;
+                        setItems((current) =>
+                          current.map((item) =>
+                            item.kind === "panel" && item.id === saved.id
+                              ? {
+                                  ...item,
+                                  ...saved,
+                                  photoDataUrl:
+                                    saved.photoDataUrl || item.photoDataUrl,
+                                  appliances:
+                                    saved.appliances ?? nextAppliances,
+                                }
+                              : item,
+                          ),
+                        );
+                      })
+                      .catch((error) => {
+                        console.error(error);
+                        setItems((current) =>
+                          current.map((item) =>
+                            item.kind === "panel" && item.id === panelId
+                              ? { ...item, appliances: previousAppliances }
+                              : item,
+                          ),
+                        );
+                        setItemsError(
+                          formatErrorMessage(
+                            error,
+                            "Не удалось сохранить технику",
+                          ),
+                        );
+                      });
+                  }}
+                  onDelete={() => {
+                    const panelId = panel!.id;
+                    const applianceId = appliance.id;
+                    const previousAppliances = panel!.appliances ?? [];
+                    const nextAppliances = previousAppliances.filter(
+                      (item) => item.id !== applianceId,
+                    );
+                    setItems((prev) =>
+                      prev.map((item) =>
+                        item.kind === "panel" && item.id === panelId
+                          ? {
+                              ...item,
+                              appliances: nextAppliances,
+                              appliancesUpdatedAt: new Date().toISOString(),
+                              lastCheck: "сегодня",
+                            }
+                          : item,
+                      ),
+                    );
+                    setActiveApplianceId(null);
+                    go("objects");
+                    void persistPanelAppliances(panelId, nextAppliances)
+                      .then((saved) => {
+                        if (!saved) return;
+                        setItems((current) =>
+                          current.map((item) =>
+                            item.kind === "panel" && item.id === saved.id
+                              ? {
+                                  ...item,
+                                  ...saved,
+                                  photoDataUrl:
+                                    saved.photoDataUrl || item.photoDataUrl,
+                                  appliances:
+                                    saved.appliances ?? nextAppliances,
+                                }
+                              : item,
+                          ),
+                        );
+                      })
+                      .catch((error) => {
+                        console.error(error);
+                        setItems((current) =>
+                          current.map((item) =>
+                            item.kind === "panel" && item.id === panelId
+                              ? { ...item, appliances: previousAppliances }
+                              : item,
+                          ),
+                        );
+                        setItemsError(
+                          formatErrorMessage(
+                            error,
+                            "Не удалось удалить технику",
+                          ),
+                        );
+                      });
                   }}
                 />
               );

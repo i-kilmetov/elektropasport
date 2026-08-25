@@ -1,26 +1,37 @@
 "use client";
 
 import { useState } from "react";
-import { motion } from "framer-motion";
-import { ArrowLeft, BookOpen, Zap } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import { ArrowLeft, BookOpen, Pencil, Trash2, Zap } from "lucide-react";
+import { AddApplianceSheet } from "@/components/screens/add-appliance-sheet";
+import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { GlassCard } from "@/components/ui/glass-card";
 import {
   applianceKindIcon,
   applianceKindLabel,
   formatAppliancePower,
 } from "@/lib/home-appliances";
-import type { HomeAppliance } from "@/types";
+import type { HomeAppliance, PanelObject } from "@/types";
 
 export function ApplianceDetailScreen({
   appliance,
+  panel,
   homeTitle,
   onBack,
+  onReplace,
+  onDelete,
 }: {
   appliance: HomeAppliance;
+  panel: PanelObject;
   homeTitle?: string;
   onBack: () => void;
+  onReplace: (next: HomeAppliance) => void;
+  onDelete: () => void;
 }) {
   const [manualNotice, setManualNotice] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const Icon = applianceKindIcon(appliance.kind);
   const brand = appliance.brand?.trim() || appliance.title;
   const model = appliance.model?.trim();
@@ -99,6 +110,57 @@ export function ApplianceDetailScreen({
           </GlassCard>
         )}
       </div>
+
+      <div className="mt-auto grid grid-cols-2 gap-3 pt-4">
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full rounded-full"
+          onClick={() => setEditOpen(true)}
+        >
+          <Pencil className="h-4 w-4" />
+          Изменить
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full rounded-full border-rose-200 text-rose-700 hover:bg-rose-50"
+          onClick={() => setConfirmDelete(true)}
+        >
+          <Trash2 className="h-4 w-4" />
+          Удалить
+        </Button>
+      </div>
+
+      <AnimatePresence>
+        {editOpen && (
+          <AddApplianceSheet
+            panels={[panel]}
+            preferredPanelId={panel.id}
+            initialAppliance={appliance}
+            onClose={() => setEditOpen(false)}
+            onSave={(_panelId, next) => {
+              onReplace({ ...next, id: appliance.id });
+              setEditOpen(false);
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {confirmDelete && (
+          <ConfirmDialog
+            title="Удалить технику?"
+            description={`${brand}${model ? ` · ${model}` : ""} будет удалена из этого щитка.`}
+            confirmLabel="Удалить"
+            onCancel={() => setConfirmDelete(false)}
+            onConfirm={() => {
+              setConfirmDelete(false);
+              onDelete();
+            }}
+          />
+        )}
+      </AnimatePresence>
     </motion.section>
   );
 }

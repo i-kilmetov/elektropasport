@@ -126,6 +126,8 @@ export interface PanelObject {
   sourceShareToken?: string;
   /** Major appliances in this home / apartment */
   appliances?: HomeAppliance[];
+  /** ISO timestamp of last appliances list write — used for cross-device sync */
+  appliancesUpdatedAt?: string;
   /** Dwelling address + year / kapremont snapshot for this panel */
   houseSnapshot?: PanelHouseSnapshot;
   /** ISO timestamp for stable list ordering */

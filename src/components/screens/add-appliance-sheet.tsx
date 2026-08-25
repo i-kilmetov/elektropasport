@@ -13,6 +13,7 @@ import {
   createApplianceId,
   findCatalogModel,
   formatAppliancePower,
+  isCatalogApplianceKind,
   type CatalogApplianceKind,
 } from "@/lib/home-appliances";
 import type { HomeAppliance, PanelObject } from "@/types";
@@ -23,19 +24,31 @@ type Step = "kind" | "brand" | "model";
 export function AddApplianceSheet({
   panels,
   preferredPanelId,
+  initialAppliance,
   onClose,
   onSave,
 }: {
   panels: PanelObject[];
   preferredPanelId?: string | null;
+  /** When set, sheet replaces this appliance (caller may keep the same id). */
+  initialAppliance?: HomeAppliance | null;
   onClose: () => void;
   onSave: (panelId: string, appliance: HomeAppliance) => void;
   onAddPanel?: () => void;
 }) {
+  const editing = Boolean(initialAppliance);
   const [step, setStep] = useState<Step>("kind");
-  const [kind, setKind] = useState<CatalogApplianceKind | null>(null);
-  const [brand, setBrand] = useState<string | null>(null);
-  const [modelId, setModelId] = useState<string | null>(null);
+  const [kind, setKind] = useState<CatalogApplianceKind | null>(
+    initialAppliance && isCatalogApplianceKind(initialAppliance.kind)
+      ? initialAppliance.kind
+      : null,
+  );
+  const [brand, setBrand] = useState<string | null>(
+    initialAppliance?.brand ?? null,
+  );
+  const [modelId, setModelId] = useState<string | null>(
+    initialAppliance?.catalogId ?? null,
+  );
   const [panelId, setPanelId] = useState(
     preferredPanelId && panels.some((p) => p.id === preferredPanelId)
       ? preferredPanelId
@@ -55,7 +68,9 @@ export function AddApplianceSheet({
 
   const headerTitle =
     step === "kind"
-      ? "Вид техники"
+      ? editing
+        ? "Изменить вид"
+        : "Вид техники"
       : step === "brand"
         ? "Производитель"
         : "Модель";
@@ -86,14 +101,14 @@ export function AddApplianceSheet({
       return;
     }
     const appliance: HomeAppliance = {
-      id: createApplianceId(),
+      id: initialAppliance?.id ?? createApplianceId(),
       kind: entry.kind,
       title: entry.brand,
       brand: entry.brand,
       model: entry.model,
       powerW: entry.maxPowerW,
       catalogId: entry.id,
-      createdAt: new Date().toISOString(),
+      createdAt: initialAppliance?.createdAt ?? new Date().toISOString(),
     };
     onSave(panelId, appliance);
   };
@@ -280,7 +295,7 @@ export function AddApplianceSheet({
                 onClick={save}
               >
                 <Check className="h-5 w-5" />
-                Добавить
+                {editing ? "Сохранить" : "Добавить"}
               </Button>
             </div>
           )}

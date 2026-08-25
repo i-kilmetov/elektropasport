@@ -1,6 +1,6 @@
 import type { AddressSuggestion } from "@/lib/dadata";
 import type { HouseInsight, PanelHouseSnapshot } from "@/lib/house-insight";
-import type { HomeListItem, InstallRequest, PanelObject } from "@/types";
+import type { HomeAppliance, HomeListItem, InstallRequest, PanelObject } from "@/types";
 import {
   authHeaders,
   canUseServerAuth,
@@ -257,11 +257,87 @@ function preferNonEmptyArray<T>(
   return undefined;
 }
 
+function applianceUpdatedAtMs(panel?: PanelObject | null): number {
+  if (!panel?.appliancesUpdatedAt) return 0;
+  const ms = Date.parse(panel.appliancesUpdatedAt);
+  return Number.isFinite(ms) ? ms : 0;
+}
+
+/** Merge appliance lists by id without dropping items from either side. */
+export function mergeAppliancesUnion(
+  a?: HomeAppliance[] | null,
+  b?: HomeAppliance[] | null,
+): HomeAppliance[] {
+  const byId = new Map<string, HomeAppliance>();
+  for (const item of [...(a ?? []), ...(b ?? [])]) {
+    if (!item?.id) continue;
+    const prev = byId.get(item.id);
+    byId.set(
+      item.id,
+      prev
+        ? {
+            ...prev,
+            ...item,
+            photoDataUrl: item.photoDataUrl || prev.photoDataUrl,
+          }
+        : item,
+    );
+  }
+  return [...byId.values()].sort((x, y) =>
+    (x.createdAt || "").localeCompare(y.createdAt || ""),
+  );
+}
+
+/**
+ * Last-write-wins for appliances when timestamps differ; otherwise union so
+ * an in-flight add on one device is not wiped by a stale fetch.
+ */
+function pickAppliances(
+  primary: PanelObject,
+  fallback?: PanelObject | null,
+): {
+  appliances: HomeAppliance[] | undefined;
+  appliancesUpdatedAt: string | undefined;
+} {
+  if (!fallback) {
+    return {
+      appliances: primary.appliances,
+      appliancesUpdatedAt: primary.appliancesUpdatedAt,
+    };
+  }
+  const primaryAt = applianceUpdatedAtMs(primary);
+  const fallbackAt = applianceUpdatedAtMs(fallback);
+  if (primaryAt > fallbackAt) {
+    return {
+      appliances: primary.appliances ?? [],
+      appliancesUpdatedAt: primary.appliancesUpdatedAt,
+    };
+  }
+  if (fallbackAt > primaryAt) {
+    return {
+      appliances: fallback.appliances ?? [],
+      appliancesUpdatedAt: fallback.appliancesUpdatedAt,
+    };
+  }
+  const union = mergeAppliancesUnion(primary.appliances, fallback.appliances);
+  const hasAny =
+    (primary.appliances?.length ?? 0) > 0 ||
+    (fallback.appliances?.length ?? 0) > 0 ||
+    Array.isArray(primary.appliances) ||
+    Array.isArray(fallback.appliances);
+  return {
+    appliances: hasAny ? union : undefined,
+    appliancesUpdatedAt:
+      primary.appliancesUpdatedAt ?? fallback.appliancesUpdatedAt,
+  };
+}
+
 function mergePanelForPersist(
   panel: PanelObject,
   stored?: PanelObject | null,
 ): PanelObject {
   if (!stored) return panel;
+  const appliancesPick = pickAppliances(panel, stored);
   return {
     ...stored,
     ...panel,
@@ -273,7 +349,8 @@ function mergePanelForPersist(
     photoDataUrl: panel.photoDataUrl || stored.photoDataUrl,
     devices: preferNonEmptyArray(panel.devices, stored.devices),
     wires: preferNonEmptyArray(panel.wires, stored.wires),
-    appliances: preferNonEmptyArray(panel.appliances, stored.appliances),
+    appliances: appliancesPick.appliances,
+    appliancesUpdatedAt: appliancesPick.appliancesUpdatedAt,
     breakers:
       typeof panel.breakers === "number" && panel.breakers > 0
         ? panel.breakers
@@ -703,26 +780,7 @@ function mergeServerWithLocal(serverItems: HomeListItem[]): HomeListItem[] {
       if (item.kind !== "panel") return item;
       const local = localById.get(item.id);
       if (!local) return item;
-      const appliances = preferNonEmptyArray(
-        item.appliances,
-        local.appliances,
-      )?.map((remote) => {
-        const localMatch = local.appliances?.find((a) => a.id === remote.id);
-        if (!localMatch) return remote;
-        return {
-          ...remote,
-          photoDataUrl: remote.photoDataUrl || localMatch.photoDataUrl,
-        };
-      });
-      return {
-        ...item,
-        photoDataUrl: item.photoDataUrl || local.photoDataUrl,
-        devices: preferNonEmptyArray(item.devices, local.devices),
-        wires: preferNonEmptyArray(item.wires, local.wires),
-        appliances,
-        breakers:
-          item.breakers > 0 ? item.breakers : local.breakers,
-      };
+      return mergePanelForPersist(item, local);
     }),
   );
 }
@@ -749,11 +807,14 @@ export async function fetchHomeItems(): Promise<HomeListItem[]> {
       );
       const localHasDevices = (item.devices?.length ?? 0) > 0;
       const serverHasDevices = (server?.devices?.length ?? 0) > 0;
-      const localHasAppliances = (item.appliances?.length ?? 0) > 0;
-      const serverHasAppliances = (server?.appliances?.length ?? 0) > 0;
+      const localAppliancesNewer =
+        applianceUpdatedAtMs(item) > applianceUpdatedAtMs(server);
+      const localHasMoreAppliances =
+        (item.appliances?.length ?? 0) > (server?.appliances?.length ?? 0);
       if (
         (localHasDevices && !serverHasDevices) ||
-        (localHasAppliances && !serverHasAppliances)
+        localAppliancesNewer ||
+        localHasMoreAppliances
       ) {
         void persistPanel(item).catch((error) => console.error(error));
       }
@@ -953,9 +1014,11 @@ export async function persistPanelAppliances(
       ...item,
       photoDataUrl: undefined,
     }));
+    const appliancesUpdatedAt = new Date().toISOString();
     const next: PanelObject = {
       ...stored,
       appliances: slimAppliances,
+      appliancesUpdatedAt,
       lastCheck: "сегодня",
     };
     upsertLocalItem(next);
@@ -968,7 +1031,11 @@ export async function persistPanelAppliances(
         "Content-Type": "application/json",
         ...authHeaders(),
       },
-      body: JSON.stringify({ appliances: slimAppliances }),
+      body: JSON.stringify({
+        appliances: slimAppliances,
+        appliancesUpdatedAt,
+        lastCheck: "сегодня",
+      }),
     });
 
     if (!res.ok) {
@@ -989,13 +1056,18 @@ export async function persistPanelAppliances(
         try {
           const data = (await createRes.json()) as { panel?: PanelObject };
           if (data.panel?.id) {
-            const merged = mergePanelForPersist(
-              {
-                ...data.panel,
-                photoDataUrl: stored.photoDataUrl ?? data.panel.photoDataUrl,
-              },
-              next,
-            );
+            const merged: PanelObject = {
+              ...mergePanelForPersist(
+                {
+                  ...data.panel,
+                  photoDataUrl: stored.photoDataUrl ?? data.panel.photoDataUrl,
+                },
+                next,
+              ),
+              // Authoritative write from this device — never drop the list we just saved.
+              appliances: slimAppliances,
+              appliancesUpdatedAt,
+            };
             upsertLocalItem(merged);
             return merged;
           }
@@ -1011,13 +1083,18 @@ export async function persistPanelAppliances(
     try {
       const data = (await res.json()) as { panel?: PanelObject };
       if (data.panel?.id) {
-        const merged = mergePanelForPersist(
-          {
-            ...data.panel,
-            photoDataUrl: stored.photoDataUrl ?? data.panel.photoDataUrl,
-          },
-          stored,
-        );
+        const merged: PanelObject = {
+          ...mergePanelForPersist(
+            {
+              ...data.panel,
+              photoDataUrl: stored.photoDataUrl ?? data.panel.photoDataUrl,
+            },
+            next,
+          ),
+          appliances: slimAppliances,
+          appliancesUpdatedAt:
+            data.panel.appliancesUpdatedAt ?? appliancesUpdatedAt,
+        };
         upsertLocalItem(merged);
         return merged;
       }
