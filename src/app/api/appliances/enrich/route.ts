@@ -1,7 +1,6 @@
 import { isCatalogApplianceKind } from "@/lib/appliance-catalog";
 import { enrichApplianceProduct } from "@/lib/appliance-product-lookup";
 
-/** @deprecated Prefer /api/appliances/enrich — kept for older clients. */
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -22,6 +21,7 @@ export async function GET(request: Request) {
     const result = await enrichApplianceProduct({ kind, brand, model });
     return Response.json({
       configured: result.configured,
+      provider: result.provider,
       publicUrl: result.publicUrl,
       hit: result.matched
         ? {
@@ -34,9 +34,15 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
-    console.error("GET /api/eprel/search", msg, error);
+    console.error("GET /api/appliances/enrich", msg, error);
     return Response.json(
-      { error: msg, configured: true, hit: null, candidates: [] },
+      {
+        error: msg,
+        configured: true,
+        provider: null,
+        hit: null,
+        candidates: [],
+      },
       { status: 502 },
     );
   }

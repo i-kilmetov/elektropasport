@@ -107,11 +107,15 @@ export function AddApplianceSheet({
             brand: selectedModel.brand,
             model: selectedModel.model,
           });
-          const res = await fetch(`/api/eprel/search?${params.toString()}`, {
-            cache: "no-store",
-          });
+          const res = await fetch(
+            `/api/appliances/enrich?${params.toString()}`,
+            {
+              cache: "no-store",
+            },
+          );
           const data = (await res.json()) as {
             configured?: boolean;
+            provider?: string | null;
             publicUrl?: string | null;
             hit?: {
               energyClass?: string;
@@ -171,7 +175,7 @@ export function AddApplianceSheet({
     if (eprel?.manuals?.length) {
       manuals.push(...eprel.manuals);
     } else if (eprelPublic) {
-      manuals.push({ title: "Карточка EPREL (ЕС)", url: eprelPublic });
+      manuals.push({ title: "Карточка в реестре ЕС (EPREL)", url: eprelPublic });
     }
 
     const powerSpec: ApplianceSpec = {
@@ -374,10 +378,10 @@ export function AddApplianceSheet({
                     {formatAppliancePower(selectedModel.maxPowerW)}
                   </span>
                 </p>
-                {eprelLoading && <p>Проверяем EPREL…</p>}
+                {eprelLoading && <p>Ищем характеристики…</p>}
                 {!eprelLoading && eprel?.matched && (
                   <p className="text-emerald-700">
-                    Найдено в EPREL
+                    Найдены данные производителя
                     {eprel.energyClass ? ` · класс ${eprel.energyClass}` : ""}
                   </p>
                 )}
@@ -385,7 +389,7 @@ export function AddApplianceSheet({
                   eprel &&
                   !eprel.matched &&
                   eprel.configured && (
-                    <p>В EPREL точного совпадения нет — берём каталог Tokom</p>
+                    <p>В открытых каталогах нет совпадения — берём базу Tokom</p>
                   )}
               </div>
             )}
