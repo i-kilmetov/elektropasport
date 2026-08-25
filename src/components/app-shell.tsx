@@ -19,6 +19,7 @@ import { MasterSearchScreen } from "@/components/screens/master-search-screen";
 import { MasterSuccessScreen } from "@/components/screens/master-success-screen";
 import { MasterNotFoundScreen } from "@/components/screens/master-not-found-screen";
 import { CitySelectScreen } from "@/components/screens/city-select-screen";
+import { GeoAddressScreen } from "@/components/screens/geo-address-screen";
 import { FeedbackScreen } from "@/components/screens/feedback-screen";
 import { ResearchSurveyScreen } from "@/components/screens/research-survey-screen";
 import { MasterAboutScreen } from "@/components/screens/master-about-screen";
@@ -583,7 +584,7 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
       setSelectedLeadService(null);
       setLeadBackScreen(pending === "help-electrical" ? "objects" : "scheme");
       if (pending === "help-electrical") setLeadPanelModules(null);
-      setScreen("city-select");
+      setScreen("geo-address");
     }
   }, []);
 
@@ -674,7 +675,7 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
     setLeadPanelModules(null);
     setLeadBackScreen("objects");
     if (canUseServerAuth()) {
-      go("city-select");
+      go("geo-address");
       return;
     }
     setPendingAuthAction("help-electrical");
@@ -697,7 +698,7 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
     const modules = countPanelModules(panelDevices);
     setLeadPanelModules(modules > 0 ? modules : null);
     if (canUseServerAuth()) {
-      go("city-select");
+      go("geo-address");
       return;
     }
     setPendingAuthAction("call-master");
@@ -1998,7 +1999,7 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
                 setSelectedLeadService(null);
                 setLeadPanelModules(null);
                 setLeadBackScreen("panel-advantages");
-                go("city-select");
+                go("geo-address");
               }}
             />
           )}
@@ -2016,7 +2017,25 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
                 setSelectedLeadService(null);
                 setLeadPanelModules(null);
                 setLeadBackScreen("electrical-details");
+                go("geo-address");
+              }}
+            />
+          )}
+          {screen === "geo-address" && (
+            <GeoAddressScreen
+              key={`geo-${leadFlow}-${helpElectricalFlow ? "help" : "std"}`}
+              onBack={() => go(leadBackScreen)}
+              onManual={() => {
+                setSelectedCity(null);
+                setSelectedAddress(null);
+                setSelectedAddressFiasId(null);
                 go("city-select");
+              }}
+              onConfirm={({ city, address, fiasId, houseFiasId }) => {
+                setSelectedCity(city);
+                setSelectedAddress(address);
+                setSelectedAddressFiasId(houseFiasId ?? fiasId ?? null);
+                go("house-insight");
               }}
             />
           )}
@@ -2043,7 +2062,11 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
                     : "В этом городе у нас есть квалифицированные мастера-электрики. Укажите точный адрес, чтобы сориентировать вас по времени и цене."
               }
               onBack={() =>
-                go(leadFlow === "master" ? "become-master" : leadBackScreen)
+                go(
+                  leadFlow === "master"
+                    ? "become-master"
+                    : "geo-address",
+                )
               }
               onConfirm={(city) => {
                 setSelectedCity(city);
@@ -2072,7 +2095,7 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
                 setSelectedLeadService(null);
                 setLeadPanelModules(null);
                 setLeadBackScreen("request-type");
-                go("city-select");
+                go("geo-address");
               }}
             />
           )}
@@ -2122,7 +2145,7 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
                   go("house-insight");
                   return;
                 }
-                go("city-select");
+                go("geo-address");
               }}
               onSelect={(serviceType) => {
                 setSelectedLeadService(serviceType);

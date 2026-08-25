@@ -14,6 +14,11 @@ export type AddressSuggestion = {
   flat?: string;
   block?: string;
   building?: string;
+  city?: string;
+};
+
+export type GeolocatedAddress = AddressSuggestion & {
+  city: string;
 };
 
 type DaDataSuggestion = {
@@ -29,6 +34,9 @@ type DaDataSuggestion = {
     building?: string | null;
     street_with_type?: string | null;
     city?: string | null;
+    settlement?: string | null;
+    city_with_type?: string | null;
+    settlement_with_type?: string | null;
     flat?: string | null;
   };
 };
@@ -60,6 +68,12 @@ export function parseDaDataSuggestions(raw: unknown): AddressSuggestion[] {
     const fiasLevel = Number(item.data?.fias_level ?? 0);
     const houseFiasId = item.data?.house_fias_id ?? undefined;
     const fiasId = item.data?.fias_id ?? undefined;
+    const city =
+      item.data?.city?.trim() ||
+      item.data?.settlement?.trim() ||
+      item.data?.city_with_type?.trim() ||
+      item.data?.settlement_with_type?.trim() ||
+      undefined;
     parsed.push({
       value,
       unrestrictedValue: item.unrestricted_value?.trim() || value,
@@ -72,7 +86,17 @@ export function parseDaDataSuggestions(raw: unknown): AddressSuggestion[] {
       flat: item.data?.flat ?? undefined,
       block: item.data?.block ?? undefined,
       building: item.data?.building ?? undefined,
+      city,
     });
   }
   return parsed;
+}
+
+/** Best reverse-geocode hit with a usable city name. */
+export function parseDaDataGeolocate(raw: unknown): GeolocatedAddress | null {
+  const [first] = parseDaDataSuggestions(raw);
+  if (!first) return null;
+  const city = first.city?.trim();
+  if (!city) return null;
+  return { ...first, city };
 }

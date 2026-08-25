@@ -179,6 +179,7 @@ export type AppScreen =
   | "panel-advantages"
   | "electrical-details"
   | "city-select"
+  | "geo-address"
   | "address-select"
   | "house-insight"
   | "lead-service"

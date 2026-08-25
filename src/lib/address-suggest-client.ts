@@ -1,7 +1,8 @@
-import type { AddressSuggestion } from "@/lib/dadata";
+import type { AddressSuggestion, GeolocatedAddress } from "@/lib/dadata";
 import { authHeaders, canUseServerAuth } from "@/lib/client-auth";
 
 const SUGGEST_TIMEOUT_MS = 12_000;
+const GEO_TIMEOUT_MS = 15_000;
 
 async function parseError(res: Response): Promise<string> {
   try {
@@ -49,6 +50,86 @@ export async function suggestAddresses(
 
     const data = (await res.json()) as { suggestions?: AddressSuggestion[] };
     return Array.isArray(data.suggestions) ? data.suggestions : [];
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error("Сервер долго не отвечает — попробуйте ещё раз");
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
+}
+
+export type UserGeolocation = { lat: number; lon: number };
+
+export function requestUserGeolocation(): Promise<UserGeolocation> {
+  return new Promise((resolve, reject) => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      reject(new Error("Геолокация недоступна в этом браузере"));
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        resolve({
+          lat: position.coords.latitude,
+          lon: position.coords.longitude,
+        });
+      },
+      (error) => {
+        if (error.code === error.PERMISSION_DENIED) {
+          reject(new Error("Нужен доступ к геопозиции"));
+          return;
+        }
+        if (error.code === error.TIMEOUT) {
+          reject(new Error("Не удалось получить геопозицию вовремя"));
+          return;
+        }
+        reject(new Error("Не удалось определить геопозицию"));
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: GEO_TIMEOUT_MS,
+        maximumAge: 60_000,
+      },
+    );
+  });
+}
+
+export async function geolocateAddress(
+  lat: number,
+  lon: number,
+): Promise<GeolocatedAddress> {
+  if (!canUseServerAuth()) {
+    throw new Error("Определение адреса доступно после входа через Telegram");
+  }
+
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(
+    () => controller.abort(),
+    SUGGEST_TIMEOUT_MS,
+  );
+
+  try {
+    const res = await fetch("/api/address-geolocate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeaders(),
+      },
+      body: JSON.stringify({ lat, lon }),
+      signal: controller.signal,
+    });
+
+    if (!res.ok) {
+      throw new Error(await parseError(res));
+    }
+
+    const data = (await res.json()) as { address?: GeolocatedAddress };
+    if (!data.address?.value || !data.address.city) {
+      throw new Error("По вашей геопозиции адрес не найден");
+    }
+    return data.address;
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
       throw new Error("Сервер долго не отвечает — попробуйте ещё раз");
