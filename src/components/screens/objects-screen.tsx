@@ -414,6 +414,8 @@ export function ObjectsScreen({
   homeAppliancesMode = false,
   onAddAppliance,
   onOpenAppliance,
+  initialPage = 0,
+  onPageChange,
 }: {
   items: HomeListItem[];
   loading?: boolean;
@@ -438,8 +440,10 @@ export function ObjectsScreen({
   homeAppliancesMode?: boolean;
   onAddAppliance?: (panelId: string, appliance: HomeAppliance) => void;
   onOpenAppliance?: (panelId: string, applianceId: string) => void;
+  initialPage?: 0 | 1;
+  onPageChange?: (page: 0 | 1) => void;
 }) {
-  const [page, setPage] = useState(0);
+  const [page, setPage] = useState<0 | 1>(initialPage);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [actionsItemId, setActionsItemId] = useState<string | null>(null);
   const [renameItemId, setRenameItemId] = useState<string | null>(null);
@@ -502,7 +506,12 @@ export function ObjectsScreen({
 
   const settlePage = (next: 0 | 1) => {
     setPage(next);
+    onPageChange?.(next);
   };
+
+  useEffect(() => {
+    setPage(initialPage);
+  }, [initialPage]);
 
   const renderList = (
     list: HomeListItem[],

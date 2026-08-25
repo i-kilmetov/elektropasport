@@ -38,9 +38,9 @@ import { buildInviteUrl } from "@/lib/panel-share";
 let schemaReady: Promise<void> | null = null;
 
 /** Bump when DDL below changes so cold starts re-run migrations once. */
-const SCHEMA_VERSION = "2026-08-25-a";
+const SCHEMA_VERSION = "2026-08-25-b";
 /** One-shot data wipe flag — never re-run after it is written. */
-const FRESH_START_KEY = "fresh_start_2026_08_25";
+const FRESH_START_KEY = "fresh_start_2026_08_25_b";
 /** Bumped on each factory wipe so clients drop localStorage orphans. */
 const DATA_EPOCH_KEY = "data_epoch";
 

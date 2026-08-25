@@ -124,6 +124,19 @@ export async function getAdminDashboard(
 ): Promise<AdminDashboardData> {
   const sql = getSql();
   await ensureSchema();
+  // Defensive: table may be missing if an older instance set schema version early.
+  await sql`
+    CREATE TABLE IF NOT EXISTS invite_link_hits (
+      id TEXT PRIMARY KEY,
+      invite_token TEXT NOT NULL,
+      inviter_telegram_id BIGINT NOT NULL REFERENCES users(telegram_id) ON DELETE CASCADE,
+      visitor_key TEXT NOT NULL,
+      opened_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      claimed_at TIMESTAMPTZ,
+      invitee_telegram_id BIGINT,
+      UNIQUE (invite_token, visitor_key)
+    )
+  `;
   const owner = ownerAdminTelegramId();
 
   const [
@@ -293,7 +306,13 @@ export async function getAdminDashboard(
       SELECT
         p.id, p.telegram_user_id, p.title, p.address, p.safety, p.breakers,
         p.created_at, u.first_name, u.last_name, u.username,
-        COALESCE(jsonb_array_length(p.devices), 0)::int AS device_count
+        COALESCE(
+          CASE
+            WHEN jsonb_typeof(p.devices) = 'array' THEN jsonb_array_length(p.devices)
+            ELSE 0
+          END,
+          0
+        )::int AS device_count
       FROM panels p
       LEFT JOIN users u ON u.telegram_id = p.telegram_user_id
       ORDER BY p.created_at DESC

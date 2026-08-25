@@ -623,114 +623,60 @@ function mergeServerWithLocal(serverItems: HomeListItem[]): HomeListItem[] {
       .filter((i): i is PanelObject => i.kind === "panel")
       .map((i) => [i.id, i]),
   );
-  const serverIds = new Set(serverItems.map((item) => item.id));
 
-  const mergedServer = serverItems.map((item) => {
-    if (item.kind !== "panel") return item;
-    const local = localById.get(item.id);
-    if (!local) return item;
-    const serverDevices = item.devices ?? [];
-    const localDevices = local.devices ?? [];
-    const serverAppliances = item.appliances ?? [];
-    const localAppliances = local.appliances ?? [];
-    return {
-      ...item,
-      photoDataUrl: item.photoDataUrl || local.photoDataUrl,
-      devices: serverDevices.length > 0 ? serverDevices : localDevices,
-      appliances:
-        serverAppliances.length > 0
-          ? serverAppliances.map((remote) => {
-              const localMatch = localAppliances.find((a) => a.id === remote.id);
-              if (!localMatch) return remote;
-              return {
-                ...remote,
-                photoDataUrl: remote.photoDataUrl || localMatch.photoDataUrl,
-              };
-            })
-          : localAppliances,
-      railCount: item.railCount ?? local.railCount,
-      wires:
-        item.wires && item.wires.length > 0 ? item.wires : local.wires,
-      ...mergePanelHouseFields(local, item),
-    };
-  });
-
-  // Never drop local-only panels if the server does not have them yet.
-  const orphans = localItems.filter((item) => !serverIds.has(item.id));
-  return dedupeHomeItems([...mergedServer, ...orphans]);
+  // Authenticated home list is server-owned: never resurrect local-only orphans.
+  return dedupeHomeItems(
+    serverItems.map((item) => {
+      if (item.kind !== "panel") return item;
+      const local = localById.get(item.id);
+      if (!local) return item;
+      return {
+        ...item,
+        // Keep large photos only as a local display cache for the same server panel.
+        photoDataUrl: item.photoDataUrl || local.photoDataUrl,
+        appliances: (item.appliances ?? []).map((remote) => {
+          const localMatch = local.appliances?.find((a) => a.id === remote.id);
+          if (!localMatch) return remote;
+          return {
+            ...remote,
+            photoDataUrl: remote.photoDataUrl || localMatch.photoDataUrl,
+          };
+        }),
+      };
+    }),
+  );
 }
 
 export async function fetchHomeItems(): Promise<HomeListItem[]> {
   if (!canUseServer()) {
-    return readLocalItems();
+    // Guest mode must not show leftover local panels/requests from old sessions.
+    writeLocalItems([]);
+    return [];
   }
 
-  const localBefore = readLocalItems();
-
-  let serverItems: HomeListItem[];
-  let dataEpoch: string | null;
   try {
     const remote = await fetchServerHomeItems();
-    serverItems = remote.items;
-    dataEpoch = remote.dataEpoch;
+    applyServerDataEpoch(remote.dataEpoch);
+    // Server is the source of truth after login — drop local-only items permanently.
+    writeLocalItems(remote.items);
+    return remote.items;
   } catch (error) {
     if (error instanceof AuthSessionExpiredError) throw error;
-    // Server is down — return whatever we have locally so the UI is not empty.
-    if (localBefore.length > 0) return localBefore;
     throw error;
   }
-
-  const wipedLocal = applyServerDataEpoch(dataEpoch);
-  const localForMerge = wipedLocal ? [] : localBefore;
-  if (wipedLocal) {
-    // After a factory wipe, trust the empty server — do not resurrect local cache.
-    writeLocalItems(serverItems);
-    return serverItems;
-  }
-
-  const merged = mergeServerWithLocal(serverItems);
-
-  // Safety: never replace a populated cache with fewer items unless the server
-  // actually returned data (empty server response = likely transient error).
-  if (merged.length === 0 && localForMerge.length > 0 && serverItems.length === 0) {
-    return localForMerge;
-  }
-
-  writeLocalItems(merged);
-
-  // Push local-only items in the background — do not block the home screen.
-  const serverIds = new Set(serverItems.map((item) => item.id));
-  const hasOrphans = merged.some(
-    (item) => !serverIds.has(item.id),
-  );
-  if (hasOrphans) {
-    void Promise.all([
-      uploadLocalOnlyPanels(serverItems),
-      uploadLocalOnlyInstallRequests(serverItems),
-    ])
-      .then(async ([uploadedPanels, uploadedRequests]) => {
-        if (uploadedPanels + uploadedRequests <= 0) return;
-        const fresh = await fetchServerHomeItems();
-        writeLocalItems(mergeServerWithLocal(fresh.items));
-      })
-      .catch((err) => console.error(err));
-  }
-
-  return merged;
 }
 
-/** Force-upload every local-only panel, then return the refreshed list. */
+/** Force-refresh from server. Local-only upload is disabled — DB is the source of truth. */
 export async function syncLocalPanelsToServer(): Promise<{
   uploaded: number;
   items: HomeListItem[];
 }> {
   if (!canUseServer()) {
-    return { uploaded: 0, items: readLocalItems() };
+    writeLocalItems([]);
+    return { uploaded: 0, items: [] };
   }
-  const before = await fetchServerHomeItems();
-  const uploaded = await uploadLocalOnlyPanels(before.items);
   const items = await fetchHomeItems();
-  return { uploaded, items };
+  return { uploaded: 0, items };
 }
 
 export type HomeBackupPayload = {

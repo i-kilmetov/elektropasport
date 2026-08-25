@@ -224,6 +224,7 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
     null,
   );
   const [activeRequestId, setActiveRequestId] = useState<string | null>(null);
+  const [objectsTab, setObjectsTab] = useState<0 | 1>(0);
   const [askNameOnBack, setAskNameOnBack] = useState(false);
   const [schemeTourPending, setSchemeTourPending] = useState(false);
   const [panelHousePromptOpen, setPanelHousePromptOpen] = useState(false);
@@ -494,7 +495,7 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
         const authed = canUseServerAuth();
         if (!authed) {
           if (!cancelled) {
-            setItems(epochWiped ? [] : cached);
+            setItems([]);
             setItemsLoading(false);
           }
           return;
@@ -1753,10 +1754,13 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
               quota={quota}
               menuOpen={mainMenuOpen}
               onMenuOpenChange={setMainMenuOpen}
+              initialPage={objectsTab}
+              onPageChange={setObjectsTab}
               onAdd={() => requireTelegramAuth("add-panel")}
               onOpenPanel={openPanel}
               onOpenRequest={(id) => {
                 setMasterViewRequest(null);
+                setObjectsTab(1);
                 setActiveRequestId(id);
                 go("request-details");
               }}
@@ -2171,6 +2175,7 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
               readOnly={Boolean(masterViewRequest)}
               onBack={() => {
                 setMasterViewRequest(null);
+                setObjectsTab(1);
                 go("objects");
               }}
               onRename={renameRequest}
