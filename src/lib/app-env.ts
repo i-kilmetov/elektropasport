@@ -17,9 +17,9 @@ export function isTestAppWwwHost(host: string | null | undefined): boolean {
   return normalizeHost(host) === TEST_APP_WWW_HOST;
 }
 
-/** Home appliances UI is enabled only on the test subdomain. */
-export function homeAppliancesEnabledForHost(host: string | null | undefined): boolean {
-  if (process.env.NEXT_PUBLIC_HOME_APPLIANCES === "true") return true;
-  if (process.env.NEXT_PUBLIC_HOME_APPLIANCES === "false") return false;
-  return isTestAppHost(host);
+/** Home appliances UI — enabled by default; set NEXT_PUBLIC_HOME_APPLIANCES=false to disable. */
+export function homeAppliancesEnabledForHost(
+  _host?: string | null,
+): boolean {
+  return process.env.NEXT_PUBLIC_HOME_APPLIANCES !== "false";
 }

@@ -1779,11 +1779,7 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
               }}
               onDeleteItem={deleteHomeItem}
               onRenameItem={renameHomeItem}
-              onNoPanel={
-                homeAppliancesEnabled
-                  ? undefined
-                  : () => requireTelegramAuth("no-panel")
-              }
+              onNoPanel={() => requireTelegramAuth("no-panel")}
               onHelpElectrical={startHelpElectrical}
               onBecomeMaster={() => go("become-master")}
               onPanelLimit={openPanelLimit}

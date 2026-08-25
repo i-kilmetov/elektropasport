@@ -69,6 +69,7 @@ export type HomeApplianceKind =
   | "dishwasher"
   | "oven"
   | "hob"
+  | "dryer"
   | "ac"
   | "boiler"
   | "microwave"
@@ -86,10 +87,12 @@ export interface HomeAppliance {
   id: string;
   kind: HomeApplianceKind;
   title: string;
-  /** Rated power in watts */
+  /** Rated / max power in watts */
   powerW?: number;
   brand?: string;
   model?: string;
+  /** Catalog entry id when picked from the appliance database */
+  catalogId?: string;
   photoDataUrl?: string;
   manuals?: ApplianceManual[];
   createdAt: string;

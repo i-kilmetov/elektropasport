@@ -31,7 +31,10 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { GlassCard } from "@/components/ui/glass-card";
 import { ItemActionsSheet } from "@/components/ui/item-actions-sheet";
 import { NameDialog } from "@/components/ui/name-dialog";
-import { formatAppliancePower } from "@/lib/home-appliances";
+import {
+  applianceKindIcon,
+  formatAppliancePower,
+} from "@/lib/home-appliances";
 import { cn } from "@/lib/utils";
 import type {
   HomeAppliance,
@@ -229,6 +232,7 @@ function ExpandableHomeCard({
   onToggle,
   onOpenPanel,
   onOpenAppliance,
+  onAddAppliance,
   onContextMenu,
 }: {
   panel: PanelObject;
@@ -236,13 +240,17 @@ function ExpandableHomeCard({
   onToggle: () => void;
   onOpenPanel: () => void;
   onOpenAppliance: (applianceId: string) => void;
+  onAddAppliance: () => void;
   onContextMenu: () => void;
 }) {
   const appliances = panel.appliances ?? [];
   const longPress = useLongPressAction(onContextMenu);
 
   return (
-    <GlassCard className="overflow-hidden rounded-[24px] border p-0" {...longPress.bind}>
+    <GlassCard
+      className="overflow-hidden rounded-[24px] border p-0"
+      {...longPress.bind}
+    >
       <div className="relative flex items-center">
         <button
           type="button"
@@ -251,7 +259,7 @@ function ExpandableHomeCard({
               longPress.longPressedRef.current = false;
               return;
             }
-            onToggle();
+            onOpenPanel();
           }}
           className="flex min-w-0 flex-1 touch-manipulation items-center gap-4 p-4 text-left select-none transition-colors hover:bg-zinc-50 lg:cursor-pointer lg:p-5"
         >
@@ -273,89 +281,83 @@ function ExpandableHomeCard({
             </div>
             <p className="truncate text-[13px] text-zinc-500">{panel.address}</p>
             <p className="mt-1 text-[12px] text-zinc-400">
-              {appliances.length > 0
-                ? `${appliances.length} приборов · ${panel.lastCheck}`
-                : `Щиток · ${panel.lastCheck}`}
+              {`${panel.breakers} устройств · добавлен ${formatPanelAddedLabel(panel)}`}
             </p>
           </div>
+        </button>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggle();
+          }}
+          className="mr-3 flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-black/8 bg-zinc-100 text-zinc-600 transition-colors hover:bg-zinc-200"
+          aria-expanded={expanded}
+          aria-label={expanded ? "Скрыть технику" : "Показать технику"}
+        >
           <ChevronDown
             className={cn(
-              "h-5 w-5 shrink-0 text-zinc-400 transition-transform",
+              "h-5 w-5 transition-transform",
               expanded && "rotate-180",
             )}
           />
         </button>
       </div>
 
-        <AnimatePresence initial={false}>
-          {expanded && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: "auto", opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-              className="overflow-hidden"
-            >
-              <div className="space-y-2 border-t border-black/[0.06] bg-zinc-50/80 px-3 py-3">
-                <button
-                  type="button"
-                  onClick={onOpenPanel}
-                  className="flex w-full items-center gap-3 rounded-[16px] bg-white px-3 py-2.5 text-left shadow-sm transition-colors hover:bg-zinc-100"
-                >
-                  <span className="flex h-10 w-10 items-center justify-center rounded-[12px] bg-amber-50 text-amber-700">
-                    <BreakerIcon className="h-5 w-5" />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-[14px] font-semibold text-zinc-900">
-                      Электрическое сердце
-                    </span>
-                    <span className="block text-[12px] text-zinc-500">
-                      {panel.breakers} устройств в щитке · открыть схему
-                    </span>
-                  </span>
-                </button>
-
-                {appliances.map((appliance) => (
+      <AnimatePresence initial={false}>
+        {expanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+            className="overflow-hidden"
+          >
+            <div className="space-y-2 border-t border-black/[0.06] bg-zinc-50/80 px-3 py-3">
+              {appliances.map((appliance) => {
+                const Icon = applianceKindIcon(appliance.kind);
+                const brand = appliance.brand?.trim() || appliance.title;
+                const model = appliance.model?.trim();
+                return (
                   <button
                     key={appliance.id}
                     type="button"
                     onClick={() => onOpenAppliance(appliance.id)}
                     className="flex w-full items-center gap-3 rounded-[16px] bg-white px-3 py-2.5 text-left shadow-sm transition-colors hover:bg-zinc-100"
                   >
-                    <span className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-[12px] bg-zinc-100 text-zinc-600">
-                      {appliance.photoDataUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={appliance.photoDataUrl}
-                          alt=""
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <Zap className="h-5 w-5" />
-                      )}
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-zinc-100 text-zinc-600">
+                      <Icon className="h-5 w-5" />
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-[14px] font-semibold text-zinc-900">
-                        {appliance.title}
+                        {brand}
                       </span>
-                      <span className="block text-[12px] text-zinc-500">
-                        {formatAppliancePower(appliance.powerW)}
-                      </span>
+                      {model && (
+                        <span className="block truncate text-[12px] text-zinc-500">
+                          {model}
+                        </span>
+                      )}
+                    </span>
+                    <span className="shrink-0 text-[13px] font-semibold tabular-nums text-zinc-700">
+                      {formatAppliancePower(appliance.powerW)}
                     </span>
                   </button>
-                ))}
+                );
+              })}
 
-                {appliances.length === 0 && (
-                  <p className="px-1 py-1 text-[12px] leading-relaxed text-zinc-400">
-                    Добавьте бытовые приборы — холодильник, стиралку, плиту и
-                    другое.
-                  </p>
-                )}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </GlassCard>
+              <button
+                type="button"
+                onClick={onAddAppliance}
+                className="flex w-full items-center justify-center gap-2 rounded-[16px] border border-dashed border-zinc-300 bg-white/70 px-3 py-2.5 text-[14px] font-semibold text-zinc-700 transition-colors hover:bg-white"
+              >
+                <Plus className="h-4 w-4" />
+                Добавить
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </GlassCard>
   );
 }
 
@@ -479,9 +481,8 @@ export function ObjectsScreen({
     [items],
   );
   const atPanelLimit = isAtPanelLimit(quota, panels.length);
-  const panelEmptyText = homeAppliancesMode
-    ? "Современный дом начинается с электрического сердца — сфотографируйте щиток."
-    : 'Щиток — электрическое сердце вашего дома. Нажмите «Добавить щиток» и сфотографируйте, чтобы определить его состояние.';
+  const panelEmptyText =
+    'Щиток — электрическое сердце вашего дома. Нажмите «Добавить щиток» и сфотографируйте, чтобы определить его состояние.';
 
   const pendingDelete = items.find((item) => item.id === pendingDeleteId);
   const actionsItem = items.find((item) => item.id === actionsItemId);
@@ -562,6 +563,10 @@ export function ObjectsScreen({
                 onOpenAppliance={(applianceId) =>
                   onOpenAppliance?.(obj.id, applianceId)
                 }
+                onAddAppliance={() => {
+                  setExpandedId(obj.id);
+                  setAddApplianceOpen(true);
+                }}
                 onContextMenu={() => setActionsItemId(obj.id)}
               />
             )}
@@ -577,19 +582,6 @@ export function ObjectsScreen({
       return;
     }
     onAdd();
-  };
-
-  const handlePrimaryAdd = () => {
-    if (panels.length === 0) {
-      addPanel();
-      return;
-    }
-    setAddApplianceOpen(true);
-  };
-
-  const addAnotherPanel = () => {
-    setAddApplianceOpen(false);
-    addPanel();
   };
 
   return (
@@ -703,13 +695,8 @@ export function ObjectsScreen({
           </div>
           <div className="hidden items-center gap-3 lg:flex">
             {page === 0 ? (
-              homeAppliancesMode ? (
-                <Button className="h-11 rounded-full px-5" onClick={handlePrimaryAdd}>
-                  <Plus className="h-5 w-5" />
-                  Добавить
-                </Button>
-              ) : (
-                <>
+              <>
+                {onNoPanel && (
                   <button
                     type="button"
                     onClick={onNoPanel}
@@ -717,12 +704,12 @@ export function ObjectsScreen({
                   >
                     У меня нет щитка
                   </button>
-                  <Button className="h-11 rounded-full px-5" onClick={addPanel}>
-                    <Plus className="h-5 w-5" />
-                    Добавить щиток
-                  </Button>
-                </>
-              )
+                )}
+                <Button className="h-11 rounded-full px-5" onClick={addPanel}>
+                  <Plus className="h-5 w-5" />
+                  Добавить щиток
+                </Button>
+              </>
             ) : (
               <div className="flex items-center gap-3">
                 {onBecomeMaster && (
@@ -766,17 +753,12 @@ export function ObjectsScreen({
 
       <div className="shrink-0 border-t border-black/[0.06] bg-[var(--bg)] px-5 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))] lg:hidden">
         {page === 0 ? (
-          homeAppliancesMode ? (
-            <Button className="w-full rounded-full" onClick={handlePrimaryAdd}>
+          <div className="space-y-3">
+            <Button className="w-full rounded-full" onClick={addPanel}>
               <Plus className="h-5 w-5" />
-              Добавить
+              Добавить щиток
             </Button>
-          ) : (
-            <div className="space-y-3">
-              <Button className="w-full rounded-full" onClick={addPanel}>
-                <Plus className="h-5 w-5" />
-                Добавить щиток
-              </Button>
+            {onNoPanel && (
               <button
                 type="button"
                 onClick={onNoPanel}
@@ -784,8 +766,8 @@ export function ObjectsScreen({
               >
                 У меня нет щитка
               </button>
-            </div>
-          )
+            )}
+          </div>
         ) : (
           <div className="space-y-3">
             <Button className="w-full rounded-full" onClick={onHelpElectrical}>
@@ -833,7 +815,6 @@ export function ObjectsScreen({
             panels={panels}
             preferredPanelId={expandedId}
             onClose={() => setAddApplianceOpen(false)}
-            onAddPanel={addAnotherPanel}
             onSave={(panelId, appliance) => {
               onAddAppliance(panelId, appliance);
               setExpandedId(panelId);
