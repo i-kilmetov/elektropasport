@@ -163,14 +163,25 @@ function parseCategoriesToKindMap(xml: string): Map<string, CatalogApplianceKind
     const name = names[0]?.[1]?.trim() ?? "";
     if (!name) continue;
     for (const rule of CATEGORY_KIND_RULES) {
-      if (rule.match.test(name)) {
-        map.set(id, rule.kind);
-        byId.set(id, { name, kind: rule.kind });
-        if (matchedNames.length < 40) {
-          matchedNames.push({ id, name, kind: rule.kind });
-        }
-        break;
+      if (!rule.match.test(name)) continue;
+      if (
+        rule.kind === "tv" &&
+        /mount|stand|tuner|monitor|set-top|set top|projector/i.test(name)
+      ) {
+        continue;
       }
+      if (
+        rule.kind === "dryer" &&
+        /hair|hand|clothes dryer rack|dehumidifier/i.test(name)
+      ) {
+        continue;
+      }
+      map.set(id, rule.kind);
+      byId.set(id, { name, kind: rule.kind });
+      if (matchedNames.length < 40) {
+        matchedNames.push({ id, name, kind: rule.kind });
+      }
+      break;
     }
   }
   lastMatchedCategorySample = matchedNames;
@@ -223,29 +234,38 @@ async function flushProductBatch(
 ): Promise<void> {
   if (batch.length === 0) return;
   const sql = getSql();
-  // Neon HTTP: one round-trip per row is too slow; chunk small parallel groups.
-  const parallel = 25;
-  for (let i = 0; i < batch.length; i += parallel) {
-    const slice = batch.slice(i, i + parallel);
-    await Promise.all(
-      slice.map(
-        (p) => sql`
-          INSERT INTO icecat_appliance_products (
-            icecat_id, kind, brand, product_code, model_name, on_market, updated_at
-          ) VALUES (
-            ${p.id}, ${p.kind}, ${p.brand}, ${p.productCode}, ${p.modelName}, TRUE, NOW()
-          )
-          ON CONFLICT (icecat_id) DO UPDATE SET
-            kind = EXCLUDED.kind,
-            brand = EXCLUDED.brand,
-            product_code = EXCLUDED.product_code,
-            model_name = EXCLUDED.model_name,
-            on_market = TRUE,
-            updated_at = NOW()
-        `,
-      ),
-    );
-  }
+  const ids = batch.map((p) => p.id);
+  const kinds = batch.map((p) => p.kind);
+  const brands = batch.map((p) => p.brand);
+  const codes = batch.map((p) => p.productCode);
+  const names = batch.map((p) => p.modelName);
+  await sql`
+    INSERT INTO icecat_appliance_products (
+      icecat_id, kind, brand, product_code, model_name, on_market, updated_at
+    )
+    SELECT
+      x.icecat_id,
+      x.kind,
+      x.brand,
+      x.product_code,
+      x.model_name,
+      TRUE,
+      NOW()
+    FROM UNNEST(
+      ${ids}::text[],
+      ${kinds}::text[],
+      ${brands}::text[],
+      ${codes}::text[],
+      ${names}::text[]
+    ) AS x(icecat_id, kind, brand, product_code, model_name)
+    ON CONFLICT (icecat_id) DO UPDATE SET
+      kind = EXCLUDED.kind,
+      brand = EXCLUDED.brand,
+      product_code = EXCLUDED.product_code,
+      model_name = EXCLUDED.model_name,
+      on_market = TRUE,
+      updated_at = NOW()
+  `;
 }
 
 function mapIndexRow(
@@ -324,7 +344,6 @@ export async function syncIcecatApplianceCatalog(): Promise<{
 }> {
   await ensureSchema();
   const sql = getSql();
-  const syncStartedAt = new Date().toISOString();
 
   const [categoriesXml, suppliersXml] = await Promise.all([
     downloadGunzipText(`${REFS_BASE}/CategoriesList.xml.gz`),
@@ -341,6 +360,10 @@ export async function syncIcecatApplianceCatalog(): Promise<{
   if (suppliers.size === 0) {
     throw new Error("Icecat SuppliersList пуст или не разобран");
   }
+
+  // Replace catalog atomically-enough for bootstrap: clear first so a timed-out
+  // run cannot leave stale wrong categories behind.
+  await sql`DELETE FROM icecat_appliance_products`;
 
   const lines = await openIcecatGunzipLines(INDEX_URL);
   let headerParsed = false;
@@ -413,7 +436,7 @@ export async function syncIcecatApplianceCatalog(): Promise<{
     byKind[product.kind] = (byKind[product.kind] ?? 0) + 1;
     products += 1;
 
-    if (batch.length >= 200) {
+    if (batch.length >= 500) {
       await flushProductBatch(batch);
       batch = [];
     }
@@ -422,11 +445,6 @@ export async function syncIcecatApplianceCatalog(): Promise<{
   if (batch.length > 0) {
     await flushProductBatch(batch);
   }
-
-  await sql`
-    DELETE FROM icecat_appliance_products
-    WHERE updated_at < ${syncStartedAt}::timestamptz
-  `;
 
   await sql`
     INSERT INTO schema_meta (key, value)
