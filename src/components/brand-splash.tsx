@@ -591,65 +591,44 @@ export function BrandLaunchWaitlist({
             Спасибо! Сообщим об открытии
           </div>
         ) : (
-          <div className="space-y-3">
-            <motion.div
-              className="w-full text-left text-[15px] font-normal leading-snug text-[#111113]/90"
-              style={{ fontFamily: "var(--font-geologica)" }}
-              initial={false}
-              animate={{
-                opacity: animation.restRevealed ? 1 : 0,
-                y: animation.restRevealed ? 0 : 8,
-              }}
-              transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
+          <form
+            className="launch-email-field mx-auto flex h-14 min-h-14 w-full items-center gap-2 rounded-full bg-[#111113] px-2"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void submit();
+            }}
+          >
+            <input
+              ref={inputRef}
+              type="email"
+              name="email"
+              autoComplete="email"
+              inputMode="email"
+              enterKeyHint="done"
+              placeholder="Email для новости об открытии"
+              value={email}
+              disabled={
+                !animation.loginVisible || submitting || logoWidth <= 0
+              }
+              onChange={(event) => setEmail(event.target.value)}
+              onFocus={keepInPlace}
+              onBlur={keepInPlace}
+              className="launch-email-input h-full min-w-0 flex-1 rounded-full border-0 bg-transparent px-4 text-[15px] text-white outline-none placeholder:text-white/55 disabled:opacity-60"
+              aria-label="Email для новости об открытии"
+            />
+            <button
+              type="submit"
+              disabled={
+                !animation.loginVisible || submitting || logoWidth <= 0
+              }
+              className="shrink-0 rounded-full bg-white px-4 py-2 text-[14px] font-semibold text-[#111113] disabled:opacity-60"
             >
-              <p>
-                🚧{" "}
-                <span className="line-through decoration-[1.5px]">
-                  Электромонтажные
-                </span>{" "}
-                работы.
-              </p>
-              <p>Сообщить об открытии</p>
-            </motion.div>
-            <form
-              className="launch-email-field mx-auto flex h-14 min-h-14 w-full items-center gap-2 rounded-full bg-[#111113] px-2"
-              onSubmit={(event) => {
-                event.preventDefault();
-                void submit();
-              }}
-            >
-              <input
-                ref={inputRef}
-                type="email"
-                name="email"
-                autoComplete="email"
-                inputMode="email"
-                enterKeyHint="done"
-                placeholder="name@example.com"
-                value={email}
-                disabled={
-                  !animation.loginVisible || submitting || logoWidth <= 0
-                }
-                onChange={(event) => setEmail(event.target.value)}
-                onFocus={keepInPlace}
-                onBlur={keepInPlace}
-                className="launch-email-input h-full min-w-0 flex-1 rounded-full border-0 bg-transparent px-4 text-[15px] text-white outline-none placeholder:text-white/55 disabled:opacity-60"
-                aria-label="Email"
-              />
-              <button
-                type="submit"
-                disabled={
-                  !animation.loginVisible || submitting || logoWidth <= 0
-                }
-                className="shrink-0 rounded-full bg-white px-4 py-2 text-[14px] font-semibold text-[#111113] disabled:opacity-60"
-              >
-                {submitting ? "…" : "OK"}
-              </button>
-            </form>
-          </div>
+              {submitting ? "…" : "OK"}
+            </button>
+          </form>
         )}
         {error && (
-          <p className="mt-3 text-left text-[13px] text-red-700">{error}</p>
+          <p className="mt-3 text-center text-[13px] text-red-700">{error}</p>
         )}
       </motion.div>
     </div>
