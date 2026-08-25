@@ -12,9 +12,9 @@ import {
   Trash2,
 } from "lucide-react";
 import { AddApplianceSheet } from "@/components/screens/add-appliance-sheet";
-import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { GlassCard } from "@/components/ui/glass-card";
 import { InfoDialog } from "@/components/ui/info-dialog";
+import { UndoSnackbarHost } from "@/components/ui/undo-snackbar";
 import {
   applianceKindIcon,
   applianceKindLabel,
@@ -43,7 +43,7 @@ export function ApplianceDetailScreen({
   onDelete: () => void;
 }) {
   const [editOpen, setEditOpen] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [missingDoc, setMissingDoc] = useState<"instruction" | "manual" | null>(
     null,
@@ -162,7 +162,7 @@ export function ApplianceDetailScreen({
                   className="flex w-full items-center gap-2 px-4 py-3 text-left text-[15px] text-rose-600 hover:bg-zinc-50"
                   onClick={() => {
                     setMenuOpen(false);
-                    setConfirmDelete(true);
+                    setPendingDelete(true);
                   }}
                 >
                   <Trash2 className="h-4 w-4" />
@@ -297,20 +297,21 @@ export function ApplianceDetailScreen({
         )}
       </AnimatePresence>
 
-      <AnimatePresence>
-        {confirmDelete && (
-          <ConfirmDialog
-            title="Удалить технику?"
-            description={`${brand}${model ? ` · ${model}` : ""} будет удалена из этого щитка.`}
-            confirmLabel="Удалить"
-            onCancel={() => setConfirmDelete(false)}
-            onConfirm={() => {
-              setConfirmDelete(false);
-              onDelete();
-            }}
-          />
-        )}
-      </AnimatePresence>
+      <UndoSnackbarHost
+        action={
+          pendingDelete
+            ? {
+                key: `delete-appliance-${appliance.id}`,
+                message: "Техника будет удалена",
+                onUndo: () => setPendingDelete(false),
+                onCommit: () => {
+                  setPendingDelete(false);
+                  onDelete();
+                },
+              }
+            : null
+        }
+      />
 
       <AnimatePresence>
         {missingDoc && (

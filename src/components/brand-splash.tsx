@@ -567,18 +567,12 @@ export function BrandLaunchWaitlist({
       }}
       aria-label="Током — подписка на открытие"
     >
-      <div
-        className={
-          keyboardOpen
-            ? "flex min-h-0 flex-1 flex-col items-center justify-end gap-3 pb-3"
-            : "flex min-h-0 flex-1 flex-col items-center justify-center gap-5"
-        }
-      >
+      <div className="flex min-h-0 flex-1 flex-col items-center justify-center">
         <div
-          className="flex w-full flex-col items-end gap-3"
+          className="flex w-full flex-col items-center"
           style={{ maxWidth: columnWidth }}
         >
-          <div ref={logoRef} className="w-max self-center">
+          <div ref={logoRef} className="w-max">
             <BrandMark
               tagline=""
               taglineVisible={false}
@@ -586,22 +580,6 @@ export function BrandLaunchWaitlist({
               restRevealed={animation.restRevealed}
             />
           </div>
-          <motion.p
-            className="w-full text-right text-[15px] font-medium leading-snug text-[#111113]/90"
-            style={{ fontFamily: "var(--font-geologica)" }}
-            initial={false}
-            animate={{
-              opacity: animation.restRevealed ? 1 : 0,
-              y: animation.restRevealed ? 0 : 8,
-            }}
-            transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
-          >
-            Ведутся{" "}
-            <span className="line-through decoration-[1.5px]">
-              электромонтажные
-            </span>{" "}
-            работы. Скоро откроемся
-          </motion.p>
         </div>
       </div>
 
@@ -620,8 +598,21 @@ export function BrandLaunchWaitlist({
             Спасибо! Сообщим об открытии
           </div>
         ) : (
-          <div className="space-y-2">
-            <p className="w-full text-right text-[14px] font-medium text-[#111113]/85">
+          <div className="space-y-3">
+            <motion.div
+              className="w-full text-left text-[15px] font-medium leading-snug text-[#111113]/90"
+              style={{ fontFamily: "var(--font-geologica)" }}
+              initial={false}
+              animate={{
+                opacity: animation.restRevealed ? 1 : 0,
+                y: animation.restRevealed ? 0 : 8,
+              }}
+              transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <p>Ведутся электромонтажные работы.</p>
+              <p>Скоро откроемся.</p>
+            </motion.div>
+            <p className="w-full text-left text-[14px] font-medium text-[#111113]/85">
               Сообщить об открытии
             </p>
             <form
@@ -662,7 +653,7 @@ export function BrandLaunchWaitlist({
           </div>
         )}
         {error && (
-          <p className="mt-3 text-right text-[13px] text-red-700">{error}</p>
+          <p className="mt-3 text-left text-[13px] text-red-700">{error}</p>
         )}
       </motion.div>
     </div>

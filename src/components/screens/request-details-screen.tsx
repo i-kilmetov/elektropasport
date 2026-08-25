@@ -14,10 +14,10 @@ import {
 } from "lucide-react";
 import { BreakerIcon } from "@/components/icons/breaker-icon";
 import { Button } from "@/components/ui/button";
-import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { GlassCard } from "@/components/ui/glass-card";
 import { AddressSuggestField } from "@/components/ui/address-suggest-field";
 import { Progress } from "@/components/ui/progress";
+import { UndoSnackbarHost } from "@/components/ui/undo-snackbar";
 import { cn } from "@/lib/utils";
 import { isMoscow } from "@/lib/lead-services";
 import type { InstallRequest, InstallRequestStatus } from "@/types";
@@ -191,7 +191,7 @@ export function RequestDetailsScreen({
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
-  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState(false);
   const [address, setAddress] = useState(request.exactAddress ?? "");
   const [addressSaved, setAddressSaved] = useState(false);
 
@@ -296,7 +296,7 @@ export function RequestDetailsScreen({
                   className="flex w-full items-center gap-2 px-4 py-3 text-left text-[15px] text-rose-600 hover:bg-zinc-50"
                   onClick={() => {
                     setMenuOpen(false);
-                    setDeleteOpen(true);
+                    setPendingDelete(true);
                   }}
                 >
                   <Trash2 className="h-4 w-4" />
@@ -478,20 +478,21 @@ export function RequestDetailsScreen({
         )}
       </AnimatePresence>
 
-      <AnimatePresence>
-        {deleteOpen && (
-          <ConfirmDialog
-            title="Удалить заявку?"
-            description="Заявка будет удалена без возможности восстановления."
-            confirmLabel="Удалить"
-            onCancel={() => setDeleteOpen(false)}
-            onConfirm={() => {
-              setDeleteOpen(false);
-              onDelete();
-            }}
-          />
-        )}
-      </AnimatePresence>
+      <UndoSnackbarHost
+        action={
+          pendingDelete
+            ? {
+                key: `delete-request-${request.id}`,
+                message: "Заявка будет удалена",
+                onUndo: () => setPendingDelete(false),
+                onCommit: () => {
+                  setPendingDelete(false);
+                  onDelete();
+                },
+              }
+            : null
+        }
+      />
     </motion.section>
   );
 }

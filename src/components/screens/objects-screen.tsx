@@ -8,7 +8,13 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import {
+  AnimatePresence,
+  animate,
+  motion,
+  useMotionValue,
+  type PanInfo,
+} from "framer-motion";
 import {
   ChevronDown,
   ClipboardList,
@@ -25,19 +31,23 @@ import {
   type MainMenuId,
 } from "@/components/screens/main-menu-sheet";
 import { HomeListSkeleton } from "@/components/ui/home-list-skeleton";
-import { BrandLogo } from "@/components/brand-logo";
+import { BrandLogo, BRAND_YELLOW } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
-import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { GlassCard } from "@/components/ui/glass-card";
 import { InfoDialog } from "@/components/ui/info-dialog";
 import { ItemActionsSheet } from "@/components/ui/item-actions-sheet";
 import { NameDialog } from "@/components/ui/name-dialog";
+import { UndoSnackbarHost } from "@/components/ui/undo-snackbar";
 import {
   applianceKindIcon,
   applianceKindLabel,
   formatAppliancePower,
 } from "@/lib/home-appliances";
 import { cn } from "@/lib/utils";
+
+const PAGE_SPRING = { type: "spring" as const, stiffness: 420, damping: 40 };
+const SWIPE_DISTANCE = 72;
+const SWIPE_VELOCITY = 550;
 import type {
   HomeAppliance,
   HomeListItem,
@@ -536,24 +546,31 @@ export function ObjectsScreen({
   });
   const tab0Ref = useRef<HTMLButtonElement>(null);
   const tab1Ref = useRef<HTMLButtonElement>(null);
+  const pagerRef = useRef<HTMLDivElement>(null);
+  const pageRef = useRef<0 | 1>(initialPage);
+  const [pagerWidth, setPagerWidth] = useState(0);
+  const pagerX = useMotionValue(0);
 
   const panels = useMemo(() => {
     const seen = new Set<string>();
     const result: PanelObject[] = [];
     for (const item of items) {
       if (item.kind !== "panel") continue;
+      if (pendingDeleteId && item.id === pendingDeleteId) continue;
       if (seen.has(item.id)) continue;
       seen.add(item.id);
       result.push(item);
     }
     return result;
-  }, [items]);
+  }, [items, pendingDeleteId]);
   const requests = useMemo(
     () =>
       items.filter(
-        (item): item is InstallRequest => item.kind === "install_request",
+        (item): item is InstallRequest =>
+          item.kind === "install_request" &&
+          !(pendingDeleteId && item.id === pendingDeleteId),
       ),
-    [items],
+    [items, pendingDeleteId],
   );
   const atPanelLimit = isAtPanelLimit(quota, panels.length);
   const panelEmptyText =
@@ -583,13 +600,51 @@ export function ObjectsScreen({
   }, [panels.length, requests.length]);
 
   const settlePage = (next: 0 | 1) => {
+    pageRef.current = next;
     setPage(next);
     onPageChange?.(next);
+    if (pagerWidth) {
+      void animate(pagerX, -next * pagerWidth, PAGE_SPRING);
+    }
   };
 
   useEffect(() => {
+    pageRef.current = page;
+  }, [page]);
+
+  useEffect(() => {
     setPage(initialPage);
+    pageRef.current = initialPage;
   }, [initialPage]);
+
+  useEffect(() => {
+    const node = pagerRef.current;
+    if (!node) return;
+    const update = () => setPagerWidth(node.clientWidth);
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!pagerWidth) return;
+    void animate(pagerX, -page * pagerWidth, PAGE_SPRING);
+  }, [page, pagerWidth, pagerX]);
+
+  const onPagerDragEnd = (_: unknown, info: PanInfo) => {
+    const current = pageRef.current;
+    const { offset, velocity } = info;
+    const wentLeft =
+      velocity.x < -SWIPE_VELOCITY || offset.x < -SWIPE_DISTANCE;
+    const wentRight =
+      velocity.x > SWIPE_VELOCITY || offset.x > SWIPE_DISTANCE;
+
+    let next: 0 | 1 = current;
+    if (wentLeft) next = Math.min(1, current + 1) as 0 | 1;
+    else if (wentRight) next = Math.max(0, current - 1) as 0 | 1;
+    settlePage(next);
+  };
 
   const renderList = (
     list: HomeListItem[],
@@ -780,7 +835,11 @@ export function ObjectsScreen({
                     У меня нет щитка
                   </button>
                 )}
-                <Button className="h-11 rounded-full px-5" onClick={addPanel}>
+                <Button
+                  className="h-11 rounded-full px-5"
+                  style={{ color: BRAND_YELLOW }}
+                  onClick={addPanel}
+                >
                   <Plus className="h-5 w-5" />
                   Добавить щиток
                 </Button>
@@ -796,7 +855,11 @@ export function ObjectsScreen({
                     Я электрик
                   </button>
                 )}
-                <Button className="h-11 rounded-full px-5" onClick={onHelpElectrical}>
+                <Button
+                  className="h-11 rounded-full px-5"
+                  style={{ color: BRAND_YELLOW }}
+                  onClick={onHelpElectrical}
+                >
                   <Zap className="h-5 w-5" />
                   Помочь с электрикой
                 </Button>
@@ -812,24 +875,51 @@ export function ObjectsScreen({
         </p>
       )}
 
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-2 lg:px-10 lg:pb-10">
-        {page === 0
-          ? renderList(panels, {
+      <div ref={pagerRef} className="min-h-0 flex-1 overflow-hidden">
+        <motion.div
+          className="flex h-full touch-pan-y"
+          drag="x"
+          dragDirectionLock
+          dragElastic={0.12}
+          dragConstraints={{ left: 0, right: 0 }}
+          dragMomentum={false}
+          style={{
+            x: pagerX,
+            width: pagerWidth ? pagerWidth * 2 : "200%",
+          }}
+          onDragEnd={onPagerDragEnd}
+        >
+          <div
+            className="h-full min-h-0 overflow-y-auto overscroll-contain px-5 pb-2 lg:px-10 lg:pb-10"
+            style={{ width: pagerWidth || "50%" }}
+          >
+            {renderList(panels, {
               icon: <BreakerIcon className="h-10 w-10" />,
               text: panelEmptyText,
               framed: true,
-            })
-          : renderList(requests, {
+            })}
+          </div>
+          <div
+            className="h-full min-h-0 overflow-y-auto overscroll-contain px-5 pb-2 lg:px-10 lg:pb-10"
+            style={{ width: pagerWidth || "50%" }}
+          >
+            {renderList(requests, {
               icon: <ClipboardList className="h-10 w-10" />,
               text: "Здесь хранятся все ваши запросы. Поможем в любом электрическом вопросе",
               framed: true,
             })}
+          </div>
+        </motion.div>
       </div>
 
       <div className="shrink-0 border-t border-black/[0.06] bg-[var(--bg)] px-5 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))] lg:hidden">
         {page === 0 ? (
           <div className="space-y-3">
-            <Button className="w-full rounded-full" onClick={addPanel}>
+            <Button
+              className="w-full rounded-full"
+              style={{ color: BRAND_YELLOW }}
+              onClick={addPanel}
+            >
               <Plus className="h-5 w-5" />
               Добавить щиток
             </Button>
@@ -845,7 +935,11 @@ export function ObjectsScreen({
           </div>
         ) : (
           <div className="space-y-3">
-            <Button className="w-full rounded-full" onClick={onHelpElectrical}>
+            <Button
+              className="w-full rounded-full"
+              style={{ color: BRAND_YELLOW }}
+              onClick={onHelpElectrical}
+            >
               <Zap className="h-5 w-5" />
               Помочь с электрикой
             </Button>
@@ -943,29 +1037,25 @@ export function ObjectsScreen({
         )}
       </AnimatePresence>
 
-      <AnimatePresence>
-        {pendingDelete && (
-          <ConfirmDialog
-            title={
-              pendingDelete.kind === "panel"
-                ? "Удалить щиток?"
-                : "Удалить заявку?"
-            }
-            description={
-              pendingDelete.kind === "panel"
-                ? "Щиток и его схема будут удалены без возможности восстановления."
-                : "Заявка будет удалена без возможности восстановления."
-            }
-            confirmLabel="Удалить"
-            onCancel={() => setPendingDeleteId(null)}
-            onConfirm={() => {
-              const id = pendingDelete.id;
-              setPendingDeleteId(null);
-              onDeleteItem(id);
-            }}
-          />
-        )}
-      </AnimatePresence>
+      <UndoSnackbarHost
+        action={
+          pendingDelete
+            ? {
+                key: pendingDelete.id,
+                message:
+                  pendingDelete.kind === "panel"
+                    ? "Щиток будет удалён"
+                    : "Заявка будет удалена",
+                onUndo: () => setPendingDeleteId(null),
+                onCommit: () => {
+                  const id = pendingDelete.id;
+                  setPendingDeleteId(null);
+                  onDeleteItem(id);
+                },
+              }
+            : null
+        }
+      />
     </motion.section>
   );
 }

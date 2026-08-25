@@ -46,6 +46,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { UndoSnackbarHost } from "@/components/ui/undo-snackbar";
 import { ShareSheet } from "@/components/ui/share-sheet";
 import { SafetyParamsSheet } from "@/components/ui/safety-params-sheet";
 import { SafetyExplainSheet } from "@/components/ui/safety-explain-sheet";
@@ -1689,7 +1690,7 @@ export function SchemeScreen({
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
-  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState(false);
   const [nameOnBackOpen, setNameOnBackOpen] = useState(false);
   const [saveSharedOpen, setSaveSharedOpen] = useState(false);
   const [tourOpen, setTourOpen] = useState(false);
@@ -2397,7 +2398,7 @@ export function SchemeScreen({
                     className="flex w-full items-center gap-2 px-4 py-3 text-left text-[15px] text-rose-600 hover:bg-zinc-50"
                     onClick={() => {
                       setMenuOpen(false);
-                      setDeleteOpen(true);
+                      setPendingDelete(true);
                     }}
                   >
                     <Trash2 className="h-4 w-4" />
@@ -2899,20 +2900,21 @@ export function SchemeScreen({
         )}
       </AnimatePresence>
 
-      <AnimatePresence>
-        {deleteOpen && (
-          <ConfirmDialog
-            title="Удалить щиток?"
-            description="Щиток и его схема будут удалены без возможности восстановления."
-            confirmLabel="Удалить"
-            onCancel={() => setDeleteOpen(false)}
-            onConfirm={() => {
-              setDeleteOpen(false);
-              onDelete();
-            }}
-          />
-        )}
-      </AnimatePresence>
+      <UndoSnackbarHost
+        action={
+          pendingDelete
+            ? {
+                key: `delete-panel-${panelId ?? title}`,
+                message: "Щиток будет удалён",
+                onUndo: () => setPendingDelete(false),
+                onCommit: () => {
+                  setPendingDelete(false);
+                  onDelete();
+                },
+              }
+            : null
+        }
+      />
 
       <AnimatePresence>
         {safetyExplainOpen && (

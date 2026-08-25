@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Portal } from "@/components/ui/portal";
+import { UndoSnackbarHost } from "@/components/ui/undo-snackbar";
 import {
   authHeaders,
   clearLocalAppData,
@@ -90,7 +91,6 @@ export function ProfileScreen({
   const [logoutOpen, setLogoutOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteArmed, setDeleteArmed] = useState(false);
-  const [deleteProgress, setDeleteProgress] = useState(0);
   const [deleting, setDeleting] = useState(false);
   const [saveFlash, setSaveFlash] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -192,7 +192,6 @@ export function ProfileScreen({
       clearLocalAppData();
       hapticNotification("success");
       setDeleteArmed(false);
-      setDeleteProgress(0);
       if (onLoggedOut) {
         onLoggedOut();
         return;
@@ -204,42 +203,9 @@ export function ProfileScreen({
         err instanceof Error ? err.message : "Не удалось удалить аккаунт",
       );
       setDeleteArmed(false);
-      setDeleteProgress(0);
     } finally {
       setDeleting(false);
     }
-  };
-
-  useEffect(() => {
-    if (!deleteArmed || deleting) return;
-    const durationMs = 2800;
-    const started = performance.now();
-    let frame = 0;
-    let cancelled = false;
-
-    const tick = (now: number) => {
-      if (cancelled) return;
-      const ratio = Math.min(1, (now - started) / durationMs);
-      setDeleteProgress(ratio);
-      if (ratio >= 1) {
-        void deleteAccount();
-        return;
-      }
-      frame = requestAnimationFrame(tick);
-    };
-    frame = requestAnimationFrame(tick);
-
-    return () => {
-      cancelled = true;
-      cancelAnimationFrame(frame);
-    };
-    // deleteAccount closes over latest state; arming is the only trigger.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deleteArmed, deleting]);
-
-  const cancelArmedDelete = () => {
-    setDeleteArmed(false);
-    setDeleteProgress(0);
   };
 
   return (
@@ -503,53 +469,26 @@ export function ProfileScreen({
             onCancel={() => setDeleteOpen(false)}
             onConfirm={() => {
               setDeleteOpen(false);
-              setDeleteProgress(0);
               setDeleteArmed(true);
             }}
           />
         )}
       </AnimatePresence>
 
-      <AnimatePresence>
-        {deleteArmed && (
-          <Portal>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-[130] flex items-end justify-center bg-black/35 px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] backdrop-blur-sm sm:items-center sm:p-6"
-            >
-              <motion.div
-                initial={{ y: 24, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                exit={{ y: 16, opacity: 0 }}
-                className="w-full max-w-sm rounded-[24px] border border-black/8 bg-white p-5 shadow-2xl"
-              >
-                <p className="mb-1 text-[17px] font-semibold text-zinc-900">
-                  {deleting ? "Удаляем аккаунт…" : "Удаление через пару секунд"}
-                </p>
-                <p className="mb-4 text-[13px] leading-relaxed text-zinc-500">
-                  Нажмите кнопку, чтобы отменить.
-                </p>
-                <button
-                  type="button"
-                  disabled={deleting}
-                  onClick={cancelArmedDelete}
-                  className="relative flex h-12 w-full overflow-hidden rounded-full bg-rose-100 text-[15px] font-semibold text-rose-700 disabled:opacity-60"
-                >
-                  <span
-                    className="absolute inset-y-0 left-0 bg-rose-500/25 transition-[width] duration-75 ease-linear"
-                    style={{ width: `${Math.round(deleteProgress * 100)}%` }}
-                  />
-                  <span className="relative z-10 flex h-full w-full items-center justify-center">
-                    {deleting ? "Удаляем…" : "Отменить удаление"}
-                  </span>
-                </button>
-              </motion.div>
-            </motion.div>
-          </Portal>
-        )}
-      </AnimatePresence>
+      <UndoSnackbarHost
+        action={
+          deleteArmed
+            ? {
+                key: "delete-account",
+                message: "Аккаунт будет удалён",
+                onUndo: () => setDeleteArmed(false),
+                onCommit: () => {
+                  void deleteAccount();
+                },
+              }
+            : null
+        }
+      />
 
       <AnimatePresence>
         {saveFlash && (
