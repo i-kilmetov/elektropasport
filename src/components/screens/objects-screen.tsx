@@ -29,6 +29,7 @@ import { BrandLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { GlassCard } from "@/components/ui/glass-card";
+import { InfoDialog } from "@/components/ui/info-dialog";
 import { ItemActionsSheet } from "@/components/ui/item-actions-sheet";
 import { NameDialog } from "@/components/ui/name-dialog";
 import {
@@ -46,6 +47,25 @@ import type {
 import { installStatusTone } from "@/types";
 import { formatPanelAddedLabel } from "@/lib/panel-list-meta";
 import { isAtPanelLimit, type PanelQuota } from "@/lib/invites";
+
+const APPLIANCES_INTRO_KEY = "elektropasport:appliances-list-intro-seen";
+
+function hasSeenAppliancesIntro(): boolean {
+  if (typeof window === "undefined") return true;
+  try {
+    return localStorage.getItem(APPLIANCES_INTRO_KEY) === "1";
+  } catch {
+    return true;
+  }
+}
+
+function markAppliancesIntroSeen(): void {
+  try {
+    localStorage.setItem(APPLIANCES_INTRO_KEY, "1");
+  } catch {
+    // ignore
+  }
+}
 
 const LONG_PRESS_MS = 480;
 const MOVE_CANCEL_PX = 10;
@@ -246,6 +266,20 @@ function ExpandableHomeCard({
 }) {
   const appliances = panel.appliances ?? [];
   const longPress = useLongPressAction(onContextMenu);
+  const [safetyInfoOpen, setSafetyInfoOpen] = useState(false);
+  const [appliancesIntroOpen, setAppliancesIntroOpen] = useState(false);
+  const hasSafetyScore =
+    Boolean(panel.phases) &&
+    Boolean(panel.powerKw?.trim()) &&
+    typeof panel.safety === "number";
+
+  const requestExpand = () => {
+    if (!expanded && !hasSeenAppliancesIntro()) {
+      setAppliancesIntroOpen(true);
+      return;
+    }
+    onToggle();
+  };
 
   return (
     <GlassCard
@@ -279,23 +313,24 @@ function ExpandableHomeCard({
         </button>
 
         <div className="flex shrink-0 flex-col items-center justify-center gap-1.5 py-3 pr-3 lg:pr-4">
-          <span
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/15 text-[11px] font-semibold tabular-nums text-emerald-700"
-            aria-label="Безопасность щитка"
-          >
-            {panel.phases &&
-            panel.powerKw?.trim() &&
-            typeof panel.safety === "number"
-              ? `${panel.safety}%`
-              : "—"}
-          </span>
           <button
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              onToggle();
+              setSafetyInfoOpen(true);
             }}
-            className="flex h-8 w-8 items-center justify-center rounded-full border border-black/8 bg-zinc-100 text-zinc-500 transition-colors hover:bg-zinc-200 hover:text-zinc-700"
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/15 text-[11px] font-semibold tabular-nums text-emerald-700 transition-colors hover:bg-emerald-500/25"
+            aria-label="Что значит оценка безопасности"
+          >
+            {hasSafetyScore ? `${panel.safety}%` : "—"}
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              requestExpand();
+            }}
+            className="flex h-8 w-8 items-center justify-center rounded-full text-zinc-300/70 transition-colors hover:bg-zinc-100/60 hover:text-zinc-400"
             aria-expanded={expanded}
             aria-label={expanded ? "Скрыть технику" : "Показать технику"}
           >
@@ -357,12 +392,43 @@ function ExpandableHomeCard({
               <button
                 type="button"
                 onClick={onAddAppliance}
-                className="w-full rounded-none px-4 py-2 text-center text-[13px] font-medium text-zinc-500 underline decoration-zinc-300 underline-offset-4 transition-colors hover:text-zinc-800"
+                className="w-full rounded-none px-4 py-2.5 text-center text-[13px] font-medium text-zinc-500 transition-colors hover:bg-zinc-50 hover:text-zinc-800"
               >
-                Добавить
+                + Добавить технику
               </button>
             </div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {safetyInfoOpen && (
+          <InfoDialog
+            title="Оценка безопасности щитка"
+            description={
+              hasSafetyScore
+                ? `Сейчас оценка — ${panel.safety}%.\n\nЭто сводный показатель по составу щитка, параметрам сети и нагрузкам: насколько схема защищает человека, дом от пожара и технику.\n\nЧем выше процент, тем спокойнее можно относиться к щитку. Подробный разбор и советы — внутри карточки щитка.`
+                : "Здесь появится процент безопасности щитка.\n\nЧтобы его посчитать, откройте щиток и укажите фазы, выделенную мощность и наличие земли, а также подпишите линии на схеме.\n\nПока данных мало — стоит «—»."
+            }
+            onClose={() => setSafetyInfoOpen(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {appliancesIntroOpen && (
+          <InfoDialog
+            title="Техника дома"
+            description={
+              "В этом списке можно добавить крупную бытовую технику вашего дома: стиральную машину, холодильник, духовку и другое.\n\nТак проще понимать нагрузку на щиток и линии. Нажмите «+ Добавить технику», выберите тип, производителя и модель."
+            }
+            actionLabel="Понятно"
+            onClose={() => {
+              markAppliancesIntroSeen();
+              setAppliancesIntroOpen(false);
+              if (!expanded) onToggle();
+            }}
+          />
         )}
       </AnimatePresence>
     </GlassCard>
