@@ -32,6 +32,7 @@
 html,
 body {
   height: 100%;
+  overscroll-behavior: none;
 }
 
 body {
@@ -46,7 +47,6 @@ body {
     BlinkMacSystemFont,
     "Segoe UI",
     sans-serif;
-  overscroll-behavior: none;
 }
 
 ::selection {

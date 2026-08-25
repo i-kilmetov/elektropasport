@@ -72,13 +72,13 @@ export function UndoSnackbar({
           <button
             type="button"
             onClick={undo}
-            className="relative h-10 shrink-0 overflow-hidden rounded-full bg-white px-4 text-[13px] font-semibold text-zinc-900"
+            className="relative h-10 shrink-0 overflow-hidden rounded-full bg-rose-500 px-4 text-[13px] font-semibold text-white"
             aria-label={undoLabel}
           >
             <span className="relative z-10">{undoLabel}</span>
             <span
               aria-hidden
-              className="absolute inset-0 z-20 bg-zinc-900"
+              className="absolute inset-0 z-20 bg-rose-950/85"
               style={{
                 transform: `translateX(${(progress - 1) * 100}%)`,
               }}

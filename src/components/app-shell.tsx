@@ -1817,7 +1817,7 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
       className={cn(
         "relative w-full bg-[var(--bg)] text-zinc-900",
         fillViewport
-          ? "flex h-[var(--app-height,100dvh)] flex-col overflow-hidden"
+          ? "flex h-[var(--app-height,100dvh)] flex-col overflow-hidden overscroll-none"
           : "min-h-[var(--app-height,100dvh)]",
       )}
     >

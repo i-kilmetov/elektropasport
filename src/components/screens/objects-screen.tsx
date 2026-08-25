@@ -720,7 +720,7 @@ export function ObjectsScreen({
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -40 }}
       transition={{ duration: 0.35 }}
-      className="relative flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row"
+      className="relative flex min-h-0 flex-1 flex-col overflow-hidden overscroll-none lg:flex-row"
     >
       <aside className="hidden w-72 shrink-0 flex-col border-r border-black/[0.06] bg-zinc-50/70 px-6 py-8 lg:flex">
         <div className="mb-8">
@@ -772,7 +772,7 @@ export function ObjectsScreen({
         </nav>
       </aside>
 
-      <div className="flex min-h-0 flex-1 flex-col pt-[max(1.25rem,env(safe-area-inset-top))] lg:pt-8">
+      <div className="flex min-h-0 flex-1 flex-col overscroll-none pt-[max(1.25rem,env(safe-area-inset-top))] lg:pt-8">
       <header className="mb-4 shrink-0 px-5 lg:px-10">
         <div className="relative flex items-center justify-center lg:justify-between">
           <button
@@ -836,8 +836,8 @@ export function ObjectsScreen({
                   </button>
                 )}
                 <Button
-                  className="h-11 rounded-full px-5"
-                  style={{ color: BRAND_YELLOW }}
+                  className="h-11 rounded-full px-5 hover:opacity-90"
+                  style={{ backgroundColor: BRAND_YELLOW, color: "#111113" }}
                   onClick={addPanel}
                 >
                   <Plus className="h-5 w-5" />
@@ -856,8 +856,8 @@ export function ObjectsScreen({
                   </button>
                 )}
                 <Button
-                  className="h-11 rounded-full px-5"
-                  style={{ color: BRAND_YELLOW }}
+                  className="h-11 rounded-full px-5 hover:opacity-90"
+                  style={{ backgroundColor: BRAND_YELLOW, color: "#111113" }}
                   onClick={onHelpElectrical}
                 >
                   <Zap className="h-5 w-5" />
@@ -875,9 +875,9 @@ export function ObjectsScreen({
         </p>
       )}
 
-      <div ref={pagerRef} className="min-h-0 flex-1 overflow-hidden">
+      <div ref={pagerRef} className="min-h-0 flex-1 overflow-hidden overscroll-none">
         <motion.div
-          className="flex h-full touch-pan-y"
+          className="flex h-full touch-pan-x overscroll-none"
           drag="x"
           dragDirectionLock
           dragElastic={0.12}
@@ -890,8 +890,8 @@ export function ObjectsScreen({
           onDragEnd={onPagerDragEnd}
         >
           <div
-            className="h-full min-h-0 overflow-y-auto overscroll-contain px-5 pb-2 lg:px-10 lg:pb-10"
-            style={{ width: pagerWidth || "50%" }}
+            className="h-full min-h-0 overflow-y-auto overscroll-none px-5 pb-2 lg:px-10 lg:pb-10"
+            style={{ width: pagerWidth || "50%", WebkitOverflowScrolling: "touch" }}
           >
             {renderList(panels, {
               icon: <BreakerIcon className="h-10 w-10" />,
@@ -900,8 +900,8 @@ export function ObjectsScreen({
             })}
           </div>
           <div
-            className="h-full min-h-0 overflow-y-auto overscroll-contain px-5 pb-2 lg:px-10 lg:pb-10"
-            style={{ width: pagerWidth || "50%" }}
+            className="h-full min-h-0 overflow-y-auto overscroll-none px-5 pb-2 lg:px-10 lg:pb-10"
+            style={{ width: pagerWidth || "50%", WebkitOverflowScrolling: "touch" }}
           >
             {renderList(requests, {
               icon: <ClipboardList className="h-10 w-10" />,
@@ -916,8 +916,8 @@ export function ObjectsScreen({
         {page === 0 ? (
           <div className="space-y-3">
             <Button
-              className="w-full rounded-full"
-              style={{ color: BRAND_YELLOW }}
+              className="w-full rounded-full hover:opacity-90"
+              style={{ backgroundColor: BRAND_YELLOW, color: "#111113" }}
               onClick={addPanel}
             >
               <Plus className="h-5 w-5" />
@@ -936,8 +936,8 @@ export function ObjectsScreen({
         ) : (
           <div className="space-y-3">
             <Button
-              className="w-full rounded-full"
-              style={{ color: BRAND_YELLOW }}
+              className="w-full rounded-full hover:opacity-90"
+              style={{ backgroundColor: BRAND_YELLOW, color: "#111113" }}
               onClick={onHelpElectrical}
             >
               <Zap className="h-5 w-5" />
