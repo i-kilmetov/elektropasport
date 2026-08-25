@@ -39,7 +39,7 @@ import { buildInviteUrl } from "@/lib/panel-share";
 let schemaReady: Promise<void> | null = null;
 
 /** Bump when DDL below changes so cold starts re-run migrations once. */
-const SCHEMA_VERSION = "2026-08-25-d";
+const SCHEMA_VERSION = "2026-08-25-icecat-catalog";
 /** One-shot data wipe flag — never re-run after it is written. */
 const FRESH_START_KEY = "fresh_start_2026_08_25_b";
 /** Bumped on each factory wipe so clients drop localStorage orphans. */
@@ -430,6 +430,26 @@ export async function ensureSchema(): Promise<void> {
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
           UNIQUE (list, email)
         )
+      `;
+
+      await sql`
+        CREATE TABLE IF NOT EXISTS icecat_appliance_products (
+          icecat_id TEXT PRIMARY KEY,
+          kind TEXT NOT NULL,
+          brand TEXT NOT NULL,
+          product_code TEXT NOT NULL,
+          model_name TEXT NOT NULL,
+          on_market BOOLEAN NOT NULL DEFAULT TRUE,
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+      `;
+      await sql`
+        CREATE INDEX IF NOT EXISTS icecat_appliance_kind_brand_idx
+        ON icecat_appliance_products (kind, brand)
+      `;
+      await sql`
+        CREATE INDEX IF NOT EXISTS icecat_appliance_brand_model_idx
+        ON icecat_appliance_products (kind, brand, model_name)
       `;
 
       // One-time factory reset requested for clean testing.

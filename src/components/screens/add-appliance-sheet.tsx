@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,15 +8,11 @@ import { Portal } from "@/components/ui/portal";
 import {
   CATALOG_KIND_OPTIONS,
   applianceKindIcon,
-  catalogBrandsForKind,
-  catalogModelsForBrand,
   createApplianceId,
-  findCatalogModel,
   formatAppliancePower,
   isCatalogApplianceKind,
   type CatalogApplianceKind,
 } from "@/lib/home-appliances";
-import { buildEprelPublicUrl } from "@/lib/appliance-catalog-enrichment";
 import type {
   ApplianceManual,
   ApplianceSpec,
@@ -28,12 +24,18 @@ import { cn } from "@/lib/utils";
 const selectClassName =
   "h-12 w-full rounded-[16px] border border-black/8 bg-zinc-50 px-3 text-[15px] text-zinc-900 outline-none disabled:opacity-50";
 
-type EprelEnrichment = {
-  configured: boolean;
-  publicUrl: string | null;
+type IcecatModelOption = {
+  id: string;
+  brand: string;
+  productCode: string;
+  modelName: string;
+};
+
+type ProductDetails = {
+  powerW: number | null;
   specs: ApplianceSpec[];
   manuals: ApplianceManual[];
-  energyClass?: string;
+  title: string | null;
   matched: boolean;
 };
 
@@ -46,7 +48,6 @@ export function AddApplianceSheet({
 }: {
   panels: PanelObject[];
   preferredPanelId?: string | null;
-  /** When set, sheet replaces this appliance (caller may keep the same id). */
   initialAppliance?: HomeAppliance | null;
   onClose: () => void;
   onSave: (panelId: string, appliance: HomeAppliance) => void;
@@ -62,7 +63,9 @@ export function AddApplianceSheet({
     initialAppliance?.brand ?? null,
   );
   const [modelId, setModelId] = useState<string | null>(
-    initialAppliance?.catalogId ?? null,
+    initialAppliance?.catalogId?.startsWith("icecat:")
+      ? initialAppliance.catalogId.slice("icecat:".length)
+      : null,
   );
   const [panelId, setPanelId] = useState(
     preferredPanelId && panels.some((p) => p.id === preferredPanelId)
@@ -70,133 +73,176 @@ export function AddApplianceSheet({
       : (panels[0]?.id ?? ""),
   );
   const [error, setError] = useState<string | null>(null);
-  const [eprel, setEprel] = useState<EprelEnrichment | null>(null);
-  const [eprelLoading, setEprelLoading] = useState(false);
 
-  const brands = useMemo(
-    () => (kind ? catalogBrandsForKind(kind) : []),
-    [kind],
-  );
-  const models = useMemo(
-    () => (kind && brand ? catalogModelsForBrand(kind, brand) : []),
-    [kind, brand],
-  );
-  const selectedModel = modelId ? findCatalogModel(modelId) : undefined;
+  const [brands, setBrands] = useState<string[]>([]);
+  const [brandsLoading, setBrandsLoading] = useState(false);
+  const [catalogReady, setCatalogReady] = useState(true);
+  const [models, setModels] = useState<IcecatModelOption[]>([]);
+  const [modelsLoading, setModelsLoading] = useState(false);
+  const [details, setDetails] = useState<ProductDetails | null>(null);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+
+  const selectedModel = models.find((m) => m.id === modelId) ?? null;
 
   useEffect(() => {
-    if (!selectedModel) {
-      setEprel(null);
-      setEprelLoading(false);
+    if (!kind) {
+      setBrands([]);
+      setCatalogReady(true);
       return;
     }
-
-    const publicUrl = buildEprelPublicUrl(
-      selectedModel.kind,
-      selectedModel.brand,
-      selectedModel.model,
-    );
     let cancelled = false;
-    setEprelLoading(true);
-    setEprel(null);
+    setBrandsLoading(true);
+    setError(null);
+    void (async () => {
+      try {
+        const res = await fetch(
+          `/api/appliances/icecat/brands?kind=${encodeURIComponent(kind)}`,
+          { cache: "no-store" },
+        );
+        const data = (await res.json()) as {
+          brands?: string[];
+          catalogReady?: boolean;
+          error?: string;
+        };
+        if (cancelled) return;
+        if (!res.ok) throw new Error(data.error || "Не удалось загрузить бренды");
+        setBrands(Array.isArray(data.brands) ? data.brands : []);
+        setCatalogReady(data.catalogReady !== false);
+      } catch (err) {
+        if (cancelled) return;
+        setBrands([]);
+        setError(err instanceof Error ? err.message : "Ошибка загрузки брендов");
+      } finally {
+        if (!cancelled) setBrandsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [kind]);
 
+  useEffect(() => {
+    if (!kind || !brand) {
+      setModels([]);
+      return;
+    }
+    let cancelled = false;
+    setModelsLoading(true);
+    void (async () => {
+      try {
+        const params = new URLSearchParams({ kind, brand });
+        const res = await fetch(
+          `/api/appliances/icecat/models?${params.toString()}`,
+          { cache: "no-store" },
+        );
+        const data = (await res.json()) as {
+          models?: IcecatModelOption[];
+          error?: string;
+        };
+        if (cancelled) return;
+        if (!res.ok) throw new Error(data.error || "Не удалось загрузить модели");
+        setModels(Array.isArray(data.models) ? data.models : []);
+      } catch (err) {
+        if (cancelled) return;
+        setModels([]);
+        setError(err instanceof Error ? err.message : "Ошибка загрузки моделей");
+      } finally {
+        if (!cancelled) setModelsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [kind, brand]);
+
+  useEffect(() => {
+    if (!modelId) {
+      setDetails(null);
+      setDetailsLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setDetailsLoading(true);
+    setDetails(null);
     const timer = window.setTimeout(() => {
       void (async () => {
         try {
-          const params = new URLSearchParams({
-            kind: selectedModel.kind,
-            brand: selectedModel.brand,
-            model: selectedModel.model,
-          });
           const res = await fetch(
-            `/api/appliances/enrich?${params.toString()}`,
-            {
-              cache: "no-store",
-            },
+            `/api/appliances/icecat/product?id=${encodeURIComponent(modelId)}`,
+            { cache: "no-store" },
           );
-          const data = (await res.json()) as {
-            configured?: boolean;
-            provider?: string | null;
-            publicUrl?: string | null;
-            hit?: {
-              energyClass?: string;
-              specs?: ApplianceSpec[];
-              manuals?: ApplianceManual[];
-            } | null;
-          };
+          const data = (await res.json()) as ProductDetails & { error?: string };
           if (cancelled) return;
-          const hit = data.hit;
-          setEprel({
-            configured: Boolean(data.configured),
-            publicUrl: data.publicUrl ?? publicUrl,
-            specs: hit?.specs?.length ? hit.specs : [],
-            manuals: hit?.manuals?.length ? hit.manuals : [],
-            energyClass: hit?.energyClass,
-            matched: Boolean(hit),
+          if (!res.ok) throw new Error(data.error || "Не удалось загрузить характеристики");
+          setDetails({
+            powerW: data.powerW ?? null,
+            specs: Array.isArray(data.specs) ? data.specs : [],
+            manuals: Array.isArray(data.manuals) ? data.manuals : [],
+            title: data.title ?? null,
+            matched: Boolean(data.matched),
           });
-        } catch {
+        } catch (err) {
           if (cancelled) return;
-          setEprel({
-            configured: false,
-            publicUrl,
-            specs: [],
-            manuals: [],
-            matched: false,
-          });
+          setDetails(null);
+          setError(
+            err instanceof Error ? err.message : "Ошибка загрузки характеристик",
+          );
         } finally {
-          if (!cancelled) setEprelLoading(false);
+          if (!cancelled) setDetailsLoading(false);
         }
       })();
-    }, 180);
-
+    }, 160);
     return () => {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [selectedModel]);
+  }, [modelId]);
 
   const save = () => {
     if (!panelId) {
       setError("Сначала добавьте щиток.");
       return;
     }
-    const entry = modelId ? findCatalogModel(modelId) : undefined;
-    if (!entry) {
-      setError("Выберите модель из каталога.");
+    if (!kind || !selectedModel) {
+      setError("Выберите тип, производителя и модель из каталога Icecat.");
+      return;
+    }
+    if (detailsLoading) {
+      setError("Подождите, загружаются характеристики Icecat…");
       return;
     }
 
-    const manuals: ApplianceManual[] = [
-      { title: "Инструкция", url: entry.instructionUrl },
-      { title: "Руководство по эксплуатации", url: entry.manualUrl },
+    const powerW = details?.powerW ?? undefined;
+    const powerSpec: ApplianceSpec | null =
+      powerW != null
+        ? {
+            label: "Максимальная мощность",
+            value: `${Math.round(powerW)} Вт`,
+          }
+        : null;
+    const specs: ApplianceSpec[] = [
+      ...(powerSpec ? [powerSpec] : []),
+      ...(details?.specs ?? []).filter(
+        (spec) => !/мощност|power|watt/i.test(spec.label),
+      ),
     ];
-    const eprelPublic =
-      eprel?.publicUrl ??
-      buildEprelPublicUrl(entry.kind, entry.brand, entry.model);
-    if (eprel?.manuals?.length) {
-      manuals.push(...eprel.manuals);
-    } else if (eprelPublic) {
-      manuals.push({ title: "Карточка в реестре ЕС (EPREL)", url: eprelPublic });
-    }
 
-    const powerSpec: ApplianceSpec = {
-      label: "Максимальная мощность",
-      value: `${Math.round(entry.maxPowerW)} Вт`,
-    };
-    const specs: ApplianceSpec[] = eprel?.specs?.length
-      ? [
-          powerSpec,
-          ...eprel.specs.filter((spec) => !/мощност|power/i.test(spec.label)),
-        ]
-      : entry.specs;
+    const manuals: ApplianceManual[] = [...(details?.manuals ?? [])];
+    if (manuals.length === 0) {
+      manuals.push({
+        title: "Карточка Icecat",
+        url: `https://icecat.biz/search?query=${encodeURIComponent(`${selectedModel.brand} ${selectedModel.productCode}`)}`,
+      });
+    }
 
     const appliance: HomeAppliance = {
       id: initialAppliance?.id ?? createApplianceId(),
-      kind: entry.kind,
-      title: entry.brand,
-      brand: entry.brand,
-      model: entry.model,
-      powerW: entry.maxPowerW,
-      catalogId: entry.id,
+      kind,
+      title: selectedModel.brand,
+      brand: selectedModel.brand,
+      model: selectedModel.modelName || selectedModel.productCode,
+      powerW,
+      catalogId: `icecat:${selectedModel.id}`,
       specs,
       manuals,
       createdAt: initialAppliance?.createdAt ?? new Date().toISOString(),
@@ -272,6 +318,8 @@ export function AddApplianceSheet({
                       setKind(item.id);
                       setBrand(null);
                       setModelId(null);
+                      setModels([]);
+                      setDetails(null);
                       setError(null);
                     }}
                     className={cn(
@@ -308,21 +356,39 @@ export function AddApplianceSheet({
                   transition={{ duration: 0.22 }}
                   className="space-y-4 overflow-hidden pt-5"
                 >
+                  {!catalogReady && (
+                    <p className="rounded-[16px] bg-amber-50 px-3 py-2 text-[13px] text-amber-900">
+                      Каталог Icecat ещё не синхронизирован на сервере. Нужны
+                      ICECAT_PASSWORD и запуск sync.
+                    </p>
+                  )}
+                  {catalogReady && !brandsLoading && brands.length === 0 && (
+                    <p className="rounded-[16px] bg-zinc-50 px-3 py-2 text-[13px] text-zinc-600">
+                      В бесплатном Open Icecat нет моделей этого типа (многие
+                      бренды бытовой техники — только в платном Full Icecat).
+                    </p>
+                  )}
+
                   <label className="block">
                     <span className="mb-1.5 block text-[13px] font-medium text-zinc-500">
-                      Производитель
+                      Производитель (Icecat)
                     </span>
                     <select
                       value={brand ?? ""}
+                      disabled={brandsLoading || brands.length === 0}
                       onChange={(e) => {
-                        const next = e.target.value || null;
-                        setBrand(next);
+                        setBrand(e.target.value || null);
                         setModelId(null);
+                        setDetails(null);
                         setError(null);
                       }}
                       className={selectClassName}
                     >
-                      <option value="">Выберите производителя</option>
+                      <option value="">
+                        {brandsLoading
+                          ? "Загрузка…"
+                          : "Выберите производителя"}
+                      </option>
                       {brands.map((name) => (
                         <option key={name} value={name}>
                           {name}
@@ -342,21 +408,25 @@ export function AddApplianceSheet({
                       >
                         <label className="block">
                           <span className="mb-1.5 block text-[13px] font-medium text-zinc-500">
-                            Модель
+                            Модель (Icecat)
                           </span>
                           <select
                             value={modelId ?? ""}
+                            disabled={modelsLoading || models.length === 0}
                             onChange={(e) => {
                               setModelId(e.target.value || null);
                               setError(null);
                             }}
                             className={selectClassName}
                           >
-                            <option value="">Выберите модель</option>
+                            <option value="">
+                              {modelsLoading
+                                ? "Загрузка…"
+                                : "Выберите модель"}
+                            </option>
                             {models.map((item) => (
                               <option key={item.id} value={item.id}>
-                                {item.model} · до{" "}
-                                {formatAppliancePower(item.maxPowerW)}
+                                {item.modelName || item.productCode}
                               </option>
                             ))}
                           </select>
@@ -373,24 +443,21 @@ export function AddApplianceSheet({
             {selectedModel && (
               <div className="mb-3 space-y-1 text-center text-[13px] text-zinc-500">
                 <p>
-                  {selectedModel.brand} {selectedModel.model} · до{" "}
-                  <span className="font-semibold text-zinc-800">
-                    {formatAppliancePower(selectedModel.maxPowerW)}
-                  </span>
+                  {selectedModel.brand}{" "}
+                  {selectedModel.modelName || selectedModel.productCode}
                 </p>
-                {eprelLoading && <p>Ищем характеристики…</p>}
-                {!eprelLoading && eprel?.matched && (
-                  <p className="text-emerald-700">
-                    Найдены данные производителя
-                    {eprel.energyClass ? ` · класс ${eprel.energyClass}` : ""}
+                {detailsLoading && <p>Загружаем характеристики Icecat…</p>}
+                {!detailsLoading && details?.powerW != null && (
+                  <p>
+                    Мощность:{" "}
+                    <span className="font-semibold text-zinc-800">
+                      {formatAppliancePower(details.powerW)}
+                    </span>
                   </p>
                 )}
-                {!eprelLoading &&
-                  eprel &&
-                  !eprel.matched &&
-                  eprel.configured && (
-                    <p>В открытых каталогах нет совпадения — берём базу Tokom</p>
-                  )}
+                {!detailsLoading && details && details.powerW == null && (
+                  <p>Мощность в карточке Icecat не указана</p>
+                )}
               </div>
             )}
             {error && (
@@ -401,7 +468,7 @@ export function AddApplianceSheet({
             <Button
               className="w-full"
               size="lg"
-              disabled={!selectedModel}
+              disabled={!selectedModel || detailsLoading}
               onClick={save}
             >
               <Check className="h-5 w-5" />
