@@ -31,7 +31,7 @@ import {
   type MainMenuId,
 } from "@/components/screens/main-menu-sheet";
 import { HomeListSkeleton } from "@/components/ui/home-list-skeleton";
-import { BrandLogo, BRAND_YELLOW } from "@/components/brand-logo";
+import { BrandLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
 import { InfoDialog } from "@/components/ui/info-dialog";
@@ -47,6 +47,7 @@ import { cn } from "@/lib/utils";
 
 const PAGE_SPRING = { type: "spring" as const, stiffness: 420, damping: 40 };
 const SWIPE_DISTANCE = 72;
+const SWIPE_MIN_OFFSET = 24;
 const SWIPE_VELOCITY = 550;
 import type {
   HomeAppliance,
@@ -601,8 +602,10 @@ export function ObjectsScreen({
 
   const settlePage = (next: 0 | 1) => {
     pageRef.current = next;
-    setPage(next);
-    onPageChange?.(next);
+    if (next !== page) {
+      setPage(next);
+      onPageChange?.(next);
+    }
     if (pagerWidth) {
       void animate(pagerX, -next * pagerWidth, PAGE_SPRING);
     }
@@ -635,16 +638,30 @@ export function ObjectsScreen({
   const onPagerDragEnd = (_: unknown, info: PanInfo) => {
     const current = pageRef.current;
     const { offset, velocity } = info;
-    const wentLeft =
-      velocity.x < -SWIPE_VELOCITY || offset.x < -SWIPE_DISTANCE;
-    const wentRight =
-      velocity.x > SWIPE_VELOCITY || offset.x > SWIPE_DISTANCE;
+    const absOffset = Math.abs(offset.x);
+    const committed =
+      absOffset >= SWIPE_DISTANCE ||
+      (absOffset >= SWIPE_MIN_OFFSET &&
+        Math.abs(velocity.x) >= SWIPE_VELOCITY);
 
-    let next: 0 | 1 = current;
-    if (wentLeft) next = Math.min(1, current + 1) as 0 | 1;
-    else if (wentRight) next = Math.max(0, current - 1) as 0 | 1;
-    settlePage(next);
+    if (!committed) {
+      settlePage(current);
+      return;
+    }
+
+    if (offset.x < 0 && current === 0) {
+      settlePage(1);
+      return;
+    }
+    if (offset.x > 0 && current === 1) {
+      settlePage(0);
+      return;
+    }
+    settlePage(current);
   };
+
+  const pagerDragConstraints =
+    pagerWidth > 0 ? { left: -pagerWidth, right: 0 } : { left: 0, right: 0 };
 
   const renderList = (
     list: HomeListItem[],
@@ -835,11 +852,7 @@ export function ObjectsScreen({
                     У меня нет щитка
                   </button>
                 )}
-                <Button
-                  className="h-11 rounded-full px-5 hover:opacity-90"
-                  style={{ backgroundColor: BRAND_YELLOW, color: "#111113" }}
-                  onClick={addPanel}
-                >
+                <Button className="h-11 rounded-full px-5" onClick={addPanel}>
                   <Plus className="h-5 w-5" />
                   Добавить щиток
                 </Button>
@@ -855,11 +868,7 @@ export function ObjectsScreen({
                     Я электрик
                   </button>
                 )}
-                <Button
-                  className="h-11 rounded-full px-5 hover:opacity-90"
-                  style={{ backgroundColor: BRAND_YELLOW, color: "#111113" }}
-                  onClick={onHelpElectrical}
-                >
+                <Button className="h-11 rounded-full px-5" onClick={onHelpElectrical}>
                   <Zap className="h-5 w-5" />
                   Помочь с электрикой
                 </Button>
@@ -881,7 +890,7 @@ export function ObjectsScreen({
           drag="x"
           dragDirectionLock
           dragElastic={0.12}
-          dragConstraints={{ left: 0, right: 0 }}
+          dragConstraints={pagerDragConstraints}
           dragMomentum={false}
           style={{
             x: pagerX,
@@ -915,11 +924,7 @@ export function ObjectsScreen({
       <div className="shrink-0 border-t border-black/[0.06] bg-[var(--bg)] px-5 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))] lg:hidden">
         {page === 0 ? (
           <div className="space-y-3">
-            <Button
-              className="w-full rounded-full hover:opacity-90"
-              style={{ backgroundColor: BRAND_YELLOW, color: "#111113" }}
-              onClick={addPanel}
-            >
+            <Button className="w-full rounded-full" onClick={addPanel}>
               <Plus className="h-5 w-5" />
               Добавить щиток
             </Button>
@@ -935,11 +940,7 @@ export function ObjectsScreen({
           </div>
         ) : (
           <div className="space-y-3">
-            <Button
-              className="w-full rounded-full hover:opacity-90"
-              style={{ backgroundColor: BRAND_YELLOW, color: "#111113" }}
-              onClick={onHelpElectrical}
-            >
+            <Button className="w-full rounded-full" onClick={onHelpElectrical}>
               <Zap className="h-5 w-5" />
               Помочь с электрикой
             </Button>
