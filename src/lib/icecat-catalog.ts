@@ -133,11 +133,26 @@ async function openIcecatGunzipLines(
   return createInterface({ input: nodeIn.pipe(gunzip), crlfDelay: Infinity });
 }
 
+let lastMatchedCategorySample: Array<{
+  id: string;
+  name: string;
+  kind: CatalogApplianceKind;
+}> = [];
+let lastMatchedCategoryById = new Map<
+  string,
+  { name: string; kind: CatalogApplianceKind }
+>();
+
+export function getLastMatchedCategorySample() {
+  return lastMatchedCategorySample;
+}
+
 function parseCategoriesToKindMap(xml: string): Map<string, CatalogApplianceKind> {
   const map = new Map<string, CatalogApplianceKind>();
   const categoryBlocks = xml.match(/<Category\b[\s\S]*?<\/Category>/gi) ?? [];
   const matchedNames: Array<{ id: string; name: string; kind: CatalogApplianceKind }> =
     [];
+  const byId = new Map<string, { name: string; kind: CatalogApplianceKind }>();
   for (const block of categoryBlocks) {
     const openTag = block.match(/^<Category\b[^>]*>/i)?.[0] ?? "";
     const id = openTag.match(/\bID="(\d+)"/i)?.[1];
@@ -153,6 +168,7 @@ function parseCategoriesToKindMap(xml: string): Map<string, CatalogApplianceKind
     for (const rule of CATEGORY_KIND_RULES) {
       if (rule.match.test(name)) {
         map.set(id, rule.kind);
+        byId.set(id, { name, kind: rule.kind });
         if (matchedNames.length < 40) {
           matchedNames.push({ id, name, kind: rule.kind });
         }
@@ -160,19 +176,9 @@ function parseCategoriesToKindMap(xml: string): Map<string, CatalogApplianceKind
       }
     }
   }
-  // Stash for sync diagnostics
   lastMatchedCategorySample = matchedNames;
+  lastMatchedCategoryById = byId;
   return map;
-}
-
-let lastMatchedCategorySample: Array<{
-  id: string;
-  name: string;
-  kind: CatalogApplianceKind;
-}> = [];
-
-export function getLastMatchedCategorySample() {
-  return lastMatchedCategorySample;
 }
 
 function parseSuppliers(xml: string): Map<string, string> {
@@ -295,12 +301,22 @@ export async function syncIcecatApplianceCatalog(): Promise<{
   suppliers: number;
   products: number;
   scannedLines: number;
+  categoryHits: number;
   byKind: Record<string, number>;
   matchedCategories: Array<{
     id: string;
     name: string;
     kind: CatalogApplianceKind;
   }>;
+  headerCols: string[];
+  headerIndex: Record<string, number>;
+  topCategoryHits: Array<{
+    id: string;
+    count: number;
+    kind: CatalogApplianceKind | null;
+    name: string | null;
+  }>;
+  rawSamples: string[];
 }> {
   await ensureSchema();
   const sql = getSql();
@@ -324,6 +340,7 @@ export async function syncIcecatApplianceCatalog(): Promise<{
 
   const lines = await openIcecatGunzipLines(INDEX_URL);
   let headerParsed = false;
+  let headerCols: string[] = [];
   let header = {
     iProductId: -1,
     iSupplier: -1,
@@ -334,34 +351,50 @@ export async function syncIcecatApplianceCatalog(): Promise<{
   };
   let scannedLines = 0;
   let products = 0;
+  let categoryHits = 0;
   const byKind: Record<string, number> = {};
+  const hitsByCatid: Record<string, number> = {};
   const seen = new Set<string>();
   let batch: IcecatCatalogProduct[] = [];
+  const rawSamples: string[] = [];
 
   for await (const line of lines) {
     if (!line) continue;
     scannedLines += 1;
     if (!headerParsed) {
-      const cols = splitCsvLine(line).map((h) => h.toLowerCase());
-      const idx = (names: string[]) => cols.findIndex((h) => names.includes(h));
+      headerCols = splitCsvLine(line).map((h) => h.toLowerCase().replace(/^\uFEFF/, ""));
+      const idx = (names: string[]) => {
+        for (const name of names) {
+          const i = headerCols.indexOf(name);
+          if (i >= 0) return i;
+        }
+        return -1;
+      };
       header = {
-        iProductId: idx(["product_id", "productid", "icecat_id", "path"]),
+        iProductId: idx(["product_id", "productid", "icecat_id"]),
         iSupplier: idx(["supplier_id", "supplierid"]),
         iProdId: idx(["prod_id", "product_code", "productcode"]),
         iCat: idx(["catid", "category_id", "cat_id"]),
         iModel: idx(["model_name", "modelname", "name"]),
         iOnMarket: idx(["on_market", "onmarket"]),
       };
+      // Icecat index often starts with path; product_id is usually column 1.
+      if (header.iProductId < 0) header.iProductId = idx(["path"]) >= 0 ? 1 : 1;
       headerParsed = true;
       continue;
     }
 
-    const product = mapIndexRow(
-      splitCsvLine(line),
-      header,
-      catKind,
-      suppliers,
-    );
+    if (rawSamples.length < 3) rawSamples.push(line.slice(0, 240));
+
+    const cols = splitCsvLine(line);
+    const catid =
+      (header.iCat >= 0 ? cols[header.iCat] : cols[6])?.replace(/\D/g, "") ?? "";
+    if (catid && catKind.has(catid)) {
+      categoryHits += 1;
+      hitsByCatid[catid] = (hitsByCatid[catid] ?? 0) + 1;
+    }
+
+    const product = mapIndexRow(cols, header, catKind, suppliers);
     if (!product) continue;
     const key = `${product.kind}|${product.brand}|${product.productCode}|${product.id}`;
     if (seen.has(key)) continue;
@@ -391,13 +424,31 @@ export async function syncIcecatApplianceCatalog(): Promise<{
     ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
   `;
 
+  const topHits = Object.entries(hitsByCatid)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 15)
+    .map(([id, count]) => {
+      const meta = lastMatchedCategoryById.get(id);
+      return {
+        id,
+        count,
+        kind: meta?.kind ?? catKind.get(id) ?? null,
+        name: meta?.name ?? null,
+      };
+    });
+
   return {
     categories: catKind.size,
     suppliers: suppliers.size,
     products,
     scannedLines,
+    categoryHits,
     byKind,
     matchedCategories: lastMatchedCategorySample,
+    headerCols,
+    headerIndex: header,
+    topCategoryHits: topHits,
+    rawSamples,
   };
 }
 
