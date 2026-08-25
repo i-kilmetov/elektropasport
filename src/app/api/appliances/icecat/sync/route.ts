@@ -51,8 +51,8 @@ export async function POST(request: Request) {
   let bootstrap = false;
   if (!keyed) {
     const total = await countIcecatCatalog().catch(() => -1);
-    // Allow unauthenticated re-sync while catalog bootstrap is incomplete.
-    if (total < 0 || total > 50_000) {
+    // One-time bootstrap only while catalog is completely empty.
+    if (total !== 0) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
     bootstrap = true;
