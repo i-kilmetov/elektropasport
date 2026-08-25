@@ -21,7 +21,15 @@ export async function POST(request: Request) {
       return Response.json({ error: "Некорректные данные щитка" }, { status: 400 });
     }
 
-    const panel = await insertPanel(user.telegramId, body.panel);
+    // Keep large data-URL photos out of the DB / request path.
+    const panel = await insertPanel(user.telegramId, {
+      ...body.panel,
+      photoDataUrl: undefined,
+      appliances: body.panel.appliances?.map((item) => ({
+        ...item,
+        photoDataUrl: undefined,
+      })),
+    });
     return Response.json({ panel }, { status: 201 });
   } catch (error) {
     const db = dbErrorResponse(error);

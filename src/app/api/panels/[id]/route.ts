@@ -1,4 +1,4 @@
-import type { PanelObject } from "@/types";
+import type { HomeAppliance, PanelObject } from "@/types";
 import {
   authErrorResponse,
   requireTelegramUser,
@@ -7,11 +7,36 @@ import {
   dbErrorResponse,
   deletePanel,
   ensureSchema,
+  getPanelByOwner,
   updatePanel,
   upsertUser,
 } from "@/lib/db";
 
 type RouteContext = { params: Promise<{ id: string }> };
+
+export async function GET(request: Request, context: RouteContext) {
+  try {
+    const user = requireTelegramUser(request);
+    await ensureSchema();
+    await upsertUser(user);
+
+    const { id } = await context.params;
+    const panel = await getPanelByOwner(user.telegramId, id);
+    if (!panel) {
+      return Response.json({ error: "Щиток не найден" }, { status: 404 });
+    }
+    return Response.json({ panel });
+  } catch (error) {
+    const db = dbErrorResponse(error);
+    if (db) return db;
+    if (error instanceof Error && error.name === "AuthError") {
+      return authErrorResponse(error);
+    }
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("GET /api/panels/[id]", msg, error);
+    return Response.json({ error: msg }, { status: 500 });
+  }
+}
 
 export async function PATCH(request: Request, context: RouteContext) {
   try {
@@ -31,10 +56,31 @@ export async function PATCH(request: Request, context: RouteContext) {
         | "powerKw"
         | "hasGround"
         | "houseSnapshot"
+        | "appliances"
+        | "devices"
+        | "wires"
+        | "breakers"
+        | "linesCount"
+        | "railCount"
+        | "lastCheck"
       >
     >;
 
-    const panel = await updatePanel(user.telegramId, id, body);
+    if (body.appliances !== undefined && !Array.isArray(body.appliances)) {
+      return Response.json({ error: "Некорректный список техники" }, { status: 400 });
+    }
+
+    const appliances = Array.isArray(body.appliances)
+      ? (body.appliances as HomeAppliance[]).map((item) => ({
+          ...item,
+          photoDataUrl: undefined,
+        }))
+      : undefined;
+
+    const panel = await updatePanel(user.telegramId, id, {
+      ...body,
+      ...(appliances !== undefined ? { appliances } : {}),
+    });
     if (!panel) {
       return Response.json({ error: "Щиток не найден" }, { status: 404 });
     }

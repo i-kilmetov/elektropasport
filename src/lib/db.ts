@@ -944,6 +944,13 @@ export async function updatePanel(
       | "powerKw"
       | "hasGround"
       | "houseSnapshot"
+      | "appliances"
+      | "devices"
+      | "wires"
+      | "breakers"
+      | "linesCount"
+      | "railCount"
+      | "lastCheck"
     >
   >,
 ): Promise<PanelObject | null> {
@@ -975,17 +982,67 @@ export async function updatePanel(
       ? patch.houseSnapshot
       : (existing.houseSnapshot ?? null);
   const houseSnapshotJson = JSON.stringify(sanitizeJsonValue(houseSnapshot));
+  const lastCheck =
+    patch.lastCheck !== undefined ? patch.lastCheck : existing.lastCheck;
+  const breakers =
+    typeof patch.breakers === "number" && patch.breakers > 0
+      ? patch.breakers
+      : existing.breakers;
+  const linesCount =
+    patch.linesCount !== undefined
+      ? patch.linesCount
+      : (existing.linesCount ?? null);
+  const railCount =
+    patch.railCount !== undefined
+      ? patch.railCount
+      : (existing.railCount ?? null);
+
+  const nextDevices =
+    Array.isArray(patch.devices) && patch.devices.length > 0
+      ? patch.devices
+      : (existing.devices ?? []);
+  const nextWires =
+    Array.isArray(patch.wires) && patch.wires.length > 0
+      ? patch.wires
+      : (existing.wires ?? []);
+  const nextAppliances =
+    patch.appliances !== undefined
+      ? patch.appliances ?? []
+      : (existing.appliances ?? []);
+
+  const devicesJson = JSON.stringify(sanitizeJsonValue(nextDevices));
+  const wiresJson = JSON.stringify(sanitizeJsonValue(nextWires));
+  const appliancesJson = JSON.stringify(sanitizeJsonValue(nextAppliances));
 
   const rows = (await sql`
     UPDATE panels SET
       title = ${title}::text,
       named = ${named}::boolean,
       address = ${address}::text,
+      last_check = ${lastCheck}::text,
+      breakers = ${breakers}::int,
       safety = ${safety}::int,
       phases = ${phases}::text,
       power_kw = ${powerKw}::text,
       has_ground = ${hasGround}::boolean,
       house_snapshot = ${houseSnapshotJson}::jsonb,
+      lines_count = ${linesCount}::int,
+      rail_count = ${railCount}::int,
+      devices = CASE
+        WHEN ${Array.isArray(patch.devices) && patch.devices.length > 0}::boolean
+        THEN ${devicesJson}::jsonb
+        ELSE panels.devices
+      END,
+      wires = CASE
+        WHEN ${Array.isArray(patch.wires) && patch.wires.length > 0}::boolean
+        THEN ${wiresJson}::jsonb
+        ELSE panels.wires
+      END,
+      appliances = CASE
+        WHEN ${patch.appliances !== undefined}::boolean
+        THEN ${appliancesJson}::jsonb
+        ELSE panels.appliances
+      END,
       updated_at = NOW()
     WHERE id = ${id} AND telegram_user_id = ${telegramUserId}
     RETURNING

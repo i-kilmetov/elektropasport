@@ -109,8 +109,10 @@ import {
   persistInstallRequestPatch,
   persistMasterApplication,
   persistPanel,
+  persistPanelAppliances,
   persistPanelPatch,
   createPanelShare,
+  fetchPanelById,
   fetchSharedPanel,
   recordInviteLinkOpen,
   syncDataEpochFromServer,
@@ -937,53 +939,99 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
     [activePanelId, items],
   );
 
-  const openPanel = useCallback(
-    (id: string) => {
-      try {
-        const panel =
-          items.find(
-            (item): item is PanelObject =>
-              item.kind === "panel" && item.id === id,
-          ) ??
-          getCachedHomeItems().find(
-            (item): item is PanelObject =>
-              item.kind === "panel" && item.id === id,
-          );
-        if (!panel) {
-          setItemsError("Не удалось открыть щиток — данные не найдены");
-          return;
-        }
-        const nextDevices = Array.isArray(panel.devices) ? panel.devices : [];
-        setItemsError(null);
-        setSharedPreview(null);
-        setSchemeTourPending(false);
-        setActivePanelId(panel.id);
-        setAskNameOnBack(false);
-        setPhotoDataUrl(
-          typeof panel.photoDataUrl === "string" ? panel.photoDataUrl : null,
+  const openPanel = useCallback((id: string) => {
+    try {
+      const panel =
+        items.find(
+          (item): item is PanelObject =>
+            item.kind === "panel" && item.id === id,
+        ) ??
+        getCachedHomeItems().find(
+          (item): item is PanelObject =>
+            item.kind === "panel" && item.id === id,
         );
-        setDevices(nextDevices);
-        setSafetyScore(
-          panel.phases &&
-            panel.powerKw?.trim() &&
-            typeof panel.safety === "number"
-            ? panel.safety
-            : null,
-        );
-        setLinesCount(panel.linesCount ?? null);
-        setRailCount(panelRailCount({ ...panel, devices: nextDevices }));
-        setScreen("scheme");
-      } catch (error) {
-        console.error("openPanel failed", id, error);
-        setItemsError(
-          error instanceof Error
-            ? `Не удалось открыть щиток: ${error.message}`
-            : "Не удалось открыть щиток",
-        );
+      if (!panel) {
+        setItemsError("Не удалось открыть щиток — данные не найдены");
+        return;
       }
-    },
-    [items],
-  );
+      const nextDevices = Array.isArray(panel.devices) ? panel.devices : [];
+      setItemsError(null);
+      setSharedPreview(null);
+      setSchemeTourPending(false);
+      setActivePanelId(panel.id);
+      setAskNameOnBack(false);
+      setPhotoDataUrl(
+        typeof panel.photoDataUrl === "string" ? panel.photoDataUrl : null,
+      );
+      setDevices(nextDevices);
+      setSafetyScore(
+        panel.phases &&
+          panel.powerKw?.trim() &&
+          typeof panel.safety === "number"
+          ? panel.safety
+          : null,
+      );
+      setLinesCount(panel.linesCount ?? null);
+      setRailCount(panelRailCount({ ...panel, devices: nextDevices }));
+      setScreen("scheme");
+
+      // Hydrate scheme/appliances from server so another device/session stays in sync.
+      if (canUseServerAuth()) {
+        void fetchPanelById(panel.id)
+          .then((remote) => {
+            if (!remote) return;
+            setItems((prev) => {
+              const exists = prev.some((item) => item.id === remote.id);
+              if (!exists) return [remote, ...prev];
+              return prev.map((item) =>
+                item.kind === "panel" && item.id === remote.id
+                  ? {
+                      ...remote,
+                      photoDataUrl:
+                        remote.photoDataUrl ||
+                        (item.kind === "panel" ? item.photoDataUrl : undefined),
+                    }
+                  : item,
+              );
+            });
+            const remoteDevices = Array.isArray(remote.devices)
+              ? remote.devices
+              : [];
+            setDevices((prev) =>
+              remoteDevices.length > 0 ? remoteDevices : prev,
+            );
+            setLinesCount(remote.linesCount ?? null);
+            setRailCount(
+              panelRailCount({
+                ...remote,
+                devices:
+                  remoteDevices.length > 0 ? remoteDevices : nextDevices,
+              }),
+            );
+            setSafetyScore(
+              remote.phases &&
+                remote.powerKw?.trim() &&
+                typeof remote.safety === "number"
+                ? remote.safety
+                : null,
+            );
+            if (typeof remote.photoDataUrl === "string") {
+              setPhotoDataUrl(remote.photoDataUrl);
+            }
+          })
+          .catch((error) => {
+            console.error("fetchPanelById failed", id, error);
+          });
+      }
+    } catch (error) {
+      console.error("openPanel failed", id, error);
+      setItemsError(
+        error instanceof Error
+          ? `Не удалось открыть щиток: ${error.message}`
+          : "Не удалось открыть щиток",
+      );
+    }
+  }, [items]);
 
   const showPanel = useCallback(
     (panel: PanelObject, options?: { askName?: boolean }) => {
@@ -1788,19 +1836,52 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
                 homeAppliancesEnabled
                   ? (panelId, appliance) => {
                       setItems((prev) => {
+                        const panel = prev.find(
+                          (item): item is PanelObject =>
+                            item.kind === "panel" && item.id === panelId,
+                        );
+                        const nextAppliances = [
+                          ...(panel?.appliances ?? []),
+                          appliance,
+                        ];
                         const next = prev.map((item) => {
-                          if (item.kind !== "panel" || item.id !== panelId)
+                          if (item.kind !== "panel" || item.id !== panelId) {
                             return item;
-                          const updated: PanelObject = {
+                          }
+                          return {
                             ...item,
-                            appliances: [...(item.appliances ?? []), appliance],
+                            appliances: nextAppliances,
                             lastCheck: "сегодня",
                           };
-                          void persistPanel(updated).catch((error) =>
-                            console.error(error),
-                          );
-                          return updated;
                         });
+                        void persistPanelAppliances(panelId, nextAppliances)
+                          .then((saved) => {
+                            if (!saved) return;
+                            setItems((current) =>
+                              current.map((item) =>
+                                item.kind === "panel" && item.id === saved.id
+                                  ? {
+                                      ...saved,
+                                      photoDataUrl:
+                                        saved.photoDataUrl ||
+                                        (item.kind === "panel"
+                                          ? item.photoDataUrl
+                                          : undefined),
+                                      appliances:
+                                        saved.appliances ?? nextAppliances,
+                                    }
+                                  : item,
+                              ),
+                            );
+                          })
+                          .catch((error) => {
+                            console.error(error);
+                            setItemsError(
+                              error instanceof Error
+                                ? error.message
+                                : "Не удалось сохранить технику",
+                            );
+                          });
                         return next;
                       });
                     }

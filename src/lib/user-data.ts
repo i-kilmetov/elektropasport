@@ -234,12 +234,50 @@ function sanitizePanelPatch(
 }
 
 function panelForApi(panel: PanelObject): PanelObject {
+  // Photos as data URLs blow past Vercel/Neon body limits — keep them client-only.
   return {
     ...panel,
+    photoDataUrl: undefined,
     appliances: panel.appliances?.map((item) => ({
       ...item,
       photoDataUrl: undefined,
     })),
+  };
+}
+
+/** Prefer non-empty arrays so a partial client update cannot wipe scheme data. */
+function preferNonEmptyArray<T>(
+  primary?: T[] | null,
+  fallback?: T[] | null,
+): T[] | undefined {
+  if (Array.isArray(primary) && primary.length > 0) return primary;
+  if (Array.isArray(fallback) && fallback.length > 0) return fallback;
+  if (Array.isArray(primary)) return primary;
+  if (Array.isArray(fallback)) return fallback;
+  return undefined;
+}
+
+function mergePanelForPersist(
+  panel: PanelObject,
+  stored?: PanelObject | null,
+): PanelObject {
+  if (!stored) return panel;
+  return {
+    ...stored,
+    ...panel,
+    address:
+      panel.address && panel.address !== "Добавлен по фото"
+        ? panel.address
+        : stored.address,
+    houseSnapshot: panel.houseSnapshot ?? stored.houseSnapshot,
+    photoDataUrl: panel.photoDataUrl || stored.photoDataUrl,
+    devices: preferNonEmptyArray(panel.devices, stored.devices),
+    wires: preferNonEmptyArray(panel.wires, stored.wires),
+    appliances: preferNonEmptyArray(panel.appliances, stored.appliances),
+    breakers:
+      typeof panel.breakers === "number" && panel.breakers > 0
+        ? panel.breakers
+        : stored.breakers,
   };
 }
 
@@ -630,18 +668,25 @@ function mergeServerWithLocal(serverItems: HomeListItem[]): HomeListItem[] {
       if (item.kind !== "panel") return item;
       const local = localById.get(item.id);
       if (!local) return item;
+      const appliances = preferNonEmptyArray(
+        item.appliances,
+        local.appliances,
+      )?.map((remote) => {
+        const localMatch = local.appliances?.find((a) => a.id === remote.id);
+        if (!localMatch) return remote;
+        return {
+          ...remote,
+          photoDataUrl: remote.photoDataUrl || localMatch.photoDataUrl,
+        };
+      });
       return {
         ...item,
-        // Keep large photos only as a local display cache for the same server panel.
         photoDataUrl: item.photoDataUrl || local.photoDataUrl,
-        appliances: (item.appliances ?? []).map((remote) => {
-          const localMatch = local.appliances?.find((a) => a.id === remote.id);
-          if (!localMatch) return remote;
-          return {
-            ...remote,
-            photoDataUrl: remote.photoDataUrl || localMatch.photoDataUrl,
-          };
-        }),
+        devices: preferNonEmptyArray(item.devices, local.devices),
+        wires: preferNonEmptyArray(item.wires, local.wires),
+        appliances,
+        breakers:
+          item.breakers > 0 ? item.breakers : local.breakers,
       };
     }),
   );
@@ -657,9 +702,29 @@ export async function fetchHomeItems(): Promise<HomeListItem[]> {
   try {
     const remote = await fetchServerHomeItems();
     applyServerDataEpoch(remote.dataEpoch);
-    // Server is the source of truth after login — drop local-only items permanently.
-    writeLocalItems(remote.items);
-    return remote.items;
+    const merged = mergeServerWithLocal(remote.items);
+    writeLocalItems(merged);
+
+    // Heal server copies that lost scheme/appliances after a partial client save.
+    for (const item of merged) {
+      if (item.kind !== "panel") continue;
+      const server = remote.items.find(
+        (entry): entry is PanelObject =>
+          entry.kind === "panel" && entry.id === item.id,
+      );
+      const localHasDevices = (item.devices?.length ?? 0) > 0;
+      const serverHasDevices = (server?.devices?.length ?? 0) > 0;
+      const localHasAppliances = (item.appliances?.length ?? 0) > 0;
+      const serverHasAppliances = (server?.appliances?.length ?? 0) > 0;
+      if (
+        (localHasDevices && !serverHasDevices) ||
+        (localHasAppliances && !serverHasAppliances)
+      ) {
+        void persistPanel(item).catch((error) => console.error(error));
+      }
+    }
+
+    return merged;
   } catch (error) {
     if (error instanceof AuthSessionExpiredError) throw error;
     throw error;
@@ -744,20 +809,7 @@ export async function persistPanel(panel: PanelObject): Promise<void> {
       (item): item is PanelObject =>
         item.kind === "panel" && item.id === panel.id,
     );
-    const merged: PanelObject = stored
-      ? {
-          ...stored,
-          ...panel,
-          address:
-            panel.address && panel.address !== "Добавлен по фото"
-              ? panel.address
-              : stored.address,
-          houseSnapshot: panel.houseSnapshot ?? stored.houseSnapshot,
-          devices: panel.devices ?? stored.devices,
-          wires: panel.wires ?? stored.wires,
-          appliances: panel.appliances ?? stored.appliances,
-        }
-      : panel;
+    const merged = mergePanelForPersist(panel, stored);
 
     const already = Boolean(stored);
     // Server auth: the API enforces quota. Offline/local-only: check free tier here.
@@ -796,6 +848,148 @@ export async function persistPanel(panel: PanelObject): Promise<void> {
       }
       throw new Error(await parseError(res));
     }
+
+    try {
+      const data = (await res.json()) as { panel?: PanelObject };
+      if (data.panel?.id) {
+        upsertLocalItem(
+          mergePanelForPersist(
+            {
+              ...data.panel,
+              photoDataUrl: merged.photoDataUrl ?? data.panel.photoDataUrl,
+            },
+            merged,
+          ),
+        );
+      }
+    } catch {
+      // local merge already written
+    }
+  });
+}
+
+export async function fetchPanelById(id: string): Promise<PanelObject | null> {
+  if (!canUseServer()) {
+    return (
+      readLocalItems().find(
+        (item): item is PanelObject =>
+          item.kind === "panel" && item.id === id,
+      ) ?? null
+    );
+  }
+
+  const res = await fetchWithTimeout(`/api/panels/${encodeURIComponent(id)}`, {
+    headers: authHeaders(),
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    if (res.status === 404 || res.status === 503) return null;
+    if (invalidateBrowserSessionIfNeeded(res)) {
+      throw new AuthSessionExpiredError(await parseError(res));
+    }
+    throw new Error(await parseError(res));
+  }
+  const data = (await res.json()) as { panel?: PanelObject };
+  if (!data.panel?.id) return null;
+
+  const local = readLocalItems().find(
+    (item): item is PanelObject =>
+      item.kind === "panel" && item.id === data.panel!.id,
+  );
+  const merged = mergePanelForPersist(data.panel, local);
+  upsertLocalItem(merged);
+  return merged;
+}
+
+export async function persistPanelAppliances(
+  id: string,
+  appliances: NonNullable<PanelObject["appliances"]>,
+): Promise<PanelObject | null> {
+  return enqueuePanelOp(id, async () => {
+    const stored = readLocalItems().find(
+      (item): item is PanelObject =>
+        item.kind === "panel" && item.id === id,
+    );
+    if (!stored) {
+      throw new Error("Щиток не найден");
+    }
+
+    const slimAppliances = appliances.map((item) => ({
+      ...item,
+      photoDataUrl: undefined,
+    }));
+    const next: PanelObject = {
+      ...stored,
+      appliances: slimAppliances,
+      lastCheck: "сегодня",
+    };
+    upsertLocalItem(next);
+
+    if (!canUseServer()) return next;
+
+    const res = await fetchWithTimeout(`/api/panels/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeaders(),
+      },
+      body: JSON.stringify({ appliances: slimAppliances }),
+    });
+
+    if (!res.ok) {
+      if (res.status === 404) {
+        // Panel not on server yet — full create with scheme + appliances.
+        const createRes = await fetchWithTimeout("/api/panels", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...authHeaders(),
+          },
+          body: JSON.stringify({ panel: panelForApi(next) }),
+        });
+        if (!createRes.ok) {
+          if (createRes.status === 503) return next;
+          throw new Error(await parseError(createRes));
+        }
+        try {
+          const data = (await createRes.json()) as { panel?: PanelObject };
+          if (data.panel?.id) {
+            const merged = mergePanelForPersist(
+              {
+                ...data.panel,
+                photoDataUrl: stored.photoDataUrl ?? data.panel.photoDataUrl,
+              },
+              next,
+            );
+            upsertLocalItem(merged);
+            return merged;
+          }
+        } catch {
+          // keep local
+        }
+        return next;
+      }
+      if (res.status === 503) return next;
+      throw new Error(await parseError(res));
+    }
+
+    try {
+      const data = (await res.json()) as { panel?: PanelObject };
+      if (data.panel?.id) {
+        const merged = mergePanelForPersist(
+          {
+            ...data.panel,
+            photoDataUrl: stored.photoDataUrl ?? data.panel.photoDataUrl,
+          },
+          stored,
+        );
+        upsertLocalItem(merged);
+        return merged;
+      }
+    } catch {
+      // keep local
+    }
+    return next;
   });
 }
 
