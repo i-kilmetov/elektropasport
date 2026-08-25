@@ -91,13 +91,6 @@ export function applianceKindIcon(
 
 export function formatAppliancePower(powerW?: number): string {
   if (powerW == null || !Number.isFinite(powerW) || powerW <= 0) return "—";
-  if (powerW >= 1000) {
-    const kw = powerW / 1000;
-    const text = Number.isInteger(kw)
-      ? String(kw)
-      : kw.toFixed(1).replace(".", ",");
-    return `${text} кВт`;
-  }
   return `${Math.round(powerW)} Вт`;
 }
 

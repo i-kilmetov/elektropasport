@@ -77,11 +77,8 @@ export function ApplianceDetailScreen({
         </button>
         <div className="min-w-0 flex-1">
           <h1 className="truncate text-[18px] font-semibold text-zinc-900">
-            {kindLabel}
+            {homeTitle || panel.title}
           </h1>
-          {homeTitle && (
-            <p className="truncate text-[13px] text-zinc-500">{homeTitle}</p>
-          )}
         </div>
         <div className="relative" ref={menuRef}>
           <button
@@ -136,8 +133,8 @@ export function ApplianceDetailScreen({
               <Icon className="h-7 w-7" />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-[13px] text-zinc-500">{kindLabel}</p>
               <h2 className="truncate text-[20px] font-bold tracking-tight text-zinc-900">
+                <span className="font-semibold text-zinc-500">{kindLabel}</span>{" "}
                 {brand}
               </h2>
               {model && (

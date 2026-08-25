@@ -252,58 +252,61 @@ function ExpandableHomeCard({
       className="overflow-hidden rounded-[24px] border p-0"
       {...longPress.bind}
     >
-      <button
-        type="button"
-        onClick={() => {
-          if (longPress.longPressedRef.current) {
-            longPress.longPressedRef.current = false;
-            return;
-          }
-          onOpenPanel();
-        }}
-        className="flex w-full min-w-0 touch-manipulation items-center gap-4 p-4 text-left select-none transition-colors hover:bg-zinc-50 lg:cursor-pointer lg:p-5"
-      >
-        <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[18px] bg-zinc-100 text-zinc-600">
-          <BreakerIcon className="h-7 w-7" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="mb-0.5 flex items-center justify-between gap-2">
+      <div className="flex items-stretch">
+        <button
+          type="button"
+          onClick={() => {
+            if (longPress.longPressedRef.current) {
+              longPress.longPressedRef.current = false;
+              return;
+            }
+            onOpenPanel();
+          }}
+          className="flex min-w-0 flex-1 touch-manipulation items-center gap-4 p-4 text-left select-none transition-colors hover:bg-zinc-50 lg:cursor-pointer lg:p-5"
+        >
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[18px] bg-zinc-100 text-zinc-600">
+            <BreakerIcon className="h-7 w-7" />
+          </div>
+          <div className="min-w-0 flex-1">
             <h2 className="truncate text-[17px] font-semibold text-zinc-900">
               {panel.title}
             </h2>
-            <span className="shrink-0 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
-              {panel.phases &&
-              panel.powerKw?.trim() &&
-              typeof panel.safety === "number"
-                ? `${panel.safety}%`
-                : "—"}
-            </span>
+            <p className="truncate text-[13px] text-zinc-500">{panel.address}</p>
+            <p className="mt-1 text-[12px] text-zinc-400">
+              {`${panel.breakers} устройств · добавлен ${formatPanelAddedLabel(panel)}`}
+            </p>
           </div>
-          <p className="truncate text-[13px] text-zinc-500">{panel.address}</p>
-          <p className="mt-1 text-[12px] text-zinc-400">
-            {`${panel.breakers} устройств · добавлен ${formatPanelAddedLabel(panel)}`}
-          </p>
-        </div>
-      </button>
-
-      <div className="flex justify-center border-t border-black/[0.04] px-4 pb-2.5 pt-1.5">
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggle();
-          }}
-          className="flex h-7 w-7 items-center justify-center rounded-full border border-black/8 bg-zinc-100 text-zinc-500 transition-colors hover:bg-zinc-200 hover:text-zinc-700"
-          aria-expanded={expanded}
-          aria-label={expanded ? "Скрыть технику" : "Показать технику"}
-        >
-          <ChevronDown
-            className={cn(
-              "h-3.5 w-3.5 transition-transform",
-              expanded && "rotate-180",
-            )}
-          />
         </button>
+
+        <div className="flex shrink-0 flex-col items-center justify-center gap-1.5 py-3 pr-3 lg:pr-4">
+          <span
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/15 text-[11px] font-semibold tabular-nums text-emerald-700"
+            aria-label="Безопасность щитка"
+          >
+            {panel.phases &&
+            panel.powerKw?.trim() &&
+            typeof panel.safety === "number"
+              ? `${panel.safety}%`
+              : "—"}
+          </span>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggle();
+            }}
+            className="flex h-8 w-8 items-center justify-center rounded-full border border-black/8 bg-zinc-100 text-zinc-500 transition-colors hover:bg-zinc-200 hover:text-zinc-700"
+            aria-expanded={expanded}
+            aria-label={expanded ? "Скрыть технику" : "Показать технику"}
+          >
+            <ChevronDown
+              className={cn(
+                "h-3.5 w-3.5 transition-transform",
+                expanded && "rotate-180",
+              )}
+            />
+          </button>
+        </div>
       </div>
 
       <AnimatePresence initial={false}>
@@ -335,8 +338,7 @@ function ExpandableHomeCard({
                       <span className="block truncate text-[13px] font-semibold text-zinc-900">
                         <span className="font-medium text-zinc-500">
                           {kindLabel}
-                        </span>
-                        <span className="text-zinc-300"> · </span>
+                        </span>{" "}
                         {brand}
                       </span>
                       {model && (
