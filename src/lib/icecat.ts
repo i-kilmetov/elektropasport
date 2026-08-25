@@ -2,6 +2,9 @@ import type { ApplianceManual, ApplianceSpec } from "@/types";
 
 const ICECAT_API = "https://live.icecat.biz/api";
 
+/** Known Open Icecat product — used to verify free-account access. */
+const OPEN_PROBE = { brand: "HP", model: "RJ459AV", lang: "EN" } as const;
+
 export type IcecatProductHit = {
   brand: string;
   model: string;
@@ -14,7 +17,6 @@ export type IcecatProductHit = {
 export type IcecatLookupResult = {
   configured: boolean;
   hit: IcecatProductHit | null;
-  /** Machine-readable status for diagnostics in the UI / status API. */
   status:
     | "not_configured"
     | "ok"
@@ -23,6 +25,8 @@ export type IcecatLookupResult = {
     | "auth_error"
     | "error";
   detail?: string;
+  rawMessage?: string;
+  rawCode?: number;
 };
 
 export function isIcecatConfigured(): boolean {
@@ -56,8 +60,7 @@ function pickFeatureValue(feature: Record<string, unknown>): string | null {
     const v = asString(obj.Value) ?? asString(obj.value);
     if (v) return v;
   }
-  const raw = asString(feature.RawValue);
-  return raw ?? null;
+  return asString(feature.RawValue) ?? null;
 }
 
 function specsFromFeatures(data: Record<string, unknown>): ApplianceSpec[] {
@@ -80,8 +83,7 @@ function specsFromFeatures(data: Record<string, unknown>): ApplianceSpec[] {
       }
       label = label || asString(feature.Name) || asString(feature.LocalName);
       const value = pickFeatureValue(feature);
-      if (!label || !value) continue;
-      if (value.length > 120) continue;
+      if (!label || !value || value.length > 120) continue;
       specs.push({ label, value });
       if (specs.length >= 10) return specs;
     }
@@ -134,44 +136,97 @@ function manualsFromData(data: Record<string, unknown>): ApplianceManual[] {
   });
 }
 
-function classifyIcecatFailure(
-  status: number,
+type IcecatPayload = {
+  data?: Record<string, unknown>;
+  msg?: string;
+  Message?: string;
+  Error?: string;
+  Code?: number;
+  StatusCode?: number;
+};
+
+function classifyPayload(
+  httpStatus: number,
+  payload: IcecatPayload | null,
   body: string,
-): Pick<IcecatLookupResult, "status" | "detail"> {
-  const lower = body.toLowerCase();
+): Pick<IcecatLookupResult, "status" | "detail" | "rawMessage" | "rawCode"> {
+  const rawMessage =
+    payload?.Message || payload?.Error || payload?.msg || body.slice(0, 200);
+  const rawCode = payload?.StatusCode ?? payload?.Code;
+
   if (
-    status === 401 ||
-    /unknown.*user|username|shopname|mandatory|authentication|unauthorized/i.test(
-      body,
+    rawCode === 19 ||
+    rawCode === 3 ||
+    rawCode === 7 ||
+    /api token|content.token|username|shopname|unknown.*user|unauthorized|not valid uuid/i.test(
+      rawMessage,
     )
   ) {
     return {
       status: "auth_error",
-      detail: "Проверьте ICECAT_USERNAME / токены в Vercel",
+      detail:
+        "Токен или username не приняты Icecat. Для Open часто достаточно только ICECAT_USERNAME.",
+      rawMessage,
+      rawCode,
     };
   }
+
   if (
-    /full icecat/i.test(body) ||
-    (status === 403 && /app_key|full icecat content/i.test(body))
+    rawCode === 9 ||
+    /full icecat|app_key is required/i.test(rawMessage)
   ) {
     return {
       status: "full_only",
-      detail: "Модель есть только в платном Full Icecat",
+      detail: "Товар есть только в платном Full Icecat",
+      rawMessage,
+      rawCode,
     };
   }
+
   if (
-    status === 404 ||
-    status === 400 ||
-    /not correct|not found|identifier/i.test(lower)
+    rawCode === 14 ||
+    /brand restrictions|access is limited/i.test(rawMessage)
+  ) {
+    return {
+      status: "full_only",
+      detail: "Бренд ограничил раздачу (не Open)",
+      rawMessage,
+      rawCode,
+    };
+  }
+
+  if (
+    httpStatus === 404 ||
+    rawCode === 4 ||
+    rawCode === 8 ||
+    rawCode === 15 ||
+    rawCode === 17 ||
+    /not present|not correct|not found|not yet released|missing information/i.test(
+      rawMessage,
+    )
   ) {
     return {
       status: "not_found",
       detail: "Модель не найдена в Open Icecat",
+      rawMessage,
+      rawCode,
     };
   }
+
+  if (httpStatus >= 400) {
+    return {
+      status: "error",
+      detail: `Icecat HTTP ${httpStatus}`,
+      rawMessage,
+      rawCode,
+    };
+  }
+
   return {
     status: "error",
-    detail: `Icecat HTTP ${status}: ${body.slice(0, 160)}`,
+    detail: "Неожиданный ответ Icecat",
+    rawMessage,
+    rawCode,
   };
 }
 
@@ -229,41 +284,30 @@ function hitFromPayload(
   };
 }
 
-/**
- * Open Icecat JSON lookup by brand + manufacturer product code.
- * Free worldwide after registering at https://icecat.biz/registration
- */
-export async function searchIcecatProduct(options: {
+async function fetchIcecatOnce(options: {
   brand: string;
   model: string;
-  lang?: string;
+  lang: string;
+  withTokens: boolean;
 }): Promise<IcecatLookupResult> {
   const user = username();
   if (!user) return { configured: false, hit: null, status: "not_configured" };
 
-  const brand = options.brand.trim();
-  // Icecat product codes are uppercase.
-  const model = options.model.trim().toUpperCase();
-  if (!brand || !model) {
-    return { configured: true, hit: null, status: "not_found" };
-  }
-
-  const lang = (options.lang || "RU").trim() || "RU";
-  // Empty `content` returns the full Open datasheet.
   const params = new URLSearchParams({
-    lang,
+    lang: options.lang,
     shopname: user,
-    username: user,
-    Brand: brand,
-    ProductCode: model,
+    Brand: options.brand,
+    ProductCode: options.model,
     content: "",
   });
 
   const headers: Record<string, string> = { Accept: "application/json" };
-  const token = apiToken();
-  const cToken = contentToken();
-  if (token) headers["api-token"] = token;
-  if (cToken) headers["content-token"] = cToken;
+  if (options.withTokens) {
+    const token = apiToken();
+    const cToken = contentToken();
+    if (token) headers["api-token"] = token;
+    if (cToken) headers["content-token"] = cToken;
+  }
 
   let res: Response;
   try {
@@ -281,14 +325,6 @@ export async function searchIcecatProduct(options: {
   }
 
   const body = await res.text().catch(() => "");
-  type IcecatPayload = {
-    data?: Record<string, unknown>;
-    msg?: string;
-    Message?: string;
-    Error?: string;
-    Code?: number;
-    StatusCode?: number;
-  };
   let payload: IcecatPayload | null = null;
   try {
     payload = body ? (JSON.parse(body) as IcecatPayload) : null;
@@ -296,68 +332,112 @@ export async function searchIcecatProduct(options: {
     payload = null;
   }
 
-  if (!res.ok) {
-    const classified = classifyIcecatFailure(res.status, body);
-    return { configured: true, hit: null, ...classified };
-  }
-
-  // Some Icecat errors still return HTTP 200 with StatusCode/Code.
-  const code = payload?.StatusCode ?? payload?.Code;
-  if (typeof code === "number" && code !== 0 && !payload?.data) {
-    if (code === 4) {
-      return {
-        configured: true,
-        hit: null,
-        status: "not_found",
-        detail:
-          payload?.Message ||
-          payload?.Error ||
-          "Product identifier not correct",
-      };
-    }
-    if (code === 3 || code === 7) {
-      return {
-        configured: true,
-        hit: null,
-        status: "auth_error",
-        detail:
-          payload?.Message ||
-          payload?.Error ||
-          "Icecat user/token mismatch",
-      };
-    }
-  }
-
   const data = payload?.data;
-  if (!data || typeof data !== "object") {
-    return {
-      configured: true,
-      hit: null,
-      status: "not_found",
-      detail: payload?.Message || payload?.Error || "Пустой ответ Icecat",
-    };
+  if (res.ok && data && typeof data === "object") {
+    const hit = hitFromPayload(data, options.brand, options.model);
+    if (hit) {
+      return {
+        configured: true,
+        hit,
+        status: "ok",
+        rawMessage: payload?.Message,
+        rawCode: payload?.StatusCode ?? payload?.Code,
+      };
+    }
   }
 
-  const hit = hitFromPayload(data, brand, model);
-  if (!hit) {
-    return {
-      configured: true,
-      hit: null,
-      status: "not_found",
-      detail: "Ответ без карточки продукта",
-    };
-  }
-
-  return { configured: true, hit, status: "ok" };
+  return {
+    configured: true,
+    hit: null,
+    ...classifyPayload(res.status, payload, body),
+  };
 }
 
-/** Probe a known Open Icecat demo product to verify account access. */
+/**
+ * Open Icecat JSON lookup by brand + manufacturer product code.
+ * Retries without tokens if token auth fails — Open catalog often needs only username.
+ */
+export async function searchIcecatProduct(options: {
+  brand: string;
+  model: string;
+  lang?: string;
+}): Promise<IcecatLookupResult> {
+  const user = username();
+  if (!user) return { configured: false, hit: null, status: "not_configured" };
+
+  const brand = options.brand.trim();
+  const model = options.model.trim().toUpperCase();
+  if (!brand || !model) {
+    return { configured: true, hit: null, status: "not_found" };
+  }
+
+  const lang = (options.lang || "EN").trim() || "EN";
+  const hasTokens = Boolean(apiToken() || contentToken());
+
+  const primary = await fetchIcecatOnce({
+    brand,
+    model,
+    lang,
+    withTokens: hasTokens,
+  });
+  if (primary.status === "ok") return primary;
+
+  // Invalid/mismatched tokens often break Open lookups — retry username-only.
+  if (hasTokens && primary.status === "auth_error") {
+    const fallback = await fetchIcecatOnce({
+      brand,
+      model,
+      lang,
+      withTokens: false,
+    });
+    if (fallback.status === "ok") {
+      return {
+        ...fallback,
+        detail:
+          "Работает только с username (токены Icecat отклонены). Можно убрать ICECAT_API_TOKEN / ICECAT_CONTENT_TOKEN.",
+      };
+    }
+    return {
+      ...primary,
+      detail:
+        primary.detail ||
+        "Токены не приняты, и username-only тоже не сработал",
+    };
+  }
+
+  // RU locale sometimes empty while EN exists.
+  if (primary.status === "not_found" && lang.toUpperCase() !== "EN") {
+    const en = await fetchIcecatOnce({
+      brand,
+      model,
+      lang: "EN",
+      withTokens: hasTokens,
+    });
+    if (en.status === "ok") return en;
+    if (hasTokens && en.status === "auth_error") {
+      const enNoToken = await fetchIcecatOnce({
+        brand,
+        model,
+        lang: "EN",
+        withTokens: false,
+      });
+      if (enNoToken.status === "ok") return enNoToken;
+    }
+  }
+
+  return primary;
+}
+
+/** Probe a known Open Icecat product to verify free-account access. */
 export async function probeIcecatAccess(): Promise<{
   configured: boolean;
   ok: boolean;
   status: IcecatLookupResult["status"];
   detail?: string;
+  rawMessage?: string;
+  rawCode?: number;
   sampleTitle?: string;
+  probeProduct: string;
 }> {
   if (!isIcecatConfigured()) {
     return {
@@ -365,18 +445,22 @@ export async function probeIcecatAccess(): Promise<{
       ok: false,
       status: "not_configured",
       detail: "ICECAT_USERNAME не задан",
+      probeProduct: `${OPEN_PROBE.brand} ${OPEN_PROBE.model}`,
     };
   }
   const result = await searchIcecatProduct({
-    brand: "HP",
-    model: "F0Y97EA",
-    lang: "EN",
+    brand: OPEN_PROBE.brand,
+    model: OPEN_PROBE.model,
+    lang: OPEN_PROBE.lang,
   });
   return {
     configured: true,
     ok: result.status === "ok" && Boolean(result.hit),
     status: result.status,
     detail: result.detail,
+    rawMessage: result.rawMessage,
+    rawCode: result.rawCode,
     sampleTitle: result.hit?.title,
+    probeProduct: `${OPEN_PROBE.brand} ${OPEN_PROBE.model}`,
   };
 }

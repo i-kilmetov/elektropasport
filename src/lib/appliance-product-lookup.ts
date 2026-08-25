@@ -37,7 +37,7 @@ export async function enrichApplianceProduct(options: {
   const icecat = await searchIcecatProduct({
     brand: options.brand,
     model: options.model,
-    lang: "RU",
+    lang: "EN",
   });
 
   if (icecat.hit) {

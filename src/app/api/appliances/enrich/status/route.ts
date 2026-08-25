@@ -4,12 +4,11 @@ import { isEprelConfigured } from "@/lib/eprel";
 
 /**
  * Quick health check for free Open Icecat access.
- * Uses the well-known Open demo product HP / F0Y97EA.
+ * Probes HP / RJ459AV (known Open datasheet).
  */
 export async function GET() {
   try {
     const probe = await probeIcecatAccess();
-    // Also run one enrichment path for a catalog washer model.
     const sample = await enrichApplianceProduct({
       kind: "washer",
       brand: "Bosch",
@@ -22,24 +21,30 @@ export async function GET() {
         probeOk: probe.ok,
         status: probe.status,
         detail: probe.detail,
-        sampleTitle: probe.sampleTitle,
-        meaning:
-          probe.ok
-            ? "Open Icecat отвечает — бесплатный доступ к Open-каталогу работает"
-            : probe.status === "not_configured"
-              ? "Добавьте ICECAT_USERNAME (и желательно ICECAT_API_TOKEN) в Vercel"
-              : probe.status === "auth_error"
-                ? "Логин/токен не приняты Icecat — проверьте username и Access tokens"
-                : probe.status === "full_only"
-                  ? "Аккаунт видит Full-only контент как платный; для Open нужен другой товар"
-                  : probe.status === "not_found"
-                    ? "Демо-товар не найден — обычно это ошибка username/токена или ещё не активирован аккаунт"
-                    : "Ошибка запроса к Icecat — см. detail",
+        rawMessage: probe.rawMessage ?? null,
+        rawCode: probe.rawCode ?? null,
+        sampleTitle: probe.sampleTitle ?? null,
+        probeProduct: probe.probeProduct,
+        meaning: probe.ok
+          ? "Open Icecat работает. Username (и при необходимости токены) в порядке."
+          : probe.status === "not_configured"
+            ? "Добавьте ICECAT_USERNAME в Vercel"
+            : probe.status === "auth_error"
+              ? "Icecat отверг токен/username. Попробуйте оставить только ICECAT_USERNAME (без API/Content tokens) и сделать Redeploy."
+              : probe.status === "full_only"
+                ? "Доступ к Open есть, но этот товар только в платном Full Icecat"
+                : probe.status === "not_found"
+                  ? "Open-товар-проба не найден для вашего аккаунта — смотрите rawMessage"
+                  : "Ошибка Icecat — смотрите rawMessage",
+        note: "Бесплатный Open Icecat покрывает в основном IT/CE спонсорские бренды. Многие бытовые модели Bosch/LG/Samsung — Full Icecat (платно).",
       },
       eprelConfigured: isEprelConfigured(),
       sampleEnrich: {
+        brandModel: "Bosch WAN28290",
         provider: sample.provider,
         matched: sample.matched,
+        icecatStatus: sample.icecatStatus,
+        icecatDetail: sample.icecatDetail,
         specs: sample.specs.length,
         manuals: sample.manuals.length,
       },
