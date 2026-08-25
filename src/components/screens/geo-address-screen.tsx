@@ -16,6 +16,13 @@ import { isMoscow, normalizeCityName } from "@/lib/lead-services";
 
 type Phase = "requesting" | "resolving" | "confirm" | "error";
 
+export type GeoAddressRestore = {
+  city: string;
+  address: string;
+  fiasId?: string;
+  houseFiasId?: string;
+};
+
 function toSuggestion(address: GeolocatedAddress): AddressSuggestion {
   return {
     value: address.value,
@@ -37,6 +44,7 @@ export function GeoAddressScreen({
   onBack,
   onConfirm,
   onManual,
+  restoreSnapshot,
 }: {
   onBack: () => void;
   onConfirm: (payload: {
@@ -46,6 +54,7 @@ export function GeoAddressScreen({
     houseFiasId?: string;
   }) => void;
   onManual: () => void;
+  restoreSnapshot?: GeoAddressRestore;
 }) {
   const [phase, setPhase] = useState<Phase>("requesting");
   const [error, setError] = useState<string | null>(null);
@@ -92,8 +101,20 @@ export function GeoAddressScreen({
   useEffect(() => {
     if (startedRef.current) return;
     startedRef.current = true;
+    if (restoreSnapshot) {
+      setAddress({
+        value: restoreSnapshot.address,
+        unrestrictedValue: restoreSnapshot.address,
+        city: restoreSnapshot.city,
+        fiasId: restoreSnapshot.fiasId,
+        houseFiasId: restoreSnapshot.houseFiasId ?? restoreSnapshot.fiasId,
+        fiasLevel: 8,
+      });
+      setPhase("confirm");
+      return;
+    }
     void runLocate();
-  }, [runLocate]);
+  }, [restoreSnapshot, runLocate]);
 
   const beginManualEdit = () => {
     if (!address) {
@@ -206,6 +227,8 @@ export function GeoAddressScreen({
           value={query}
           source={useMoscow ? "moscow" : "dadata"}
           houseOnly
+          autoFocus
+          selectEndOnFocus
           onChange={(next) => {
             setQuery(next);
             if (selected && next.trim() !== selected.value) {

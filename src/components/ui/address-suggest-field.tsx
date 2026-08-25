@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type PointerEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type PointerEvent } from "react";
 import { MapPin } from "lucide-react";
 import { GlassCard } from "@/components/ui/glass-card";
 import { hapticImpact } from "@/lib/haptics";
@@ -21,6 +21,8 @@ export function AddressSuggestField({
   placeholder = "Улица, дом, квартира",
   source = "dadata",
   houseOnly = false,
+  autoFocus = false,
+  selectEndOnFocus = false,
 }: {
   city: string;
   value: string;
@@ -35,6 +37,9 @@ export function AddressSuggestField({
   source?: "dadata" | "moscow";
   /** Skip apartment drill-down (house-level sources only). */
   houseOnly?: boolean;
+  autoFocus?: boolean;
+  /** Place caret at end and scroll long values to the tail on focus. */
+  selectEndOnFocus?: boolean;
 }) {
   const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([]);
   const [apartments, setApartments] = useState<AddressSuggestion[]>([]);
@@ -43,6 +48,22 @@ export function AddressSuggestField({
   const [open, setOpen] = useState(false);
   const requestId = useRef(0);
   const pickingRef = useRef(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const focusInputEnd = useCallback(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.focus();
+    const len = el.value.length;
+    el.setSelectionRange(len, len);
+    el.scrollLeft = el.scrollWidth;
+  }, []);
+
+  useEffect(() => {
+    if (!autoFocus) return;
+    const frame = requestAnimationFrame(() => focusInputEnd());
+    return () => cancelAnimationFrame(frame);
+  }, [autoFocus, focusInputEnd]);
 
   useEffect(() => {
     if (pickingRef.current) {
@@ -149,13 +170,22 @@ export function AddressSuggestField({
       <label className="relative block">
         <MapPin className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
         <input
+          ref={inputRef}
           value={value}
           onChange={(e) => {
             onChange(e.target.value);
             setApartments([]);
             setOpen(true);
+            if (selectEndOnFocus) {
+              requestAnimationFrame(() => {
+                const el = inputRef.current;
+                if (!el) return;
+                el.scrollLeft = el.scrollWidth;
+              });
+            }
           }}
           onFocus={() => {
+            if (selectEndOnFocus) focusInputEnd();
             if (list.length > 0) setOpen(true);
           }}
           placeholder={placeholder}

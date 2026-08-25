@@ -339,6 +339,9 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
   const [selectedAddressFiasId, setSelectedAddressFiasId] = useState<
     string | null
   >(null);
+  const [addressEntrySource, setAddressEntrySource] = useState<
+    "geo" | "manual" | null
+  >(null);
   const [helpElectricalFlow, setHelpElectricalFlow] = useState(false);
   const [selectedLeadService, setSelectedLeadService] =
     useState<LeadServiceType | null>(null);
@@ -713,6 +716,7 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
     setSelectedCity(null);
     setSelectedAddress(null);
     setSelectedAddressFiasId(null);
+    setAddressEntrySource(null);
     setHelpElectricalFlow(true);
     setSelectedLeadService(null);
     setRequestNeedId(null);
@@ -733,6 +737,7 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
     setSelectedCity(null);
     setSelectedAddress(null);
     setSelectedAddressFiasId(null);
+    setAddressEntrySource(null);
     // Same house-insight path as «Помочь с электрикой» (scheme CTA uses this).
     setHelpElectricalFlow(true);
     setSelectedLeadService(null);
@@ -2272,17 +2277,29 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
           {screen === "geo-address" && (
             <GeoAddressScreen
               key={`geo-${leadFlow}-${helpElectricalFlow ? "help" : "std"}`}
+              restoreSnapshot={
+                addressEntrySource === "geo" && selectedCity && selectedAddress
+                  ? {
+                      city: selectedCity,
+                      address: selectedAddress,
+                      fiasId: selectedAddressFiasId ?? undefined,
+                      houseFiasId: selectedAddressFiasId ?? undefined,
+                    }
+                  : undefined
+              }
               onBack={() => go(leadBackScreen)}
               onManual={() => {
                 setSelectedCity(null);
                 setSelectedAddress(null);
                 setSelectedAddressFiasId(null);
+                setAddressEntrySource(null);
                 go("city-select");
               }}
               onConfirm={({ city, address, fiasId, houseFiasId }) => {
                 setSelectedCity(city);
                 setSelectedAddress(address);
                 setSelectedAddressFiasId(houseFiasId ?? fiasId ?? null);
+                setAddressEntrySource("geo");
                 go("house-insight");
               }}
             />
@@ -2369,6 +2386,7 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
                 setSelectedAddressFiasId(
                   address.houseFiasId ?? address.fiasId ?? null,
                 );
+                setAddressEntrySource("manual");
                 go("house-insight");
               }}
             />
@@ -2379,7 +2397,13 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
               city={selectedCity}
               address={selectedAddress}
               fiasId={selectedAddressFiasId}
-              onBack={() => go("address-select")}
+              onBack={() => {
+                if (addressEntrySource === "geo") {
+                  go("geo-address");
+                  return;
+                }
+                go("address-select");
+              }}
               onCallMaster={() => go("lead-service")}
             />
           )}
