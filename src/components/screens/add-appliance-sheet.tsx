@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, ChevronDown, X } from "lucide-react";
+import { Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Portal } from "@/components/ui/portal";
 import {
@@ -18,6 +18,9 @@ import {
 } from "@/lib/home-appliances";
 import type { HomeAppliance, PanelObject } from "@/types";
 import { cn } from "@/lib/utils";
+
+const selectClassName =
+  "h-12 w-full rounded-[16px] border border-black/8 bg-zinc-50 px-3 text-[15px] text-zinc-900 outline-none disabled:opacity-50";
 
 export function AddApplianceSheet({
   panels,
@@ -57,6 +60,10 @@ export function AddApplianceSheet({
     () => (kind ? catalogBrandsForKind(kind) : []),
     [kind],
   );
+  const models = useMemo(
+    () => (kind && brand ? catalogModelsForBrand(kind, brand) : []),
+    [kind, brand],
+  );
   const selectedModel = modelId ? findCatalogModel(modelId) : undefined;
 
   const save = () => {
@@ -77,6 +84,11 @@ export function AddApplianceSheet({
       model: entry.model,
       powerW: entry.maxPowerW,
       catalogId: entry.id,
+      specs: entry.specs,
+      manuals: [
+        { title: "Инструкция", url: entry.instructionUrl },
+        { title: "Руководство по эксплуатации", url: entry.manualUrl },
+      ],
       createdAt: initialAppliance?.createdAt ?? new Date().toISOString(),
     };
     onSave(panelId, appliance);
@@ -122,7 +134,7 @@ export function AddApplianceSheet({
               <select
                 value={panelId}
                 onChange={(e) => setPanelId(e.target.value)}
-                className="h-12 w-full rounded-[16px] border border-black/8 bg-zinc-50 px-3 text-[15px] text-zinc-900 outline-none"
+                className={selectClassName}
               >
                 {panels.map((panel) => (
                   <option key={panel.id} value={panel.id}>
@@ -184,112 +196,64 @@ export function AddApplianceSheet({
                   animate={{ opacity: 1, height: "auto" }}
                   exit={{ opacity: 0, height: 0 }}
                   transition={{ duration: 0.22 }}
-                  className="overflow-hidden"
+                  className="space-y-4 overflow-hidden pt-5"
                 >
-                  <p className="mb-2 mt-5 text-[13px] font-medium text-zinc-500">
-                    Производитель
-                  </p>
-                  <div className="overflow-hidden rounded-[20px] border border-black/8">
-                    {brands.map((name, index) => {
-                      const open = brand === name;
-                      const brandModels =
-                        open && kind
-                          ? catalogModelsForBrand(kind, name)
-                          : [];
-                      return (
-                        <div
-                          key={name}
-                          className={cn(
-                            index > 0 && "border-t border-black/[0.06]",
-                          )}
-                        >
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (open) {
-                                setBrand(null);
-                                setModelId(null);
-                              } else {
-                                setBrand(name);
-                                setModelId(null);
-                                setError(null);
-                              }
+                  <label className="block">
+                    <span className="mb-1.5 block text-[13px] font-medium text-zinc-500">
+                      Производитель
+                    </span>
+                    <select
+                      value={brand ?? ""}
+                      onChange={(e) => {
+                        const next = e.target.value || null;
+                        setBrand(next);
+                        setModelId(null);
+                        setError(null);
+                      }}
+                      className={selectClassName}
+                    >
+                      <option value="">Выберите производителя</option>
+                      {brands.map((name) => (
+                        <option key={name} value={name}>
+                          {name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <AnimatePresence initial={false}>
+                    {brand && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="overflow-hidden"
+                      >
+                        <label className="block">
+                          <span className="mb-1.5 block text-[13px] font-medium text-zinc-500">
+                            Модель
+                          </span>
+                          <select
+                            value={modelId ?? ""}
+                            onChange={(e) => {
+                              setModelId(e.target.value || null);
+                              setError(null);
                             }}
-                            className="flex w-full items-center justify-between gap-3 bg-white px-4 py-3.5 text-left transition-colors hover:bg-zinc-50"
-                            aria-expanded={open}
+                            className={selectClassName}
                           >
-                            <span className="text-[15px] font-semibold text-zinc-900">
-                              {name}
-                            </span>
-                            <ChevronDown
-                              className={cn(
-                                "h-4 w-4 shrink-0 text-zinc-400 transition-transform",
-                                open && "rotate-180",
-                              )}
-                            />
-                          </button>
-                          <AnimatePresence initial={false}>
-                            {open && (
-                              <motion.div
-                                initial={{ height: 0, opacity: 0 }}
-                                animate={{ height: "auto", opacity: 1 }}
-                                exit={{ height: 0, opacity: 0 }}
-                                transition={{ duration: 0.2 }}
-                                className="overflow-hidden bg-zinc-50"
-                              >
-                                <p className="px-4 pb-1 pt-2 text-[12px] font-medium text-zinc-400">
-                                  Модель
-                                </p>
-                                <div className="px-2 pb-2">
-                                  {brandModels.map((item) => {
-                                    const selected = modelId === item.id;
-                                    return (
-                                      <button
-                                        key={item.id}
-                                        type="button"
-                                        onClick={() => {
-                                          setModelId(item.id);
-                                          setError(null);
-                                        }}
-                                        className={cn(
-                                          "mb-1 flex w-full items-center gap-3 rounded-[14px] px-3 py-2.5 text-left transition-colors",
-                                          selected
-                                            ? "bg-zinc-900 text-white"
-                                            : "text-zinc-900 hover:bg-white",
-                                        )}
-                                      >
-                                        <span className="min-w-0 flex-1">
-                                          <span className="block text-[14px] font-semibold">
-                                            {item.model}
-                                          </span>
-                                          <span
-                                            className={cn(
-                                              "mt-0.5 block text-[12px]",
-                                              selected
-                                                ? "text-white/70"
-                                                : "text-zinc-500",
-                                            )}
-                                          >
-                                            до{" "}
-                                            {formatAppliancePower(
-                                              item.maxPowerW,
-                                            )}
-                                          </span>
-                                        </span>
-                                        {selected && (
-                                          <Check className="h-4 w-4 shrink-0" />
-                                        )}
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
-                        </div>
-                      );
-                    })}
-                  </div>
+                            <option value="">Выберите модель</option>
+                            {models.map((item) => (
+                              <option key={item.id} value={item.id}>
+                                {item.model} · до{" "}
+                                {formatAppliancePower(item.maxPowerW)}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </motion.div>
               )}
             </AnimatePresence>

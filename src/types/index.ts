@@ -79,8 +79,13 @@ export type HomeApplianceKind =
 
 export type ApplianceManual = {
   title: string;
-  /** Absolute or site-relative URL to a PDF */
+  /** Absolute URL to a PDF / docs page (opened externally, not stored in our DB) */
   url: string;
+};
+
+export type ApplianceSpec = {
+  label: string;
+  value: string;
 };
 
 export interface HomeAppliance {
@@ -94,6 +99,8 @@ export interface HomeAppliance {
   /** Catalog entry id when picked from the appliance database */
   catalogId?: string;
   photoDataUrl?: string;
+  /** Spec rows (power, capacity, …) — snapshot from catalog at save time */
+  specs?: ApplianceSpec[];
   manuals?: ApplianceManual[];
   createdAt: string;
 }

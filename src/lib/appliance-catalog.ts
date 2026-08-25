@@ -1,4 +1,9 @@
 import type { HomeApplianceKind } from "@/types";
+import {
+  buildApplianceDocUrls,
+  buildApplianceSpecs,
+  type ApplianceSpec,
+} from "@/lib/appliance-catalog-enrichment";
 
 /** Appliance kinds available in the home catalog picker. */
 export type CatalogApplianceKind =
@@ -16,6 +21,11 @@ export type ApplianceCatalogModel = {
   model: string;
   /** Maximum rated power in watts */
   maxPowerW: number;
+  specs: ApplianceSpec[];
+  /** External PDF / docs page — not stored in our DB as a file */
+  instructionUrl: string;
+  /** External user manual PDF / docs page */
+  manualUrl: string;
 };
 
 export const CATALOG_KIND_OPTIONS: {
@@ -229,13 +239,19 @@ function slugPart(value: string): string {
 }
 
 export const APPLIANCE_CATALOG: ApplianceCatalogModel[] = RAW.map(
-  ([kind, brand, model, maxPowerW], index) => ({
-    id: `${kind}-${slugPart(brand)}-${slugPart(model)}-${index}`,
-    kind,
-    brand,
-    model,
-    maxPowerW,
-  }),
+  ([kind, brand, model, maxPowerW], index) => {
+    const docs = buildApplianceDocUrls(brand, model);
+    return {
+      id: `${kind}-${slugPart(brand)}-${slugPart(model)}-${index}`,
+      kind,
+      brand,
+      model,
+      maxPowerW,
+      specs: buildApplianceSpecs(kind, brand, model, maxPowerW),
+      instructionUrl: docs.instructionUrl,
+      manualUrl: docs.manualUrl,
+    };
+  },
 );
 
 export function isCatalogApplianceKind(
