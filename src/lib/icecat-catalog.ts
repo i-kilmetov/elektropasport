@@ -34,7 +34,10 @@ const CATEGORY_KIND_RULES: Array<{
     kind: "boiler",
     match: /\bwater heaters?\b|\bboilers?\b|\bcalorifiers?\b/i,
   },
-  { kind: "tv", match: /\btelevisions?\b|\bLED TVs?\b|\bLCD TVs?\b|\bOLED\b/i },
+  {
+    kind: "tv",
+    match: /\btvs?\b|\btelevisions?\b|\bLED\b|\bLCD\b|\bOLED\b|\bQLED\b|\bplasma\b/i,
+  },
   {
     kind: "heater",
     match: /\bspace heaters?\b|\bconvectors?\b|\bradiators?\b|\bfan heaters?\b/i,
@@ -133,10 +136,12 @@ async function openIcecatGunzipLines(
 function parseCategoriesToKindMap(xml: string): Map<string, CatalogApplianceKind> {
   const map = new Map<string, CatalogApplianceKind>();
   const categoryBlocks = xml.match(/<Category\b[\s\S]*?<\/Category>/gi) ?? [];
+  const matchedNames: Array<{ id: string; name: string; kind: CatalogApplianceKind }> =
+    [];
   for (const block of categoryBlocks) {
-    const idMatch = block.match(/\bID="(\d+)"/i);
-    if (!idMatch) continue;
-    const id = idMatch[1]!;
+    const openTag = block.match(/^<Category\b[^>]*>/i)?.[0] ?? "";
+    const id = openTag.match(/\bID="(\d+)"/i)?.[1];
+    if (!id) continue;
     // Prefer English name langid="1"
     const names = [
       ...block.matchAll(/<Name\b[^>]*langid="1"[^>]*Value="([^"]*)"/gi),
@@ -148,11 +153,26 @@ function parseCategoriesToKindMap(xml: string): Map<string, CatalogApplianceKind
     for (const rule of CATEGORY_KIND_RULES) {
       if (rule.match.test(name)) {
         map.set(id, rule.kind);
+        if (matchedNames.length < 40) {
+          matchedNames.push({ id, name, kind: rule.kind });
+        }
         break;
       }
     }
   }
+  // Stash for sync diagnostics
+  lastMatchedCategorySample = matchedNames;
   return map;
+}
+
+let lastMatchedCategorySample: Array<{
+  id: string;
+  name: string;
+  kind: CatalogApplianceKind;
+}> = [];
+
+export function getLastMatchedCategorySample() {
+  return lastMatchedCategorySample;
 }
 
 function parseSuppliers(xml: string): Map<string, string> {
@@ -276,6 +296,11 @@ export async function syncIcecatApplianceCatalog(): Promise<{
   products: number;
   scannedLines: number;
   byKind: Record<string, number>;
+  matchedCategories: Array<{
+    id: string;
+    name: string;
+    kind: CatalogApplianceKind;
+  }>;
 }> {
   await ensureSchema();
   const sql = getSql();
@@ -372,6 +397,7 @@ export async function syncIcecatApplianceCatalog(): Promise<{
     products,
     scannedLines,
     byKind,
+    matchedCategories: lastMatchedCategorySample,
   };
 }
 
