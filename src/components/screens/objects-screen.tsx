@@ -313,7 +313,7 @@ function ExpandableHomeCard({
             transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
             className="overflow-hidden"
           >
-            <div className="space-y-2 border-t border-black/[0.06] bg-zinc-50/80 px-3 py-3">
+            <div className="divide-y divide-black/[0.06] border-t border-black/[0.06] bg-white">
               {appliances.map((appliance) => {
                 const Icon = applianceKindIcon(appliance.kind);
                 const brand = appliance.brand?.trim() || appliance.title;
@@ -323,9 +323,9 @@ function ExpandableHomeCard({
                     key={appliance.id}
                     type="button"
                     onClick={() => onOpenAppliance(appliance.id)}
-                    className="flex w-full items-center gap-3 rounded-[16px] bg-white px-3 py-2.5 text-left shadow-sm transition-colors hover:bg-zinc-100"
+                    className="flex w-full items-center gap-3 rounded-none px-4 py-3 text-left transition-colors hover:bg-zinc-50"
                   >
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-zinc-100 text-zinc-600">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-none bg-zinc-100 text-zinc-600">
                       <Icon className="h-5 w-5" />
                     </span>
                     <span className="min-w-0 flex-1">
@@ -348,9 +348,8 @@ function ExpandableHomeCard({
               <button
                 type="button"
                 onClick={onAddAppliance}
-                className="flex w-full items-center justify-center gap-2 rounded-[16px] border border-dashed border-zinc-300 bg-white/70 px-3 py-2.5 text-[14px] font-semibold text-zinc-700 transition-colors hover:bg-white"
+                className="w-full rounded-none px-4 py-3 text-center text-[14px] font-medium text-zinc-500 underline decoration-zinc-300 underline-offset-4 transition-colors hover:text-zinc-800"
               >
-                <Plus className="h-4 w-4" />
                 Добавить
               </button>
             </div>
