@@ -157,21 +157,12 @@ function parseCategoriesToKindMap(xml: string): Map<string, CatalogApplianceKind
 
 function parseSuppliers(xml: string): Map<string, string> {
   const map = new Map<string, string>();
-  const blocks = xml.match(/<Supplier\b[\s\S]*?<\/Supplier>/gi) ?? [];
-  for (const block of blocks) {
-    const idMatch = block.match(/\bID="(\d+)"/i);
-    if (!idMatch) continue;
-    const nameMatch =
-      block.match(/<Name\b[^>]*Value="([^"]*)"/i) ||
-      block.match(/\bName="([^"]*)"/i);
-    const name = nameMatch?.[1]?.trim();
-    if (name) map.set(idMatch[1]!, name);
-  }
-  // CSV-like fallback in some dumps
-  if (map.size === 0) {
-    for (const m of xml.matchAll(/\bID="(\d+)"[^>]*>[\s\S]*?Value="([^"]+)"/gi)) {
-      map.set(m[1]!, m[2]!);
-    }
+  // Icecat refs: <Supplier ID="1" Sponsor="1" Name="HP" ...>
+  for (const m of xml.matchAll(/<Supplier\b[^>]*>/gi)) {
+    const tag = m[0]!;
+    const id = tag.match(/\bID="(\d+)"/i)?.[1];
+    const name = tag.match(/\bName="([^"]+)"/i)?.[1]?.trim();
+    if (id && name) map.set(id, name);
   }
   return map;
 }
@@ -246,8 +237,8 @@ function mapIndexRow(
   if (!kind) return null;
 
   const supplierId = (header.iSupplier >= 0 ? cols[header.iSupplier] : cols[4]) ?? "";
-  if (!suppliers.has(supplierId)) return null;
-  const brandName = suppliers.get(supplierId)!;
+  const brandName = suppliers.get(supplierId) ?? (supplierId ? `Brand ${supplierId}` : "");
+  if (!brandName) return null;
 
   let productId = (header.iProductId >= 0 ? cols[header.iProductId] : cols[1]) ?? "";
   if (productId.includes("/")) {
