@@ -609,7 +609,6 @@ async function syncPanelPatchToServer(
     throw new Error(await parseError(res));
   }
 
-  // Confirm server accepted the rename/patch and refresh local cache from it.
   try {
     const data = (await res.json()) as { panel?: PanelObject };
     if (data.panel?.id) {
@@ -621,10 +620,18 @@ async function syncPanelPatchToServer(
         mergePanelForPersist(
           {
             ...data.panel,
+            title:
+              sanitized.title !== undefined
+                ? sanitized.title
+                : data.panel.title,
+            named:
+              sanitized.named !== undefined
+                ? sanitized.named
+                : data.panel.named,
             titleUpdatedAt:
               sanitized.title !== undefined
                 ? (local?.titleUpdatedAt ?? new Date().toISOString())
-                : data.panel.titleUpdatedAt,
+                : (data.panel.titleUpdatedAt ?? local?.titleUpdatedAt),
             photoDataUrl: local?.photoDataUrl ?? data.panel.photoDataUrl,
           },
           local,
@@ -634,6 +641,85 @@ async function syncPanelPatchToServer(
   } catch {
     // local patch already written
   }
+}
+
+/**
+ * Rename must never wait behind device/appliance uploads and must hit
+ * localStorage before any navigation/reload.
+ */
+export async function persistPanelRename(
+  id: string,
+  title: string,
+  panelSnapshot?: PanelObject | null,
+): Promise<void> {
+  const trimmed = title.trim();
+  if (!trimmed) throw new Error("Введите название щитка");
+
+  const sanitized = sanitizePanelPatch({ title: trimmed, named: true });
+  const titleUpdatedAt = new Date().toISOString();
+
+  const existing =
+    readLocalItems().find(
+      (item): item is PanelObject =>
+        item.kind === "panel" && item.id === id,
+    ) ??
+    (panelSnapshot?.kind === "panel" && panelSnapshot.id === id
+      ? panelSnapshot
+      : null);
+
+  if (existing) {
+    upsertLocalItem({
+      ...applyPanelPatch(existing, sanitized),
+      titleUpdatedAt,
+    });
+  } else if (panelSnapshot && panelSnapshot.id === id) {
+    upsertLocalItem({
+      ...applyPanelPatch(panelSnapshot, sanitized),
+      titleUpdatedAt,
+    });
+  }
+
+  if (!canUseServer()) return;
+
+  // Bypass the panel op queue — renames are tiny and must not be delayed.
+  await syncPanelPatchToServer(id, sanitized, readLocalItems());
+}
+
+export async function persistPanelPatch(
+  id: string,
+  patch: Partial<
+    Pick<
+      PanelObject,
+      | "title"
+      | "named"
+      | "address"
+      | "safety"
+      | "phases"
+      | "powerKw"
+      | "hasGround"
+      | "houseSnapshot"
+    >
+  >,
+): Promise<void> {
+  const sanitized = sanitizePanelPatch(patch);
+
+  // Title changes use the dedicated rename path (immediate local + server).
+  if (sanitized.title !== undefined) {
+    await persistPanelRename(id, sanitized.title);
+    return;
+  }
+
+  // Apply locally first so a refresh cannot resurrect stale fields.
+  const items = readLocalItems().map((item) =>
+    item.kind === "panel" && item.id === id
+      ? applyPanelPatch(item, sanitized)
+      : item,
+  );
+  writeLocalItems(items);
+
+  return enqueuePanelOp(id, async () => {
+    await syncPanelPatchToServer(id, sanitized, readLocalItems());
+  });
 }
 
 async function fetchServerHomeItems(): Promise<{
@@ -1055,13 +1141,20 @@ export async function persistPanel(panel: PanelObject): Promise<void> {
     try {
       const data = (await res.json()) as { panel?: PanelObject };
       if (data.panel?.id) {
+        const latestLocal = readLocalItems().find(
+          (item): item is PanelObject =>
+            item.kind === "panel" && item.id === data.panel!.id,
+        );
         upsertLocalItem(
           mergePanelForPersist(
             {
               ...data.panel,
-              photoDataUrl: merged.photoDataUrl ?? data.panel.photoDataUrl,
+              photoDataUrl:
+                latestLocal?.photoDataUrl ??
+                merged.photoDataUrl ??
+                data.panel.photoDataUrl,
             },
-            merged,
+            latestLocal ?? merged,
           ),
         );
       }
@@ -1235,36 +1328,6 @@ export async function fetchSharedPanel(token: string): Promise<{
     throw new Error(await parseError(res));
   }
   return (await res.json()) as { panel: PanelObject; isOwner: boolean };
-}
-
-export async function persistPanelPatch(
-  id: string,
-  patch: Partial<
-    Pick<
-      PanelObject,
-      | "title"
-      | "named"
-      | "address"
-      | "safety"
-      | "phases"
-      | "powerKw"
-      | "hasGround"
-      | "houseSnapshot"
-    >
-  >,
-): Promise<void> {
-  return enqueuePanelOp(id, async () => {
-    const sanitized = sanitizePanelPatch(patch);
-
-    const items = readLocalItems().map((item) =>
-      item.kind === "panel" && item.id === id
-        ? applyPanelPatch(item, sanitized)
-        : item,
-    );
-    writeLocalItems(items);
-
-    await syncPanelPatchToServer(id, sanitized, items);
-  });
 }
 
 export async function persistDeletePanel(id: string): Promise<void> {

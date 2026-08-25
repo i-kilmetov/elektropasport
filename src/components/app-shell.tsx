@@ -111,6 +111,7 @@ import {
   persistPanel,
   persistPanelAppliances,
   persistPanelPatch,
+  persistPanelRename,
   createPanelShare,
   fetchPanelById,
   fetchSharedPanel,
@@ -1275,6 +1276,10 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
     (name: string) => {
       if (!activePanelId) return;
       const titleUpdatedAt = new Date().toISOString();
+      const current = items.find(
+        (item): item is PanelObject =>
+          item.kind === "panel" && item.id === activePanelId,
+      );
       setItems((prev) =>
         prev.map((item) =>
           item.kind === "panel" && item.id === activePanelId
@@ -1283,19 +1288,17 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
         ),
       );
       setItemsError(null);
-      void persistPanelPatch(activePanelId, { title: name, named: true }).catch(
-        (error) => {
-          console.error(error);
-          setItemsError(
-            error instanceof Error
-              ? error.message
-              : "Не удалось переименовать щиток",
-          );
-        },
-      );
+      void persistPanelRename(activePanelId, name, current).catch((error) => {
+        console.error(error);
+        setItemsError(
+          error instanceof Error
+            ? error.message
+            : "Не удалось переименовать щиток",
+        );
+      });
       setAskNameOnBack(false);
     },
-    [activePanelId],
+    [activePanelId, items],
   );
 
   const renameHomeItem = useCallback((id: string, name: string) => {
@@ -1303,16 +1306,14 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
     setItems((prev) => {
       const item = prev.find((entry) => entry.id === id);
       if (item?.kind === "panel") {
-        void persistPanelPatch(id, { title: name, named: true }).catch(
-          (error) => {
-            console.error(error);
-            setItemsError(
-              error instanceof Error
-                ? error.message
-                : "Не удалось переименовать щиток",
-            );
-          },
-        );
+        void persistPanelRename(id, name, item).catch((error) => {
+          console.error(error);
+          setItemsError(
+            error instanceof Error
+              ? error.message
+              : "Не удалось переименовать щиток",
+          );
+        });
       } else if (item?.kind === "install_request") {
         void persistInstallRequestPatch(id, { title: name }).catch((error) => {
           console.error(error);
