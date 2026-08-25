@@ -13,6 +13,7 @@ import {
   ChevronDown,
   ClipboardList,
   Menu,
+  Phone,
   Plus,
   Wrench,
   Zap,
@@ -479,7 +480,7 @@ export function ObjectsScreen({
   const atPanelLimit = isAtPanelLimit(quota, panels.length);
   const panelEmptyText = homeAppliancesMode
     ? "Современный дом начинается с электрического сердца — сфотографируйте щиток."
-    : "Просто сфотографируй щиток. Дальше мы все расскажем и покажем, что в нём и как это работает.";
+    : 'Щиток — электрическое сердце вашего дома. Нажмите «Добавить щиток» и сфотографируйте, чтобы определить его состояние.';
 
   const pendingDelete = items.find((item) => item.id === pendingDeleteId);
   const actionsItem = items.find((item) => item.id === actionsItemId);
@@ -723,6 +724,7 @@ export function ObjectsScreen({
               )
             ) : (
               <Button className="h-11 rounded-full px-5" onClick={onHelpElectrical}>
+                <Phone className="h-5 w-5" />
                 Помочь с электрикой
               </Button>
             )}
@@ -745,7 +747,8 @@ export function ObjectsScreen({
             })
           : renderList(requests, {
               icon: <ClipboardList className="h-10 w-10" />,
-              text: "Здесь появятся заявки на помощь с электрикой.",
+              text: "Здесь хранятся все ваши запросы. Поможем в любом электрическом вопросе",
+              framed: true,
             })}
       </div>
 
@@ -773,6 +776,7 @@ export function ObjectsScreen({
           )
         ) : (
           <Button className="w-full rounded-full" onClick={onHelpElectrical}>
+            <Phone className="h-5 w-5" />
             Помочь с электрикой
           </Button>
         )}
