@@ -434,7 +434,11 @@ export function BrandLaunchWaitlist({
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [logoWidth, setLogoWidth] = useState(0);
+  const [viewportHeight, setViewportHeight] = useState<number | null>(null);
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
   const logoRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const html = document.documentElement;
@@ -443,15 +447,54 @@ export function BrandLaunchWaitlist({
     const prevBodyOverflow = body.style.overflow;
     const prevHtmlOverscroll = html.style.overscrollBehavior;
     const prevBodyOverscroll = body.style.overscrollBehavior;
+    const prevBodyPosition = body.style.position;
+    const prevBodyWidth = body.style.width;
+    const prevBodyTop = body.style.top;
     html.style.overflow = "hidden";
     body.style.overflow = "hidden";
+    body.style.position = "fixed";
+    body.style.width = "100%";
+    body.style.top = "0";
     html.style.overscrollBehavior = "none";
     body.style.overscrollBehavior = "none";
     return () => {
       html.style.overflow = prevHtmlOverflow;
       body.style.overflow = prevBodyOverflow;
+      body.style.position = prevBodyPosition;
+      body.style.width = prevBodyWidth;
+      body.style.top = prevBodyTop;
       html.style.overscrollBehavior = prevHtmlOverscroll;
       body.style.overscrollBehavior = prevBodyOverscroll;
+    };
+  }, []);
+
+  useEffect(() => {
+    const syncViewport = () => {
+      const vv = window.visualViewport;
+      const height = vv?.height ?? window.innerHeight;
+      const offsetTop = vv?.offsetTop ?? 0;
+      setViewportHeight(height);
+      const root = rootRef.current;
+      if (root) {
+        root.style.height = `${Math.round(height)}px`;
+        root.style.top = `${Math.round(offsetTop)}px`;
+      }
+      const keyboard =
+        window.innerHeight - height > 80 || offsetTop > 0;
+      setKeyboardOpen(keyboard);
+      window.scrollTo(0, 0);
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    };
+
+    syncViewport();
+    window.visualViewport?.addEventListener("resize", syncViewport);
+    window.visualViewport?.addEventListener("scroll", syncViewport);
+    window.addEventListener("resize", syncViewport);
+    return () => {
+      window.visualViewport?.removeEventListener("resize", syncViewport);
+      window.visualViewport?.removeEventListener("scroll", syncViewport);
+      window.removeEventListener("resize", syncViewport);
     };
   }, []);
 
@@ -468,6 +511,17 @@ export function BrandLaunchWaitlist({
       window.removeEventListener("resize", measure);
     };
   }, [animation.restRevealed]);
+
+  const keepInPlace = () => {
+    window.scrollTo(0, 0);
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+    // iOS often scrolls after focus; nudge back on the next frames.
+    requestAnimationFrame(() => {
+      window.scrollTo(0, 0);
+      requestAnimationFrame(() => window.scrollTo(0, 0));
+    });
+  };
 
   const submit = async () => {
     setError(null);
@@ -488,6 +542,7 @@ export function BrandLaunchWaitlist({
         throw new Error(data.error || "Не удалось отправить");
       }
       setDone(true);
+      inputRef.current?.blur();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Не удалось отправить");
     } finally {
@@ -495,44 +550,64 @@ export function BrandLaunchWaitlist({
     }
   };
 
+  const columnWidth = logoWidth > 0 ? logoWidth : undefined;
+
   return (
     <div
-      className="fixed inset-0 z-[200] flex touch-none flex-col items-center overflow-hidden px-5"
+      ref={rootRef}
+      className="fixed inset-x-0 top-0 z-[200] flex touch-none flex-col items-center overflow-hidden px-5"
       style={{
         backgroundColor: BRAND_YELLOW,
-        height: "var(--app-height, 100dvh)",
-        paddingBottom: "max(1.75rem, env(safe-area-inset-bottom))",
+        height: viewportHeight
+          ? `${Math.round(viewportHeight)}px`
+          : "var(--app-height, 100dvh)",
+        paddingBottom: keyboardOpen
+          ? "0.75rem"
+          : "max(1.75rem, env(safe-area-inset-bottom))",
       }}
       aria-label="Током — подписка на открытие"
     >
-      <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-5">
-        <div ref={logoRef} className="w-max">
-          <BrandMark
-            tagline=""
-            taglineVisible={false}
-            stripesPulsing={animation.stripesPulsing}
-            restRevealed={animation.restRevealed}
-          />
-        </div>
-        <motion.p
-          className="max-w-[18rem] text-center text-[15px] font-medium leading-snug text-[#111113]/90"
-          style={{ fontFamily: "var(--font-geologica)" }}
-          initial={false}
-          animate={{
-            opacity: animation.restRevealed ? 1 : 0,
-            y: animation.restRevealed ? 0 : 8,
-          }}
-          transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
+      <div
+        className={
+          keyboardOpen
+            ? "flex min-h-0 flex-1 flex-col items-center justify-end gap-3 pb-3"
+            : "flex min-h-0 flex-1 flex-col items-center justify-center gap-5"
+        }
+      >
+        <div
+          className="flex w-full flex-col items-end gap-3"
+          style={{ maxWidth: columnWidth }}
         >
-          Ведутся электромонтажные работы. Скоро откроемся
-        </motion.p>
+          <div ref={logoRef} className="w-max self-center">
+            <BrandMark
+              tagline=""
+              taglineVisible={false}
+              stripesPulsing={animation.stripesPulsing}
+              restRevealed={animation.restRevealed}
+            />
+          </div>
+          <motion.p
+            className="w-full text-right text-[15px] font-medium leading-snug text-[#111113]/90"
+            style={{ fontFamily: "var(--font-geologica)" }}
+            initial={false}
+            animate={{
+              opacity: animation.restRevealed ? 1 : 0,
+              y: animation.restRevealed ? 0 : 8,
+            }}
+            transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
+          >
+            Ведутся{" "}
+            <span className="line-through decoration-[1.5px]">
+              электромонтажные
+            </span>{" "}
+            работы. Скоро откроемся
+          </motion.p>
+        </div>
       </div>
 
       <motion.div
-        className="mx-auto w-full shrink-0 pb-2"
-        style={{
-          maxWidth: logoWidth > 0 ? logoWidth : undefined,
-        }}
+        className="mx-auto w-full shrink-0"
+        style={{ maxWidth: columnWidth }}
         initial={false}
         animate={{
           opacity: animation.loginVisible && logoWidth > 0 ? 1 : 0,
@@ -546,28 +621,32 @@ export function BrandLaunchWaitlist({
           </div>
         ) : (
           <div className="space-y-2">
-            <p className="text-center text-[14px] font-medium text-[#111113]/85">
+            <p className="w-full text-right text-[14px] font-medium text-[#111113]/85">
               Сообщить об открытии
             </p>
             <form
-              className="mx-auto flex h-14 min-h-14 w-full items-center gap-2 rounded-full bg-[#111113] px-2"
+              className="launch-email-field mx-auto flex h-14 min-h-14 w-full items-center gap-2 rounded-full bg-[#111113] px-2"
               onSubmit={(event) => {
                 event.preventDefault();
                 void submit();
               }}
             >
               <input
+                ref={inputRef}
                 type="email"
                 name="email"
                 autoComplete="email"
                 inputMode="email"
+                enterKeyHint="done"
                 placeholder="name@example.com"
                 value={email}
                 disabled={
                   !animation.loginVisible || submitting || logoWidth <= 0
                 }
                 onChange={(event) => setEmail(event.target.value)}
-                className="h-full min-w-0 flex-1 rounded-full bg-transparent px-4 text-[15px] text-white outline-none placeholder:text-white/55 disabled:opacity-60"
+                onFocus={keepInPlace}
+                onBlur={keepInPlace}
+                className="launch-email-input h-full min-w-0 flex-1 rounded-full border-0 bg-transparent px-4 text-[15px] text-white outline-none placeholder:text-white/55 disabled:opacity-60"
                 aria-label="Email"
               />
               <button
@@ -583,7 +662,7 @@ export function BrandLaunchWaitlist({
           </div>
         )}
         {error && (
-          <p className="mt-3 text-center text-[13px] text-red-700">{error}</p>
+          <p className="mt-3 text-right text-[13px] text-red-700">{error}</p>
         )}
       </motion.div>
     </div>

@@ -141,6 +141,29 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   }
 }
 
+/* Dark launch email field: keep black pill on autofill. */
+.launch-email-field {
+  background-color: #111113 !important;
+  color-scheme: dark;
+}
+
+.launch-email-input {
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+  caret-color: #fff;
+}
+
+.launch-email-input:-webkit-autofill,
+.launch-email-input:-webkit-autofill:hover,
+.launch-email-input:-webkit-autofill:focus,
+.launch-email-input:-webkit-autofill:active {
+  -webkit-text-fill-color: #fff !important;
+  caret-color: #fff;
+  transition: background-color 99999s ease-out;
+  box-shadow: 0 0 0 1000px #111113 inset !important;
+  background-color: transparent !important;
+}
+
 /* Phones: block landscape use when OS won't lock orientation. */
 @media screen and (orientation: landscape) and (max-height: 500px) {
   body::after {

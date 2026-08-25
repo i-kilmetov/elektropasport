@@ -45,6 +45,8 @@ export const viewport: Viewport = {
   // Hint browsers / PWAs to stay in portrait where supported.
   // @ts-expect-error orientation is supported by Next Viewport in practice
   orientation: "portrait",
+  // Shrink layout with the keyboard instead of scrolling the page away.
+  interactiveWidget: "resizes-content",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

@@ -36,7 +36,6 @@ type ProfileDraft = {
   lastName: string;
   digits: string;
   email: string;
-  notifyFeatures: boolean;
 };
 
 function sameDraft(a: ProfileDraft, b: ProfileDraft): boolean {
@@ -44,8 +43,7 @@ function sameDraft(a: ProfileDraft, b: ProfileDraft): boolean {
     a.firstName.trim() === b.firstName.trim() &&
     a.lastName.trim() === b.lastName.trim() &&
     a.digits === b.digits &&
-    a.email.trim().toLowerCase() === b.email.trim().toLowerCase() &&
-    a.notifyFeatures === b.notifyFeatures
+    a.email.trim().toLowerCase() === b.email.trim().toLowerCase()
   );
 }
 
@@ -83,7 +81,6 @@ export function ProfileScreen({
       lastName: initial.lastName ?? telegramDefaults.lastName,
       digits: initial.phoneDigits ?? "",
       email: initial.email ?? "",
-      notifyFeatures: Boolean(initial.notifyFeatures),
     }),
     [initial, telegramDefaults],
   );
@@ -92,6 +89,8 @@ export function ProfileScreen({
   const [baseline, setBaseline] = useState<ProfileDraft>(initialDraft);
   const [logoutOpen, setLogoutOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteArmed, setDeleteArmed] = useState(false);
+  const [deleteProgress, setDeleteProgress] = useState(0);
   const [deleting, setDeleting] = useState(false);
   const [saveFlash, setSaveFlash] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -115,7 +114,6 @@ export function ProfileScreen({
           lastName: profile.lastName ?? telegramDefaults.lastName,
           digits: profile.phoneDigits ?? "",
           email: profile.email ?? "",
-          notifyFeatures: Boolean(profile.notifyFeatures),
         };
         setDraft(next);
         setBaseline(next);
@@ -139,14 +137,12 @@ export function ProfileScreen({
         lastName: draft.lastName.trim() || undefined,
         phoneDigits: draft.digits || undefined,
         email: draft.email.trim().toLowerCase() || undefined,
-        notifyFeatures: draft.notifyFeatures,
       });
       const next: ProfileDraft = {
         firstName: saved.firstName ?? telegramDefaults.firstName,
         lastName: saved.lastName ?? telegramDefaults.lastName,
         digits: saved.phoneDigits ?? "",
         email: saved.email ?? "",
-        notifyFeatures: Boolean(saved.notifyFeatures),
       };
       setDraft(next);
       setBaseline(next);
@@ -195,7 +191,8 @@ export function ProfileScreen({
       }
       clearLocalAppData();
       hapticNotification("success");
-      setDeleteOpen(false);
+      setDeleteArmed(false);
+      setDeleteProgress(0);
       if (onLoggedOut) {
         onLoggedOut();
         return;
@@ -206,10 +203,43 @@ export function ProfileScreen({
       setError(
         err instanceof Error ? err.message : "Не удалось удалить аккаунт",
       );
-      setDeleteOpen(false);
+      setDeleteArmed(false);
+      setDeleteProgress(0);
     } finally {
       setDeleting(false);
     }
+  };
+
+  useEffect(() => {
+    if (!deleteArmed || deleting) return;
+    const durationMs = 2800;
+    const started = performance.now();
+    let frame = 0;
+    let cancelled = false;
+
+    const tick = (now: number) => {
+      if (cancelled) return;
+      const ratio = Math.min(1, (now - started) / durationMs);
+      setDeleteProgress(ratio);
+      if (ratio >= 1) {
+        void deleteAccount();
+        return;
+      }
+      frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(frame);
+    };
+    // deleteAccount closes over latest state; arming is the only trigger.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deleteArmed, deleting]);
+
+  const cancelArmedDelete = () => {
+    setDeleteArmed(false);
+    setDeleteProgress(0);
   };
 
   return (
@@ -382,22 +412,9 @@ export function ProfileScreen({
                   className="h-full min-w-0 flex-1 bg-transparent text-[15px] text-zinc-900 outline-none placeholder:text-zinc-400"
                 />
               </span>
-              <label className="mt-3 flex cursor-pointer items-start gap-2.5">
-                <input
-                  type="checkbox"
-                  checked={draft.notifyFeatures}
-                  onChange={(e) =>
-                    setDraft((prev) => ({
-                      ...prev,
-                      notifyFeatures: e.target.checked,
-                    }))
-                  }
-                  className="mt-0.5 h-4 w-4 shrink-0 rounded border-black/20 accent-zinc-900"
-                />
-                <span className="text-[13px] leading-snug text-zinc-700">
-                  Сообщать о новых функциях
-                </span>
-              </label>
+              <span className="mt-2 block text-[13px] leading-snug text-zinc-500">
+                Сообщать о новых функциях и изменениях
+              </span>
             </div>
           </GlassCard>
         </div>
@@ -480,16 +497,57 @@ export function ProfileScreen({
           <ConfirmDialog
             title="Удалить аккаунт?"
             description="После удаления аккаунта все ваши данные, включая добавленные щитки и заявки, будут безвозвратно удалены на этом сайте."
-            confirmLabel={deleting ? "Удаляем…" : "Удалить"}
+            confirmLabel="Удалить"
             cancelLabel="Отмена"
             danger
-            onCancel={() => {
-              if (!deleting) setDeleteOpen(false);
-            }}
+            onCancel={() => setDeleteOpen(false)}
             onConfirm={() => {
-              void deleteAccount();
+              setDeleteOpen(false);
+              setDeleteProgress(0);
+              setDeleteArmed(true);
             }}
           />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {deleteArmed && (
+          <Portal>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[130] flex items-end justify-center bg-black/35 px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] backdrop-blur-sm sm:items-center sm:p-6"
+            >
+              <motion.div
+                initial={{ y: 24, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: 16, opacity: 0 }}
+                className="w-full max-w-sm rounded-[24px] border border-black/8 bg-white p-5 shadow-2xl"
+              >
+                <p className="mb-1 text-[17px] font-semibold text-zinc-900">
+                  {deleting ? "Удаляем аккаунт…" : "Удаление через пару секунд"}
+                </p>
+                <p className="mb-4 text-[13px] leading-relaxed text-zinc-500">
+                  Нажмите кнопку, чтобы отменить.
+                </p>
+                <button
+                  type="button"
+                  disabled={deleting}
+                  onClick={cancelArmedDelete}
+                  className="relative flex h-12 w-full overflow-hidden rounded-full bg-rose-100 text-[15px] font-semibold text-rose-700 disabled:opacity-60"
+                >
+                  <span
+                    className="absolute inset-y-0 left-0 bg-rose-500/25 transition-[width] duration-75 ease-linear"
+                    style={{ width: `${Math.round(deleteProgress * 100)}%` }}
+                  />
+                  <span className="relative z-10 flex h-full w-full items-center justify-center">
+                    {deleting ? "Удаляем…" : "Отменить удаление"}
+                  </span>
+                </button>
+              </motion.div>
+            </motion.div>
+          </Portal>
         )}
       </AnimatePresence>
 
