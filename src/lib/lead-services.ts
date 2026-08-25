@@ -3,9 +3,11 @@ import { deviceModules } from "@/lib/panel-rails";
 
 export const ONLINE_CONSULTATION_PRICE_RUB = 990;
 export const MODULE_LABELING_PRICE_RUB = 500;
+export const MASTER_HOME_VISIT_PRICE_RUB = 2990;
 
 export type LeadServiceType =
   | "online_consultation"
+  | "master_home_visit"
   | "master_labeling"
   | "other";
 
@@ -14,6 +16,8 @@ export type LeadServiceOption = {
   title: string;
   description: string;
   priceLabel: string;
+  /** Shown struck-through next to the free/discounted price. */
+  struckPriceLabel?: string;
   /** null = price after consultation */
   priceRub: number | null;
   moscowOnly?: boolean;
@@ -48,6 +52,8 @@ export function getLeadServiceLabel(type: LeadServiceType): string {
   switch (type) {
     case "online_consultation":
       return "Онлайн-консультация";
+    case "master_home_visit":
+      return "Вызов мастера на дом";
     case "master_labeling":
       return "Вызов мастера для прозвонки и маркировки";
     case "other":
@@ -67,7 +73,8 @@ export function buildLeadServiceSetupTitle(input: {
     return `${base} (${input.panelModules} мод., ${formatRub(price)})`;
   }
   if (
-    input.serviceType === "online_consultation" &&
+    (input.serviceType === "online_consultation" ||
+      input.serviceType === "master_home_visit") &&
     input.estimatedPriceRub != null
   ) {
     return `${base} (${formatRub(input.estimatedPriceRub)})`;
@@ -81,58 +88,64 @@ export function buildLeadServiceSetupTitle(input: {
 export function getLeadServiceOptions(input: {
   city: string;
   panelModules?: number | null;
+  /** First paid order — online consultation is free. */
+  isFirstOrder?: boolean;
 }): LeadServiceOption[] {
-  const moscow = isMoscow(input.city);
   const modules =
     typeof input.panelModules === "number" && input.panelModules > 0
       ? input.panelModules
       : null;
+  const firstOrder = Boolean(input.isFirstOrder);
 
   const online: LeadServiceOption = {
     id: "online_consultation",
     title: "Онлайн-консультация",
+    description: firstOrder
+      ? "Разберём щиток по фото и схеме: что можно сделать самим, а где уже нужен мастер. Для первого заказа — бесплатно."
+      : `Разберём щиток по фото и схеме: что можно сделать самим, а где уже нужен мастер. Если дальше понадобится пересборка, проект или монтаж — сначала консультация. Эти ${formatRub(ONLINE_CONSULTATION_PRICE_RUB)} вычтем из общей стоимости работ.`,
+    priceLabel: firstOrder ? formatRub(0) : formatRub(ONLINE_CONSULTATION_PRICE_RUB),
+    struckPriceLabel: firstOrder
+      ? formatRub(ONLINE_CONSULTATION_PRICE_RUB)
+      : undefined,
+    priceRub: firstOrder ? 0 : ONLINE_CONSULTATION_PRICE_RUB,
+  };
+
+  const homeVisit: LeadServiceOption = {
+    id: "master_home_visit",
+    title: "Вызов мастера на дом",
     description:
-      "Разберём щиток по фото и схеме: что можно сделать самим, а где уже нужен мастер. Если дальше понадобится пересборка, проект или монтаж — сначала консультация. Эти 990 ₽ вычтем из общей стоимости работ.",
-    priceLabel: formatRub(ONLINE_CONSULTATION_PRICE_RUB),
-    priceRub: ONLINE_CONSULTATION_PRICE_RUB,
+      "Приезд мастера в течение дня, диагностика и консультация на месте.",
+    priceLabel: formatRub(MASTER_HOME_VISIT_PRICE_RUB),
+    priceRub: MASTER_HOME_VISIT_PRICE_RUB,
   };
 
-  const master: LeadServiceOption = {
-    id: "master_labeling",
-    title: "Вызов мастера для прозвонки и маркировки",
-    description: modules
-      ? `Мастер приедет, прозвонит линии и подпишет каждый автомат — в щитке сразу станет понятно, что за что отвечает.`
-      : "Мастер приедет, прозвонит линии и подпишет автоматы. Стоимость — 500 ₽ за модуль.",
-    priceLabel: modules
-      ? formatRub(masterLabelingPriceRub(modules))
-      : "500 ₽ / модуль",
-    priceRub: modules ? masterLabelingPriceRub(modules) : null,
-    moscowOnly: true,
-    requiresModules: false,
-  };
+  const options: LeadServiceOption[] = [online, homeVisit];
 
-  const other: LeadServiceOption = {
-    id: "other",
-    title: "Другое",
-    description:
-      "Пересобрать щиток, переделать электрику, сделать проект — стоимость определим после разговора по телефону.",
-    priceLabel: "После уточнения",
-    priceRub: null,
-  };
-
-  if (!moscow) {
-    return [online, other];
+  if (modules) {
+    options.push({
+      id: "master_labeling",
+      title: "Вызов мастера для прозвонки и маркировки",
+      description:
+        "Мастер приедет, прозвонит линии и подпишет каждый автомат — в щитке сразу станет понятно, что за что отвечает.",
+      priceLabel: formatRub(masterLabelingPriceRub(modules)),
+      priceRub: masterLabelingPriceRub(modules),
+      requiresModules: true,
+    });
   }
 
-  return [online, master];
+  return options;
 }
 
 export function payableAmountRub(input: {
   serviceType?: LeadServiceType | null;
   panelModules?: number | null;
+  isFirstOrder?: boolean;
 }): number | null {
   if (input.serviceType === "online_consultation") {
-    return ONLINE_CONSULTATION_PRICE_RUB;
+    return input.isFirstOrder ? 0 : ONLINE_CONSULTATION_PRICE_RUB;
+  }
+  if (input.serviceType === "master_home_visit") {
+    return MASTER_HOME_VISIT_PRICE_RUB;
   }
   if (
     input.serviceType === "master_labeling" &&
@@ -148,6 +161,11 @@ export function resolveRequestTypeCodeForService(
   serviceType: LeadServiceType,
 ): "C" | "V" | "O" {
   if (serviceType === "online_consultation") return "C";
-  if (serviceType === "master_labeling") return "V";
+  if (
+    serviceType === "master_labeling" ||
+    serviceType === "master_home_visit"
+  ) {
+    return "V";
+  }
   return "O";
 }

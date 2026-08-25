@@ -66,8 +66,11 @@ export type LeadFinishPayload = {
 function resolveEstimatedPriceRub(
   serviceType?: LeadServiceType,
   panelModules?: number,
+  isFirstOrder?: boolean,
 ): number | null | undefined {
-  return payableAmountRub({ serviceType, panelModules }) ?? undefined;
+  return (
+    payableAmountRub({ serviceType, panelModules, isFirstOrder }) ?? undefined
+  );
 }
 
 export function LeadContactScreen({
@@ -80,6 +83,7 @@ export function LeadContactScreen({
   exactAddress,
   serviceType,
   panelModules,
+  isFirstOrder = false,
   typeCode = "U",
   panelId,
 }: {
@@ -92,6 +96,7 @@ export function LeadContactScreen({
   exactAddress?: string;
   serviceType?: LeadServiceType;
   panelModules?: number;
+  isFirstOrder?: boolean;
   typeCode?: RequestTypeCode;
   panelId?: string;
 }) {
@@ -115,7 +120,11 @@ export function LeadContactScreen({
   const phoneValid = digits.length === 10;
   const canSubmit = phoneValid && consent && !submitting;
 
-  const estimatedPriceRub = resolveEstimatedPriceRub(serviceType, panelModules);
+  const estimatedPriceRub = resolveEstimatedPriceRub(
+    serviceType,
+    panelModules,
+    isFirstOrder,
+  );
 
   const resolvedSetupTitle = useMemo(() => {
     if (setupTitle) return setupTitle;

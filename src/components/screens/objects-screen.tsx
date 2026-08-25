@@ -13,7 +13,6 @@ import {
   ChevronDown,
   ClipboardList,
   Menu,
-  Phone,
   Plus,
   Wrench,
   Zap,
@@ -403,6 +402,7 @@ export function ObjectsScreen({
   onRenameItem,
   onNoPanel,
   onHelpElectrical,
+  onBecomeMaster,
   onMenuSelect,
   onPanelLimit,
   menuOpen = false,
@@ -429,6 +429,7 @@ export function ObjectsScreen({
   onRenameItem: (id: string, name: string) => void;
   onNoPanel?: () => void;
   onHelpElectrical: () => void;
+  onBecomeMaster?: () => void;
   onMenuSelect: (id: MainMenuId) => void;
   onPanelLimit?: () => void;
   menuOpen?: boolean;
@@ -723,10 +724,21 @@ export function ObjectsScreen({
                 </>
               )
             ) : (
-              <Button className="h-11 rounded-full px-5" onClick={onHelpElectrical}>
-                <Phone className="h-5 w-5" />
-                Помочь с электрикой
-              </Button>
+              <div className="flex items-center gap-3">
+                {onBecomeMaster && (
+                  <button
+                    type="button"
+                    onClick={onBecomeMaster}
+                    className="text-[14px] font-medium text-zinc-500 underline decoration-zinc-300 underline-offset-4 transition-colors hover:text-zinc-800"
+                  >
+                    Я электрик, могу помогать другим
+                  </button>
+                )}
+                <Button className="h-11 rounded-full px-5" onClick={onHelpElectrical}>
+                  <Zap className="h-5 w-5" />
+                  Помочь с электрикой
+                </Button>
+              </div>
             )}
           </div>
         </div>
@@ -775,10 +787,21 @@ export function ObjectsScreen({
             </div>
           )
         ) : (
-          <Button className="w-full rounded-full" onClick={onHelpElectrical}>
-            <Phone className="h-5 w-5" />
-            Помочь с электрикой
-          </Button>
+          <div className="space-y-3">
+            <Button className="w-full rounded-full" onClick={onHelpElectrical}>
+              <Zap className="h-5 w-5" />
+              Помочь с электрикой
+            </Button>
+            {onBecomeMaster && (
+              <button
+                type="button"
+                onClick={onBecomeMaster}
+                className="w-full text-center text-[15px] font-medium text-zinc-500 underline decoration-zinc-300 underline-offset-4 transition-colors hover:text-zinc-800"
+              >
+                Я электрик, могу помогать другим
+              </button>
+            )}
+          </div>
         )}
       </div>
       </div>

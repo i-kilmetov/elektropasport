@@ -89,8 +89,7 @@ import { resolveRequestTypeCode } from "@/lib/request-codes";
 import {
   buildLeadServiceSetupTitle,
   countPanelModules,
-  masterLabelingPriceRub,
-  ONLINE_CONSULTATION_PRICE_RUB,
+  payableAmountRub,
   resolveRequestTypeCodeForService,
   isMoscow,
   type LeadServiceType,
@@ -588,6 +587,11 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
     }
   }, []);
 
+  const isFirstLeadOrder = useMemo(
+    () => !items.some((item) => item.kind === "install_request"),
+    [items],
+  );
+
   const localPanelCount = useMemo(
     () => items.filter((item) => item.kind === "panel").length,
     [items],
@@ -617,12 +621,11 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
 
   const installSetupTitle = useMemo(() => {
     if (selectedLeadService) {
-      const estimatedPriceRub =
-        selectedLeadService === "online_consultation"
-          ? ONLINE_CONSULTATION_PRICE_RUB
-          : selectedLeadService === "master_labeling" && leadPanelModules
-            ? masterLabelingPriceRub(leadPanelModules)
-            : null;
+      const estimatedPriceRub = payableAmountRub({
+        serviceType: selectedLeadService,
+        panelModules: leadPanelModules,
+        isFirstOrder: isFirstLeadOrder,
+      });
       return buildLeadServiceSetupTitle({
         serviceType: selectedLeadService,
         panelModules: leadPanelModules ?? undefined,
@@ -635,6 +638,7 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
   }, [
     selectedLeadService,
     leadPanelModules,
+    isFirstLeadOrder,
     requestNeedId,
     noPanelSetupId,
   ]);
@@ -1773,6 +1777,7 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
                   : () => requireTelegramAuth("no-panel")
               }
               onHelpElectrical={startHelpElectrical}
+              onBecomeMaster={() => go("become-master")}
               onPanelLimit={openPanelLimit}
               homeAppliancesMode={homeAppliancesEnabled}
               onAddAppliance={
@@ -2137,9 +2142,10 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
           )}
           {screen === "lead-service" && selectedCity && (
             <LeadServiceScreen
-              key={`lead-service-${selectedCity}-${leadPanelModules ?? 0}`}
+              key={`lead-service-${selectedCity}-${leadPanelModules ?? 0}-${isFirstLeadOrder}`}
               city={selectedCity}
               panelModules={leadPanelModules}
+              isFirstOrder={isFirstLeadOrder}
               onBack={() => {
                 if (selectedAddress) {
                   go("house-insight");
@@ -2161,6 +2167,7 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
               exactAddress={selectedAddress ?? undefined}
               serviceType={selectedLeadService ?? undefined}
               panelModules={leadPanelModules ?? undefined}
+              isFirstOrder={isFirstLeadOrder}
               setupTitle={installSetupTitle}
               panelId={
                 leadBackScreen === "scheme" ? activePanelId ?? undefined : undefined

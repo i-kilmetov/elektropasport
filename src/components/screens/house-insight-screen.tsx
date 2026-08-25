@@ -8,7 +8,6 @@ import {
   Cable,
   Phone,
   Shield,
-  Wrench,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
@@ -249,9 +248,8 @@ export function HouseInsightScreen({
       )}
 
       <div className="mt-auto pt-6">
-        <Button className="w-full" size="lg" onClick={onCallMaster}>
-          <Wrench className="mr-2 h-5 w-5" />
-          Вызвать мастера в Током
+        <Button className="w-full rounded-full" size="lg" onClick={onCallMaster}>
+          Далее
         </Button>
       </div>
     </motion.section>
