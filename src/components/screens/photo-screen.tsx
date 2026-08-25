@@ -10,7 +10,7 @@ import { fileToCompressedDataUrl } from "@/lib/image";
 const tips = [
   "Хорошее освещение",
   "Камера прямо перед щитком",
-  "Все устройства в кадре",
+  "Все приборы в кадре",
 ];
 
 /** Prefer gallery — avoid bare `image/*` with a lingering capture input on the page. */

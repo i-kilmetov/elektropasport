@@ -46,6 +46,7 @@ import type {
 } from "@/types";
 import { installStatusTone } from "@/types";
 import { formatPanelAddedLabel } from "@/lib/panel-list-meta";
+import { formatPanelDeviceCount } from "@/lib/panel-rails";
 import { isAtPanelLimit, type PanelQuota } from "@/lib/invites";
 
 const APPLIANCES_INTRO_KEY = "elektropasport:appliances-list-intro-seen";
@@ -186,7 +187,7 @@ function HomeListCard({
               {isRequest
                 ? item.createdAt
                 : panel
-                  ? `${panel.breakers} устройств · добавлен ${formatPanelAddedLabel(panel)}`
+                  ? `${formatPanelDeviceCount(panel)} · добавлен ${formatPanelAddedLabel(panel)}`
                   : ""}
             </p>
           </div>
@@ -307,7 +308,7 @@ function ExpandableHomeCard({
             </h2>
             <p className="truncate text-[13px] text-zinc-500">{panel.address}</p>
             <p className="mt-1 text-[12px] text-zinc-400">
-              {`${panel.breakers} устройств · добавлен ${formatPanelAddedLabel(panel)}`}
+              {`${formatPanelDeviceCount(panel)} · добавлен ${formatPanelAddedLabel(panel)}`}
             </p>
           </div>
         </button>

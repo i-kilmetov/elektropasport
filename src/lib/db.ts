@@ -15,6 +15,7 @@ import {
   type RequestTypeCode,
 } from "@/lib/request-codes";
 import type { PanelHouseSnapshot } from "@/lib/house-insight";
+import { countPanelDevices } from "@/lib/panel-rails";
 import { DbError, dbErrorResponse } from "@/lib/db-error";
 export { DbError, dbErrorResponse } from "@/lib/db-error";
 import { getSql, jsonbParam } from "@/lib/sql-client";
@@ -906,6 +907,7 @@ export async function insertPanel(
     sanitizeJsonValue(panel.houseSnapshot ?? null),
   );
   const createdAt = panel.createdAt ?? new Date().toISOString();
+  const breakers = countPanelDevices(panel);
   await sql`
     INSERT INTO panels (
       id, telegram_user_id, type, title, address, last_check, breakers, safety,
@@ -919,7 +921,7 @@ export async function insertPanel(
       ${panel.title},
       ${panel.address},
       ${panel.lastCheck},
-      ${panel.breakers}::int,
+      ${breakers}::int,
       ${panel.safety ?? null}::int,
       ${devicesJson}::jsonb,
       ${panel.linesCount ?? null}::int,
@@ -938,7 +940,10 @@ export async function insertPanel(
       NOW()
     )
     ON CONFLICT (id) DO UPDATE SET
-      title = EXCLUDED.title,
+      title = CASE
+        WHEN panels.named IS TRUE THEN panels.title
+        ELSE EXCLUDED.title
+      END,
       address = CASE
         WHEN EXCLUDED.address IS NOT NULL
           AND BTRIM(EXCLUDED.address) <> ''
@@ -957,7 +962,10 @@ export async function insertPanel(
         ELSE panels.devices
       END,
       lines_count = COALESCE(EXCLUDED.lines_count, panels.lines_count),
-      named = EXCLUDED.named,
+      named = CASE
+        WHEN panels.named IS TRUE OR EXCLUDED.named IS TRUE THEN TRUE
+        ELSE FALSE
+      END,
       phases = EXCLUDED.phases,
       power_kw = EXCLUDED.power_kw,
       has_ground = COALESCE(EXCLUDED.has_ground, panels.has_ground),
@@ -1086,10 +1094,6 @@ export async function updatePanel(
   const houseSnapshotJson = jsonbParam(sanitizeJsonValue(houseSnapshot));
   const lastCheck =
     patch.lastCheck !== undefined ? patch.lastCheck : existing.lastCheck;
-  const breakers =
-    typeof patch.breakers === "number" && patch.breakers > 0
-      ? patch.breakers
-      : existing.breakers;
   const linesCount =
     patch.linesCount !== undefined
       ? patch.linesCount
@@ -1110,6 +1114,14 @@ export async function updatePanel(
   const appliancesUpdatedAt = writingAppliances
     ? (patch.appliancesUpdatedAt ?? new Date().toISOString())
     : null;
+
+  const breakers =
+    typeof patch.breakers === "number" && patch.breakers > 0
+      ? patch.breakers
+      : countPanelDevices({
+          devices: nextDevices ?? existing.devices,
+          breakers: existing.breakers,
+        });
 
   const devicesJson =
     nextDevices != null ? jsonbParam(sanitizeJsonValue(nextDevices)) : null;

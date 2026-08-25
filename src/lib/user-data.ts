@@ -19,6 +19,7 @@ import {
   type RequestTypeCode,
 } from "@/lib/request-codes";
 import { sortHomeItemsByRecency } from "@/lib/panel-list-meta";
+import { countPanelDevices } from "@/lib/panel-rails";
 
 const LOCAL_KEY = "elektropasport:home-items";
 
@@ -372,14 +373,14 @@ function pickTitleFields(
       titleUpdatedAt: primary.titleUpdatedAt,
     };
   }
-  if (fallback.named && fallback.title.trim()) {
-    if (!primary.named || primary.title.trim() !== fallback.title.trim()) {
-      return {
-        title: fallback.title,
-        named: true,
-        titleUpdatedAt: fallback.titleUpdatedAt ?? primary.titleUpdatedAt,
-      };
-    }
+  // No timestamps: keep a named fallback only when primary is still unnamed
+  // (protects in-progress rename). If both are named, trust primary (server/write).
+  if (fallback.named && fallback.title.trim() && !primary.named) {
+    return {
+      title: fallback.title,
+      named: true,
+      titleUpdatedAt: fallback.titleUpdatedAt ?? primary.titleUpdatedAt,
+    };
   }
   return {
     title: primary.title || fallback.title,
@@ -395,6 +396,14 @@ function mergePanelForPersist(
   if (!stored) return panel;
   const appliancesPick = pickAppliances(panel, stored);
   const titlePick = pickTitleFields(panel, stored);
+  const devices = preferNonEmptyArray(panel.devices, stored.devices);
+  const breakers = countPanelDevices({
+    devices,
+    breakers:
+      typeof panel.breakers === "number" && panel.breakers > 0
+        ? panel.breakers
+        : stored.breakers,
+  });
   return {
     ...stored,
     ...panel,
@@ -405,14 +414,11 @@ function mergePanelForPersist(
         : stored.address,
     houseSnapshot: panel.houseSnapshot ?? stored.houseSnapshot,
     photoDataUrl: panel.photoDataUrl || stored.photoDataUrl,
-    devices: preferNonEmptyArray(panel.devices, stored.devices),
+    devices,
     wires: preferNonEmptyArray(panel.wires, stored.wires),
     appliances: appliancesPick.appliances,
     appliancesUpdatedAt: appliancesPick.appliancesUpdatedAt,
-    breakers:
-      typeof panel.breakers === "number" && panel.breakers > 0
-        ? panel.breakers
-        : stored.breakers,
+    breakers,
   };
 }
 
@@ -601,6 +607,32 @@ async function syncPanelPatchToServer(
       }
     }
     throw new Error(await parseError(res));
+  }
+
+  // Confirm server accepted the rename/patch and refresh local cache from it.
+  try {
+    const data = (await res.json()) as { panel?: PanelObject };
+    if (data.panel?.id) {
+      const local = items.find(
+        (item): item is PanelObject =>
+          item.kind === "panel" && item.id === data.panel!.id,
+      );
+      upsertLocalItem(
+        mergePanelForPersist(
+          {
+            ...data.panel,
+            titleUpdatedAt:
+              sanitized.title !== undefined
+                ? (local?.titleUpdatedAt ?? new Date().toISOString())
+                : data.panel.titleUpdatedAt,
+            photoDataUrl: local?.photoDataUrl ?? data.panel.photoDataUrl,
+          },
+          local,
+        ),
+      );
+    }
+  } catch {
+    // local patch already written
   }
 }
 

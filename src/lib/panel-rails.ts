@@ -1,7 +1,39 @@
 import type { Device } from "@/types";
+import type { PanelObject } from "@/types";
 
 /** Standard DIN rail width in modules (typical residential panel). */
 export const MAX_MODULES_PER_RAIL = 18;
+
+/** Rail devices only — same basis as scheme / game (no PE/N bus bars). */
+export function isRailDevice(device: Device): boolean {
+  return device.type !== "pe_bus" && device.type !== "n_bus";
+}
+
+export function countPanelDevices(
+  panel: Pick<PanelObject, "devices" | "breakers"> | null | undefined,
+): number {
+  if (Array.isArray(panel?.devices)) {
+    return panel.devices.filter(isRailDevice).length;
+  }
+  return typeof panel?.breakers === "number" && panel.breakers > 0
+    ? panel.breakers
+    : 0;
+}
+
+export function deviceWordRu(count: number): string {
+  const n10 = count % 10;
+  const n100 = count % 100;
+  if (n10 === 1 && n100 !== 11) return "прибор";
+  if (n10 >= 2 && n10 <= 4 && (n100 < 12 || n100 > 14)) return "прибора";
+  return "приборов";
+}
+
+export function formatPanelDeviceCount(
+  panel: Pick<PanelObject, "devices" | "breakers"> | null | undefined,
+): string {
+  const count = countPanelDevices(panel);
+  return `${count} ${deviceWordRu(count)}`;
+}
 
 export function deviceModules(device: Device): number {
   if (device.modules && device.modules > 0) return device.modules;
@@ -51,9 +83,7 @@ export function groupDevicesByRail(
   devices: Device[] | undefined,
   railCount?: number,
 ): Device[][] {
-  const list = (devices ?? []).filter(
-    (device) => device.type !== "pe_bus" && device.type !== "n_bus",
-  );
+  const list = (devices ?? []).filter(isRailDevice);
   const maxRail =
     list.reduce((max, device) => Math.max(max, device.rail ?? 0), 0) + 1;
   const numRails = Math.max(
@@ -70,9 +100,7 @@ export function groupDevicesByRail(
 
 /** Infer row count from device.rail when panel.railCount was not persisted. */
 export function deriveRailCount(devices?: Device[] | null): number {
-  const list = (devices ?? []).filter(
-    (device) => device.type !== "pe_bus" && device.type !== "n_bus",
-  );
+  const list = (devices ?? []).filter(isRailDevice);
   if (list.length === 0) return 1;
   const maxRail =
     list.reduce((max, device) => Math.max(max, device.rail ?? 0), 0) + 1;
