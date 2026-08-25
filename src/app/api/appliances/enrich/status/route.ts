@@ -18,8 +18,11 @@ export async function GET() {
 
     return Response.json({
       icecat: {
-        configured: isIcecatConfigured(),
-        ...probe,
+        usernameConfigured: isIcecatConfigured(),
+        probeOk: probe.ok,
+        status: probe.status,
+        detail: probe.detail,
+        sampleTitle: probe.sampleTitle,
         meaning:
           probe.ok
             ? "Open Icecat отвечает — бесплатный доступ к Open-каталогу работает"

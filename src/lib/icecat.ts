@@ -281,16 +281,17 @@ export async function searchIcecatProduct(options: {
   }
 
   const body = await res.text().catch(() => "");
-  let payload: {
+  type IcecatPayload = {
     data?: Record<string, unknown>;
     msg?: string;
     Message?: string;
     Error?: string;
     Code?: number;
     StatusCode?: number;
-  } | null = null;
+  };
+  let payload: IcecatPayload | null = null;
   try {
-    payload = body ? (JSON.parse(body) as typeof payload) : null;
+    payload = body ? (JSON.parse(body) as IcecatPayload) : null;
   } catch {
     payload = null;
   }
@@ -302,14 +303,16 @@ export async function searchIcecatProduct(options: {
 
   // Some Icecat errors still return HTTP 200 with StatusCode/Code.
   const code = payload?.StatusCode ?? payload?.Code;
-  if (typeof code === "number" && code !== 0 && code !== 1 && !payload?.data) {
-    // Code 1 can mean mandatory fields in some versions; 4 = bad identifier.
+  if (typeof code === "number" && code !== 0 && !payload?.data) {
     if (code === 4) {
       return {
         configured: true,
         hit: null,
         status: "not_found",
-        detail: payload?.Message || payload?.Error || "Product identifier not correct",
+        detail:
+          payload?.Message ||
+          payload?.Error ||
+          "Product identifier not correct",
       };
     }
     if (code === 3 || code === 7) {
@@ -317,7 +320,10 @@ export async function searchIcecatProduct(options: {
         configured: true,
         hit: null,
         status: "auth_error",
-        detail: payload?.Message || payload?.Error || "Icecat user/token mismatch",
+        detail:
+          payload?.Message ||
+          payload?.Error ||
+          "Icecat user/token mismatch",
       };
     }
   }
