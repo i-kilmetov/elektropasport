@@ -457,19 +457,27 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
   }, []);
 
   useEffect(() => {
-    if (!canUseServerAuth()) {
-      setPdConsentChecked(true);
-      setPdConsentReady(true);
-      return;
-    }
     let cancelled = false;
-    void fetchPdConsentStatus().then((accepted) => {
-      if (cancelled) return;
-      setPdConsentReady(accepted);
-      setPdConsentChecked(true);
-    });
+
+    const checkPdConsent = () => {
+      if (!canUseServerAuth()) {
+        setPdConsentChecked(true);
+        setPdConsentReady(true);
+        return;
+      }
+      void fetchPdConsentStatus().then((accepted) => {
+        if (cancelled) return;
+        setPdConsentReady(accepted);
+        setPdConsentChecked(true);
+      });
+    };
+
+    checkPdConsent();
+    const retryTimer = window.setTimeout(checkPdConsent, 500);
+
     return () => {
       cancelled = true;
+      window.clearTimeout(retryTimer);
     };
   }, []);
 

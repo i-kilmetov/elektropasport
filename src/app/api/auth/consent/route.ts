@@ -34,10 +34,14 @@ export async function GET(request: Request) {
       }
     }
 
-    return Response.json({
+    const response = Response.json({
       accepted,
       version: accepted ? PD_CONSENT_VERSION : null,
     });
+    if (accepted) {
+      response.headers.set("Set-Cookie", pdConsentCookieHeader());
+    }
+    return response;
   } catch (error) {
     return dbErrorResponse(error) ?? authErrorResponse(error);
   }

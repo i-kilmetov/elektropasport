@@ -1,5 +1,5 @@
 /** Bump when consent text or linked documents change materially. */
-export const PD_CONSENT_VERSION = "1.0";
+export const PD_CONSENT_VERSION = "1.1";
 
 export const PD_CONSENT_COOKIE = "ep_pd_consent";
 

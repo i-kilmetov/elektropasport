@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   title: "Политика конфиденциальности — Током",
 };
 
-const UPDATED = "23 августа 2026 г.";
+const UPDATED = "25 августа 2026 г.";
 
 export default function PrivacyPolicyPage() {
   return (
@@ -37,8 +37,8 @@ export default function PrivacyPolicyPage() {
             данные Telegram-аккаунта: идентификатор, имя, фамилия, username;
           </li>
           <li>
-            контактные данные профиля: телефон, e-mail, дата рождения (если вы
-            их указали);
+            контактные данные профиля: номер телефона, адрес электронной почты,
+            дата рождения (если вы их указали);
           </li>
           <li>
             адрес объекта (город, улица, дом), сведения о доме (год постройки,
@@ -88,7 +88,11 @@ export default function PrivacyPolicyPage() {
       </LegalSection>
 
       <LegalSection title="6. Передача третьим лицам">
-        <p>Данные могут передаваться:</p>
+        <p>
+          Регистрируясь в сервисе, вы соглашаетесь на передачу номера телефона,
+          даты рождения и адреса электронной почты — в объёме, необходимом для
+          работы сервиса и оказания услуг. Данные могут передаваться:
+        </p>
         <ul className="list-disc space-y-1 pl-5">
           <li>
             <strong>Telegram</strong> — для авторизации (на стороне Telegram

@@ -12,10 +12,12 @@ import {
   recordUserPdConsent,
   updateStoredUserProfile,
   upsertUser,
+  userHasPdConsent,
 } from "@/lib/db";
 import {
   isPdConsentCookieValid,
   PD_CONSENT_VERSION,
+  pdConsentCookieHeader,
   readPdConsentCookie,
 } from "@/lib/pd-consent";
 import {
@@ -105,6 +107,8 @@ async function finishLogin(
     await recordUserPdConsent(user.telegramId, PD_CONSENT_VERSION);
   }
 
+  const alreadyConsented = await userHasPdConsent(user.telegramId);
+
   // Keep profile display name in sync when Telegram provides one and profile is empty.
   const existing = await getStoredUserProfile(user.telegramId);
   if (!existing.firstName && !existing.lastName && (user.firstName || user.lastName)) {
@@ -121,14 +125,19 @@ async function finishLogin(
     lastName: user.lastName,
     username: user.username,
   });
-  return new NextResponse(sessionHtml(user, token), {
-    headers: {
-      "Content-Type": "text/html; charset=utf-8",
-      "Set-Cookie": oauthCookieHeader(null, {
-        domain: new URL(resolveRequestOrigin(request)).host,
-      }),
-    },
+  const response = new NextResponse(sessionHtml(user, token), {
+    headers: { "Content-Type": "text/html; charset=utf-8" },
   });
+  response.headers.append(
+    "Set-Cookie",
+    oauthCookieHeader(null, {
+      domain: new URL(resolveRequestOrigin(request)).host,
+    }),
+  );
+  if (alreadyConsented || isPdConsentCookieValid(consentVersion)) {
+    response.headers.append("Set-Cookie", pdConsentCookieHeader());
+  }
+  return response;
 }
 
 export async function GET(request: Request) {

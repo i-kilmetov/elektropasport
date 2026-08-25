@@ -105,7 +105,6 @@ export function LeadContactScreen({
     () => getUserProfile().phoneDigits?.replace(/\D/g, "").slice(0, 10) ?? "",
   );
   const [preferTelegram, setPreferTelegram] = useState(false);
-  const [consent, setConsent] = useState(false);
   const [displayName, setDisplayName] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [publicCode, setPublicCode] = useState<string | null>(null);
@@ -118,7 +117,8 @@ export function LeadContactScreen({
 
   const phoneDisplay = useMemo(() => formatPhoneDigits(digits), [digits]);
   const phoneValid = digits.length === 10;
-  const canSubmit = phoneValid && consent && !submitting;
+  const canSubmit = phoneValid && !submitting;
+  const isOnlineConsultation = serviceType === "online_consultation";
 
   const estimatedPriceRub = resolveEstimatedPriceRub(
     serviceType,
@@ -446,7 +446,11 @@ export function LeadContactScreen({
         <p className="text-[14px] leading-relaxed text-sky-900/75">
           {variant === "master"
             ? "Оставьте номер телефона — менеджер сервиса позвонит в течение рабочего дня, обычно в течение нескольких часов."
-            : "Оставьте номер телефона — свяжемся в течение рабочего дня, обычно в течение нескольких часов, чтобы уточнить детали и подобрать мастера."}
+            : isOnlineConsultation
+              ? preferTelegram
+                ? "Онлайн-консультация пройдёт в Telegram. Если аккаунт закрыт для сообщений — позвоним на указанный номер."
+                : "Онлайн-консультация пройдёт по телефону на указанный номер."
+              : "Оставьте номер телефона — свяжемся в течение рабочего дня, обычно в течение нескольких часов, чтобы уточнить детали и подобрать мастера."}
         </p>
       </div>
 
@@ -496,7 +500,20 @@ export function LeadContactScreen({
         )}
       </div>
       <AnimatePresence initial={false}>
-        {variant === "install" && preferTelegram && (
+        {variant === "install" && isOnlineConsultation && (
+          <motion.p
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="mb-3 overflow-hidden text-[13px] leading-relaxed text-zinc-500"
+          >
+            {preferTelegram
+              ? "Консультация в Telegram. Если аккаунт закрыт для сообщений — позвоним."
+              : "Консультация по телефону. Нажмите синюю кнопку Telegram справа, если удобнее переписка."}
+          </motion.p>
+        )}
+        {variant === "install" && !isOnlineConsultation && preferTelegram && (
           <motion.p
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
@@ -509,19 +526,6 @@ export function LeadContactScreen({
           </motion.p>
         )}
       </AnimatePresence>
-
-      <label className="mb-4 flex cursor-pointer items-start gap-3 rounded-[18px] border border-black/8 bg-zinc-50 p-4">
-        <input
-          type="checkbox"
-          checked={consent}
-          onChange={(e) => setConsent(e.target.checked)}
-          className="mt-1 h-4 w-4 shrink-0 rounded border-black/20 accent-zinc-800"
-        />
-        <span className="text-[13px] leading-relaxed text-zinc-600">
-          Я согласен(а) на обработку персональных данных (номер телефона) для
-          связи по заявке.
-        </span>
-      </label>
 
       <div className="mt-auto">
         <Button
