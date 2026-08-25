@@ -194,6 +194,13 @@ function parseSuppliers(xml: string): Map<string, string> {
 }
 
 function splitCsvLine(line: string): string[] {
+  // Open Icecat files.index is tab-separated; some dumps use comma/semicolon CSV.
+  const tabCount = (line.match(/\t/g) ?? []).length;
+  const commaCount = (line.match(/,/g) ?? []).length;
+  if (tabCount > 0 && tabCount >= commaCount) {
+    return line.split("\t").map((v) => v.trim());
+  }
+
   const out: string[] = [];
   let cur = "";
   let inQuotes = false;
@@ -378,8 +385,14 @@ export async function syncIcecatApplianceCatalog(): Promise<{
         iModel: idx(["model_name", "modelname", "name"]),
         iOnMarket: idx(["on_market", "onmarket"]),
       };
-      // Icecat index often starts with path; product_id is usually column 1.
-      if (header.iProductId < 0) header.iProductId = idx(["path"]) >= 0 ? 1 : 1;
+      if (header.iProductId < 0 && headerCols[0] === "path") {
+        header.iProductId = 1;
+      }
+      if (header.iSupplier < 0) header.iSupplier = 4;
+      if (header.iProdId < 0) header.iProdId = 5;
+      if (header.iCat < 0) header.iCat = 6;
+      if (header.iModel < 0) header.iModel = 11;
+      if (header.iOnMarket < 0) header.iOnMarket = 9;
       headerParsed = true;
       continue;
     }
