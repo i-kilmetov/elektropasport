@@ -89,13 +89,13 @@ export async function GET(request: Request) {
 
   const keyed = setupKeyAuthorized(request);
   const total = await countIcecatCatalog().catch(() => null);
-  if (!keyed && !(total !== null && total <= 50_000)) {
+  if (!keyed && total !== 0) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
   return Response.json({
     syncConfigured: isIcecatCatalogSyncConfigured(),
     catalogProducts: total,
-    bootstrapAllowed: total !== null && total <= 50_000,
-    hint: "POST this URL with x-setup-key (or while catalog bootstrap is open) to sync Open Icecat index",
+    bootstrapAllowed: total === 0,
+    hint: "POST this URL with x-setup-key (or Vercel Cron) to sync Open Icecat index",
   });
 }
