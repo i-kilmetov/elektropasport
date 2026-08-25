@@ -153,10 +153,39 @@ export function buildApplianceDocUrls(
   }
 
   // Universal PDF index — PDFs stay on the source host.
+  const manualsLibInstruction = `https://www.manualslib.com/search.php?q=${encodeURIComponent(`${brand} ${model} installation`)}`;
+  const manualsLibManual = `https://www.manualslib.com/search.php?q=${encodeURIComponent(`${brand} ${model} user manual`)}`;
   return {
-    instructionUrl: `https://www.manualslib.com/search.php?q=${encodeURIComponent(`${brand} ${model} installation`)}`,
-    manualUrl: `https://www.manualslib.com/search.php?q=${encodeURIComponent(`${brand} ${model} user manual`)}`,
+    instructionUrl: manualsLibInstruction,
+    manualUrl: manualsLibManual,
   };
+}
+
+/** Public EPREL group search (no API key). Null when product group is unsupported. */
+export function buildEprelPublicUrl(
+  kind: CatalogApplianceKind,
+  brand: string,
+  model: string,
+): string | null {
+  // Lazy import avoided — keep URL builder local to enrichment for client bundles.
+  const groups: Partial<Record<CatalogApplianceKind, string>> = {
+    washer: "washingmachines",
+    dryer: "tumbledriers",
+    dishwasher: "dishwashers",
+    fridge: "refrigeratingappliances",
+    oven: "ovens",
+    ac: "airconditioners",
+    boiler: "waterheaters",
+    tv: "electronicdisplays",
+    heater: "localspaceheaters",
+  };
+  const group = groups[kind];
+  if (!group) return null;
+  const params = new URLSearchParams();
+  if (brand.trim()) params.set("supplierOrTrademark", brand.trim());
+  if (model.trim()) params.set("modelIdentifier", model.trim());
+  const qs = params.toString();
+  return `https://eprel.ec.europa.eu/screen/product/${group}${qs ? `?${qs}` : ""}`;
 }
 
 function pick<T>(items: T[], seed: string): T {

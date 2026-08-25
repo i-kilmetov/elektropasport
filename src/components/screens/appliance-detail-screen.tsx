@@ -61,8 +61,9 @@ export function ApplianceDetailScreen({
   );
 
   const specs = useMemo(() => {
-    if (catalog?.specs?.length) return catalog.specs;
+    // Prefer snapshot saved on the appliance (may include EPREL enrichment).
     if (appliance.specs?.length) return appliance.specs;
+    if (catalog?.specs?.length) return catalog.specs;
     return [
       {
         label: "Максимальная мощность",
@@ -72,17 +73,28 @@ export function ApplianceDetailScreen({
   }, [appliance.powerW, appliance.specs, catalog?.specs]);
 
   const instructionUrl =
-    catalog?.instructionUrl ||
     appliance.manuals?.find((item) =>
       item.title.toLowerCase().includes("инструк"),
-    )?.url;
+    )?.url || catalog?.instructionUrl;
   const manualUrl =
-    catalog?.manualUrl ||
     appliance.manuals?.find((item) =>
       item.title.toLowerCase().includes("руковод"),
     )?.url ||
+    catalog?.manualUrl ||
     appliance.manuals?.[1]?.url ||
     appliance.manuals?.[0]?.url;
+  const extraDocs = useMemo(
+    () =>
+      (appliance.manuals ?? []).filter((item) => {
+        const t = item.title.toLowerCase();
+        return (
+          !t.includes("инструк") &&
+          !t.includes("руковод") &&
+          Boolean(item.url?.trim())
+        );
+      }),
+    [appliance.manuals],
+  );
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -245,6 +257,29 @@ export function ApplianceDetailScreen({
             </span>
           </button>
         </div>
+
+        {extraDocs.length > 0 && (
+          <div className="mt-3 space-y-2">
+            {extraDocs.map((doc) => (
+              <button
+                key={`${doc.title}-${doc.url}`}
+                type="button"
+                onClick={() => openExternalDoc(doc.url)}
+                className="flex w-full items-center justify-between gap-3 rounded-[16px] border border-black/8 bg-white px-4 py-3 text-left transition-colors hover:bg-zinc-50"
+              >
+                <span className="min-w-0">
+                  <span className="block text-[14px] font-semibold text-zinc-900">
+                    {doc.title}
+                  </span>
+                  <span className="block text-[12px] text-zinc-500">
+                    Открыть на сайте ЕС
+                  </span>
+                </span>
+                <ExternalLink className="h-4 w-4 shrink-0 text-zinc-400" />
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <AnimatePresence>
