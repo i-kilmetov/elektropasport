@@ -61,29 +61,30 @@ function AnimatedT({
     : { duration: 0.2 };
 
   return (
-    <motion.span
+    <span
       className="relative inline-block shrink-0"
-      style={{
-        ...wordmarkStyle,
-        paddingTop: STRIPE_PAD_TOP,
-        transformOrigin: "center center",
-      }}
-      initial={{ rotate: 180, opacity: 0, scale: 0.92 }}
-      animate={{
-        rotate: [180, 180, 0],
-        opacity: 1,
-        scale: 1,
-      }}
-      transition={{
-        rotate: {
-          duration: T_ROTATE_DURATION_S,
-          times: [0, T_INVERTED_HOLD_FRACTION, 1],
-          ease: [0.22, 1, 0.36, 1],
-        },
-        opacity: { duration: 0.35, ease: [0.22, 1, 0.36, 1] },
-        scale: { duration: 0.35, ease: [0.22, 1, 0.36, 1] },
-      }}
+      style={{ paddingTop: STRIPE_PAD_TOP }}
     >
+      <motion.span
+        className="relative inline-block"
+        style={{
+          ...wordmarkStyle,
+          transformOrigin: "50% 100%",
+        }}
+        initial={{ rotate: 180, opacity: 1, scale: 1 }}
+        animate={{
+          rotate: [180, 180, 0],
+          opacity: 1,
+          scale: 1,
+        }}
+        transition={{
+          rotate: {
+            duration: T_ROTATE_DURATION_S,
+            times: [0, T_INVERTED_HOLD_FRACTION, 1],
+            ease: [0.22, 1, 0.36, 1],
+          },
+        }}
+      >
       <span className="relative inline-block leading-none">
         <span
           aria-hidden
@@ -119,6 +120,7 @@ function AnimatedT({
         Т
       </span>
     </motion.span>
+    </span>
   );
 }
 
@@ -170,17 +172,10 @@ function BrandMark({
         <AnimatedT pulsing={stripesPulsing} wordmarkStyle={wordmarkStyle} />
 
         <motion.span
-          className="inline-flex overflow-hidden"
-          initial={{ width: 0, opacity: 0 }}
-          animate={{
-            width: restRevealed ? "auto" : 0,
-            opacity: restRevealed ? 1 : 0,
-          }}
+          className="inline-flex overflow-visible"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: restRevealed ? 1 : 0 }}
           transition={{
-            width: {
-              duration: 0.9,
-              ease: [0.22, 1, 0.36, 1],
-            },
             opacity: {
               duration: 0.45,
               delay: restRevealed ? 0.1 : 0,
@@ -192,11 +187,11 @@ function BrandMark({
             <motion.span
               key={`${letter}-${index}`}
               className="inline-block"
-              initial={{ opacity: 0, y: 16, filter: "blur(8px)" }}
+              initial={{ opacity: 0, filter: "blur(8px)" }}
               animate={
                 restRevealed
-                  ? { opacity: 1, y: 0, filter: "blur(0px)" }
-                  : { opacity: 0, y: 16, filter: "blur(8px)" }
+                  ? { opacity: 1, filter: "blur(0px)" }
+                  : { opacity: 0, filter: "blur(8px)" }
               }
               transition={{
                 delay: restRevealed ? 0.16 + index * 0.07 : 0,
@@ -376,8 +371,8 @@ export function BrandAuthIntro({
       }}
       aria-label="Током — вход"
     >
-      <div className="flex min-h-0 flex-1 items-center justify-center">
-        <div ref={logoRef} className="w-max">
+      <div className="relative min-h-0 flex-1 w-full">
+        <div ref={logoRef} className="absolute top-1/2 left-1/2 w-max -translate-x-1/2 -translate-y-1/2">
           <BrandMark
             tagline=""
             taglineVisible={false}
@@ -567,19 +562,17 @@ export function BrandLaunchWaitlist({
       }}
       aria-label="Током — подписка на открытие"
     >
-      <div className="flex min-h-0 flex-1 flex-col items-center justify-center">
+      <div className="relative min-h-0 flex-1 w-full">
         <div
-          className="flex w-full flex-col items-center"
-          style={{ maxWidth: columnWidth }}
+          ref={logoRef}
+          className="absolute top-1/2 left-1/2 w-max -translate-x-1/2 -translate-y-1/2"
         >
-          <div ref={logoRef} className="w-max">
-            <BrandMark
-              tagline=""
-              taglineVisible={false}
-              stripesPulsing={animation.stripesPulsing}
-              restRevealed={animation.restRevealed}
-            />
-          </div>
+          <BrandMark
+            tagline=""
+            taglineVisible={false}
+            stripesPulsing={animation.stripesPulsing}
+            restRevealed={animation.restRevealed}
+          />
         </div>
       </div>
 
@@ -600,7 +593,7 @@ export function BrandLaunchWaitlist({
         ) : (
           <div className="space-y-3">
             <motion.div
-              className="w-full text-left text-[15px] font-medium leading-snug text-[#111113]/90"
+              className="w-full text-left text-[15px] font-normal leading-snug text-[#111113]/90"
               style={{ fontFamily: "var(--font-geologica)" }}
               initial={false}
               animate={{
@@ -609,12 +602,15 @@ export function BrandLaunchWaitlist({
               }}
               transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
             >
-              <p>Ведутся электромонтажные работы.</p>
-              <p>Скоро откроемся.</p>
+              <p>
+                🚧{" "}
+                <span className="line-through decoration-[1.5px]">
+                  Электромонтажные
+                </span>{" "}
+                работы.
+              </p>
+              <p>Сообщить об открытии</p>
             </motion.div>
-            <p className="w-full text-left text-[14px] font-medium text-[#111113]/85">
-              Сообщить об открытии
-            </p>
             <form
               className="launch-email-field mx-auto flex h-14 min-h-14 w-full items-center gap-2 rounded-full bg-[#111113] px-2"
               onSubmit={(event) => {
