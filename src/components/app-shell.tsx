@@ -181,8 +181,37 @@ function pickLivePanelFields(
   remote: PanelObject,
 ): Pick<
   PanelObject,
-  "photoDataUrl" | "devices" | "appliances" | "appliancesUpdatedAt"
+  | "photoDataUrl"
+  | "devices"
+  | "appliances"
+  | "appliancesUpdatedAt"
+  | "title"
+  | "named"
+  | "titleUpdatedAt"
 > {
+  const liveTitleAt = live.titleUpdatedAt
+    ? Date.parse(live.titleUpdatedAt)
+    : 0;
+  const remoteTitleAt = remote.titleUpdatedAt
+    ? Date.parse(remote.titleUpdatedAt)
+    : 0;
+  const titleFields =
+    liveTitleAt > remoteTitleAt ||
+    (liveTitleAt === remoteTitleAt &&
+      Boolean(live.named) &&
+      live.title.trim() &&
+      live.title !== remote.title)
+      ? {
+          title: live.title,
+          named: live.named ?? true,
+          titleUpdatedAt: live.titleUpdatedAt ?? remote.titleUpdatedAt,
+        }
+      : {
+          title: remote.title,
+          named: remote.named ?? live.named,
+          titleUpdatedAt: remote.titleUpdatedAt ?? live.titleUpdatedAt,
+        };
+
   const liveAt = live.appliancesUpdatedAt
     ? Date.parse(live.appliancesUpdatedAt)
     : 0;
@@ -191,6 +220,7 @@ function pickLivePanelFields(
     : 0;
   if (liveAt > remoteAt) {
     return {
+      ...titleFields,
       photoDataUrl: remote.photoDataUrl || live.photoDataUrl,
       devices:
         (remote.devices?.length ?? 0) > 0 ? remote.devices : live.devices,
@@ -200,6 +230,7 @@ function pickLivePanelFields(
   }
   if (remoteAt > liveAt) {
     return {
+      ...titleFields,
       photoDataUrl: remote.photoDataUrl || live.photoDataUrl,
       devices:
         (remote.devices?.length ?? 0) > 0 ? remote.devices : live.devices,
@@ -208,6 +239,7 @@ function pickLivePanelFields(
     };
   }
   return {
+    ...titleFields,
     photoDataUrl: remote.photoDataUrl || live.photoDataUrl,
     devices: (remote.devices?.length ?? 0) > 0 ? remote.devices : live.devices,
     appliances: mergeAppliancesUnion(remote.appliances, live.appliances),
@@ -1242,10 +1274,11 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
   const renamePanel = useCallback(
     (name: string) => {
       if (!activePanelId) return;
+      const titleUpdatedAt = new Date().toISOString();
       setItems((prev) =>
         prev.map((item) =>
           item.kind === "panel" && item.id === activePanelId
-            ? { ...item, title: name, named: true }
+            ? { ...item, title: name, named: true, titleUpdatedAt }
             : item,
         ),
       );
@@ -1266,6 +1299,7 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
   );
 
   const renameHomeItem = useCallback((id: string, name: string) => {
+    const titleUpdatedAt = new Date().toISOString();
     setItems((prev) => {
       const item = prev.find((entry) => entry.id === id);
       if (item?.kind === "panel") {
@@ -1292,7 +1326,7 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
       return prev.map((entry) => {
         if (entry.id !== id) return entry;
         if (entry.kind === "panel") {
-          return { ...entry, title: name, named: true };
+          return { ...entry, title: name, named: true, titleUpdatedAt };
         }
         return { ...entry, title: name };
       });

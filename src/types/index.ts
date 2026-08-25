@@ -139,6 +139,8 @@ export interface PanelObject {
   houseSnapshot?: PanelHouseSnapshot;
   /** ISO timestamp for stable list ordering */
   createdAt?: string;
+  /** ISO timestamp of last title rename — protects against stale sync overwrites */
+  titleUpdatedAt?: string;
 }
 
 export type InstallRequestStatus =

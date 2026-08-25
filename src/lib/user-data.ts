@@ -136,6 +136,9 @@ function applyPanelPatch(
 
   if (patch.title !== undefined) next.title = patch.title;
   if (patch.named !== undefined) next.named = patch.named;
+  if (patch.title !== undefined) {
+    next.titleUpdatedAt = new Date().toISOString();
+  }
   if (patch.safety !== undefined) next.safety = patch.safety;
   if (patch.phases !== undefined) next.phases = patch.phases;
   if (patch.powerKw !== undefined) next.powerKw = patch.powerKw;
@@ -332,15 +335,70 @@ function pickAppliances(
   };
 }
 
+function titleTouchMs(panel?: PanelObject | null): number {
+  if (!panel?.titleUpdatedAt) return 0;
+  const ms = Date.parse(panel.titleUpdatedAt);
+  return Number.isFinite(ms) ? ms : 0;
+}
+
+/**
+ * Prefer the newer rename. Without timestamps, prefer a user-named title on the
+ * fallback (usually local) so a stale server/list payload cannot undo a rename.
+ */
+function pickTitleFields(
+  primary: PanelObject,
+  fallback?: PanelObject | null,
+): Pick<PanelObject, "title" | "named" | "titleUpdatedAt"> {
+  if (!fallback) {
+    return {
+      title: primary.title,
+      named: primary.named,
+      titleUpdatedAt: primary.titleUpdatedAt,
+    };
+  }
+  const primaryAt = titleTouchMs(primary);
+  const fallbackAt = titleTouchMs(fallback);
+  if (fallbackAt > primaryAt) {
+    return {
+      title: fallback.title,
+      named: fallback.named,
+      titleUpdatedAt: fallback.titleUpdatedAt,
+    };
+  }
+  if (primaryAt > fallbackAt) {
+    return {
+      title: primary.title,
+      named: primary.named,
+      titleUpdatedAt: primary.titleUpdatedAt,
+    };
+  }
+  if (fallback.named && fallback.title.trim()) {
+    if (!primary.named || primary.title.trim() !== fallback.title.trim()) {
+      return {
+        title: fallback.title,
+        named: true,
+        titleUpdatedAt: fallback.titleUpdatedAt ?? primary.titleUpdatedAt,
+      };
+    }
+  }
+  return {
+    title: primary.title || fallback.title,
+    named: primary.named ?? fallback.named,
+    titleUpdatedAt: primary.titleUpdatedAt ?? fallback.titleUpdatedAt,
+  };
+}
+
 function mergePanelForPersist(
   panel: PanelObject,
   stored?: PanelObject | null,
 ): PanelObject {
   if (!stored) return panel;
   const appliancesPick = pickAppliances(panel, stored);
+  const titlePick = pickTitleFields(panel, stored);
   return {
     ...stored,
     ...panel,
+    ...titlePick,
     address:
       panel.address && panel.address !== "Добавлен по фото"
         ? panel.address
@@ -757,7 +815,7 @@ function dedupeHomeItems(items: HomeListItem[]): HomeListItem[] {
   return sortHomeItemsByRecency([...byId.values()]);
 }
 
-/** Keep in-memory house/address edits when a stale fetch completes. */
+/** Keep in-memory house/address/title edits when a stale fetch completes. */
 export function mergeHomeItemsWithLocalState(
   fetched: HomeListItem[],
   current: HomeListItem[],
@@ -769,7 +827,12 @@ export function mergeHomeItemsWithLocalState(
     if (item.kind !== "panel") return item;
     const live = currentById.get(item.id);
     if (!live || live.kind !== "panel") return item;
-    return { ...item, ...mergePanelHouseFields(live, item) };
+    const titlePick = pickTitleFields(item, live);
+    return {
+      ...item,
+      ...mergePanelHouseFields(live, item),
+      ...titlePick,
+    };
   });
 
   for (const item of current) {
@@ -1158,16 +1221,18 @@ export async function persistPanelPatch(
     >
   >,
 ): Promise<void> {
-  const sanitized = sanitizePanelPatch(patch);
+  return enqueuePanelOp(id, async () => {
+    const sanitized = sanitizePanelPatch(patch);
 
-  const items = readLocalItems().map((item) =>
-    item.kind === "panel" && item.id === id
-      ? applyPanelPatch(item, sanitized)
-      : item,
-  );
-  writeLocalItems(items);
+    const items = readLocalItems().map((item) =>
+      item.kind === "panel" && item.id === id
+        ? applyPanelPatch(item, sanitized)
+        : item,
+    );
+    writeLocalItems(items);
 
-  await syncPanelPatchToServer(id, sanitized, items);
+    await syncPanelPatchToServer(id, sanitized, items);
+  });
 }
 
 export async function persistDeletePanel(id: string): Promise<void> {
