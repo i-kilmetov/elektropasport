@@ -17,7 +17,7 @@ import {
 import type { PanelHouseSnapshot } from "@/lib/house-insight";
 import { DbError, dbErrorResponse } from "@/lib/db-error";
 export { DbError, dbErrorResponse } from "@/lib/db-error";
-import { getSql } from "@/lib/sql-client";
+import { getSql, jsonbParam } from "@/lib/sql-client";
 export {
   getSql,
   isRussianDatabaseConfigured,
@@ -38,7 +38,7 @@ import { buildInviteUrl } from "@/lib/panel-share";
 let schemaReady: Promise<void> | null = null;
 
 /** Bump when DDL below changes so cold starts re-run migrations once. */
-const SCHEMA_VERSION = "2026-08-25-c";
+const SCHEMA_VERSION = "2026-08-25-d";
 /** One-shot data wipe flag — never re-run after it is written. */
 const FRESH_START_KEY = "fresh_start_2026_08_25_b";
 /** Bumped on each factory wipe so clients drop localStorage orphans. */
@@ -221,6 +221,34 @@ export async function ensureSchema(): Promise<void> {
       await sql`
         ALTER TABLE panels
         ADD COLUMN IF NOT EXISTS appliances_updated_at TIMESTAMPTZ
+      `;
+      // postgres.js + JSON.stringify used to store jsonb *strings* (double-encoded).
+      // Unwrap once so devices/wires/appliances become real arrays again.
+      await sql`
+        UPDATE panels
+        SET devices = (devices #>> '{}')::jsonb
+        WHERE devices IS NOT NULL AND jsonb_typeof(devices) = 'string'
+      `;
+      await sql`
+        UPDATE panels
+        SET wires = (wires #>> '{}')::jsonb
+        WHERE wires IS NOT NULL AND jsonb_typeof(wires) = 'string'
+      `;
+      await sql`
+        UPDATE panels
+        SET appliances = (appliances #>> '{}')::jsonb
+        WHERE appliances IS NOT NULL AND jsonb_typeof(appliances) = 'string'
+      `;
+      await sql`
+        UPDATE panels
+        SET house_snapshot = (house_snapshot #>> '{}')::jsonb
+        WHERE house_snapshot IS NOT NULL AND jsonb_typeof(house_snapshot) = 'string'
+      `;
+      // Photos stay client-only — drop oversized DB blobs that break mobile fetches.
+      await sql`
+        UPDATE panels
+        SET photo_data_url = NULL
+        WHERE photo_data_url IS NOT NULL
       `;
       await sql`
         CREATE TABLE IF NOT EXISTS panel_shares (
@@ -704,7 +732,37 @@ type RequestRow = {
   dispatched_at?: string | null;
 };
 
+function sanitizeJsonValue<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
+/** Recover arrays/objects that were stored as jsonb strings or returned as text. */
+function parseJsonbValue<T>(value: unknown): T | undefined {
+  if (value == null) return undefined;
+  if (typeof value === "object") return value as T;
+  if (typeof value !== "string") return undefined;
+  try {
+    let parsed: unknown = JSON.parse(value);
+    if (typeof parsed === "string") {
+      parsed = JSON.parse(parsed);
+    }
+    if (parsed == null || typeof parsed !== "object") return undefined;
+    return parsed as T;
+  } catch {
+    return undefined;
+  }
+}
+
+function parseJsonbArray<T>(value: unknown): T[] | undefined {
+  const parsed = parseJsonbValue<T[] | T>(value);
+  return Array.isArray(parsed) ? parsed : undefined;
+}
+
 function rowToPanel(row: PanelRow): PanelObject {
+  const devices = parseJsonbArray<Device>(row.devices);
+  const wires = parseJsonbArray<PanelWire>(row.wires);
+  const appliances = parseJsonbArray<HomeAppliance>(row.appliances);
+  const houseSnapshot = parseJsonbValue<PanelHouseSnapshot>(row.house_snapshot);
   return {
     kind: "panel",
     id: row.id,
@@ -714,9 +772,10 @@ function rowToPanel(row: PanelRow): PanelObject {
     lastCheck: row.last_check,
     breakers: row.breakers,
     safety: row.safety,
-    devices: row.devices ?? undefined,
+    devices,
     linesCount: row.lines_count ?? undefined,
-    photoDataUrl: row.photo_data_url ?? undefined,
+    // Photos are client-only; never rehydrate huge data URLs from the DB.
+    photoDataUrl: undefined,
     named: row.named,
     phases:
       row.phases === "1" || row.phases === "3" ? row.phases : undefined,
@@ -727,21 +786,17 @@ function rowToPanel(row: PanelRow): PanelObject {
         : row.has_ground === false
           ? false
           : undefined,
-    houseSnapshot: row.house_snapshot ?? undefined,
+    houseSnapshot,
     railCount:
       typeof row.rail_count === "number" && row.rail_count > 0
         ? row.rail_count
         : undefined,
-    wires: Array.isArray(row.wires) ? row.wires : undefined,
-    appliances: Array.isArray(row.appliances) ? row.appliances : undefined,
+    wires,
+    appliances,
     appliancesUpdatedAt: row.appliances_updated_at ?? undefined,
     sourceShareToken: row.source_share_token ?? undefined,
     createdAt: row.created_at,
   };
-}
-
-function sanitizeJsonValue<T>(value: T): T {
-  return JSON.parse(JSON.stringify(value)) as T;
 }
 
 function rowToRequest(row: RequestRow): InstallRequest {
@@ -841,13 +896,13 @@ export async function insertPanel(
   if (!existing) {
     await assertCanAddPanel(telegramUserId);
   }
-  const devicesJson = JSON.stringify(sanitizeJsonValue(panel.devices ?? []));
-  const wiresJson = JSON.stringify(sanitizeJsonValue(panel.wires ?? []));
-  const appliancesJson = JSON.stringify(
+  const devicesJson = jsonbParam(sanitizeJsonValue(panel.devices ?? []));
+  const wiresJson = jsonbParam(sanitizeJsonValue(panel.wires ?? []));
+  const appliancesJson = jsonbParam(
     sanitizeJsonValue(panel.appliances ?? []),
   );
   const appliancesUpdatedAt = panel.appliancesUpdatedAt ?? null;
-  const houseSnapshotJson = JSON.stringify(
+  const houseSnapshotJson = jsonbParam(
     sanitizeJsonValue(panel.houseSnapshot ?? null),
   );
   const createdAt = panel.createdAt ?? new Date().toISOString();
@@ -868,7 +923,7 @@ export async function insertPanel(
       ${panel.safety ?? null}::int,
       ${devicesJson}::jsonb,
       ${panel.linesCount ?? null}::int,
-      ${panel.photoDataUrl ?? null}::text,
+      ${null}::text,
       ${panel.named ?? false}::boolean,
       ${panel.phases ?? null}::text,
       ${panel.powerKw ?? null}::text,
@@ -895,12 +950,13 @@ export async function insertPanel(
       breakers = EXCLUDED.breakers,
       safety = EXCLUDED.safety,
       devices = CASE
-        WHEN EXCLUDED.devices IS NOT NULL AND jsonb_array_length(EXCLUDED.devices) > 0
+        WHEN EXCLUDED.devices IS NOT NULL
+          AND jsonb_typeof(EXCLUDED.devices) = 'array'
+          AND jsonb_array_length(EXCLUDED.devices) > 0
         THEN EXCLUDED.devices
         ELSE panels.devices
       END,
       lines_count = COALESCE(EXCLUDED.lines_count, panels.lines_count),
-      photo_data_url = COALESCE(EXCLUDED.photo_data_url, panels.photo_data_url),
       named = EXCLUDED.named,
       phases = EXCLUDED.phases,
       power_kw = EXCLUDED.power_kw,
@@ -908,7 +964,9 @@ export async function insertPanel(
       house_snapshot = COALESCE(EXCLUDED.house_snapshot, panels.house_snapshot),
       rail_count = COALESCE(EXCLUDED.rail_count, panels.rail_count),
       wires = CASE
-        WHEN EXCLUDED.wires IS NOT NULL AND jsonb_array_length(EXCLUDED.wires) > 0
+        WHEN EXCLUDED.wires IS NOT NULL
+          AND jsonb_typeof(EXCLUDED.wires) = 'array'
+          AND jsonb_array_length(EXCLUDED.wires) > 0
         THEN EXCLUDED.wires
         ELSE panels.wires
       END,
@@ -925,6 +983,7 @@ export async function insertPanel(
           AND panels.appliances_updated_at IS NULL
           AND (
             panels.appliances IS NULL
+            OR jsonb_typeof(panels.appliances) <> 'array'
             OR jsonb_array_length(COALESCE(panels.appliances, '[]'::jsonb)) = 0
           )
         THEN EXCLUDED.appliances
@@ -1024,7 +1083,7 @@ export async function updatePanel(
     patch.houseSnapshot !== undefined
       ? patch.houseSnapshot
       : (existing.houseSnapshot ?? null);
-  const houseSnapshotJson = JSON.stringify(sanitizeJsonValue(houseSnapshot));
+  const houseSnapshotJson = jsonbParam(sanitizeJsonValue(houseSnapshot));
   const lastCheck =
     patch.lastCheck !== undefined ? patch.lastCheck : existing.lastCheck;
   const breakers =
@@ -1053,14 +1112,12 @@ export async function updatePanel(
     : null;
 
   const devicesJson =
-    nextDevices != null
-      ? JSON.stringify(sanitizeJsonValue(nextDevices))
-      : null;
+    nextDevices != null ? jsonbParam(sanitizeJsonValue(nextDevices)) : null;
   const wiresJson =
-    nextWires != null ? JSON.stringify(sanitizeJsonValue(nextWires)) : null;
+    nextWires != null ? jsonbParam(sanitizeJsonValue(nextWires)) : null;
   const appliancesJson =
     nextAppliances != null
-      ? JSON.stringify(sanitizeJsonValue(nextAppliances))
+      ? jsonbParam(sanitizeJsonValue(nextAppliances))
       : null;
 
   const rows = (await sql`

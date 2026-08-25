@@ -589,10 +589,10 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
             markSplashSeen();
             return;
           }
-          const msg =
-            error instanceof Error
-              ? error.message
-              : "Не удалось загрузить данные";
+          const msg = formatErrorMessage(
+            error,
+            "Не удалось загрузить данные",
+          );
           setItemsError(msg);
           const fallback = epochWiped ? [] : getCachedHomeItems();
           if (fallback.length > 0) {

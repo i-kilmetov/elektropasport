@@ -382,18 +382,21 @@ export function formatErrorMessage(
   if (error == null) return fallback;
   if (typeof error === "string") {
     const trimmed = error.trim();
-    return trimmed && trimmed !== "[object Object]" ? trimmed : fallback;
+    if (!trimmed || trimmed === "[object Object]") return fallback;
+    return humanizeNetworkError(trimmed);
   }
   if (error instanceof Error) {
     const msg = error.message?.trim();
-    if (msg && msg !== "[object Object]") return msg;
+    if (msg && msg !== "[object Object]") return humanizeNetworkError(msg);
     return fallback;
   }
   if (typeof error === "object") {
     const record = error as Record<string, unknown>;
     for (const key of ["message", "error", "detail", "description"] as const) {
       const value = record[key];
-      if (typeof value === "string" && value.trim()) return value.trim();
+      if (typeof value === "string" && value.trim()) {
+        return humanizeNetworkError(value.trim());
+      }
       if (value && typeof value === "object") {
         const nested = formatErrorMessage(value, "");
         if (nested) return nested;
@@ -407,6 +410,20 @@ export function formatErrorMessage(
     }
   }
   return fallback;
+}
+
+/** Safari/WebKit often surfaces network failures as bare "Load failed". */
+function humanizeNetworkError(message: string): string {
+  const lower = message.toLowerCase();
+  if (
+    lower === "load failed" ||
+    lower === "failed to fetch" ||
+    lower === "networkerror when attempting to fetch resource" ||
+    lower === "network request failed"
+  ) {
+    return "Нет связи с сервером. Проверьте интернет и обновите страницу.";
+  }
+  return message;
 }
 
 async function rejectUnlessOk(res: Response): Promise<Response> {
@@ -477,13 +494,9 @@ export async function claimInviteToken(
 
 function enqueuePanelOp<T>(id: string, op: () => Promise<T>): Promise<T> {
   const previous = panelOps.get(id) ?? Promise.resolve();
-  const released = Promise.race([
-    previous.catch(() => undefined),
-    new Promise<void>((resolve) => {
-      window.setTimeout(resolve, 3_000);
-    }),
-  ]);
-  const next = released.then(op);
+  // Always wait for the previous op — a 3s race caused overlapping writes that
+  // dropped devices/appliances on the server.
+  const next = previous.catch(() => undefined).then(op);
   panelOps.set(
     id,
     next.then(
@@ -936,7 +949,6 @@ export async function persistPanel(panel: PanelObject): Promise<void> {
     });
 
     if (!res.ok) {
-      if (res.status === 503) return;
       if (res.status === 403) {
         const error = new Error(await parseError(res));
         error.name = "PanelLimitError";
@@ -1050,7 +1062,6 @@ export async function persistPanelAppliances(
           body: JSON.stringify({ panel: panelForApi(next) }),
         });
         if (!createRes.ok) {
-          if (createRes.status === 503) return next;
           throw new Error(await parseError(createRes));
         }
         try {
@@ -1076,7 +1087,6 @@ export async function persistPanelAppliances(
         }
         return next;
       }
-      if (res.status === 503) return next;
       throw new Error(await parseError(res));
     }
 
