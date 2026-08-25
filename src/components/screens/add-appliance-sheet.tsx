@@ -204,11 +204,11 @@ export function AddApplianceSheet({
       return;
     }
     if (!kind || !selectedModel) {
-      setError("Выберите тип, производителя и модель из каталога Icecat.");
+      setError("Выберите тип, производителя и модель.");
       return;
     }
     if (detailsLoading) {
-      setError("Подождите, загружаются характеристики Icecat…");
+      setError("Подождите, загружаются характеристики…");
       return;
     }
 
@@ -230,7 +230,7 @@ export function AddApplianceSheet({
     const manuals: ApplianceManual[] = [...(details?.manuals ?? [])];
     if (manuals.length === 0) {
       manuals.push({
-        title: "Карточка Icecat",
+        title: "Карточка товара",
         url: `https://icecat.biz/search?query=${encodeURIComponent(`${selectedModel.brand} ${selectedModel.productCode}`)}`,
       });
     }
@@ -358,20 +358,18 @@ export function AddApplianceSheet({
                 >
                   {!catalogReady && (
                     <p className="rounded-[16px] bg-amber-50 px-3 py-2 text-[13px] text-amber-900">
-                      Каталог Icecat ещё не синхронизирован на сервере. Нужны
-                      ICECAT_PASSWORD и запуск sync.
+                      Каталог производителей ещё не загружен. Попробуйте позже.
                     </p>
                   )}
                   {catalogReady && !brandsLoading && brands.length === 0 && (
                     <p className="rounded-[16px] bg-zinc-50 px-3 py-2 text-[13px] text-zinc-600">
-                      В бесплатном Open Icecat нет моделей этого типа (многие
-                      бренды бытовой техники — только в платном Full Icecat).
+                      Для этого типа техники пока нет производителей в каталоге.
                     </p>
                   )}
 
                   <label className="block">
                     <span className="mb-1.5 block text-[13px] font-medium text-zinc-500">
-                      Производитель (Icecat)
+                      Производитель
                     </span>
                     <select
                       value={brand ?? ""}
@@ -408,7 +406,7 @@ export function AddApplianceSheet({
                       >
                         <label className="block">
                           <span className="mb-1.5 block text-[13px] font-medium text-zinc-500">
-                            Модель (Icecat)
+                            Модель
                           </span>
                           <select
                             value={modelId ?? ""}
@@ -446,7 +444,7 @@ export function AddApplianceSheet({
                   {selectedModel.brand}{" "}
                   {selectedModel.modelName || selectedModel.productCode}
                 </p>
-                {detailsLoading && <p>Загружаем характеристики Icecat…</p>}
+                {detailsLoading && <p>Загружаем характеристики…</p>}
                 {!detailsLoading && details?.powerW != null && (
                   <p>
                     Мощность:{" "}
@@ -456,7 +454,7 @@ export function AddApplianceSheet({
                   </p>
                 )}
                 {!detailsLoading && details && details.powerW == null && (
-                  <p>Мощность в карточке Icecat не указана</p>
+                  <p>Мощность не указана</p>
                 )}
               </div>
             )}
