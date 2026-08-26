@@ -210,10 +210,16 @@ async function listDatasets() {
 function scorePassport(caption) {
   const lower = caption.toLowerCase();
   let points = 0;
-  if (/база/.test(lower) && /жил/.test(lower) && /дом/.test(lower)) points += 8;
-  if (/паспорт/.test(lower) && /жил/.test(lower)) points += 5;
-  if (/мкд/.test(lower) || /многоквартир/.test(lower)) points += 2;
-  if (/dommos/.test(lower)) points += 2;
+  if (/база/.test(lower) && /жил/.test(lower) && /дом/.test(lower)) points += 10;
+  if (/жил/.test(lower) && /дом/.test(lower)) points += 6;
+  if (/многоквартир/.test(lower) || /\bмкд\b/.test(lower)) points += 5;
+  if (/паспорт/.test(lower)) points += 4;
+  if (/год/.test(lower) && /постро/.test(lower)) points += 4;
+  if (/dommos|доммос/.test(lower)) points += 4;
+  if (/техническ/.test(lower) && /паспорт/.test(lower)) points += 3;
+  if (/адресн/.test(lower) && /реестр/.test(lower)) points += 2;
+  if (/аварийн|снес|реновац/.test(lower)) points -= 4;
+  if (/поликлин|школ|детск|транспорт|парковк/.test(lower)) points -= 5;
   return points;
 }
 
@@ -228,54 +234,86 @@ function scoreRepair(caption) {
   return points;
 }
 
+function datasetColumns(meta) {
+  if (!meta || typeof meta !== "object") return [];
+  if (Array.isArray(meta.Columns)) return meta.Columns;
+  if (Array.isArray(meta.columns)) return meta.columns;
+  return [];
+}
+
+function looksLikeHousePassport(meta) {
+  const cols = datasetColumns(meta);
+  if (cols.length === 0) return false;
+  const blob = cols
+    .map((c) => `${c.Name ?? ""} ${c.Caption ?? ""}`)
+    .join(" | ")
+    .toLowerCase();
+  const hasAddress = /address|адрес/.test(blob);
+  const hasYear =
+    /year_built|year_opened|год\s*постро|год\s*ввод|год\s*эксплуат|построени/.test(
+      blob,
+    );
+  return hasAddress && hasYear;
+}
+
 async function resolvePassportDatasetId(list) {
   const fromEnv = Number.parseInt(
     process.env.MOS_DOM_PASSPORT_DATASET_ID ?? "",
     10,
   );
-  if (Number.isFinite(fromEnv) && fromEnv > 0) return fromEnv;
+  if (Number.isFinite(fromEnv) && fromEnv > 0) {
+    console.log(`Passport dataset from env: ${fromEnv}`);
+    return fromEnv;
+  }
 
-  for (const id of [60562, 29171, 27707]) {
+  const knownIds = [60562, 29171, 27707];
+  for (const id of knownIds) {
     try {
       const meta = await mosGet(`/datasets/${id}`);
-      const cols = meta?.Columns ?? [];
-      const hasAddress = cols.some((c) =>
-        /address|адрес/i.test(`${c.Name ?? ""} ${c.Caption ?? ""}`),
-      );
-      const hasYear = cols.some((c) =>
-        /year_built|год постро/i.test(`${c.Name ?? ""} ${c.Caption ?? ""}`),
-      );
-      if (hasAddress && hasYear) {
+      if (looksLikeHousePassport(meta)) {
         console.log(`Passport dataset (known id): ${id}`);
         return id;
       }
-    } catch {
-      // try next
+      console.log(
+        `Known id ${id} reachable but columns don't look like house passport (cols=${datasetColumns(meta).length})`,
+      );
+    } catch (error) {
+      console.log(
+        `Known id ${id} unavailable: ${error instanceof Error ? error.message : error}`,
+      );
     }
   }
 
   const ranked = list
     .map((item) => ({ ...item, points: scorePassport(item.caption) }))
-    .filter((item) => item.points >= 5)
+    .filter((item) => item.points >= 3)
     .sort((a, b) => b.points - a.points);
 
-  for (const item of ranked.slice(0, 8)) {
+  console.log("Top house-like datasets by caption:");
+  for (const item of ranked.slice(0, 15)) {
+    console.log(`  ${item.points}\t${item.id}\t${item.caption}`);
+  }
+
+  for (const item of ranked.slice(0, 25)) {
     try {
       const meta = await mosGet(`/datasets/${item.id}`);
-      const cols = meta?.Columns ?? [];
-      const hasAddress = cols.some((c) =>
-        /address|адрес/i.test(`${c.Name ?? ""} ${c.Caption ?? ""}`),
-      );
-      const hasYear = cols.some((c) =>
-        /year_built|год постро/i.test(`${c.Name ?? ""} ${c.Caption ?? ""}`),
-      );
-      if (hasAddress && hasYear) {
+      if (looksLikeHousePassport(meta)) {
         console.log(`Passport dataset: ${item.id} — ${item.caption}`);
         return item.id;
       }
     } catch {
       // continue
     }
+  }
+
+  // Last resort: first caption match even without perfect columns
+  if (ranked[0]) {
+    console.warn(
+      `Не нашли набор с полями адрес+год. Ближайший по названию: ${ranked[0].id} — ${ranked[0].caption}`,
+    );
+    console.warn(
+      `Запустите снова с:\n  export MOS_DOM_PASSPORT_DATASET_ID=${ranked[0].id}`,
+    );
   }
   return null;
 }
@@ -377,6 +415,20 @@ async function main() {
 
   const passportId = await resolvePassportDatasetId(list);
   if (!passportId) {
+    await mkdir(OUT_DIR, { recursive: true });
+    const candidates = list
+      .map((item) => ({ ...item, points: scorePassport(item.caption) }))
+      .filter((item) => item.points >= 1)
+      .sort((a, b) => b.points - a.points)
+      .slice(0, 40);
+    const candidatesPath = path.join(OUT_DIR, "dataset-candidates.json");
+    await writeFile(candidatesPath, JSON.stringify(candidates, null, 2), "utf8");
+    console.error(`\nСписок кандидатов сохранён: ${candidatesPath}`);
+    console.error(
+      "Откройте data.mos.ru, найдите набор про жилые дома / год постройки, возьмите Id из URL и выполните:",
+    );
+    console.error("  export MOS_DOM_PASSPORT_DATASET_ID=ЧИСЛО");
+    console.error("  npm run moscow:download");
     throw new Error(
       "Не найден датасет паспортов домов. Задайте MOS_DOM_PASSPORT_DATASET_ID.",
     );
