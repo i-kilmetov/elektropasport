@@ -16,6 +16,7 @@ import {
 } from "@/lib/request-codes";
 import type { PanelHouseSnapshot } from "@/lib/house-insight";
 import { countPanelDevices } from "@/lib/panel-rails";
+import { isNoPanelSetupId } from "@/lib/no-panel-setups";
 import { DbError, dbErrorResponse } from "@/lib/db-error";
 export { DbError, dbErrorResponse } from "@/lib/db-error";
 import { getSql, jsonbParam } from "@/lib/sql-client";
@@ -39,7 +40,7 @@ import { buildInviteUrl } from "@/lib/panel-share";
 let schemaReady: Promise<void> | null = null;
 
 /** Bump when DDL below changes so cold starts re-run migrations once. */
-const SCHEMA_VERSION = "2026-08-26-web-push";
+const SCHEMA_VERSION = "2026-08-27-no-panel-cards";
 /** One-shot data wipe flag — never re-run after it is written. */
 const FRESH_START_KEY = "fresh_start_2026_08_25_b";
 /** Bumped on each factory wipe so clients drop localStorage orphans. */
@@ -470,6 +471,10 @@ export async function ensureSchema(): Promise<void> {
         CREATE INDEX IF NOT EXISTS push_subscriptions_user_idx
         ON push_subscriptions (telegram_user_id)
       `;
+      await sql`
+        ALTER TABLE panels
+        ADD COLUMN IF NOT EXISTS no_panel_setup_id TEXT
+      `;
 
       // One-time factory reset requested for clean testing.
       const [freshStart] = (await sql`
@@ -764,6 +769,7 @@ type PanelRow = {
   appliances: HomeAppliance[] | null;
   appliances_updated_at: string | null;
   source_share_token: string | null;
+  no_panel_setup_id: string | null;
   created_at: string;
 };
 
@@ -858,6 +864,9 @@ function rowToPanel(row: PanelRow): PanelObject {
     appliancesUpdatedAt: row.appliances_updated_at ?? undefined,
     sourceShareToken: row.source_share_token ?? undefined,
     createdAt: row.created_at,
+    noPanelSetupId: isNoPanelSetupId(row.no_panel_setup_id)
+      ? row.no_panel_setup_id
+      : undefined,
   };
 }
 
@@ -918,7 +927,7 @@ export async function listHomeItems(
     SELECT
       id, type, title, address, last_check, breakers, safety,
       devices, lines_count, photo_data_url, named, phases, power_kw,
-      has_ground, house_snapshot, rail_count, wires, appliances, appliances_updated_at, source_share_token, created_at
+      has_ground, house_snapshot, rail_count, wires, appliances, appliances_updated_at, source_share_token, no_panel_setup_id, created_at
     FROM panels
     WHERE telegram_user_id = ${telegramUserId}
   `) as PanelRow[];
@@ -974,7 +983,7 @@ export async function insertPanel(
       id, telegram_user_id, type, title, address, last_check, breakers, safety,
       devices, lines_count, photo_data_url, named, phases, power_kw,
       has_ground, house_snapshot, rail_count, wires, appliances, appliances_updated_at,
-      source_share_token, created_at, updated_at
+      source_share_token, no_panel_setup_id, created_at, updated_at
     ) VALUES (
       ${panel.id},
       ${telegramUserId},
@@ -997,6 +1006,7 @@ export async function insertPanel(
       ${appliancesJson}::jsonb,
       ${appliancesUpdatedAt}::timestamptz,
       ${panel.sourceShareToken ?? null}::text,
+      ${panel.noPanelSetupId ?? null}::text,
       ${createdAt}::timestamptz,
       NOW()
     )
@@ -1068,6 +1078,7 @@ export async function insertPanel(
         ELSE panels.appliances_updated_at
       END,
       source_share_token = COALESCE(EXCLUDED.source_share_token, panels.source_share_token),
+      no_panel_setup_id = COALESCE(EXCLUDED.no_panel_setup_id, panels.no_panel_setup_id),
       updated_at = NOW()
     WHERE panels.telegram_user_id = ${telegramUserId}
   `;
@@ -1222,7 +1233,7 @@ export async function updatePanel(
     RETURNING
       id, type, title, address, last_check, breakers, safety,
       devices, lines_count, photo_data_url, named, phases, power_kw,
-      has_ground, house_snapshot, rail_count, wires, appliances, appliances_updated_at, source_share_token, created_at
+      has_ground, house_snapshot, rail_count, wires, appliances, appliances_updated_at, source_share_token, no_panel_setup_id, created_at
   `) as PanelRow[];
   return rows[0] ? rowToPanel(rows[0]) : null;
 }
@@ -1236,7 +1247,7 @@ export async function getPanelByOwner(
     SELECT
       id, type, title, address, last_check, breakers, safety,
       devices, lines_count, photo_data_url, named, phases, power_kw,
-      has_ground, house_snapshot, rail_count, wires, appliances, appliances_updated_at, source_share_token, created_at
+      has_ground, house_snapshot, rail_count, wires, appliances, appliances_updated_at, source_share_token, no_panel_setup_id, created_at
     FROM panels
     WHERE id = ${id} AND telegram_user_id = ${telegramUserId}
     LIMIT 1
@@ -1251,7 +1262,7 @@ export async function getPanelById(id: string): Promise<PanelObject | null> {
     SELECT
       id, type, title, address, last_check, breakers, safety,
       devices, lines_count, photo_data_url, named, phases, power_kw,
-      has_ground, house_snapshot, rail_count, wires, appliances, appliances_updated_at, source_share_token, created_at
+      has_ground, house_snapshot, rail_count, wires, appliances, appliances_updated_at, source_share_token, no_panel_setup_id, created_at
     FROM panels
     WHERE id = ${id}
     LIMIT 1
@@ -1270,7 +1281,7 @@ export async function getPanelForMasterRequest(
       panels.breakers, panels.safety, panels.devices, panels.lines_count,
       panels.photo_data_url, panels.named, panels.phases, panels.power_kw,
       panels.has_ground, panels.house_snapshot, panels.rail_count, panels.wires, panels.appliances, panels.appliances_updated_at,
-      panels.source_share_token, panels.created_at
+      panels.source_share_token, panels.no_panel_setup_id, panels.created_at
     FROM install_requests
     JOIN panels ON panels.id = install_requests.panel_id
     WHERE install_requests.id = ${requestId}
@@ -1312,7 +1323,7 @@ export async function getSharedPanel(token: string): Promise<{
       panels.breakers, panels.safety, panels.devices, panels.lines_count,
       panels.photo_data_url, panels.named, panels.phases, panels.power_kw,
       panels.has_ground, panels.house_snapshot, panels.rail_count, panels.wires, panels.appliances, panels.appliances_updated_at,
-      panels.source_share_token, panels.created_at,
+      panels.source_share_token, panels.no_panel_setup_id, panels.created_at,
       panel_shares.owner_telegram_id
     FROM panel_shares
     JOIN panels ON panels.id = panel_shares.panel_id

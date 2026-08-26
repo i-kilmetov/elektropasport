@@ -187,6 +187,7 @@ function pickLivePanelFields(
   | "title"
   | "named"
   | "titleUpdatedAt"
+  | "noPanelSetupId"
 > {
   const liveTitleAt = live.titleUpdatedAt
     ? Date.parse(live.titleUpdatedAt)
@@ -217,9 +218,11 @@ function pickLivePanelFields(
   const remoteAt = remote.appliancesUpdatedAt
     ? Date.parse(remote.appliancesUpdatedAt)
     : 0;
+  const noPanelSetupId = live.noPanelSetupId ?? remote.noPanelSetupId;
   if (liveAt > remoteAt) {
     return {
       ...titleFields,
+      noPanelSetupId,
       photoDataUrl: remote.photoDataUrl || live.photoDataUrl,
       devices:
         (remote.devices?.length ?? 0) > 0 ? remote.devices : live.devices,
@@ -230,6 +233,7 @@ function pickLivePanelFields(
   if (remoteAt > liveAt) {
     return {
       ...titleFields,
+      noPanelSetupId,
       photoDataUrl: remote.photoDataUrl || live.photoDataUrl,
       devices:
         (remote.devices?.length ?? 0) > 0 ? remote.devices : live.devices,
@@ -239,6 +243,7 @@ function pickLivePanelFields(
   }
   return {
     ...titleFields,
+    noPanelSetupId,
     photoDataUrl: remote.photoDataUrl || live.photoDataUrl,
     devices: (remote.devices?.length ?? 0) > 0 ? remote.devices : live.devices,
     appliances: mergeAppliancesUnion(remote.appliances, live.appliances),
@@ -327,6 +332,7 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
   const [noPanelSetupId, setNoPanelSetupId] = useState<NoPanelSetupId | null>(
     null,
   );
+  const [addingNoPanel, setAddingNoPanel] = useState(false);
   const [requestNeedId, setRequestNeedId] = useState<RequestNeedId | null>(
     null,
   );
@@ -618,6 +624,7 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
       setPhotoDataUrl(null);
       setScreen("photo");
     } else if (pending === "no-panel") {
+      setActivePanelId(null);
       setScreen("no-panel-options");
     } else if (pending === "call-master" || pending === "help-electrical") {
       setLeadFlow("install");
@@ -710,6 +717,7 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
         setPhotoDataUrl(null);
         go("photo");
       } else {
+        setActivePanelId(null);
         go("no-panel-options");
       }
       return;
@@ -999,6 +1007,42 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
         setItemsError("Не удалось открыть щиток — данные не найдены");
         return;
       }
+      if (panel.noPanelSetupId) {
+        setItemsError(null);
+        setSharedPreview(null);
+        setSchemeTourPending(false);
+        setActivePanelId(panel.id);
+        setNoPanelSetupId(panel.noPanelSetupId);
+        setAskNameOnBack(false);
+        setScreen("no-panel-detail");
+        if (canUseServerAuth()) {
+          void fetchPanelById(panel.id)
+            .then((remote) => {
+              if (!remote) return;
+              setItems((prev) => {
+                const live = prev.find(
+                  (item): item is PanelObject =>
+                    item.kind === "panel" && item.id === remote.id,
+                );
+                const merged = live
+                  ? {
+                      ...remote,
+                      ...pickLivePanelFields(live, remote),
+                    }
+                  : remote;
+                const exists = prev.some((item) => item.id === remote.id);
+                if (!exists) return [merged, ...prev];
+                return prev.map((item) =>
+                  item.kind === "panel" && item.id === remote.id ? merged : item,
+                );
+              });
+            })
+            .catch((error) => {
+              console.error("fetchPanelById failed", id, error);
+            });
+        }
+        return;
+      }
       const nextDevices = Array.isArray(panel.devices) ? panel.devices : [];
       setItemsError(null);
       setSharedPreview(null);
@@ -1083,6 +1127,15 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
 
   const showPanel = useCallback(
     (panel: PanelObject, options?: { askName?: boolean }) => {
+      if (panel.noPanelSetupId) {
+        setSharedPreview(null);
+        setSchemeTourPending(false);
+        setActivePanelId(panel.id);
+        setNoPanelSetupId(panel.noPanelSetupId);
+        setAskNameOnBack(false);
+        setScreen("no-panel-detail");
+        return;
+      }
       setSharedPreview(null);
       setActivePanelId(panel.id);
       setAskNameOnBack(options?.askName ?? false);
@@ -1099,6 +1152,64 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
     },
     [],
   );
+
+  const startNoPanelFix = useCallback(() => {
+    go("panel-advantages");
+  }, [go]);
+
+  const addNoPanelAsHomeItem = useCallback(() => {
+    if (!noPanelSetupId || noPanelSetupId === "inlet_cable") return;
+    if (isAtPanelLimit(quota, localPanelCount)) {
+      openPanelLimit();
+      return;
+    }
+    const setup = getNoPanelSetup(noPanelSetupId);
+    const today = new Date();
+    const id = `panel-${Date.now()}`;
+    const panel: PanelObject = {
+      kind: "panel",
+      id,
+      type: "apartment",
+      title: setup.title,
+      address: "Адрес не указан",
+      lastCheck: today.toLocaleDateString("ru-RU"),
+      createdAt: today.toISOString(),
+      breakers: 0,
+      safety: null,
+      named: true,
+      noPanelSetupId,
+    };
+    setAddingNoPanel(true);
+    setItems((prev) => [panel, ...prev]);
+    setItemsError(null);
+    setObjectsTab(0);
+    hapticNotification("success");
+    go("objects");
+    void persistPanel(panel)
+      .catch((error) => {
+        console.error(error);
+        setItems((prev) => prev.filter((item) => item.id !== id));
+        setItemsError(
+          error instanceof Error
+            ? error.message
+            : "Не удалось добавить вариант исполнения",
+        );
+        if (error instanceof Error && error.name === "PanelLimitError") {
+          openPanelLimit();
+        }
+      })
+      .finally(() => {
+        setAddingNoPanel(false);
+      });
+    void refreshQuota();
+  }, [
+    go,
+    localPanelCount,
+    noPanelSetupId,
+    openPanelLimit,
+    quota,
+    refreshQuota,
+  ]);
 
   const openSharedPanel = useCallback(
     async (token: string) => {
@@ -1698,7 +1809,9 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
         tbankPaymentId: payload.tbankPaymentId,
         panelId:
           payload.panelId ??
-          (leadBackScreen === "scheme" ? activePanelId ?? undefined : undefined),
+          (leadBackScreen === "scheme" || activePanel?.noPanelSetupId
+            ? activePanelId ?? undefined
+            : undefined),
       };
 
       setItems((prev) => {
@@ -1723,6 +1836,7 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
       setScreen("master-search");
     },
     [
+      activePanel?.noPanelSetupId,
       activePanelId,
       electricalDetails,
       leadBackScreen,
@@ -2237,23 +2351,49 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
               onBack={() => go("objects")}
               onSelect={(id) => {
                 setNoPanelSetupId(id);
+                setActivePanelId(null);
                 go("no-panel-detail");
               }}
             />
           )}
           {screen === "no-panel-detail" && noPanelSetupId && (
             <NoPanelDetailScreen
-              key={`detail-${noPanelSetupId}`}
+              key={`detail-${noPanelSetupId}-${activePanelId ?? "flow"}`}
               setupId={noPanelSetupId}
-              onBack={() => go("no-panel-options")}
-              onContinue={() => go("panel-advantages")}
+              saved={Boolean(
+                activePanel?.noPanelSetupId &&
+                  activePanel.noPanelSetupId === noPanelSetupId,
+              )}
+              address={activePanel?.address}
+              houseSnapshot={activePanel?.houseSnapshot}
+              adding={addingNoPanel}
+              onBack={() =>
+                go(
+                  activePanel?.noPanelSetupId
+                    ? "objects"
+                    : "no-panel-options",
+                )
+              }
+              onFix={startNoPanelFix}
+              onAdd={
+                noPanelSetupId === "inlet_cable"
+                  ? undefined
+                  : addNoPanelAsHomeItem
+              }
+              onEditAddress={
+                activePanelId && activePanel?.noPanelSetupId
+                  ? () => setPanelHousePromptOpen(true)
+                  : undefined
+              }
             />
           )}
           {screen === "panel-advantages" && (
             <PanelAdvantagesScreen
               key={`advantages-${noPanelSetupId ?? "default"}`}
               setupId={noPanelSetupId}
-              onBack={() => go("no-panel-detail")}
+              onBack={() =>
+                go(noPanelSetupId ? "no-panel-detail" : "objects")
+              }
               onInstall={() => {
                 setLeadFlow("install");
                 setElectricalDetails(null);
@@ -2494,7 +2634,9 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
               isFirstOrder={isFirstLeadOrder}
               setupTitle={installSetupTitle}
               panelId={
-                leadBackScreen === "scheme" ? activePanelId ?? undefined : undefined
+                leadBackScreen === "scheme" || activePanel?.noPanelSetupId
+                  ? activePanelId ?? undefined
+                  : undefined
               }
               typeCode={
                 selectedLeadService

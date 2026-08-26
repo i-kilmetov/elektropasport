@@ -1,4 +1,5 @@
 import type { PanelHouseSnapshot } from "@/lib/house-insight";
+import type { NoPanelSetupId } from "@/lib/no-panel-setups";
 
 export type { PanelHouseSnapshot } from "@/lib/house-insight";
 
@@ -141,6 +142,8 @@ export interface PanelObject {
   createdAt?: string;
   /** ISO timestamp of last title rename — protects against stale sync overwrites */
   titleUpdatedAt?: string;
+  /** Setup without a photographed щиток (пробки, этажный щит, …) */
+  noPanelSetupId?: NoPanelSetupId;
 }
 
 export type InstallRequestStatus =

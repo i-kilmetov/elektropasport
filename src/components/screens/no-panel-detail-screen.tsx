@@ -1,26 +1,45 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { ArrowLeft, ShieldAlert, Sparkles } from "lucide-react";
+import { ArrowLeft, MapPin, ShieldAlert, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
+import { formatBuildingYear } from "@/lib/house-insight";
 import {
   getNoPanelSetup,
   riskCategoryMeta,
   type NoPanelSetupId,
 } from "@/lib/no-panel-setups";
+import type { PanelHouseSnapshot } from "@/types";
 
 export function NoPanelDetailScreen({
   setupId,
+  saved = false,
+  address,
+  houseSnapshot,
+  adding = false,
   onBack,
-  onContinue,
+  onFix,
+  onAdd,
+  onEditAddress,
 }: {
   setupId: NoPanelSetupId;
+  saved?: boolean;
+  address?: string;
+  houseSnapshot?: PanelHouseSnapshot;
+  adding?: boolean;
   onBack: () => void;
-  onContinue: () => void;
+  onFix: () => void;
+  onAdd?: () => void;
+  onEditAddress?: () => void;
 }) {
   const setup = getNoPanelSetup(setupId);
   const isOpportunity = setup.tone === "opportunity";
+  const isInlet = setupId === "inlet_cable";
+  const showAdd = Boolean(onAdd) && !saved && !isInlet;
+  const addressLabel =
+    houseSnapshot?.address?.trim() ||
+    (address && address !== "Адрес не указан" ? address : "");
 
   return (
     <motion.section
@@ -56,14 +75,24 @@ export function NoPanelDetailScreen({
         <p className="text-[13px] leading-snug text-zinc-800">{setup.banner}</p>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-2">
+      <div
+        className={
+          saved
+            ? "min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-none"
+            : "flex min-h-0 flex-1 flex-col gap-2"
+        }
+      >
         {setup.risks.map((risk) => {
           const meta = riskCategoryMeta[risk.category];
           const Icon = meta.icon;
           return (
             <GlassCard
               key={risk.title}
-              className="flex min-h-0 flex-1 flex-col overflow-hidden p-3"
+              className={
+                saved
+                  ? "p-3"
+                  : "flex min-h-0 flex-1 flex-col overflow-hidden p-3"
+              }
             >
               <div className="mb-1 flex items-center gap-2.5">
                 <span
@@ -75,18 +104,98 @@ export function NoPanelDetailScreen({
                   {risk.title}
                 </h3>
               </div>
-              <p className="min-h-0 flex-1 overflow-hidden text-[12px] leading-snug text-zinc-500 sm:text-[13px]">
+              <p
+                className={
+                  saved
+                    ? "text-[13px] leading-snug text-zinc-500"
+                    : "min-h-0 flex-1 overflow-hidden text-[12px] leading-snug text-zinc-500 sm:text-[13px]"
+                }
+              >
                 {risk.text}
               </p>
             </GlassCard>
           );
         })}
+
+        {saved && (
+          <GlassCard className="p-4">
+            <div className="mb-2 flex items-center gap-1.5 text-[12px] text-zinc-500">
+              <MapPin className="h-3.5 w-3.5 text-zinc-400" />
+              Адрес
+            </div>
+            {houseSnapshot || addressLabel ? (
+              <div className="space-y-2">
+                <p className="text-[14px] font-semibold leading-snug text-zinc-900">
+                  {addressLabel || houseSnapshot?.address}
+                </p>
+                {houseSnapshot && (
+                  <>
+                    <p className="text-[13px] text-zinc-600">
+                      Год постройки:{" "}
+                      <span className="font-medium text-zinc-800">
+                        {formatBuildingYear(houseSnapshot.buildingYear)}
+                      </span>
+                    </p>
+                    <p className="text-[13px] leading-snug text-zinc-600">
+                      {houseSnapshot.groundingTitle}.{" "}
+                      {houseSnapshot.groundingSummary}
+                    </p>
+                  </>
+                )}
+                {onEditAddress && (
+                  <button
+                    type="button"
+                    onClick={onEditAddress}
+                    className="pt-1 text-[13px] font-medium text-zinc-700 underline-offset-2 hover:underline"
+                  >
+                    Изменить адрес
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div>
+                <p className="text-[13px] leading-snug text-zinc-400">
+                  Укажите адрес дома — подскажем год постройки и заземление.
+                </p>
+                {onEditAddress && (
+                  <button
+                    type="button"
+                    onClick={onEditAddress}
+                    className="mt-2 text-[13px] font-medium text-zinc-700 underline-offset-2 hover:underline"
+                  >
+                    Указать адрес
+                  </button>
+                )}
+              </div>
+            )}
+          </GlassCard>
+        )}
       </div>
 
-      <div className="mt-3 shrink-0">
-        <Button className="w-full" onClick={onContinue}>
-          Сделать правильно
-        </Button>
+      <div className="mt-3 flex shrink-0 gap-2">
+        {isInlet && !saved ? (
+          <Button className="w-full" onClick={onFix}>
+            Сделать правильно
+          </Button>
+        ) : showAdd ? (
+          <>
+            <Button className="min-w-0 flex-1" onClick={onFix}>
+              Исправить
+            </Button>
+            <Button
+              className="min-w-0 flex-1"
+              variant="secondary"
+              disabled={adding}
+              onClick={onAdd}
+            >
+              {adding ? "Добавляем…" : "Добавить"}
+            </Button>
+          </>
+        ) : (
+          <Button className="w-full" onClick={onFix}>
+            {isInlet ? "Сделать правильно" : "Исправить"}
+          </Button>
+        )}
       </div>
     </motion.section>
   );

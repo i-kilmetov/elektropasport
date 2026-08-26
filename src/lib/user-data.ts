@@ -419,6 +419,7 @@ function mergePanelForPersist(
     appliances: appliancesPick.appliances,
     appliancesUpdatedAt: appliancesPick.appliancesUpdatedAt,
     breakers,
+    noPanelSetupId: panel.noPanelSetupId ?? stored.noPanelSetupId,
   };
 }
 
@@ -950,6 +951,7 @@ export function mergeHomeItemsWithLocalState(
       ...item,
       ...mergePanelHouseFields(live, item),
       ...titlePick,
+      noPanelSetupId: live.noPanelSetupId ?? item.noPanelSetupId,
     };
   });
 

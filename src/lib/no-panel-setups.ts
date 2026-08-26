@@ -222,3 +222,17 @@ export function getNoPanelSetup(id: NoPanelSetupId): NoPanelSetup {
     noPanelSetups[noPanelSetups.length - 1]!
   );
 }
+
+const NO_PANEL_SETUP_IDS: NoPanelSetupId[] = [
+  "plug_fuses",
+  "floor_panel_only",
+  "inlet_cable",
+  "other",
+];
+
+export function isNoPanelSetupId(value: unknown): value is NoPanelSetupId {
+  return (
+    typeof value === "string" &&
+    (NO_PANEL_SETUP_IDS as string[]).includes(value)
+  );
+}

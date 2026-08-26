@@ -57,8 +57,8 @@ import type {
   PanelObject,
 } from "@/types";
 import { installStatusTone } from "@/types";
-import { formatPanelAddedLabel } from "@/lib/panel-list-meta";
-import { formatPanelDeviceCount } from "@/lib/panel-rails";
+import { formatPanelListMeta } from "@/lib/panel-list-meta";
+import { getNoPanelSetup } from "@/lib/no-panel-setups";
 import { isAtPanelLimit, type PanelQuota } from "@/lib/invites";
 
 const APPLIANCES_INTRO_KEY = "elektropasport:appliances-list-intro-seen";
@@ -82,6 +82,14 @@ function markAppliancesIntroSeen(): void {
 
 const LONG_PRESS_MS = 480;
 const MOVE_CANCEL_PX = 10;
+
+function PanelListIcon({ panel }: { panel: PanelObject }) {
+  if (panel.noPanelSetupId) {
+    const Icon = getNoPanelSetup(panel.noPanelSetupId).icon;
+    return <Icon className="h-7 w-7" strokeWidth={1.75} />;
+  }
+  return <BreakerIcon className="h-7 w-7" />;
+}
 
 function useLongPressAction(onLongPress: () => void) {
   const timerRef = useRef<number | null>(null);
@@ -164,6 +172,8 @@ function HomeListCard({
           >
             {isRequest ? (
               <ClipboardList className="h-6 w-6" />
+            ) : panel ? (
+              <PanelListIcon panel={panel} />
             ) : (
               <BreakerIcon className="h-7 w-7" />
             )}
@@ -182,6 +192,10 @@ function HomeListCard({
                 >
                   {item.statusLabel}
                 </span>
+              ) : panel?.noPanelSetupId ? (
+                <span className="shrink-0 rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] font-medium text-zinc-600">
+                  нет щитка
+                </span>
               ) : (
                 <span className="shrink-0 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
                   {panel?.phases &&
@@ -196,10 +210,10 @@ function HomeListCard({
               {isRequest ? item.subtitle : item.address}
             </p>
             <p className="mt-1 text-[12px] text-zinc-400">
-              {isRequest
-                ? item.createdAt
-                : panel
-                  ? `${formatPanelDeviceCount(panel)} · добавлен ${formatPanelAddedLabel(panel)}`
+              {panel
+                ? formatPanelListMeta(panel)
+                : isRequest
+                  ? item.createdAt
                   : ""}
             </p>
           </div>
@@ -312,7 +326,7 @@ function ExpandableHomeCard({
           className="flex min-w-0 flex-1 touch-manipulation items-center gap-4 p-4 text-left select-none transition-colors hover:bg-zinc-50 lg:cursor-pointer lg:p-5"
         >
           <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[18px] bg-zinc-100 text-zinc-600">
-            <BreakerIcon className="h-7 w-7" />
+            <PanelListIcon panel={panel} />
           </div>
           <div className="min-w-0 flex-1">
             <h2 className="truncate text-[17px] font-semibold text-zinc-900">
@@ -320,23 +334,29 @@ function ExpandableHomeCard({
             </h2>
             <p className="truncate text-[13px] text-zinc-500">{panel.address}</p>
             <p className="mt-1 text-[12px] text-zinc-400">
-              {`${formatPanelDeviceCount(panel)} · добавлен ${formatPanelAddedLabel(panel)}`}
+              {formatPanelListMeta(panel)}
             </p>
           </div>
         </button>
 
         <div className="flex shrink-0 flex-col items-center justify-center gap-1.5 py-3 pr-3 lg:pr-4">
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              setSafetyInfoOpen(true);
-            }}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/15 text-[11px] font-semibold tabular-nums text-emerald-700 transition-colors hover:bg-emerald-500/25"
-            aria-label="Что значит оценка безопасности"
-          >
-            {hasSafetyScore ? `${panel.safety}%` : "—"}
-          </button>
+          {panel.noPanelSetupId ? (
+            <span className="flex min-h-8 max-w-[3.4rem] items-center justify-center rounded-full bg-zinc-100 px-1.5 py-0.5 text-center text-[9px] font-semibold leading-tight text-zinc-500">
+              нет щитка
+            </span>
+          ) : (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setSafetyInfoOpen(true);
+              }}
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/15 text-[11px] font-semibold tabular-nums text-emerald-700 transition-colors hover:bg-emerald-500/25"
+              aria-label="Что значит оценка безопасности"
+            >
+              {hasSafetyScore ? `${panel.safety}%` : "—"}
+            </button>
+          )}
           <button
             type="button"
             onClick={(e) => {

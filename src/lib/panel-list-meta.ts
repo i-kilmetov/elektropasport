@@ -1,4 +1,5 @@
 import type { HomeListItem, InstallRequest, PanelObject } from "@/types";
+import { formatPanelDeviceCount } from "@/lib/panel-rails";
 
 /** Stable sort key: persisted createdAt, panel id timestamp, or zero. */
 export function panelSortTime(panel: PanelObject): number {
@@ -71,4 +72,16 @@ export function formatPanelAddedLabel(panel: PanelObject): string {
     return label === today ? "сегодня" : label;
   }
   return formatPanelActivityLabel(panel.lastCheck);
+}
+
+export function formatPanelListMeta(panel: PanelObject): string {
+  const added = `добавлен ${formatPanelAddedLabel(panel)}`;
+  if (panel.noPanelSetupId) {
+    const n = panel.appliances?.length ?? 0;
+    if (n > 0) {
+      return `${n} шт. техники · ${added}`;
+    }
+    return `без щитка · ${added}`;
+  }
+  return `${formatPanelDeviceCount(panel)} · ${added}`;
 }
