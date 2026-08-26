@@ -470,7 +470,7 @@ function EmptyState({
               src={imageSrc}
               alt={imageAlt ?? ""}
               draggable={false}
-              className="pointer-events-none h-[min(36dvh,240px)] w-auto max-w-full select-none object-contain"
+              className="pointer-events-none h-[min(40dvh,280px)] w-auto max-w-full select-none object-contain"
             />
           ) : null}
           <p className="mt-4 min-h-[6.25rem] text-center text-[15px] leading-relaxed text-zinc-600">
@@ -590,7 +590,7 @@ export function ObjectsScreen({
   );
   const atPanelLimit = isAtPanelLimit(quota, panels.length);
   const panelEmptyText =
-    'Щиток — электрическое сердце вашего дома. Нажмите «Добавить щиток» и сфотографируйте, чтобы определить его состояние.';
+    "Щиток — электрическое сердце дома. Сфотографируйте его, чтобы оценить его состояние и добавлять в дальнейшем остальную технику";
 
   const pendingDelete = items.find((item) => item.id === pendingDeleteId);
   const actionsItem = items.find((item) => item.id === actionsItemId);
@@ -939,7 +939,7 @@ export function ObjectsScreen({
           >
             {renderList(requests, {
               icon: <ClipboardList className="h-10 w-10" />,
-              text: "Здесь хранятся все ваши запросы. Поможем в любом электрическом вопросе",
+              text: "Здесь можно обратиться за любой помощью в электрике. Поможем как онлайн, так и со скорой помощью на дом",
               framed: true,
               imageSrc: "/empty-states/requests.png",
               imageAlt: "Мастер пришёл помочь с электрикой",
