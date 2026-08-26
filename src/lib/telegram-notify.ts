@@ -493,18 +493,34 @@ export async function notifyAdminResearchSurvey(payload: {
   });
 }
 
-export async function notifyAdminLaunchWaitlist(payload: {
+export async function notifyAdminWaitlist(payload: {
+  list: string;
   email: string;
+  telegramUserId?: number | null;
 }): Promise<void> {
+  const titles: Record<string, string> = {
+    launch: "📬 Подписка на открытие Током",
+    school: "🎓 Школа Током — заявка с почтой",
+    terminals: "🔌 Клеммы и кабели — лист ожидания",
+  };
   await sendToAdmins({
     text: [
-      "📬 Подписка на открытие Током",
+      titles[payload.list] ?? `📬 Waitlist: ${payload.list}`,
       "",
       `Email: ${payload.email}`,
+      payload.telegramUserId
+        ? `Telegram user id: ${payload.telegramUserId}`
+        : "Telegram user id: нет (анонимно)",
       `Время: ${new Date().toLocaleString("ru-RU", { timeZone: "Europe/Moscow" })} (МСК)`,
     ].join("\n"),
     disable_web_page_preview: true,
   });
+}
+
+export async function notifyAdminLaunchWaitlist(payload: {
+  email: string;
+}): Promise<void> {
+  await notifyAdminWaitlist({ list: "launch", email: payload.email });
 }
 
 export async function notifyAdminFeedbackAttachment(payload: {

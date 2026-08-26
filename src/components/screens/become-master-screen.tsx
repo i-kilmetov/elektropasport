@@ -10,7 +10,7 @@ import {
   MessageCircle,
   Wrench,
 } from "lucide-react";
-import { BrandLogo, BRAND_YELLOW } from "@/components/brand-logo";
+import { BrandLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
 import { hapticNotification } from "@/lib/haptics";
@@ -26,31 +26,31 @@ const workTypes = [
     icon: MessageCircle,
     title: "Консультации онлайн",
     text: "Разбираем ситуацию по схеме щитка, фото и описанию — в чате или по телефону.",
-    accent: "text-sky-600 bg-sky-500/10",
+    accent: "text-[#111113] bg-white border border-black/8",
   },
   {
     icon: Headphones,
     title: "Поддержка по телефону",
     text: "Помогаете пользователю понять, что происходит в щитке и что делать дальше.",
-    accent: "text-violet-600 bg-violet-500/10",
+    accent: "text-[#111113] bg-white border border-black/8",
   },
   {
     icon: MapPin,
     title: "Выезд по заявке",
     text: "Оценка текущего состояния, схемы электрики, прозвонка линий и рекомендации на объекте.",
-    accent: "text-amber-600 bg-amber-500/10",
+    accent: "text-[#111113] bg-white border border-black/8",
   },
   {
     icon: Wrench,
     title: "Сборка щитков",
     text: "Подбор и сборка щитка под задачи объекта — от квартиры до частного дома.",
-    accent: "text-emerald-600 bg-emerald-500/10",
+    accent: "text-[#111113] bg-white border border-black/8",
   },
   {
     icon: Hammer,
     title: "Монтаж и подключение",
     text: "Установка щитка, прокладка линий, замена автоматов, УЗО и других устройств.",
-    accent: "text-orange-600 bg-orange-500/10",
+    accent: "text-[#111113] bg-white border border-black/8",
   },
 ] as const;
 
@@ -88,20 +88,17 @@ export function BecomeMasterScreen({
       </header>
 
       <div className="flex-1 space-y-4 overflow-y-auto pb-4">
-        <GlassCard className="overflow-hidden p-0">
-          <div className="px-5 py-6 text-zinc-950" style={{ backgroundColor: BRAND_YELLOW }}>
-            <BrandLogo className="mb-4 h-9" />
-            <h2 className="text-[24px] font-bold tracking-tight">
-              Присоединяйтесь к команде{" "}
-              <strong className="font-bold">Токома</strong>
-            </h2>
-            <p className="mt-3 text-[14px] leading-relaxed text-zinc-800">
-              Мы ищем сильных специалистов, которые аккуратно работают с
-              электрикой, умеют объяснять простым языком и отвечают за результат.
-              У нас есть реальные задачи — от консультаций до выезда и монтажа.
-            </p>
-          </div>
-        </GlassCard>
+        <div>
+          <h2 className="text-[24px] font-bold tracking-tight text-zinc-900">
+            Присоединяйся к команде
+          </h2>
+          <BrandLogo className="mt-4 h-9" />
+          <p className="mt-4 text-[15px] leading-relaxed text-zinc-600">
+            Мы ищем сильных специалистов, которые аккуратно работают с
+            электрикой, умеют объяснять простым языком и отвечают за результат.
+            У нас есть реальные задачи — от консультаций до выезда и монтажа.
+          </p>
+        </div>
 
         <div>
           <h3 className="mb-3 text-[15px] font-semibold text-zinc-900">
@@ -138,8 +135,8 @@ export function BecomeMasterScreen({
           </div>
         </div>
 
-        <GlassCard className="flex gap-3 border-amber-500/20 bg-amber-500/[0.05] p-4">
-          <span className="mt-0.5 text-amber-600">
+        <GlassCard className="flex gap-3 bg-white p-4">
+          <span className="mt-0.5 text-[#111113]">
             <GraduationCap className="h-5 w-5" />
           </span>
           <div>

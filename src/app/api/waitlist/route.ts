@@ -9,7 +9,7 @@ import {
   getSql,
   upsertUser,
 } from "@/lib/db";
-import { notifyAdminLaunchWaitlist } from "@/lib/telegram-notify";
+import { notifyAdminWaitlist } from "@/lib/telegram-notify";
 
 function isValidEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
@@ -71,12 +71,14 @@ export async function POST(request: Request) {
         created_at = waitlist.created_at
     `;
 
-    if (list === "launch") {
-      try {
-        await notifyAdminLaunchWaitlist({ email });
-      } catch (error) {
-        console.error("notifyAdminLaunchWaitlist", error);
-      }
+    try {
+      await notifyAdminWaitlist({
+        list,
+        email,
+        telegramUserId: telegramId,
+      });
+    } catch (error) {
+      console.error("notifyAdminWaitlist", error);
     }
 
     return Response.json({ ok: true });

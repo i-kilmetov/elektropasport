@@ -4,14 +4,16 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowLeft,
+  BookOpen,
   ChevronDown,
   HousePlug,
-  LayoutGrid,
+  ShieldCheck,
+  Smartphone,
   Users,
   Wrench,
   Zap,
 } from "lucide-react";
-import { BrandLogo, BRAND_YELLOW } from "@/components/brand-logo";
+import { BrandLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
 import { cn } from "@/lib/utils";
@@ -22,41 +24,110 @@ type PublicStats = {
   mastersCount: number;
 };
 
-function formatCount(value: number | null | undefined): string {
-  if (value === undefined) return "…";
-  if (value === null) return "—";
+function formatCount(value: number): string {
   return new Intl.NumberFormat("ru-RU").format(value);
+}
+
+function LiveCount({ value }: { value: number | null | undefined }) {
+  const [shown, setShown] = useState(0);
+
+  useEffect(() => {
+    if (typeof value !== "number") {
+      setShown(0);
+      return;
+    }
+    const from = 0;
+    const to = value;
+    const duration = 900;
+    const start = performance.now();
+    let frame = 0;
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / duration);
+      const eased = 1 - (1 - t) ** 3;
+      setShown(Math.round(from + (to - from) * eased));
+      if (t < 1) frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [value]);
+
+  if (value === undefined) {
+    return <span className="text-zinc-300">— — —</span>;
+  }
+  if (value === null) {
+    return <span className="text-zinc-400">—</span>;
+  }
+  return <>{formatCount(shown)}</>;
 }
 
 const pillars = [
   {
     id: "panel",
     icon: Zap,
-    title: "Разобраться со щитком",
-    lead: "Понять, что происходит в электрическом сердце дома — и что с этим делать.",
-    body: [
-      "Щиток решает, будет ли дома безопасно: от него зависят перегрузки, УЗО и то, как быстро можно обесточить линию. Пока схема «в голове у электрика», вы не видите риски и не понимаете, что именно сломалось.",
-      "Током помогает сфотографировать щиток, разобрать автоматы простым языком и увидеть состояние защиты. Так проще принять решение: что можно оставить, что усилить и когда звать мастера — не наугад, а по делу.",
+    title: "Понятный щиток",
+    lead: "Увидеть схему, риски и что делать — без электрического жаргона.",
+    points: [
+      {
+        icon: ShieldCheck,
+        title: "Безопасность на виду",
+        text: "Понятно, есть ли УЗО, где перегруз и что обесточить в аварии.",
+      },
+      {
+        icon: Zap,
+        title: "Схема простым языком",
+        text: "Автоматы и линии подписаны так, чтобы разобрался не только мастер.",
+      },
+      {
+        icon: HousePlug,
+        title: "Решение, а не догадка",
+        text: "Сразу видно: оставить, усилить или звать специалиста.",
+      },
     ],
   },
   {
     id: "appliances",
-    icon: LayoutGrid,
-    title: "Вся техника дома в одном месте",
-    lead: "Собрать крупную технику рядом со щитком, чтобы видеть реальную нагрузку.",
-    body: [
-      "Духовка, стиральная, кондиционер и бойлер живут в разных комнатах, а питаются из одного щитка. Если не держать их вместе, легко перегрузить линию или купить технику, которую сеть просто не выдержит.",
-      "В Токоме техника привязывается к дому и щитку: мощность, модель и где она стоит. Это помогает планировать новые приборы, понимать запас по нагрузке и не собирать электрику заново после каждого ремонта.",
+    icon: BookOpen,
+    title: "Вся техника в одном месте",
+    lead: "Крупная техника, нагрузка и инструкции — в одном списке у щитка.",
+    points: [
+      {
+        icon: BookOpen,
+        title: "Все руководства рядом",
+        text: "Инструкции и руководства к технике больше не по шкафам: всё собрано в Токоме.",
+      },
+      {
+        icon: HousePlug,
+        title: "Нагрузка без сюрпризов",
+        text: "Духовка, стиральная и кондиционер видны вместе со щитком — проще не перегрузить линию.",
+      },
+      {
+        icon: Smartphone,
+        title: "Модель и мощность под рукой",
+        text: "Перед покупкой новой техники сразу видно, потянет ли сеть.",
+      },
     ],
   },
   {
     id: "help",
     icon: Wrench,
-    title: "Помощь по электрике — быстро и рядом",
-    lead: "Обратиться за любой помощью: онлайн или со специалистом на дом.",
-    body: [
-      "Электрика ломается в неудачный момент: выбило автомат, искрит розетка, неясно, можно ли подключать духовку. Искать «просто мастера» долго, а объяснять ситуацию с нуля ещё дольше.",
-      "Через Током можно оставить заявку на консультацию или выезд, не собирая историю заново: щиток и техника уже под рукой. Онлайн — чтобы быстро понять, что делать. На дом — если нужна скорая помощь и руки специалиста.",
+    title: "Электрическая помощь",
+    lead: "Онлайн или на дом — без пересказа ситуации с нуля.",
+    points: [
+      {
+        icon: Smartphone,
+        title: "Онлайн — чтобы понять",
+        text: "Консультация по щитку и технике, когда нужно быстро решить, что делать.",
+      },
+      {
+        icon: Wrench,
+        title: "На дом — руки специалиста",
+        text: "Выезд, если нужна скорая помощь: искра, выбивает автомат, непонятный ввод.",
+      },
+      {
+        icon: ShieldCheck,
+        title: "История уже с вами",
+        text: "Мастеру не надо собирать картину заново: щиток и техника уже в заявке.",
+      },
     ],
   },
 ] as const;
@@ -93,17 +164,15 @@ export function AboutServiceScreen({ onBack }: { onBack: () => void }) {
   const statCards = [
     {
       key: "users",
-      label: "человек уже в Токоме",
+      label: "человек уже пользуются",
       value: statsError ? null : stats === null ? undefined : stats.usersCount,
       icon: Users,
-      tone: "mustard" as const,
     },
     {
       key: "panels",
-      label: "щитков добавлено",
+      label: "щитков оцифровано",
       value: statsError ? null : stats === null ? undefined : stats.panelsCount,
       icon: HousePlug,
-      tone: "ink" as const,
     },
   ] as const;
 
@@ -126,39 +195,27 @@ export function AboutServiceScreen({ onBack }: { onBack: () => void }) {
         <h1 className="text-[20px] font-semibold text-zinc-900">О сервисе</h1>
       </header>
 
-      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pb-4">
-        <GlassCard className="overflow-hidden p-0">
-          <div className="px-5 py-6 text-[#111113]" style={{ backgroundColor: BRAND_YELLOW }}>
-            <BrandLogo className="mb-4 h-9" />
-            <h2 className="text-[24px] font-bold tracking-tight">
-              Три опоры Токома
-            </h2>
-            <p className="mt-3 text-[14px] leading-relaxed text-[#111113]/80">
-              Сервис держит электрику дома в одном месте: щиток, технику и
-              помощь специалиста — чтобы решения были понятными, а не наугад.
-            </p>
-          </div>
-        </GlassCard>
+      <div className="min-h-0 flex-1 space-y-5 overflow-y-auto pb-4">
+        <div>
+          <BrandLogo className="h-9" />
+          <p className="mt-4 text-[16px] leading-relaxed text-zinc-700">
+            Собирает электрику дома в одном месте: щиток, технику и помощь
+            специалистов — чтобы всё было понятно и безопасно.
+          </p>
+        </div>
 
         <div className="space-y-3">
-          {pillars.map((pillar, i) => {
+          {pillars.map((pillar) => {
             const open = openId === pillar.id;
             return (
-              <GlassCard key={pillar.id} className="overflow-hidden p-0">
+              <GlassCard key={pillar.id} className="overflow-hidden bg-white p-0">
                 <button
                   type="button"
                   onClick={() => setOpenId(open ? null : pillar.id)}
                   className="flex w-full items-start gap-3 p-4 text-left"
                   aria-expanded={open}
                 >
-                  <span
-                    className={cn(
-                      "mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px]",
-                      i === 1
-                        ? "bg-[#111113] text-white"
-                        : "bg-[#D3DA00] text-[#111113]",
-                    )}
-                  >
+                  <span className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] border border-black/8 bg-white text-[#111113]">
                     <pillar.icon className="h-5 w-5" />
                   </span>
                   <div className="min-w-0 flex-1">
@@ -185,14 +242,24 @@ export function AboutServiceScreen({ onBack }: { onBack: () => void }) {
                       transition={{ duration: 0.22, ease: "easeOut" }}
                       className="overflow-hidden"
                     >
-                      <div className="space-y-3 border-t border-black/[0.06] px-4 pb-4 pt-3">
-                        {pillar.body.map((paragraph) => (
-                          <p
-                            key={paragraph.slice(0, 24)}
-                            className="text-[13px] leading-relaxed text-zinc-600"
+                      <div className="space-y-2 border-t border-black/[0.06] px-4 pb-4 pt-3">
+                        {pillar.points.map((point) => (
+                          <div
+                            key={point.title}
+                            className="flex gap-3 rounded-[16px] border border-black/[0.06] bg-white p-3"
                           >
-                            {paragraph}
-                          </p>
+                            <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] bg-[#D3DA00] text-[#111113]">
+                              <point.icon className="h-4 w-4" />
+                            </span>
+                            <div>
+                              <div className="text-[14px] font-semibold text-zinc-900">
+                                {point.title}
+                              </div>
+                              <p className="mt-0.5 text-[13px] leading-snug text-zinc-500">
+                                {point.text}
+                              </p>
+                            </div>
+                          </div>
                         ))}
                       </div>
                     </motion.div>
@@ -203,54 +270,32 @@ export function AboutServiceScreen({ onBack }: { onBack: () => void }) {
           })}
         </div>
 
-        <GlassCard className="space-y-4 p-4">
+        <div className="space-y-3">
           <div>
             <h3 className="text-[16px] font-semibold text-zinc-900">
-              Открытые цифры
+              Открытые данные
             </h3>
-            <p className="mt-1 text-[13px] leading-relaxed text-zinc-500">
-              Сколько людей уже пользуются Токомом и сколько щитков добавлено —
-              без прикрас, как есть.
+            <p className="mt-1 text-[14px] leading-relaxed text-zinc-500">
+              Считаем и показываем, сколько людей уже пользуются Током и сколько
+              щитков оцифровано:
             </p>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            {statCards.map((card, i) => (
-              <motion.div
-                key={card.key}
-                initial={{ opacity: 0, scale: 0.96 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.08 + i * 0.05 }}
-                className={cn(
-                  "rounded-[18px] border border-black/[0.06] p-4",
-                  card.tone === "mustard"
-                    ? "bg-[#D3DA00]"
-                    : "bg-[#111113] text-white",
-                )}
-              >
-                <card.icon
-                  className={cn(
-                    "mb-3 h-5 w-5",
-                    card.tone === "mustard" ? "text-[#111113]" : "text-[#D3DA00]",
-                  )}
-                />
-                <div
-                  className={cn(
-                    "text-[32px] font-bold leading-none tracking-tight tabular-nums",
-                    card.tone === "mustard" ? "text-[#111113]" : "text-white",
-                  )}
-                >
-                  {formatCount(card.value)}
+            {statCards.map((card) => (
+              <GlassCard key={card.key} className="relative bg-white p-4">
+                <span className="absolute right-3 top-3 flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#D3DA00] opacity-60" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-[#D3DA00]" />
+                </span>
+                <card.icon className="mb-3 h-5 w-5 text-zinc-400" />
+                <div className="font-mono text-[30px] font-semibold leading-none tracking-tight text-[#111113] tabular-nums">
+                  <LiveCount value={card.value} />
                 </div>
-                <div
-                  className={cn(
-                    "mt-2 text-[12px] leading-snug",
-                    card.tone === "mustard" ? "text-[#111113]/70" : "text-white/70",
-                  )}
-                >
+                <div className="mt-2 text-[12px] leading-snug text-zinc-500">
                   {card.label}
                 </div>
-              </motion.div>
+              </GlassCard>
             ))}
           </div>
 
@@ -260,7 +305,7 @@ export function AboutServiceScreen({ onBack }: { onBack: () => void }) {
               позже.
             </p>
           )}
-        </GlassCard>
+        </div>
       </div>
 
       <Button className="mt-auto w-full" variant="secondary" onClick={onBack}>
