@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "moscow:download": "node scripts/download-moscow-opendata.mjs"
+    "moscow:download": "node scripts/download-moscow-opendata.mjs",
+    "moscow:find": "node scripts/find-moscow-year-dataset.mjs"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",

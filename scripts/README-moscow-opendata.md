@@ -2,10 +2,31 @@
 
 Скрипт качает с ноутбука в России два набора:
 
-1. **Паспорта / база жилых домов** → адрес + год постройки/ввода  
+1. **Паспорта / база жилых домов** → адрес + **год постройки/ввода**  
 2. **Капремонт** (если находится в каталоге) → адрес + годы плана/работ + краткий список работ  
 
 Результат кладётся в `data/moscow/` в сжатом виде (`*.min.json.gz`).
+
+---
+
+## Важно: не берите 60562
+
+`MOS_DOM_PASSPORT_DATASET_ID=60562` — это **«Адресный реестр объектов недвижимости»** (~550k строк, ~800 МБ). Там есть адреса, **нет года постройки**. Часы загрузки уходят впустую.
+
+Сначала найдите набор **с адресом и годом**:
+
+```bash
+export MOS_DATA_API_KEY='вставьте_ключ_сюда'
+node scripts/find-moscow-year-dataset.mjs
+```
+
+В конце скрипт выведет кандидатов с колонками года. Возьмите подходящий id.
+
+Если уже скачали 60562 — удалите сырой дамп (освободит ~800 МБ):
+
+```bash
+rm -f data/moscow/houses.raw.jsonl data/moscow/houses.checkpoint.json
+```
 
 ---
 
@@ -38,17 +59,25 @@ https://apidata.mos.ru/v1/datasets?$top=1&api_key=ВАШ_КЛЮЧ
 
 ```bash
 cd elektropasport
+git pull
 
 export MOS_DATA_API_KEY='вставьте_ключ_сюда'
 
-# опционально, если автопоиск ошибётся:
-# export MOS_DOM_PASSPORT_DATASET_ID=60562
-# export MOS_CAPITAL_REPAIR_DATASET_ID=XXXXX
+# 1) найти датасет с годом постройки
+node scripts/find-moscow-year-dataset.mjs
 
-node scripts/download-moscow-opendata.mjs
+# 2) подставить id из вывода (НЕ 60562)
+export MOS_DOM_PASSPORT_DATASET_ID=ЧИСЛО_С_ГОДОМ
+
+# капремонт (часто подходит 62963 — работы по капремонту МКД)
+export MOS_CAPITAL_REPAIR_DATASET_ID=62963
+
+npm run moscow:download
 ```
 
-Ожидаемое время: **порядка 5–20 минут** (зависит от API и объёма капремонта).
+Или без ручного id: `npm run moscow:download` сам ищет набор с колонками адреса+года (но find-скрипт надёжнее).
+
+Ожидаемое время: **десятки минут… несколько часов** в зависимости от размера набора и API. Скрипт умеет **продолжать** с checkpoint (`*.checkpoint.json`), если оборвался.
 
 В конце в консоли будет что-то вроде:
 
@@ -57,6 +86,8 @@ Wrote data/moscow/houses.min.json.gz (N houses with year)
 Wrote data/moscow/repairs.min.json.gz (M repair rows)
 Wrote data/moscow/meta.json
 ```
+
+`N` должно быть **> 0**. Если 0 — выбран неверный датасет.
 
 ---
 
@@ -70,19 +101,19 @@ Wrote data/moscow/meta.json
 | `data/moscow/houses.sample.json` | 3 сырых строки (чтобы увидеть имена полей) |
 | `data/moscow/repairs.sample.json` | 3 сырых строки капремонта |
 
-Размер обычно **порядка 1–5 МБ** на оба gzip (не полный «толстый» паспорт).
+Размер компакта обычно **порядка 1–10 МБ** на gzip. Сырые `*.raw.jsonl` в git не нужны — после успеха можно удалить.
 
 ---
 
 ## 4. Если датасет капремонта не нашёлся
 
-1. На [data.mos.ru](https://data.mos.ru) найдите набор вроде «региональная программа капитального ремонта» / «краткосрочный план… МКД».  
+1. На [data.mos.ru](https://data.mos.ru) найдите набор вроде «работы по капитальному ремонту МКД» / «региональная программа…».  
 2. Откройте карточку набора — в URL или метаданных будет **числовой id**.  
 3. Запустите снова:
 
 ```bash
-export MOS_CAPITAL_REPAIR_DATASET_ID=12345   # ваш id
-node scripts/download-moscow-opendata.mjs
+export MOS_CAPITAL_REPAIR_DATASET_ID=62963   # или ваш id
+npm run moscow:download
 ```
 
 Откройте `repairs.sample.json` и проверьте, что есть адрес и годы. Если поля называются иначе — пришлите sample, подправим компактор.
@@ -91,20 +122,17 @@ node scripts/download-moscow-opendata.mjs
 
 ## 5. Проверка глазами
 
-Распаковать и глянуть несколько записей:
-
 ```bash
-# macOS / Linux
 gunzip -c data/moscow/houses.min.json.gz | head -c 2000
 echo
 gunzip -c data/moscow/repairs.min.json.gz | head -c 2000
 ```
 
-Или поиск по адресу:
+Поиск по адресу:
 
 ```bash
 gunzip -c data/moscow/houses.min.json.gz | python3 -c "
-import sys,json,re
+import sys,json
 d=json.load(sys.stdin)
 q='саларьев'
 for h in d['houses']:
@@ -119,9 +147,9 @@ for h in d['houses']:
 
 1. Закоммитьте / пришлите папку `data/moscow/` (как минимум `*.min.json.gz` + `meta.json`).  
 2. В коде подключим чтение кэша вместо live `apidata.mos.ru` для Москвы.  
-3. Раз в 1–3 месяца можно просто снова запустить тот же скрипт и обновить файлы.
+3. Раз в 1–3 месяца можно снова запустить тот же скрипт и обновить файлы.
 
-Сырые полные дампы (если сохраните сами) в git лучше не класть — только компактные `*.min.json.gz`.
+Сырые `*.raw.jsonl` в git не кладите.
 
 ---
 
@@ -129,10 +157,11 @@ for h in d['houses']:
 
 | Симптом | Что делать |
 |---------|------------|
-| `fetch failed` / timeout | Нужен интернет в РФ; отключите зарубежный VPN |
+| `fetch failed` / timeout | Интернет в РФ; отключите зарубежный VPN; скрипт сам ретраит |
 | `HTTP 401/403` | Неверный или отозванный `MOS_DATA_API_KEY` |
-| Houses 0 / мало записей | Задайте `MOS_DOM_PASSPORT_DATASET_ID=60562` (или id с портала) |
-| Repairs не скачался | Задайте `MOS_CAPITAL_REPAIR_DATASET_ID` вручную |
-| Очень долго | Нормально при большом датасете; не прерывайте на середине |
+| `Invalid string length` | Старый баг (файл целиком в память). Обновите скрипт (`git pull`) — компакт идёт потоком |
+| Датасет 60562 / 0 домов с годом | Это адресный реестр. Найдите id через `find-moscow-year-dataset.mjs` |
+| Repairs не скачался | `export MOS_CAPITAL_REPAIR_DATASET_ID=62963` |
+| Очень долго | Нормально на больших наборах; не прерывайте — есть resume |
 
 Ключ API **не коммитьте** в репозиторий и не вставляйте в чат публично.

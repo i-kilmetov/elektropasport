@@ -14,7 +14,7 @@
  */
 
 import { createReadStream, createWriteStream } from "node:fs";
-import { mkdir, writeFile, unlink, readFile } from "node:fs/promises";
+import { access, mkdir, writeFile, unlink, readFile } from "node:fs/promises";
 import { pipeline } from "node:stream/promises";
 import { createGzip } from "node:zlib";
 import path from "node:path";
@@ -209,9 +209,7 @@ async function fetchAllRows(datasetId, label, checkpointName) {
   let resume = false;
   try {
     const rawCheckpoint = JSON.parse(await readFile(checkpointPath, "utf8"));
-    const rawExists = await readFile(rawPath, "utf8")
-      .then(() => true)
-      .catch(() => false);
+    const rawExists = await access(rawPath).then(() => true).catch(() => false);
     if (
       rawExists &&
       Number.isFinite(rawCheckpoint.skip) &&
@@ -228,12 +226,6 @@ async function fetchAllRows(datasetId, label, checkpointName) {
     // fresh download
   }
 
-  if (!resume) {
-    await writeFile(rawPath, "", "utf8");
-    skip = 0;
-    totalSaved = 0;
-  }
-
   let count = null;
   try {
     const countPayload = await mosGet(`/datasets/${datasetId}/count`);
@@ -245,53 +237,146 @@ async function fetchAllRows(datasetId, label, checkpointName) {
       console.log(`${label}: dataset reports ~${count} rows`);
     }
   } catch {
-    // count endpoint optional
+    // optional
   }
 
-  const { appendFile } = await import("node:fs/promises");
-  for (; ; skip += PAGE) {
-    process.stdout.write(
-      `\r${label}: skip=${skip}${count ? `/${count}` : ""}…`,
-    );
-    const page = await mosGet(`/datasets/${datasetId}/rows`, {
-      $skip: skip,
-      $top: PAGE,
-    });
-    if (!Array.isArray(page) || page.length === 0) break;
+  const downloadComplete =
+    resume &&
+    Number.isFinite(count) &&
+    totalSaved >= count * 0.99;
 
-    const lines = page.map((row) => JSON.stringify(row)).join("\n") + "\n";
-    await appendFile(rawPath, lines, "utf8");
-    totalSaved += page.length;
+  if (!resume) {
+    await writeFile(rawPath, "", "utf8");
+    skip = 0;
+    totalSaved = 0;
+  }
 
-    await writeFile(
-      checkpointPath,
-      JSON.stringify(
-        {
-          datasetId,
-          skip: skip + page.length,
-          totalSaved,
-          updatedAt: new Date().toISOString(),
-        },
-        null,
-        2,
-      ),
-      "utf8",
-    );
+  if (!downloadComplete) {
+    const { appendFile } = await import("node:fs/promises");
+    for (; ; skip += PAGE) {
+      process.stdout.write(
+        `\r${label}: skip=${skip}${count ? `/${count}` : ""}…`,
+      );
+      const page = await mosGet(`/datasets/${datasetId}/rows`, {
+        $skip: skip,
+        $top: PAGE,
+      });
+      if (!Array.isArray(page) || page.length === 0) break;
 
-    if (page.length < PAGE) {
-      break;
+      const lines = page.map((row) => JSON.stringify(row)).join("\n") + "\n";
+      await appendFile(rawPath, lines, "utf8");
+      totalSaved += page.length;
+
+      await writeFile(
+        checkpointPath,
+        JSON.stringify(
+          {
+            datasetId,
+            skip: skip + page.length,
+            totalSaved,
+            updatedAt: new Date().toISOString(),
+          },
+          null,
+          2,
+        ),
+        "utf8",
+      );
+
+      if (page.length < PAGE) break;
+      await new Promise((r) => setTimeout(r, 250));
     }
-    await new Promise((r) => setTimeout(r, 250));
+    process.stdout.write("\n");
+  } else {
+    console.log(`${label}: raw dump already complete, skipping download`);
   }
 
-  process.stdout.write(`\r${label}: reading ${rawPath}…          \n`);
-  const text = await readFile(rawPath, "utf8");
-  const rows = text
-    .split("\n")
-    .filter(Boolean)
-    .map((line) => JSON.parse(line));
-  console.log(`${label}: ${rows.length} rows loaded from checkpoint file`);
-  return rows;
+  return rawPath;
+}
+
+/** Stream-compact raw JSONL → compact house records (does not load file as one string). */
+async function compactHousesFromJsonl(rawPath) {
+  const { createInterface } = await import("node:readline");
+  const input = createReadStream(rawPath, { encoding: "utf8" });
+  const rl = createInterface({ input, crlfDelay: Infinity });
+
+  const out = [];
+  const seen = new Set();
+  let scanned = 0;
+  let withYear = 0;
+
+  for await (const line of rl) {
+    if (!line.trim()) continue;
+    scanned += 1;
+    let row;
+    try {
+      row = JSON.parse(line);
+    } catch {
+      continue;
+    }
+    const cells = row.Cells ?? row.attributes ?? {};
+    const address = pickAddressFromCells(cells);
+    if (!address) continue;
+    const yearBuilt = pickYearFromCells(cells, YEAR_BUILT_KEYS);
+    const yearOpened = pickYearFromCells(cells, YEAR_OPENED_KEYS);
+    const year = yearBuilt ?? yearOpened;
+    if (year == null) continue;
+    withYear += 1;
+    const key = normalizePart(address);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push({
+      a: address,
+      y: year,
+      yo: yearOpened && yearOpened !== year ? yearOpened : undefined,
+    });
+    if (scanned % 50_000 === 0) {
+      process.stdout.write(
+        `\rcompact houses: scanned=${scanned}, withYear=${withYear}, unique=${out.length}…`,
+      );
+    }
+  }
+  process.stdout.write(
+    `\rcompact houses: scanned=${scanned}, withYear=${withYear}, unique=${out.length}          \n`,
+  );
+  return out;
+}
+
+async function compactRepairsFromJsonl(rawPath) {
+  const { createInterface } = await import("node:readline");
+  const input = createReadStream(rawPath, { encoding: "utf8" });
+  const rl = createInterface({ input, crlfDelay: Infinity });
+  const out = [];
+  let scanned = 0;
+  for await (const line of rl) {
+    if (!line.trim()) continue;
+    scanned += 1;
+    let row;
+    try {
+      row = JSON.parse(line);
+    } catch {
+      continue;
+    }
+    const cells = row.Cells ?? row.attributes ?? {};
+    const address = pickAddressFromCells(cells);
+    if (!address) continue;
+    const start =
+      pickYearFromCells(cells, YEAR_START_KEYS) ??
+      pickYearFromCells(cells, ["Year", "year"]);
+    const end = pickYearFromCells(cells, YEAR_END_KEYS);
+    let works = cellString(cells, WORKS_KEYS) || undefined;
+    if (works && works.length > 180) works = `${works.slice(0, 177)}…`;
+    const status = cellString(cells, STATUS_KEYS) || undefined;
+    if (start == null && end == null && !works && !status) continue;
+    out.push({
+      a: address,
+      s: start ?? undefined,
+      e: end ?? undefined,
+      w: works,
+      st: status,
+    });
+  }
+  console.log(`compact repairs: scanned=${scanned}, kept=${out.length}`);
+  return out;
 }
 
 async function listDatasets() {
@@ -323,6 +408,7 @@ function scorePassport(caption) {
   ) {
     return 0;
   }
+  if (/адресный реестр объектов недвижимости/.test(lower)) return 0;
   if (/база/.test(lower) && /жил/.test(lower) && /дом/.test(lower)) points += 10;
   if (/паспорт/.test(lower) && /дом|здан|жил/.test(lower)) points += 8;
   if (/многоквартир/.test(lower) || /\bмкд\b/.test(lower)) points += 5;
@@ -386,6 +472,27 @@ function printColumns(meta, label) {
   }
 }
 
+async function assertPassportHasYearColumns(datasetId) {
+  const meta = await mosGet(`/datasets/${datasetId}`);
+  const caption = meta?.Caption ?? meta?.caption ?? "";
+  printColumns(meta, `Dataset ${datasetId}`);
+  if (!looksLikeHousePassport(meta)) {
+    const hint =
+      datasetId === 60562
+        ? " 60562 — это «Адресный реестр» без года постройки (~550k строк). Не используйте его."
+        : "";
+    throw new Error(
+      `Датасет ${datasetId} («${caption}») не похож на паспорта домов с годом постройки.${hint}\n` +
+        `Запустите: node scripts/find-moscow-year-dataset.mjs\n` +
+        `Затем: export MOS_DOM_PASSPORT_DATASET_ID=<id_с_годом>`,
+    );
+  }
+  console.log(
+    `Passport dataset OK: ${datasetId} — ${caption || "(no caption)"}`,
+  );
+  return meta;
+}
+
 async function resolvePassportDatasetId(list) {
   const fromEnv = Number.parseInt(
     process.env.MOS_DOM_PASSPORT_DATASET_ID ?? "",
@@ -393,24 +500,11 @@ async function resolvePassportDatasetId(list) {
   );
   if (Number.isFinite(fromEnv) && fromEnv > 0) {
     console.log(`Passport dataset from env: ${fromEnv}`);
+    await assertPassportHasYearColumns(fromEnv);
     return fromEnv;
   }
 
-  // 60562 is the known «База жилых домов» table — use it if reachable.
-  const preferredId = 60562;
-  try {
-    const meta = await mosGet(`/datasets/${preferredId}`);
-    printColumns(meta, `Dataset ${preferredId}`);
-    console.log(
-      `Using passport dataset ${preferredId} (${datasetColumns(meta).length} columns)`,
-    );
-    return preferredId;
-  } catch (error) {
-    console.log(
-      `Preferred id ${preferredId} unavailable: ${error instanceof Error ? error.message : error}`,
-    );
-  }
-
+  // Do NOT auto-pick 60562: address registry without year_built (~550k rows).
   for (const id of [29171, 27707]) {
     try {
       const meta = await mosGet(`/datasets/${id}`);
@@ -492,52 +586,23 @@ function pickYearFromCells(cells, keys) {
   return null;
 }
 
-function compactHouses(rows) {
-  const out = [];
-  const seen = new Set();
-  for (const row of rows) {
-    const cells = row.Cells ?? row.attributes ?? {};
-    const address = pickAddressFromCells(cells);
-    if (!address) continue;
-    const yearBuilt = pickYearFromCells(cells, YEAR_BUILT_KEYS);
-    const yearOpened = pickYearFromCells(cells, YEAR_OPENED_KEYS);
-    const year = yearBuilt ?? yearOpened;
-    if (year == null) continue;
-    const key = normalizePart(address);
-    if (!key || seen.has(key)) continue;
-    seen.add(key);
-    out.push({
-      a: address,
-      y: year,
-      yo: yearOpened && yearOpened !== year ? yearOpened : undefined,
-    });
+async function sampleJsonl(rawPath, n = 3) {
+  const { createInterface } = await import("node:readline");
+  const input = createReadStream(rawPath, { encoding: "utf8" });
+  const rl = createInterface({ input, crlfDelay: Infinity });
+  const rows = [];
+  for await (const line of rl) {
+    if (!line.trim()) continue;
+    try {
+      rows.push(JSON.parse(line));
+    } catch {
+      continue;
+    }
+    if (rows.length >= n) break;
   }
-  return out;
-}
-
-function compactRepairs(rows) {
-  const out = [];
-  for (const row of rows) {
-    const cells = row.Cells ?? row.attributes ?? {};
-    const address = cellString(cells, ADDRESS_KEYS);
-    if (!address) continue;
-    const start =
-      parseYear(cellString(cells, YEAR_START_KEYS)) ??
-      parseYear(cellString(cells, ["Year", "year"]));
-    const end = parseYear(cellString(cells, YEAR_END_KEYS));
-    let works = cellString(cells, WORKS_KEYS) || undefined;
-    if (works && works.length > 180) works = `${works.slice(0, 177)}…`;
-    const status = cellString(cells, STATUS_KEYS) || undefined;
-    if (start == null && end == null && !works && !status) continue;
-    out.push({
-      a: address,
-      s: start ?? undefined,
-      e: end ?? undefined,
-      w: works,
-      st: status,
-    });
-  }
-  return out;
+  rl.close();
+  input.destroy();
+  return rows;
 }
 
 async function writeJsonGz(filePath, data) {
@@ -598,18 +663,21 @@ async function main() {
 
   await mkdir(OUT_DIR, { recursive: true });
 
-  try {
-    const metaInfo = await mosGet(`/datasets/${passportId}`);
-    console.log(
-      `Passport dataset caption: ${metaInfo?.Caption ?? metaInfo?.caption ?? "(unknown)"}`,
-    );
-  } catch {
-    // optional
+  // Re-validate auto-resolved ids (env already validated in resolvePassport).
+  if (!process.env.MOS_DOM_PASSPORT_DATASET_ID) {
+    await assertPassportHasYearColumns(passportId);
   }
 
   const metaPath = path.join(OUT_DIR, "meta.json");
-  const passportRows = await fetchAllRows(passportId, "houses", "houses");
-  const houses = compactHouses(passportRows);
+  const housesRawPath = await fetchAllRows(passportId, "houses", "houses");
+  console.log(`${housesRawPath}: compacting (stream)…`);
+  const houses = await compactHousesFromJsonl(housesRawPath);
+  if (houses.length === 0) {
+    throw new Error(
+      "После компакта 0 домов с годом. Скорее всего выбран датасет без year_built " +
+        "(например 60562). Удалите houses.raw.jsonl / houses.checkpoint.json и выберите другой id через find-moscow-year-dataset.mjs",
+    );
+  }
   const housesPath = path.join(OUT_DIR, "houses.min.json.gz");
   await writeJsonGz(housesPath, {
     v: 1,
@@ -621,18 +689,18 @@ async function main() {
   });
   console.log(`Wrote ${housesPath} (${houses.length} houses with year)`);
 
-  // keep a small raw sample for debugging columns
   await writeFile(
     path.join(OUT_DIR, "houses.sample.json"),
-    JSON.stringify(passportRows.slice(0, 3), null, 2),
+    JSON.stringify(await sampleJsonl(housesRawPath, 3), null, 2),
     "utf8",
   );
 
   let repairs = [];
   if (repairId) {
     console.log(`Repair dataset id: ${repairId}`);
-    const repairRows = await fetchAllRows(repairId, "repairs", "repairs");
-    repairs = compactRepairs(repairRows);
+    const repairsRawPath = await fetchAllRows(repairId, "repairs", "repairs");
+    console.log(`${repairsRawPath}: compacting (stream)…`);
+    repairs = await compactRepairsFromJsonl(repairsRawPath);
     const repairsPath = path.join(OUT_DIR, "repairs.min.json.gz");
     await writeJsonGz(repairsPath, {
       v: 1,
@@ -645,7 +713,7 @@ async function main() {
     console.log(`Wrote ${repairsPath} (${repairs.length} repair rows)`);
     await writeFile(
       path.join(OUT_DIR, "repairs.sample.json"),
-      JSON.stringify(repairRows.slice(0, 3), null, 2),
+      JSON.stringify(await sampleJsonl(repairsRawPath, 3), null, 2),
       "utf8",
     );
   }
