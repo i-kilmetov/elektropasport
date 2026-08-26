@@ -26,22 +26,31 @@ export function isGoogleSheetsConfigured(): boolean {
   );
 }
 
-type WebhookUrlKind = "exec" | "dev" | "spreadsheet" | "other";
+type WebhookUrlKind = "exec" | "dev" | "editor" | "spreadsheet" | "other";
+
+function normalizeWebhookUrl(url: string): string {
+  return url.trim().replace(/^['"]|['"]$/g, "").replace(/\/+$/, "");
+}
 
 function classifyWebhookUrl(url: string): WebhookUrlKind {
   try {
-    const parsed = new URL(url);
+    const parsed = new URL(normalizeWebhookUrl(url));
     const host = parsed.hostname.toLowerCase();
-    const path = parsed.pathname;
+    const path = parsed.pathname.replace(/\/+$/, "") || "/";
     if (host === "docs.google.com" || host.endsWith(".docs.google.com")) {
       return "spreadsheet";
     }
-    if (path.endsWith("/dev")) return "dev";
+    const isScriptHost =
+      host === "script.google.com" || host.endsWith(".script.google.com");
+    if (isScriptHost && path.endsWith("/dev")) return "dev";
+    if (isScriptHost && path.endsWith("/exec")) return "exec";
     if (
-      (host === "script.google.com" || host.endsWith(".script.google.com")) &&
-      path.endsWith("/exec")
+      isScriptHost &&
+      (path.includes("/home/projects/") ||
+        /\/d\/[^/]+\/edit$/i.test(path) ||
+        path.endsWith("/edit"))
     ) {
-      return "exec";
+      return "editor";
     }
     return "other";
   } catch {
@@ -92,7 +101,7 @@ export async function appendGoogleSheetRow(input: {
 }): Promise<void> {
   const webhook = googleSheetsWebhookUrl();
   if (webhook) {
-    await appendViaWebhook(webhook, input);
+    await appendViaWebhook(normalizeWebhookUrl(webhook), input);
     return;
   }
 
@@ -141,6 +150,9 @@ function webhookUrlError(url: string): string | null {
   }
   if (kind === "dev") {
     return "В Vercel стоит тестовый URL …/dev. В Deploy → Manage deployments скопируйте боевой URL …/exec";
+  }
+  if (kind === "editor") {
+    return "В Vercel вставлена ссылка редактора Apps Script. Нужна ссылка веб-приложения из Deploy → Manage deployments, она заканчивается на /exec";
   }
   return "GOOGLE_SHEETS_WEBHOOK_URL должен быть https://script.google.com/macros/s/…/exec";
 }
