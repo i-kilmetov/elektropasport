@@ -71,9 +71,16 @@ export async function getVapidCredentials(): Promise<{
       const fromEnv = envVapidKeys();
       if (fromEnv) return fromEnv;
 
+      try {
+        const existing = await readStoredVapidKeys();
+        if (existing) return existing;
+      } catch {
+        // schema_meta missing — fall through to full migrate
+      }
+
       await ensureSchema();
-      const existing = await readStoredVapidKeys();
-      if (existing) return existing;
+      const afterMigrate = await readStoredVapidKeys();
+      if (afterMigrate) return afterMigrate;
 
       const generated = webpush.generateVAPIDKeys();
       await persistVapidKeys(generated);

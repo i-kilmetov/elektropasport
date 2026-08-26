@@ -1,5 +1,5 @@
 /* Tokom web push — do not intercept fetches (keeps Next.js intact). */
-const SW_VERSION = "tokom-push-1";
+const SW_VERSION = "tokom-push-2";
 
 self.addEventListener("install", (event) => {
   self.skipWaiting();
@@ -7,7 +7,9 @@ self.addEventListener("install", (event) => {
 });
 
 self.addEventListener("activate", (event) => {
-  event.waitUntil(self.clients.claim());
+  // Do not clients.claim() here: on iOS that aborts in-flight fetch
+  // ("Load failed") right after the notification permission dialog.
+  event.waitUntil(Promise.resolve());
 });
 
 self.addEventListener("push", (event) => {

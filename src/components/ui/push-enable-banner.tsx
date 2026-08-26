@@ -6,7 +6,9 @@ import { hapticNotification } from "@/lib/haptics";
 import {
   PUSH_BANNER_DISMISS_KEY,
   enableWebPush,
+  friendlyPushError,
   getCurrentPushSubscription,
+  hasNotificationPermission,
   isStandaloneDisplay,
   readPushUiState,
 } from "@/lib/web-push-client";
@@ -61,9 +63,7 @@ export function PushEnableBanner() {
       hapticNotification("success");
     } catch (err) {
       hapticNotification("error");
-      setError(
-        err instanceof Error ? err.message : "Не удалось включить уведомления",
-      );
+      setError(friendlyPushError(err));
     } finally {
       setBusy(false);
     }
@@ -94,7 +94,11 @@ export function PushEnableBanner() {
               onClick={() => void enable()}
               className="rounded-full bg-[#111113] px-3.5 py-1.5 text-[13px] font-semibold text-white disabled:opacity-40"
             >
-              {busy ? "Включаем…" : "Включить"}
+              {busy
+                ? "Включаем…"
+                : hasNotificationPermission()
+                  ? "Завершить"
+                  : "Включить"}
             </button>
             <button
               type="button"

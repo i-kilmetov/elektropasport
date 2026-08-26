@@ -8,7 +8,9 @@ import { hapticNotification } from "@/lib/haptics";
 import {
   disableWebPush,
   enableWebPush,
+  friendlyPushError,
   getCurrentPushSubscription,
+  hasNotificationPermission,
   readPushUiState,
   sendTestWebPush,
   type PushUiState,
@@ -56,9 +58,7 @@ export function PushNotificationsCard() {
       hapticNotification("success");
     } catch (err) {
       hapticNotification("error");
-      setError(
-        err instanceof Error ? err.message : "Не удалось включить уведомления",
-      );
+      setError(friendlyPushError(err));
     } finally {
       setBusy(false);
     }
@@ -146,14 +146,26 @@ export function PushNotificationsCard() {
       </div>
 
       {state === "off" && (
-        <Button
-          className="mt-4 w-full"
-          size="sm"
-          disabled={busy}
-          onClick={() => void enable()}
-        >
-          {busy ? "Включаем…" : "Включить уведомления"}
-        </Button>
+        <>
+          {hasNotificationPermission() && (
+            <p className="mt-3 text-[13px] leading-relaxed text-zinc-500">
+              В настройках iPhone разрешение уже есть. Нажмите ещё раз — нужно
+              закончить подписку после системного окна.
+            </p>
+          )}
+          <Button
+            className="mt-4 w-full"
+            size="sm"
+            disabled={busy}
+            onClick={() => void enable()}
+          >
+            {busy
+              ? "Включаем…"
+              : hasNotificationPermission()
+                ? "Завершить включение"
+                : "Включить уведомления"}
+          </Button>
+        </>
       )}
       {state === "on" && (
         <div className="mt-4 space-y-2">

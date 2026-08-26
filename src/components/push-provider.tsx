@@ -5,7 +5,8 @@ import { canUseServerAuth, isTelegramMiniApp } from "@/lib/client-auth";
 import {
   canUsePushApis,
   getCurrentPushSubscription,
-  registerPushServiceWorker,
+  hasNotificationPermission,
+  preloadPushResources,
   syncPushSubscriptionToServer,
 } from "@/lib/web-push-client";
 
@@ -21,10 +22,10 @@ export function PushProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     void (async () => {
       try {
-        await registerPushServiceWorker();
+        await preloadPushResources();
         if (cancelled) return;
         if (!canUseServerAuth()) return;
-        if (Notification.permission !== "granted") return;
+        if (!hasNotificationPermission()) return;
         const subscription = await getCurrentPushSubscription();
         if (!subscription || cancelled) return;
         await syncPushSubscriptionToServer(subscription);
