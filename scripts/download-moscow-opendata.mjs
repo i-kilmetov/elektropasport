@@ -110,20 +110,56 @@ function unwrapMosPayload(data) {
   return data;
 }
 
+function stringifyCellValue(value) {
+  if (value == null) return "";
+  if (typeof value === "string" || typeof value === "number") {
+    return String(value).trim();
+  }
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => stringifyCellValue(item))
+      .filter(Boolean)
+      .join(", ");
+  }
+  if (typeof value === "object") {
+    for (const key of [
+      "Address",
+      "address",
+      "ADDRESS",
+      "AddressMKD",
+      "SIMPLE_ADDRESS",
+      "FullAddress",
+      "value",
+      "Value",
+      "name",
+      "Name",
+    ]) {
+      if (value[key] != null && String(value[key]).trim()) {
+        return String(value[key]).trim();
+      }
+    }
+    for (const [k, v] of Object.entries(value)) {
+      if (/address|адрес/i.test(k) && v != null && String(v).trim()) {
+        return String(v).trim();
+      }
+    }
+  }
+  return "";
+}
+
 function cellString(cells, keys) {
   if (!cells || typeof cells !== "object") return "";
   for (const key of keys) {
-    const direct = cells[key];
-    if (direct != null && String(direct).trim()) return String(direct).trim();
+    const text = stringifyCellValue(cells[key]);
+    if (text) return text;
   }
   const lower = new Map(
     Object.entries(cells).map(([k, v]) => [k.toLowerCase(), v]),
   );
   for (const key of keys) {
-    const value = lower.get(key.toLowerCase());
-    if (value != null && String(value).trim()) return String(value).trim();
+    const text = stringifyCellValue(lower.get(key.toLowerCase()));
+    if (text) return text;
   }
-  // caption-like fallback: any key containing address / year / work
   return "";
 }
 
@@ -147,6 +183,7 @@ function normalizePart(value) {
 const ADDRESS_KEYS = [
   "address",
   "Address",
+  "ObjectAddress",
   "AddressMKD",
   "ADDRESS",
   "SIMPLE_ADDRESS",
@@ -171,6 +208,8 @@ const YEAR_OPENED_KEYS = [
   "YearOperation",
 ];
 const YEAR_START_KEYS = [
+  "YearOfWork",
+  "WorkYear",
   "YearStart",
   "YearOfStart",
   "RepairStartYear",
@@ -178,6 +217,11 @@ const YEAR_START_KEYS = [
   "StartYear",
   "PlanYear",
   "YearPlan",
+  "StartDate",
+  "StartDateActual",
+  "ContractStartDate",
+  "PlannedStartDate",
+  "ActualStartDate",
 ];
 const YEAR_END_KEYS = [
   "YearEnd",
@@ -185,9 +229,18 @@ const YEAR_END_KEYS = [
   "RepairEndYear",
   "EndYear",
   "YearRepairEnd",
+  "EndDate",
+  "EndDateActual",
+  "ContractEndDate",
+  "PlannedEndDate",
+  "ActualEndDate",
 ];
 const WORKS_KEYS = [
+  "WorkName",
+  "DetailedWork",
+  "WorkEssence",
   "Works",
+  "Work",
   "WorkList",
   "Activities",
   "RepairWorks",
@@ -197,7 +250,13 @@ const WORKS_KEYS = [
   "TypeOfWorks",
   "RepairType",
 ];
-const STATUS_KEYS = ["Status", "StatusRepair", "RepairStatus", "State"];
+const STATUS_KEYS = [
+  "Status",
+  "StatusRepair",
+  "RepairStatus",
+  "State",
+  "ContractType",
+];
 
 async function fetchAllRows(datasetId, label, checkpointName) {
   await mkdir(OUT_DIR, { recursive: true });
@@ -551,6 +610,14 @@ async function resolveRepairDatasetId(list) {
   );
   if (Number.isFinite(fromEnv) && fromEnv > 0) return fromEnv;
 
+  // Prefer the known MKD capital-repair works table.
+  for (const id of [62963]) {
+    if (list.some((item) => item.id === id)) {
+      console.log(`Repair dataset (known id): ${id}`);
+      return id;
+    }
+  }
+
   const ranked = list
     .map((item) => ({ ...item, points: scoreRepair(item.caption) }))
     .filter((item) => item.points >= 3)
@@ -568,7 +635,8 @@ function pickAddressFromCells(cells) {
   if (direct) return direct;
   for (const [key, value] of Object.entries(cells)) {
     if (!/address|адрес|улиц|location/i.test(key)) continue;
-    if (value != null && String(value).trim()) return String(value).trim();
+    const text = stringifyCellValue(value);
+    if (text) return text;
   }
   return "";
 }
@@ -617,6 +685,10 @@ async function writeJsonGz(filePath, data) {
 }
 
 async function main() {
+  const repairsOnly =
+    process.env.MOS_DOWNLOAD_MODE === "repairs-only" ||
+    process.env.MOS_DOWNLOAD_REPAIRS_ONLY === "1";
+
   console.log("Checking API key…");
   const probe = await mosGet("/datasets", { $top: 1, foreign: "false" });
   if (!Array.isArray(probe)) {
@@ -633,29 +705,44 @@ async function main() {
   const list = await listDatasets();
   console.log(`Datasets in catalog: ${list.length}`);
 
-  const passportId = await resolvePassportDatasetId(list);
-  if (!passportId) {
-    await mkdir(OUT_DIR, { recursive: true });
-    const candidates = list
-      .map((item) => ({ ...item, points: scorePassport(item.caption) }))
-      .filter((item) => item.points >= 1)
-      .sort((a, b) => b.points - a.points)
-      .slice(0, 40);
-    const candidatesPath = path.join(OUT_DIR, "dataset-candidates.json");
-    await writeFile(candidatesPath, JSON.stringify(candidates, null, 2), "utf8");
-    console.error(`\nСписок кандидатов сохранён: ${candidatesPath}`);
-    console.error(
-      "Откройте data.mos.ru, найдите набор про жилые дома / год постройки, возьмите Id из URL и выполните:",
-    );
-    console.error("  export MOS_DOM_PASSPORT_DATASET_ID=ЧИСЛО");
-    console.error("  npm run moscow:download");
-    throw new Error(
-      "Не найден датасет паспортов домов. Задайте MOS_DOM_PASSPORT_DATASET_ID.",
-    );
+  let passportId = null;
+  if (!repairsOnly) {
+    passportId = await resolvePassportDatasetId(list);
+    if (!passportId) {
+      await mkdir(OUT_DIR, { recursive: true });
+      const candidates = list
+        .map((item) => ({ ...item, points: scorePassport(item.caption) }))
+        .filter((item) => item.points >= 1)
+        .sort((a, b) => b.points - a.points)
+        .slice(0, 40);
+      const candidatesPath = path.join(OUT_DIR, "dataset-candidates.json");
+      await writeFile(
+        candidatesPath,
+        JSON.stringify(candidates, null, 2),
+        "utf8",
+      );
+      console.error(`\nСписок кандидатов сохранён: ${candidatesPath}`);
+      console.error(
+        "В открытом каталоге нет набора «адрес + год постройки» существующих МКД.",
+      );
+      console.error(
+        "Для капремонта можно качать отдельно:\n  export MOS_DOWNLOAD_MODE=repairs-only\n  export MOS_CAPITAL_REPAIR_DATASET_ID=62963\n  npm run moscow:download",
+      );
+      throw new Error(
+        "Не найден датасет паспортов домов. Задайте MOS_DOWNLOAD_MODE=repairs-only или другой источник года.",
+      );
+    }
+  } else {
+    console.log("Mode: repairs-only (год постройки не качаем из mos.ru)");
   }
 
   const repairId = await resolveRepairDatasetId(list);
   if (!repairId) {
+    if (repairsOnly) {
+      throw new Error(
+        "Датасет капремонта не найден. Задайте MOS_CAPITAL_REPAIR_DATASET_ID=62963",
+      );
+    }
     console.warn(
       "Датасет капремонта не найден автоматически — houses всё равно скачаем. Задайте MOS_CAPITAL_REPAIR_DATASET_ID при необходимости.",
     );
@@ -663,37 +750,39 @@ async function main() {
 
   await mkdir(OUT_DIR, { recursive: true });
 
-  // Re-validate auto-resolved ids (env already validated in resolvePassport).
-  if (!process.env.MOS_DOM_PASSPORT_DATASET_ID) {
-    await assertPassportHasYearColumns(passportId);
-  }
-
   const metaPath = path.join(OUT_DIR, "meta.json");
-  const housesRawPath = await fetchAllRows(passportId, "houses", "houses");
-  console.log(`${housesRawPath}: compacting (stream)…`);
-  const houses = await compactHousesFromJsonl(housesRawPath);
-  if (houses.length === 0) {
-    throw new Error(
-      "После компакта 0 домов с годом. Скорее всего выбран датасет без year_built " +
-        "(например 60562). Удалите houses.raw.jsonl / houses.checkpoint.json и выберите другой id через find-moscow-year-dataset.mjs",
+  let houses = [];
+
+  if (passportId) {
+    if (!process.env.MOS_DOM_PASSPORT_DATASET_ID) {
+      await assertPassportHasYearColumns(passportId);
+    }
+    const housesRawPath = await fetchAllRows(passportId, "houses", "houses");
+    console.log(`${housesRawPath}: compacting (stream)…`);
+    houses = await compactHousesFromJsonl(housesRawPath);
+    if (houses.length === 0) {
+      throw new Error(
+        "После компакта 0 домов с годом. Скорее всего выбран датасет без year_built " +
+          "(например 60562 или 2941 — объекты нового строительства). Удалите houses.raw.jsonl / houses.checkpoint.json.",
+      );
+    }
+    const housesPath = path.join(OUT_DIR, "houses.min.json.gz");
+    await writeJsonGz(housesPath, {
+      v: 1,
+      kind: "moscow_houses",
+      datasetId: passportId,
+      downloadedAt: new Date().toISOString(),
+      count: houses.length,
+      houses,
+    });
+    console.log(`Wrote ${housesPath} (${houses.length} houses with year)`);
+
+    await writeFile(
+      path.join(OUT_DIR, "houses.sample.json"),
+      JSON.stringify(await sampleJsonl(housesRawPath, 3), null, 2),
+      "utf8",
     );
   }
-  const housesPath = path.join(OUT_DIR, "houses.min.json.gz");
-  await writeJsonGz(housesPath, {
-    v: 1,
-    kind: "moscow_houses",
-    datasetId: passportId,
-    downloadedAt: new Date().toISOString(),
-    count: houses.length,
-    houses,
-  });
-  console.log(`Wrote ${housesPath} (${houses.length} houses with year)`);
-
-  await writeFile(
-    path.join(OUT_DIR, "houses.sample.json"),
-    JSON.stringify(await sampleJsonl(housesRawPath, 3), null, 2),
-    "utf8",
-  );
 
   let repairs = [];
   if (repairId) {
@@ -701,6 +790,11 @@ async function main() {
     const repairsRawPath = await fetchAllRows(repairId, "repairs", "repairs");
     console.log(`${repairsRawPath}: compacting (stream)…`);
     repairs = await compactRepairsFromJsonl(repairsRawPath);
+    if (repairs.length === 0) {
+      throw new Error(
+        "После компакта 0 строк капремонта. Проверьте ObjectAddress / WorkName в repairs.sample.json",
+      );
+    }
     const repairsPath = path.join(OUT_DIR, "repairs.min.json.gz");
     await writeJsonGz(repairsPath, {
       v: 1,
@@ -720,14 +814,19 @@ async function main() {
 
   const meta = {
     downloadedAt: new Date().toISOString(),
+    mode: repairsOnly ? "repairs-only" : "houses+repairs",
     passportDatasetId: passportId,
     repairDatasetId: repairId,
     housesWithYear: houses.length,
     repairRows: repairs.length,
     files: {
-      houses: "houses.min.json.gz",
+      houses: passportId ? "houses.min.json.gz" : null,
       repairs: repairId ? "repairs.min.json.gz" : null,
     },
+    note:
+      passportId == null
+        ? "Year of construction for existing MKD is not in mos.ru open catalog; use Housescore/OSM/etc. Cap repair from 62963."
+        : undefined,
   };
   await writeFile(metaPath, JSON.stringify(meta, null, 2), "utf8");
   console.log(`Wrote ${metaPath}`);

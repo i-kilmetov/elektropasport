@@ -167,11 +167,19 @@ async function probeDataset(item, kind) {
     sampleAddress,
     sampleWork,
     sampleYears,
-    okHouse: hasAddress && (hasBuildYear || yearInSample),
+    okHouse:
+      hasAddress &&
+      (hasBuildYear || yearInSample) &&
+      !/объекты капитального строительства|214-фз|подсудность|образовательн/i.test(
+        item.caption,
+      ),
     okRepair:
       hasAddress &&
       (hasRepairYear || sampleYears.length > 0) &&
-      (hasRepairWork || Boolean(sampleWork)),
+      (hasRepairWork || Boolean(sampleWork)) &&
+      !/адресный реестр|специальн.*счет|поликлиник|подъемн.*платформ|фасад.*2014|объекты капитального строительства/i.test(
+        item.caption,
+      ),
   };
 }
 
@@ -300,7 +308,10 @@ async function main() {
       "Год постройки: в открытом каталоге mos.ru подходящего набора НЕ найдено.",
     );
     console.log(
-      "Не качайте 60562 ради года — там только адреса. Дальше: Housescore / Реформа ЖКХ / OSM, либо ручной поиск на data.mos.ru.",
+      "Не качайте 60562 (адреса) и 2941 (новые стройки) ради года существующих МКД.",
+    );
+    console.log(
+      "Год: Housescore / Реформа ЖКХ / OSM. Капремонт МКД: только 62963.",
     );
   } else {
     console.log("Год постройки — кандидаты:");
@@ -309,13 +320,18 @@ async function main() {
     }
   }
 
-  if (repairHits.length === 0) {
+  const mkdRepairs = repairHits.filter((h) => h.id === 62963 || /многоквартирн/.test(h.caption));
+  const showRepairs = mkdRepairs.length ? mkdRepairs : repairHits;
+  if (showRepairs.length === 0) {
     console.log("Капремонт: явных кандидатов с адресом+годами/работами не видно.");
   } else {
-    console.log("Капремонт — кандидаты:");
-    for (const h of repairHits) {
+    console.log("Капремонт — кандидаты (для МКД берите 62963):");
+    for (const h of showRepairs) {
       console.log(`  export MOS_CAPITAL_REPAIR_DATASET_ID=${h.id}  # ${h.caption}`);
     }
+    console.log(
+      "\nСкачать только капремонт:\n  export MOS_DOWNLOAD_MODE=repairs-only\n  export MOS_CAPITAL_REPAIR_DATASET_ID=62963\n  npm run moscow:download",
+    );
   }
 }
 
