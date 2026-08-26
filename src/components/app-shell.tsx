@@ -1819,7 +1819,10 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
     screen === "master-not-found" ||
     screen === "admin" ||
     screen === "research-survey" ||
-    screen === "panel-game";
+    screen === "panel-game" ||
+    screen === "no-panel-options" ||
+    screen === "no-panel-detail" ||
+    screen === "panel-advantages";
   const wideLayout =
     screen === "objects" ||
     screen === "scheme" ||

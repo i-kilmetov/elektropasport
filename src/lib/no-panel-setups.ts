@@ -54,33 +54,33 @@ export const riskCategoryMeta: Record<
   RiskCategory,
   { icon: LucideIcon; className: string }
 > = {
-  person: { icon: User, className: "text-rose-600 bg-rose-500/15" },
+  person: { icon: User, className: "text-[#111113] bg-[#D3DA00]" },
   fire: {
     icon: FireExtinguisher,
-    className: "text-orange-600 bg-orange-500/15",
+    className: "text-[#111113] bg-[#D3DA00]",
   },
-  load: { icon: Gauge, className: "text-violet-600 bg-violet-500/15" },
-  ops: { icon: Wrench, className: "text-zinc-600 bg-zinc-500/15" },
-  norms: { icon: Scale, className: "text-amber-600 bg-amber-500/15" },
+  load: { icon: Gauge, className: "text-[#111113] bg-zinc-100" },
+  ops: { icon: Wrench, className: "text-[#111113] bg-zinc-100" },
+  norms: { icon: Scale, className: "text-[#111113] bg-zinc-100" },
   control: {
     icon: ClipboardList,
-    className: "text-cyan-600 bg-cyan-500/15",
+    className: "text-[#111113] bg-zinc-100",
   },
   reliability: {
     icon: ShieldCheck,
-    className: "text-teal-600 bg-teal-500/15",
+    className: "text-[#111113] bg-zinc-100",
   },
   durability: {
     icon: Lightbulb,
-    className: "text-amber-600 bg-amber-500/15",
+    className: "text-[#111113] bg-zinc-100",
   },
   action: {
     icon: LayoutGrid,
-    className: "text-zinc-600 bg-zinc-100",
+    className: "text-white bg-[#111113]",
   },
   opportunity: {
     icon: Sparkles,
-    className: "text-emerald-600 bg-emerald-500/15",
+    className: "text-[#111113] bg-[#D3DA00]",
   },
 };
 

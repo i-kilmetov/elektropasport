@@ -470,10 +470,10 @@ function EmptyState({
               src={imageSrc}
               alt={imageAlt ?? ""}
               draggable={false}
-              className="pointer-events-none mb-4 w-full max-w-[280px] select-none"
+              className="pointer-events-none h-[min(36dvh,240px)] w-auto max-w-full select-none object-contain"
             />
           ) : null}
-          <p className="text-center text-[15px] leading-relaxed text-zinc-600">
+          <p className="mt-4 min-h-[6.25rem] text-center text-[15px] leading-relaxed text-zinc-600">
             {text}
           </p>
         </div>
