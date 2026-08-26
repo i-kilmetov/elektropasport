@@ -463,20 +463,19 @@ function EmptyState({
   if (framed) {
     return (
       <div className="flex min-h-full flex-1 flex-col items-center justify-center px-4 py-6">
-        <div className="w-full max-w-[320px] overflow-hidden rounded-[20px] border border-black/8 bg-white shadow-sm">
+        <div className="flex w-full max-w-[320px] flex-col items-center">
           {imageSrc ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={imageSrc}
               alt={imageAlt ?? ""}
               draggable={false}
-              className="pointer-events-none mx-auto w-full select-none px-3 py-4"
+              className="pointer-events-none mb-4 w-full max-w-[280px] select-none"
             />
-          ) : (
-            <p className="px-5 py-4 text-center text-[15px] leading-relaxed text-zinc-600">
-              {text}
-            </p>
-          )}
+          ) : null}
+          <p className="text-center text-[15px] leading-relaxed text-zinc-600">
+            {text}
+          </p>
         </div>
       </div>
     );
@@ -923,7 +922,7 @@ export function ObjectsScreen({
           onDragEnd={onPagerDragEnd}
         >
           <div
-            className="h-full min-h-0 overflow-y-auto overscroll-none px-5 pb-2 lg:px-10 lg:pb-10"
+            className="flex h-full min-h-0 flex-col overflow-y-auto overscroll-none px-5 pb-2 lg:px-10 lg:pb-10"
             style={{ width: pagerWidth || "50%", WebkitOverflowScrolling: "touch" }}
           >
             {renderList(panels, {
@@ -935,7 +934,7 @@ export function ObjectsScreen({
             })}
           </div>
           <div
-            className="h-full min-h-0 overflow-y-auto overscroll-none px-5 pb-2 lg:px-10 lg:pb-10"
+            className="flex h-full min-h-0 flex-col overflow-y-auto overscroll-none px-5 pb-2 lg:px-10 lg:pb-10"
             style={{ width: pagerWidth || "50%", WebkitOverflowScrolling: "touch" }}
           >
             {renderList(requests, {
