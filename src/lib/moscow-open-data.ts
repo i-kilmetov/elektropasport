@@ -53,6 +53,19 @@ function describeMoscowNetworkError(error: unknown): string {
   return error.message;
 }
 
+/** API may return a bare array or an OData wrapper { Items: [...] }. */
+function unwrapMosPayload(data: unknown): unknown {
+  if (Array.isArray(data)) return data;
+  if (!data || typeof data !== "object") return data;
+
+  const obj = data as Record<string, unknown>;
+  if (Array.isArray(obj.Items)) return obj.Items;
+  if (Array.isArray(obj.items)) return obj.items;
+  if (Array.isArray(obj.value)) return obj.value;
+  if (Array.isArray(obj.Results)) return obj.Results;
+  return data;
+}
+
 async function mosFetchRaw(
   path: string,
   searchParams?: Record<string, string | number | undefined>,
@@ -62,6 +75,9 @@ async function mosFetchRaw(
 
   const url = new URL(`${MOS_DATA_BASE}${path}`);
   url.searchParams.set("api_key", key);
+  if (!searchParams || searchParams.$format === undefined) {
+    url.searchParams.set("$format", "json");
+  }
   if (searchParams) {
     for (const [name, value] of Object.entries(searchParams)) {
       if (value === undefined || value === "") continue;
@@ -90,7 +106,19 @@ async function mosFetchRaw(
       };
     }
 
-    return { data: await res.json(), status: res.status };
+    const text = await res.text();
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      return {
+        data: null,
+        status: res.status,
+        error: `non_json:${text.slice(0, 120)}`,
+      };
+    }
+
+    return { data: unwrapMosPayload(parsed), status: res.status };
   } catch (error) {
     console.error("Moscow open data request error", path, error);
     return {
@@ -208,9 +236,9 @@ export async function fetchDatasetRows(
     $top: options?.top ?? 1000,
     $filter: options?.filter,
   });
-  const payload = result.data;
+  const payload = unwrapMosPayload(result.data);
   if (!Array.isArray(payload)) return [];
-  return payload.map(normalizeMosRow);
+  return payload.map((row) => normalizeMosRow(row as MosDataRow));
 }
 
 /** Lightweight API health check for diagnostics (does not log secrets). */

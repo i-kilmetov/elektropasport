@@ -37,19 +37,48 @@ function apiKey() {
 async function mosGet(pathname, search = {}) {
   const url = new URL(`${BASE}${pathname}`);
   url.searchParams.set("api_key", apiKey());
+  // Browser defaults to XML; force JSON for Node.
+  if (!("$format" in search)) url.searchParams.set("$format", "json");
   for (const [k, v] of Object.entries(search)) {
     if (v === undefined || v === null || v === "") continue;
     url.searchParams.set(k, String(v));
   }
 
   const res = await fetch(url, {
-    headers: { Accept: "application/json" },
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
   });
+  const text = await res.text();
   if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    throw new Error(`HTTP ${res.status} ${pathname}: ${body.slice(0, 300)}`);
+    throw new Error(`HTTP ${res.status} ${pathname}: ${text.slice(0, 300)}`);
   }
-  return res.json();
+
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new Error(
+      `Ответ не JSON (${pathname}). Начало ответа: ${text.slice(0, 200)}`,
+    );
+  }
+
+  return unwrapMosPayload(data);
+}
+
+/** API may return a bare array or an OData wrapper { Items: [...] }. */
+function unwrapMosPayload(data) {
+  if (Array.isArray(data)) return data;
+  if (!data || typeof data !== "object") return data;
+
+  if (Array.isArray(data.Items)) return data.Items;
+  if (Array.isArray(data.items)) return data.items;
+  if (Array.isArray(data.value)) return data.value;
+  if (Array.isArray(data.Results)) return data.Results;
+
+  // Single dataset / meta object — leave as-is
+  return data;
 }
 
 function cellString(cells, keys) {
@@ -322,11 +351,10 @@ async function writeJsonGz(filePath, data) {
   const tmp = `${filePath}.json`;
   await writeFile(tmp, JSON.stringify(data), "utf8");
   await pipeline(
-    (await import("node:fs")).createReadStream(tmp),
+    createReadStream(tmp),
     createGzip({ level: 9 }),
     createWriteStream(filePath),
   );
-  const { unlink } = await import("node:fs/promises");
   await unlink(tmp);
 }
 
@@ -334,9 +362,14 @@ async function main() {
   console.log("Checking API key…");
   const probe = await mosGet("/datasets", { $top: 1, foreign: "false" });
   if (!Array.isArray(probe)) {
-    throw new Error("Unexpected /datasets response — check API key");
+    throw new Error(
+      `Неожиданный ответ /datasets (тип ${typeof probe}). Проверьте ключ. Пример: ${JSON.stringify(probe).slice(0, 200)}`,
+    );
   }
-  console.log("API OK");
+  if (probe.length === 0) {
+    throw new Error("API вернул пустой список датасетов — проверьте ключ.");
+  }
+  console.log(`API OK (пример набора: ${probe[0]?.Caption ?? probe[0]?.Id})`);
 
   console.log("Listing datasets (may take a minute)…");
   const list = await listDatasets();
