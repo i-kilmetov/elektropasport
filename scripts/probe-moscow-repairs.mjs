@@ -6,6 +6,34 @@ if (!key) {
   process.exit(1);
 }
 
+function pickAddress(raw) {
+  if (raw == null) return "";
+  if (typeof raw === "string") {
+    const t = raw.trim();
+    if (t.startsWith("[") || t.startsWith("{")) {
+      try {
+        return pickAddress(JSON.parse(t));
+      } catch {
+        return t;
+      }
+    }
+    return t;
+  }
+  if (Array.isArray(raw)) {
+    return raw.map(pickAddress).filter(Boolean).join(", ");
+  }
+  if (typeof raw === "object") {
+    return (
+      raw.Address ||
+      raw.address ||
+      raw.ADDRESS ||
+      raw.AddressMKD ||
+      ""
+    );
+  }
+  return String(raw);
+}
+
 const url =
   "https://apidata.mos.ru/v1/datasets/62963/rows?$top=8&$format=json&api_key=" +
   encodeURIComponent(key);
@@ -22,16 +50,21 @@ const rows = Array.isArray(data) ? data : data.Items || data.items || [];
 
 for (const row of rows) {
   const c = row.Cells || row.attributes || {};
-  const addrObj = c.ObjectAddress;
-  const addr =
-    (addrObj && (addrObj.Address || addrObj.address)) ||
-    addrObj ||
-    c.Address ||
-    c.ADDRESS;
   console.log({
-    address: typeof addr === "string" ? addr : JSON.stringify(addr),
+    address: pickAddress(c.ObjectAddress || c.Address || c.ADDRESS),
+    unom: (() => {
+      try {
+        const parsed =
+          typeof c.ObjectAddress === "string"
+            ? JSON.parse(c.ObjectAddress)
+            : c.ObjectAddress;
+        const first = Array.isArray(parsed) ? parsed[0] : parsed;
+        return first?.UNOM ?? null;
+      } catch {
+        return null;
+      }
+    })(),
     workName: c.WorkName,
-    detailed: c.DetailedWork,
     essence: c.WorkEssence,
     year: c.YearOfWork,
     start: c.StartDate || c.StartDateActual,

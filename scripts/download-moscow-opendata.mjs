@@ -110,10 +110,48 @@ function unwrapMosPayload(data) {
   return data;
 }
 
+function addressFromObject(value) {
+  if (!value || typeof value !== "object") return "";
+  for (const key of [
+    "Address",
+    "address",
+    "ADDRESS",
+    "AddressMKD",
+    "SIMPLE_ADDRESS",
+    "FullAddress",
+    "value",
+    "Value",
+    "name",
+    "Name",
+  ]) {
+    if (value[key] != null && String(value[key]).trim()) {
+      return String(value[key]).trim();
+    }
+  }
+  for (const [k, v] of Object.entries(value)) {
+    if (/address|адрес/i.test(k) && v != null && String(v).trim()) {
+      return String(v).trim();
+    }
+  }
+  return "";
+}
+
 function stringifyCellValue(value) {
   if (value == null) return "";
-  if (typeof value === "string" || typeof value === "number") {
-    return String(value).trim();
+  if (typeof value === "number") return String(value);
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (
+      (trimmed.startsWith("[") || trimmed.startsWith("{")) &&
+      /Address|address|адрес/.test(trimmed)
+    ) {
+      try {
+        return stringifyCellValue(JSON.parse(trimmed)) || trimmed;
+      } catch {
+        return trimmed;
+      }
+    }
+    return trimmed;
   }
   if (Array.isArray(value)) {
     return value
@@ -122,27 +160,7 @@ function stringifyCellValue(value) {
       .join(", ");
   }
   if (typeof value === "object") {
-    for (const key of [
-      "Address",
-      "address",
-      "ADDRESS",
-      "AddressMKD",
-      "SIMPLE_ADDRESS",
-      "FullAddress",
-      "value",
-      "Value",
-      "name",
-      "Name",
-    ]) {
-      if (value[key] != null && String(value[key]).trim()) {
-        return String(value[key]).trim();
-      }
-    }
-    for (const [k, v] of Object.entries(value)) {
-      if (/address|адрес/i.test(k) && v != null && String(v).trim()) {
-        return String(v).trim();
-      }
-    }
+    return addressFromObject(value);
   }
   return "";
 }
