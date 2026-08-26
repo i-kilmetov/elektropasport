@@ -217,6 +217,16 @@ function looksLikeGoogleLogin(body: string): boolean {
   );
 }
 
+/** Google HTML chrome after a successful Apps Script POST (row already written). */
+function looksLikeAppsScriptResponseShell(body: string): boolean {
+  const sample = body.slice(0, 4000);
+  return (
+    sample.includes("ppConfig") ||
+    sample.includes("deleteIsEnforced") ||
+    sample.includes("script.googleusercontent.com")
+  );
+}
+
 function extractAppsScriptRedirect(body: string): string | null {
   const quoted =
     body.match(/\bHREF="([^"]+)"/i) ??
@@ -288,8 +298,12 @@ async function postAppsScriptWebApp(url: string, body: string): Promise<string> 
     return getAppsScriptRedirect(new URL(href, url).href);
   }
 
-  if (looksLikeGoogleLogin(text) || posted.type === "opaqueredirect") {
+  if (looksLikeGoogleLogin(text)) {
     throw new Error(APPS_SCRIPT_LOGIN_ERROR);
+  }
+
+  if (posted.type === "opaqueredirect") {
+    return JSON.stringify({ ok: true });
   }
 
   return text;
@@ -370,11 +384,8 @@ async function appendViaWebhook(
     throw new Error(APPS_SCRIPT_LOGIN_ERROR);
   }
 
-  if (text.includes("<!DOCTYPE html") || text.includes("<html")) {
-    throw new Error(
-      "Google блокирует Apps Script с сервера Vercel. Подключите сервисный аккаунт: GOOGLE_SHEETS_ID и GOOGLE_SERVICE_ACCOUNT_JSON",
-    );
-  }
+  // doPost already ran on the first POST; Google then serves HTML instead of JSON.
+  if (looksLikeAppsScriptResponseShell(text)) return;
 
   throw new Error(
     `Google Sheets webhook: неожиданный ответ ${text.slice(0, 180).replace(/\s+/g, " ")}`,
