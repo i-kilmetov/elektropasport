@@ -39,8 +39,11 @@ yarn-error.log*
 
 # moscow open-data raw dumps (keep only *.min.json.gz + meta in git if desired)
 data/moscow/*.json
+data/moscow/*.jsonl
+data/moscow/*.checkpoint.json
 !data/moscow/meta.json
 !data/moscow/*.min.json.gz
+!data/moscow/.gitkeep
 
 # typescript
 *.tsbuildinfo

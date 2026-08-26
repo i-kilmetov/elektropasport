@@ -14,14 +14,15 @@
  */
 
 import { createReadStream, createWriteStream } from "node:fs";
-import { mkdir, writeFile, unlink } from "node:fs/promises";
+import { mkdir, writeFile, unlink, readFile } from "node:fs/promises";
 import { pipeline } from "node:stream/promises";
 import { createGzip } from "node:zlib";
 import path from "node:path";
 
 const BASE = "https://apidata.mos.ru/v1";
-const PAGE = 1000;
+const PAGE = Number.parseInt(process.env.MOS_DATA_PAGE_SIZE ?? "200", 10) || 200;
 const OUT_DIR = process.env.MOS_DATA_OUT_DIR?.trim() || "data/moscow";
+const MAX_RETRIES = 8;
 
 function apiKey() {
   const key = process.env.MOS_DATA_API_KEY?.trim();
@@ -44,27 +45,55 @@ async function mosGet(pathname, search = {}) {
     url.searchParams.set(k, String(v));
   }
 
-  const res = await fetch(url, {
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-    },
-  });
-  const text = await res.text();
-  if (!res.ok) {
-    throw new Error(`HTTP ${res.status} ${pathname}: ${text.slice(0, 300)}`);
-  }
+  let lastError = null;
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt += 1) {
+    try {
+      const res = await fetch(url, {
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+      });
+      const text = await res.text();
+      if (res.status >= 500) {
+        lastError = new Error(
+          `HTTP ${res.status} ${pathname}: ${text.slice(0, 300)}`,
+        );
+        const waitMs = Math.min(30_000, 1000 * 2 ** (attempt - 1));
+        console.warn(
+          `\nRetry ${attempt}/${MAX_RETRIES} after ${res.status} (wait ${waitMs}ms)…`,
+        );
+        await new Promise((r) => setTimeout(r, waitMs));
+        continue;
+      }
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status} ${pathname}: ${text.slice(0, 300)}`);
+      }
 
-  let data;
-  try {
-    data = JSON.parse(text);
-  } catch {
-    throw new Error(
-      `Ответ не JSON (${pathname}). Начало ответа: ${text.slice(0, 200)}`,
-    );
-  }
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        throw new Error(
+          `Ответ не JSON (${pathname}). Начало ответа: ${text.slice(0, 200)}`,
+        );
+      }
 
-  return unwrapMosPayload(data);
+      return unwrapMosPayload(data);
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      if (attempt >= MAX_RETRIES) break;
+      if (/HTTP 4\d\d/.test(lastError.message) && !/HTTP 429/.test(lastError.message)) {
+        throw lastError;
+      }
+      const waitMs = Math.min(30_000, 1000 * 2 ** (attempt - 1));
+      console.warn(
+        `\nRetry ${attempt}/${MAX_RETRIES} after error: ${lastError.message.slice(0, 120)} (wait ${waitMs}ms)…`,
+      );
+      await new Promise((r) => setTimeout(r, waitMs));
+    }
+  }
+  throw lastError ?? new Error(`Failed ${pathname}`);
 }
 
 /** API may return a bare array or an OData wrapper { Items: [...] }. */
@@ -170,21 +199,98 @@ const WORKS_KEYS = [
 ];
 const STATUS_KEYS = ["Status", "StatusRepair", "RepairStatus", "State"];
 
-async function fetchAllRows(datasetId, label) {
-  const rows = [];
-  for (let skip = 0; ; skip += PAGE) {
-    process.stdout.write(`\r${label}: skip=${skip}…`);
+async function fetchAllRows(datasetId, label, checkpointName) {
+  await mkdir(OUT_DIR, { recursive: true });
+  const checkpointPath = path.join(OUT_DIR, `${checkpointName}.checkpoint.json`);
+  const rawPath = path.join(OUT_DIR, `${checkpointName}.raw.jsonl`);
+
+  let skip = 0;
+  let totalSaved = 0;
+  let resume = false;
+  try {
+    const rawCheckpoint = JSON.parse(await readFile(checkpointPath, "utf8"));
+    const rawExists = await readFile(rawPath, "utf8")
+      .then(() => true)
+      .catch(() => false);
+    if (
+      rawExists &&
+      Number.isFinite(rawCheckpoint.skip) &&
+      rawCheckpoint.datasetId === datasetId
+    ) {
+      skip = rawCheckpoint.skip;
+      totalSaved = rawCheckpoint.totalSaved ?? 0;
+      resume = true;
+      console.log(
+        `${label}: resume from skip=${skip} (already saved ~${totalSaved} rows)`,
+      );
+    }
+  } catch {
+    // fresh download
+  }
+
+  if (!resume) {
+    await writeFile(rawPath, "", "utf8");
+    skip = 0;
+    totalSaved = 0;
+  }
+
+  let count = null;
+  try {
+    const countPayload = await mosGet(`/datasets/${datasetId}/count`);
+    count =
+      typeof countPayload === "number"
+        ? countPayload
+        : Number(countPayload?.Count ?? countPayload?.count ?? NaN);
+    if (Number.isFinite(count)) {
+      console.log(`${label}: dataset reports ~${count} rows`);
+    }
+  } catch {
+    // count endpoint optional
+  }
+
+  const { appendFile } = await import("node:fs/promises");
+  for (; ; skip += PAGE) {
+    process.stdout.write(
+      `\r${label}: skip=${skip}${count ? `/${count}` : ""}…`,
+    );
     const page = await mosGet(`/datasets/${datasetId}/rows`, {
       $skip: skip,
       $top: PAGE,
     });
     if (!Array.isArray(page) || page.length === 0) break;
-    rows.push(...page);
-    if (page.length < PAGE) break;
-    // gentle pacing
-    await new Promise((r) => setTimeout(r, 150));
+
+    const lines = page.map((row) => JSON.stringify(row)).join("\n") + "\n";
+    await appendFile(rawPath, lines, "utf8");
+    totalSaved += page.length;
+
+    await writeFile(
+      checkpointPath,
+      JSON.stringify(
+        {
+          datasetId,
+          skip: skip + page.length,
+          totalSaved,
+          updatedAt: new Date().toISOString(),
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    if (page.length < PAGE) {
+      break;
+    }
+    await new Promise((r) => setTimeout(r, 250));
   }
-  process.stdout.write(`\r${label}: ${rows.length} rows          \n`);
+
+  process.stdout.write(`\r${label}: reading ${rawPath}…          \n`);
+  const text = await readFile(rawPath, "utf8");
+  const rows = text
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => JSON.parse(line));
+  console.log(`${label}: ${rows.length} rows loaded from checkpoint file`);
   return rows;
 }
 
@@ -232,9 +338,13 @@ function scoreRepair(caption) {
   const lower = caption.toLowerCase();
   let points = 0;
   if (/капитальн/.test(lower) && /ремонт/.test(lower)) points += 3;
-  if (/региональн/.test(lower) && /программ/.test(lower)) points += 4;
-  if (/график/.test(lower) || /краткосроч/.test(lower)) points += 2;
+  if (/региональн/.test(lower) && /программ/.test(lower)) points += 5;
+  if (/краткосроч/.test(lower) && /ремонт/.test(lower)) points += 4;
+  if (/график/.test(lower) && /капитальн/.test(lower)) points += 3;
   if (/многоквартир/.test(lower) || /\bмкд\b/.test(lower)) points += 2;
+  if (/прием граждан|приём граждан|график приема|график приёма/.test(lower)) {
+    points -= 10;
+  }
   if (/специальн/.test(lower) && /счет|счёт/.test(lower)) points -= 3;
   if (/счет/.test(lower) || /счёт/.test(lower)) points -= 2;
   return points;
@@ -488,8 +598,17 @@ async function main() {
 
   await mkdir(OUT_DIR, { recursive: true });
 
+  try {
+    const metaInfo = await mosGet(`/datasets/${passportId}`);
+    console.log(
+      `Passport dataset caption: ${metaInfo?.Caption ?? metaInfo?.caption ?? "(unknown)"}`,
+    );
+  } catch {
+    // optional
+  }
+
   const metaPath = path.join(OUT_DIR, "meta.json");
-  const passportRows = await fetchAllRows(passportId, "houses");
+  const passportRows = await fetchAllRows(passportId, "houses", "houses");
   const houses = compactHouses(passportRows);
   const housesPath = path.join(OUT_DIR, "houses.min.json.gz");
   await writeJsonGz(housesPath, {
@@ -511,7 +630,8 @@ async function main() {
 
   let repairs = [];
   if (repairId) {
-    const repairRows = await fetchAllRows(repairId, "repairs");
+    console.log(`Repair dataset id: ${repairId}`);
+    const repairRows = await fetchAllRows(repairId, "repairs", "repairs");
     repairs = compactRepairs(repairRows);
     const repairsPath = path.join(OUT_DIR, "repairs.min.json.gz");
     await writeJsonGz(repairsPath, {
