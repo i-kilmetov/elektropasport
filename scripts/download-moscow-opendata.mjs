@@ -210,16 +210,21 @@ async function listDatasets() {
 function scorePassport(caption) {
   const lower = caption.toLowerCase();
   let points = 0;
+  // «жилищно-коммунального» ≠ паспорта жилых домов
+  if (
+    /жилищно-коммунальн|департамент жилищ/.test(lower) &&
+    !/паспорт|база жил|год постро/.test(lower)
+  ) {
+    return 0;
+  }
   if (/база/.test(lower) && /жил/.test(lower) && /дом/.test(lower)) points += 10;
-  if (/жил/.test(lower) && /дом/.test(lower)) points += 6;
+  if (/паспорт/.test(lower) && /дом|здан|жил/.test(lower)) points += 8;
   if (/многоквартир/.test(lower) || /\bмкд\b/.test(lower)) points += 5;
-  if (/паспорт/.test(lower)) points += 4;
-  if (/год/.test(lower) && /постро/.test(lower)) points += 4;
+  if (/год/.test(lower) && /постро/.test(lower)) points += 5;
   if (/dommos|доммос/.test(lower)) points += 4;
-  if (/техническ/.test(lower) && /паспорт/.test(lower)) points += 3;
-  if (/адресн/.test(lower) && /реестр/.test(lower)) points += 2;
-  if (/аварийн|снес|реновац/.test(lower)) points -= 4;
-  if (/поликлин|школ|детск|транспорт|парковк/.test(lower)) points -= 5;
+  if (/аварийн|снес|реновац|лиценз|перепланир|зарядн|торгов|фасад|лифт/.test(lower)) {
+    points -= 5;
+  }
   return points;
 }
 
@@ -230,6 +235,7 @@ function scoreRepair(caption) {
   if (/региональн/.test(lower) && /программ/.test(lower)) points += 4;
   if (/график/.test(lower) || /краткосроч/.test(lower)) points += 2;
   if (/многоквартир/.test(lower) || /\bмкд\b/.test(lower)) points += 2;
+  if (/специальн/.test(lower) && /счет|счёт/.test(lower)) points -= 3;
   if (/счет/.test(lower) || /счёт/.test(lower)) points -= 2;
   return points;
 }
@@ -241,19 +247,33 @@ function datasetColumns(meta) {
   return [];
 }
 
+function columnBlob(meta) {
+  return datasetColumns(meta)
+    .map((c) => `${c.Name ?? c.name ?? ""} ${c.Caption ?? c.caption ?? ""}`)
+    .join(" | ")
+    .toLowerCase();
+}
+
 function looksLikeHousePassport(meta) {
   const cols = datasetColumns(meta);
   if (cols.length === 0) return false;
-  const blob = cols
-    .map((c) => `${c.Name ?? ""} ${c.Caption ?? ""}`)
-    .join(" | ")
-    .toLowerCase();
-  const hasAddress = /address|адрес/.test(blob);
+  const blob = columnBlob(meta);
+  const hasAddress = /address|адрес|location|улиц/.test(blob);
   const hasYear =
-    /year_built|year_opened|год\s*постро|год\s*ввод|год\s*эксплуат|построени/.test(
+    /year_built|year_opened|yearbuild|year_of|buildyear|construction|постро|ввод|эксплуат|\bгод\b/.test(
       blob,
     );
   return hasAddress && hasYear;
+}
+
+function printColumns(meta, label) {
+  const cols = datasetColumns(meta);
+  console.log(`${label} columns (${cols.length}):`);
+  for (const c of cols.slice(0, 40)) {
+    const name = c.Name ?? c.name ?? "?";
+    const caption = c.Caption ?? c.caption ?? "";
+    console.log(`  - ${name}${caption ? ` | ${caption}` : ""}`);
+  }
 }
 
 async function resolvePassportDatasetId(list) {
@@ -266,17 +286,28 @@ async function resolvePassportDatasetId(list) {
     return fromEnv;
   }
 
-  const knownIds = [60562, 29171, 27707];
-  for (const id of knownIds) {
+  // 60562 is the known «База жилых домов» table — use it if reachable.
+  const preferredId = 60562;
+  try {
+    const meta = await mosGet(`/datasets/${preferredId}`);
+    printColumns(meta, `Dataset ${preferredId}`);
+    console.log(
+      `Using passport dataset ${preferredId} (${datasetColumns(meta).length} columns)`,
+    );
+    return preferredId;
+  } catch (error) {
+    console.log(
+      `Preferred id ${preferredId} unavailable: ${error instanceof Error ? error.message : error}`,
+    );
+  }
+
+  for (const id of [29171, 27707]) {
     try {
       const meta = await mosGet(`/datasets/${id}`);
       if (looksLikeHousePassport(meta)) {
         console.log(`Passport dataset (known id): ${id}`);
         return id;
       }
-      console.log(
-        `Known id ${id} reachable but columns don't look like house passport (cols=${datasetColumns(meta).length})`,
-      );
     } catch (error) {
       console.log(
         `Known id ${id} unavailable: ${error instanceof Error ? error.message : error}`,
@@ -286,7 +317,7 @@ async function resolvePassportDatasetId(list) {
 
   const ranked = list
     .map((item) => ({ ...item, points: scorePassport(item.caption) }))
-    .filter((item) => item.points >= 3)
+    .filter((item) => item.points >= 4)
     .sort((a, b) => b.points - a.points);
 
   console.log("Top house-like datasets by caption:");
@@ -306,15 +337,6 @@ async function resolvePassportDatasetId(list) {
     }
   }
 
-  // Last resort: first caption match even without perfect columns
-  if (ranked[0]) {
-    console.warn(
-      `Не нашли набор с полями адрес+год. Ближайший по названию: ${ranked[0].id} — ${ranked[0].caption}`,
-    );
-    console.warn(
-      `Запустите снова с:\n  export MOS_DOM_PASSPORT_DATASET_ID=${ranked[0].id}`,
-    );
-  }
   return null;
 }
 
@@ -337,15 +359,38 @@ async function resolveRepairDatasetId(list) {
   return null;
 }
 
+function pickAddressFromCells(cells) {
+  const direct = cellString(cells, ADDRESS_KEYS);
+  if (direct) return direct;
+  for (const [key, value] of Object.entries(cells)) {
+    if (!/address|адрес|улиц|location/i.test(key)) continue;
+    if (value != null && String(value).trim()) return String(value).trim();
+  }
+  return "";
+}
+
+function pickYearFromCells(cells, keys) {
+  const direct = parseYear(cellString(cells, keys));
+  if (direct != null) return direct;
+  for (const [key, value] of Object.entries(cells)) {
+    if (!/year|год|built|build|постро|ввод|эксплуат|constr/i.test(key)) {
+      continue;
+    }
+    const year = parseYear(value);
+    if (year != null) return year;
+  }
+  return null;
+}
+
 function compactHouses(rows) {
   const out = [];
   const seen = new Set();
   for (const row of rows) {
     const cells = row.Cells ?? row.attributes ?? {};
-    const address = cellString(cells, ADDRESS_KEYS);
+    const address = pickAddressFromCells(cells);
     if (!address) continue;
-    const yearBuilt = parseYear(cellString(cells, YEAR_BUILT_KEYS));
-    const yearOpened = parseYear(cellString(cells, YEAR_OPENED_KEYS));
+    const yearBuilt = pickYearFromCells(cells, YEAR_BUILT_KEYS);
+    const yearOpened = pickYearFromCells(cells, YEAR_OPENED_KEYS);
     const year = yearBuilt ?? yearOpened;
     if (year == null) continue;
     const key = normalizePart(address);
