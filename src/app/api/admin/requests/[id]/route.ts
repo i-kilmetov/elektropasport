@@ -1,11 +1,12 @@
 import { authErrorResponse } from "@/lib/telegram-auth";
-import { dbErrorResponse } from "@/lib/db";
+import { dbErrorResponse, getInstallRequestById } from "@/lib/db";
 import { requireAdmin } from "@/lib/admin";
 import {
   adminDeleteRequest,
   adminSetRequestStatus,
 } from "@/lib/admin-db";
 import { installStatusLabels, type InstallRequestStatus } from "@/types";
+import { notifyUserWebPush } from "@/lib/web-push";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -23,6 +24,14 @@ export async function PATCH(request: Request, context: RouteContext) {
       return Response.json({ error: "Некорректный статус" }, { status: 400 });
     }
     await adminSetRequestStatus(id, body.status, installStatusLabels[body.status]);
+    const existing = await getInstallRequestById(id);
+    if (existing) {
+      await notifyUserWebPush(existing.telegramUserId, {
+        title: "Током",
+        body: `Статус заявки: ${installStatusLabels[body.status]}`,
+        url: "/",
+      });
+    }
     return Response.json({ ok: true });
   } catch (error) {
     return dbErrorResponse(error) ?? authErrorResponse(error);

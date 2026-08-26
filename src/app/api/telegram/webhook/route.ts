@@ -22,6 +22,7 @@ import {
 } from "@/lib/research-survey-access";
 import { parseTelegramStartCommand } from "@/lib/research-survey";
 import { installStatusLabels } from "@/types";
+import { notifyUserWebPush } from "@/lib/web-push";
 
 type TelegramUpdate = {
   message?: {
@@ -137,6 +138,11 @@ export async function POST(request: Request) {
           existing,
           existing.name,
         );
+        await notifyUserWebPush(existing.telegramUserId, {
+          title: "Током",
+          body: "Мастер принял вашу заявку и скоро свяжется",
+          url: "/",
+        });
       }
 
       // Notify all other masters that the request is taken
@@ -180,6 +186,12 @@ export async function POST(request: Request) {
       await answerCallbackQuery(callback.id, "Не удалось обновить");
       return Response.json({ ok: true });
     }
+
+    await notifyUserWebPush(existing.telegramUserId, {
+      title: "Током",
+      body: `Статус заявки: ${installStatusLabels[parsed.status]}`,
+      url: "/",
+    });
 
     await answerCallbackQuery(
       callback.id,

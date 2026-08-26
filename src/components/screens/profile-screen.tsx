@@ -16,6 +16,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Portal } from "@/components/ui/portal";
 import { UndoSnackbarHost } from "@/components/ui/undo-snackbar";
+import { PushNotificationsCard } from "@/components/ui/push-notifications-card";
 import {
   authHeaders,
   clearLocalAppData,
@@ -384,6 +385,8 @@ export function ProfileScreen({
             </div>
           </GlassCard>
         </div>
+
+        <PushNotificationsCard />
       </div>
 
       <div className="mt-auto space-y-2 pt-2">

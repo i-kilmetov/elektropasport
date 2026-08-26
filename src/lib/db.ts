@@ -39,7 +39,7 @@ import { buildInviteUrl } from "@/lib/panel-share";
 let schemaReady: Promise<void> | null = null;
 
 /** Bump when DDL below changes so cold starts re-run migrations once. */
-const SCHEMA_VERSION = "2026-08-25-profile-notify-delete";
+const SCHEMA_VERSION = "2026-08-26-web-push";
 /** One-shot data wipe flag — never re-run after it is written. */
 const FRESH_START_KEY = "fresh_start_2026_08_25_b";
 /** Bumped on each factory wipe so clients drop localStorage orphans. */
@@ -454,6 +454,21 @@ export async function ensureSchema(): Promise<void> {
       await sql`
         CREATE INDEX IF NOT EXISTS icecat_appliance_brand_model_idx
         ON icecat_appliance_products (kind, brand, model_name)
+      `;
+      await sql`
+        CREATE TABLE IF NOT EXISTS push_subscriptions (
+          endpoint TEXT PRIMARY KEY,
+          telegram_user_id BIGINT NOT NULL REFERENCES users(telegram_id) ON DELETE CASCADE,
+          p256dh TEXT NOT NULL,
+          auth TEXT NOT NULL,
+          user_agent TEXT,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+      `;
+      await sql`
+        CREATE INDEX IF NOT EXISTS push_subscriptions_user_idx
+        ON push_subscriptions (telegram_user_id)
       `;
 
       // One-time factory reset requested for clean testing.
@@ -2166,5 +2181,80 @@ export async function setRequestPanelId(
     UPDATE install_requests
     SET panel_id = ${panelId}
     WHERE id = ${requestId}
+  `;
+}
+
+export type StoredPushSubscription = {
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+};
+
+export async function upsertPushSubscription(
+  telegramUserId: number,
+  input: {
+    endpoint: string;
+    p256dh: string;
+    auth: string;
+    userAgent?: string;
+  },
+): Promise<void> {
+  const sql = getSql();
+  await ensureSchema();
+  await sql`
+    INSERT INTO push_subscriptions (
+      endpoint, telegram_user_id, p256dh, auth, user_agent, updated_at
+    )
+    VALUES (
+      ${input.endpoint},
+      ${telegramUserId},
+      ${input.p256dh},
+      ${input.auth},
+      ${input.userAgent ?? null},
+      NOW()
+    )
+    ON CONFLICT (endpoint) DO UPDATE SET
+      telegram_user_id = EXCLUDED.telegram_user_id,
+      p256dh = EXCLUDED.p256dh,
+      auth = EXCLUDED.auth,
+      user_agent = EXCLUDED.user_agent,
+      updated_at = NOW()
+  `;
+}
+
+export async function listPushSubscriptions(
+  telegramUserId: number,
+): Promise<StoredPushSubscription[]> {
+  const sql = getSql();
+  await ensureSchema();
+  const rows = (await sql`
+    SELECT endpoint, p256dh, auth
+    FROM push_subscriptions
+    WHERE telegram_user_id = ${telegramUserId}
+  `) as Array<StoredPushSubscription>;
+  return rows;
+}
+
+export async function deletePushSubscription(
+  telegramUserId: number,
+  endpoint: string,
+): Promise<void> {
+  const sql = getSql();
+  await ensureSchema();
+  await sql`
+    DELETE FROM push_subscriptions
+    WHERE telegram_user_id = ${telegramUserId}
+      AND endpoint = ${endpoint}
+  `;
+}
+
+export async function deletePushSubscriptionByEndpoint(
+  endpoint: string,
+): Promise<void> {
+  const sql = getSql();
+  await ensureSchema();
+  await sql`
+    DELETE FROM push_subscriptions
+    WHERE endpoint = ${endpoint}
   `;
 }

@@ -37,6 +37,7 @@ import { GlassCard } from "@/components/ui/glass-card";
 import { InfoDialog } from "@/components/ui/info-dialog";
 import { ItemActionsSheet } from "@/components/ui/item-actions-sheet";
 import { NameDialog } from "@/components/ui/name-dialog";
+import { PushEnableBanner } from "@/components/ui/push-enable-banner";
 import { UndoSnackbarHost } from "@/components/ui/undo-snackbar";
 import {
   applianceKindIcon,
@@ -900,6 +901,8 @@ export function ObjectsScreen({
           </div>
         </div>
       </header>
+
+      <PushEnableBanner />
 
       {error && (
         <p className="mx-5 mb-3 shrink-0 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-[13px] text-rose-700 lg:mx-10">
