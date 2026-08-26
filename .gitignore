@@ -37,6 +37,11 @@ yarn-error.log*
 # vercel
 .vercel
 
+# moscow open-data raw dumps (keep only *.min.json.gz + meta in git if desired)
+data/moscow/*.json
+!data/moscow/meta.json
+!data/moscow/*.min.json.gz
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
