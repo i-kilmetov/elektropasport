@@ -91,7 +91,7 @@ export function GeoAddressScreen({
     (selected != null &&
       selected.value === trimmed &&
       hasHouse(selected)) ||
-    (!useMoscow && lookupFailed && trimmed.length >= 8);
+    (lookupFailed && trimmed.length >= 8);
 
   const runLocate = useCallback(async () => {
     setPhase("requesting");
@@ -143,13 +143,13 @@ export function GeoAddressScreen({
       onManual();
       return;
     }
-    if (useMoscow) {
-      setQuery(moscowEditQuery(address));
-      setSelected(null);
-    } else {
-      setQuery(address.value);
-      setSelected(toSuggestion(address));
-    }
+    // Prefill from geo; suggestions use moscow→DaData fallback on the server.
+    setQuery(
+      useMoscow && address.street
+        ? moscowEditQuery(address)
+        : address.value,
+    );
+    setSelected(useMoscow ? null : toSuggestion(address));
     setLookupFailed(false);
     setEditing(true);
     hapticImpact("light");
@@ -172,11 +172,6 @@ export function GeoAddressScreen({
 
   const confirmGeoAddress = () => {
     if (!address) return;
-    // Variant A: in Moscow prefer open-data house pick so year comes with the row.
-    if (useMoscow) {
-      beginManualEdit();
-      return;
-    }
     hapticImpact("medium");
     onConfirm({
       city: cityLabel,
@@ -218,12 +213,8 @@ export function GeoAddressScreen({
       <p className="mb-5 text-[15px] leading-relaxed text-zinc-600">
         {phase === "confirm"
           ? editing
-            ? useMoscow
-              ? "Выберите дом из реестра Москвы — год постройки возьмём оттуда."
-              : "Исправьте адрес, если геопозиция определилась неточно."
-            : useMoscow
-              ? "Адрес по геопозиции найден. Подтвердите дом в реестре Москвы — так мы узнаем год постройки."
-              : "Проверьте, верно ли определился дом по геопозиции."
+            ? "Исправьте адрес, если геопозиция определилась неточно."
+            : "Проверьте, верно ли определился дом по геопозиции."
           : "Разрешите доступ к геопозиции — подставим адрес автоматически."}
       </p>
 
@@ -317,7 +308,7 @@ export function GeoAddressScreen({
               size="lg"
               onClick={confirmGeoAddress}
             >
-              {useMoscow ? "Выбрать дом в реестре" : "Да, верно"}
+              Да, верно
             </Button>
             <Button
               className="w-full rounded-full"

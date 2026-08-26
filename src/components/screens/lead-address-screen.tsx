@@ -66,7 +66,7 @@ export function LeadAddressScreen({
       selected.value === trimmed &&
       hasHouse(selected) &&
       !needsApartment) ||
-    (!useMoscow && lookupFailed && trimmed.length >= 8);
+    (lookupFailed && trimmed.length >= 8);
 
   return (
     <motion.section
@@ -93,7 +93,7 @@ export function LeadAddressScreen({
       <p className="mb-5 text-[15px] leading-relaxed text-zinc-600">
         {description ??
           (useMoscow
-            ? "Выберите дом из реестра Москвы — год постройки возьмём оттуда и оценим заземление."
+            ? "Укажите улицу и дом. Год постройки подтянем из открытых источников и оценим заземление."
             : "Укажите точный адрес: улица и дом. По году постройки подскажем, есть ли заземление.")}
       </p>
 

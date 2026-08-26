@@ -13,6 +13,8 @@ import {
   lookupMoscowHousePassportWithDebug,
   searchMoscowAddressSuggestions,
 } from "@/lib/moscow-house-passport";
+import { lookupMoscowYearFromSeed } from "@/lib/moscow-year-seed";
+import { lookupBuildingYearFromOsm } from "@/lib/osm-building-year";
 import {
   buildLocalHouseInsight,
   buildPanelHouseSnapshot,
@@ -31,70 +33,86 @@ async function resolveMoscowYear(input: {
   operationYear: number | null;
   sourceLabel: string | null;
 }> {
-  const { passport } = await lookupMoscowHousePassportWithDebug(input.address, {
-    street: input.street,
-    house: input.house,
-    block: input.block,
-  });
-  if (passport?.buildingYear != null || passport?.operationYear != null) {
+  const seed = lookupMoscowYearFromSeed(input);
+  if (seed) {
     return {
-      address: passport.address || input.address,
-      buildingYear: passport.buildingYear,
-      operationYear: passport.operationYear,
-      sourceLabel: passport.sourceLabel,
-    };
-  }
-
-  const key = buildMoscowAddressKey({
-    address: input.address,
-    street: input.street,
-    house: input.house,
-    block: input.block,
-  });
-  const query =
-    key != null
-      ? `${key.street} ${key.house}${key.building ? ` ${key.building}` : ""}`
-      : input.address;
-  const hits = await searchMoscowAddressSuggestions(query, 20);
-  if (!key || hits.length === 0) {
-    return {
-      address: input.address,
-      buildingYear: null,
+      address: seed.address,
+      buildingYear: seed.buildingYear,
       operationYear: null,
-      sourceLabel: null,
+      sourceLabel: "Справочник домов Москвы",
     };
   }
 
-  let best: {
-    address: string;
-    buildingYear: number | null;
-    score: number;
-  } | null = null;
-  for (const hit of hits) {
-    const score = scoreMoscowAddressMatch(hit.address, key);
-    if (!best || score > best.score) {
-      best = {
-        address: hit.address,
-        buildingYear: hit.buildingYear,
-        score,
+  try {
+    const { passport } = await lookupMoscowHousePassportWithDebug(input.address, {
+      street: input.street,
+      house: input.house,
+      block: input.block,
+    });
+    if (passport?.buildingYear != null || passport?.operationYear != null) {
+      return {
+        address: passport.address || input.address,
+        buildingYear: passport.buildingYear,
+        operationYear: passport.operationYear,
+        sourceLabel: passport.sourceLabel,
       };
     }
+
+    const key = buildMoscowAddressKey({
+      address: input.address,
+      street: input.street,
+      house: input.house,
+      block: input.block,
+    });
+    const query =
+      key != null
+        ? `${key.street} ${key.house}${key.building ? ` ${key.building}` : ""}`
+        : input.address;
+    const hits = await searchMoscowAddressSuggestions(query, 20);
+    if (key && hits.length > 0) {
+      let best: {
+        address: string;
+        buildingYear: number | null;
+        score: number;
+      } | null = null;
+      for (const hit of hits) {
+        const score = scoreMoscowAddressMatch(hit.address, key);
+        if (!best || score > best.score) {
+          best = {
+            address: hit.address,
+            buildingYear: hit.buildingYear,
+            score,
+          };
+        }
+      }
+      if (best && best.score >= 100 && best.buildingYear != null) {
+        return {
+          address: best.address,
+          buildingYear: best.buildingYear,
+          operationYear: null,
+          sourceLabel: "Открытые данные Москвы",
+        };
+      }
+    }
+  } catch (error) {
+    console.error("Moscow open-data year resolve failed", error);
   }
 
-  if (!best || best.score < 100 || best.buildingYear == null) {
+  const osm = await lookupBuildingYearFromOsm(input);
+  if (osm.buildingYear != null) {
     return {
-      address: input.address,
-      buildingYear: null,
+      address: osm.address || input.address,
+      buildingYear: osm.buildingYear,
       operationYear: null,
-      sourceLabel: null,
+      sourceLabel: osm.sourceLabel,
     };
   }
 
   return {
-    address: best.address,
-    buildingYear: best.buildingYear,
+    address: input.address,
+    buildingYear: null,
     operationYear: null,
-    sourceLabel: "Открытые данные Москвы",
+    sourceLabel: null,
   };
 }
 

@@ -221,7 +221,7 @@ export function AddressSuggestField({
           )}
           {source === "moscow" && (
             <p className="border-b border-black/6 px-4 py-2 text-[12px] font-medium text-zinc-500">
-              Дома из открытых данных Москвы — выберите свой
+              Дома Москвы — выберите свой
             </p>
           )}
           <ul className="max-h-[40vh] overflow-y-auto">
