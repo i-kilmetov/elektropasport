@@ -1,13 +1,12 @@
 import { authErrorResponse, requireTelegramUser } from "@/lib/telegram-auth";
-import { isMoscow, normalizeCityName } from "@/lib/lead-services";
+import { normalizeCityName } from "@/lib/lead-services";
 import {
   buildLocalHouseInsight,
   lookupHouseInsight,
 } from "@/lib/house-insight-lookup";
-import { isMoscowOpenDataConfigured } from "@/lib/moscow-open-data";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 30;
 
 const MAX_ADDRESS_LENGTH = 200;
 
@@ -44,14 +43,13 @@ export async function POST(request: Request) {
       return Response.json({ error: "Слишком длинный адрес" }, { status: 400 });
     }
 
-    if (isMoscow(city) && !isMoscowOpenDataConfigured()) {
+    if (!process.env.DADATA_API_KEY?.trim()) {
       return Response.json({
         insight: buildLocalHouseInsight({ city, address, fiasId }),
-        moscowLookup: { configured: false, status: "not_configured" as const },
       });
     }
 
-    const result = await lookupHouseInsight({
+    const insight = await lookupHouseInsight({
       city,
       address,
       fiasId,
@@ -60,11 +58,7 @@ export async function POST(request: Request) {
       block,
     });
 
-    const { moscowLookup, ...insight } = result;
-    return Response.json({
-      insight,
-      ...(moscowLookup ? { moscowLookup } : {}),
-    });
+    return Response.json({ insight });
   } catch (error) {
     return authErrorResponse(error);
   }

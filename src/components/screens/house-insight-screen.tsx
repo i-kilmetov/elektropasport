@@ -2,13 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import {
-  ArrowLeft,
-  Building2,
-  Cable,
-  Phone,
-  Shield,
-} from "lucide-react";
+import { ArrowLeft, Building2, Cable, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
 import {
@@ -107,7 +101,7 @@ export function HouseInsightScreen({
       {loading && (
         <GlassCard className="mb-4 p-5">
           <p className="text-[15px] text-zinc-600">
-            Смотрим год дома и управляющую компанию…
+            Смотрим год постройки дома…
           </p>
         </GlassCard>
       )}
@@ -133,12 +127,11 @@ export function HouseInsightScreen({
             <p className="text-[28px] font-bold tracking-tight text-zinc-900">
               {formatBuildingYear(insight.buildingYear)}
             </p>
-            {insight.operationYear != null &&
-              insight.operationYear !== insight.buildingYear && (
-                <p className="mt-1 text-[13px] text-zinc-500">
-                  Введён в эксплуатацию: {insight.operationYear} г.
-                </p>
-              )}
+            {insight.dataSource && insight.buildingYear != null && (
+              <p className="mt-1 text-[12px] text-zinc-400">
+                Источник: {insight.dataSource}
+              </p>
+            )}
           </GlassCard>
 
           <GlassCard className={cn("p-5", eraTone)}>
@@ -169,80 +162,6 @@ export function HouseInsightScreen({
             <p className="mt-2 text-[14px] leading-relaxed opacity-90">
               {insight.grounding.summary}
             </p>
-          </GlassCard>
-
-          {insight.capitalRepair && (
-            <GlassCard className="border border-sky-200/80 bg-sky-50 p-5">
-              <div className="mb-2 flex items-center gap-2 text-sky-800/80">
-                <Building2 className="h-4 w-4" />
-                <span className="text-[13px] font-medium uppercase tracking-wide">
-                  Капремонт дома
-                </span>
-              </div>
-              {insight.capitalRepair.plannedStartYear && (
-                <p className="text-[18px] font-semibold leading-snug text-sky-950">
-                  {insight.capitalRepair.plannedEndYear &&
-                  insight.capitalRepair.plannedEndYear !==
-                    insight.capitalRepair.plannedStartYear
-                    ? `${insight.capitalRepair.plannedStartYear}–${insight.capitalRepair.plannedEndYear} г.`
-                    : `${insight.capitalRepair.plannedStartYear} г.`}
-                </p>
-              )}
-              <p className="mt-2 text-[14px] leading-relaxed text-sky-950/90">
-                {insight.capitalRepair.userMessage}
-              </p>
-              {insight.capitalRepair.worksSummary && (
-                <p className="mt-3 text-[13px] leading-relaxed text-sky-900/75">
-                  Работы: {insight.capitalRepair.worksSummary}
-                </p>
-              )}
-              {insight.capitalRepair.sourceLabel && (
-                <p className="mt-2 text-[12px] text-sky-800/60">
-                  Источник: {insight.capitalRepair.sourceLabel}
-                </p>
-              )}
-            </GlassCard>
-          )}
-
-          <GlassCard className="p-5">
-            <div className="mb-2 flex items-center gap-2 text-zinc-500">
-              <Phone className="h-4 w-4" />
-              <span className="text-[13px] font-medium uppercase tracking-wide">
-                Управляющая компания
-              </span>
-            </div>
-            {insight.management ? (
-              <>
-                <p className="text-[17px] font-semibold leading-snug text-zinc-900">
-                  {insight.management.name}
-                </p>
-                {insight.management.phone ? (
-                  <a
-                    href={`tel:${insight.management.phone.replace(/[^\d+]/g, "")}`}
-                    className="mt-2 inline-flex text-[16px] font-medium text-sky-700"
-                  >
-                    {insight.management.phone}
-                  </a>
-                ) : (
-                  <p className="mt-2 text-[14px] text-zinc-500">
-                    Телефон в реестре не указан
-                  </p>
-                )}
-                <p className="mt-3 text-[13px] leading-relaxed text-zinc-500">
-                  Если проблема за пределами квартиры (этажный щит, стояк,
-                  ввод) — звоните в УК.
-                  {insight.managementType
-                    ? ` Форма управления: ${insight.managementType}.`
-                    : ""}
-                </p>
-              </>
-            ) : (
-              <p className="text-[15px] leading-relaxed text-zinc-600">
-                Контакты УК в открытых источниках не найдены. У ПИК и других
-                застройщиков телефон часто указан в квитанции или в приложении
-                УК — если проблема на стояке или в этажном щите, пишите туда.
-              </p>
-            )}
           </GlassCard>
         </div>
       )}

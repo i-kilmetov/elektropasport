@@ -102,6 +102,7 @@ import {
   fetchMasterProfile,
   fetchMasterRequestPanel,
   fetchPanelQuota,
+  lookupHouseInsight,
   getCachedHomeItems,
   persistDeleteInstallRequest,
   persistDeletePanel,
@@ -121,13 +122,10 @@ import {
   syncDataEpochFromServer,
 } from "@/lib/user-data";
 import {
-  electricalGuessForYear,
   groundingToHasGround,
   houseInsightToPanelSnapshot,
 } from "@/lib/house-insight";
-import { buildLocalHouseInsight, buildPanelHouseSnapshot } from "@/lib/house-insight-local";
-import { assessGroundingForYear } from "@/lib/grounding-assessment";
-import { clientLookupMoscowPassport } from "@/lib/moscow-client-lookup";
+import { buildPanelHouseSnapshot } from "@/lib/house-insight-local";
 import { syncRatingFromCharacteristics } from "@/lib/device-spec-guide";
 import { deriveRailCount } from "@/lib/panel-rails";
 import { isAtPanelLimit, isInviteToken, type PanelQuota } from "@/lib/invites";
@@ -918,59 +916,50 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
         setItemsError(message);
       });
 
-      if (isMoscow(payload.city)) {
-        void clientLookupMoscowPassport(payload.address, {
-          street: payload.street ?? null,
-          house: payload.house ?? null,
-          block: payload.block ?? null,
+      void lookupHouseInsight({
+        city: payload.city,
+        address: payload.address,
+        fiasId: payload.fiasId,
+        street: payload.street,
+        house: payload.house,
+        block: payload.block,
+      })
+        .then(async (insight) => {
+          if (!activePanelId || insight.buildingYear == null) return;
+          const panelNow = items.find(
+            (item): item is PanelObject =>
+              item.kind === "panel" && item.id === activePanelId,
+          );
+          const enriched = houseInsightToPanelSnapshot(insight);
+          const enrichedGround = groundingToHasGround(
+            enriched.groundingExpectation,
+          );
+          const enrichPatch: Partial<
+            Pick<PanelObject, "houseSnapshot" | "address" | "hasGround">
+          > = {
+            houseSnapshot: enriched,
+            address: enriched.address,
+          };
+          if (
+            enrichedGround !== undefined &&
+            panelNow?.hasGround === undefined
+          ) {
+            enrichPatch.hasGround = enrichedGround;
+          }
+          setItems((prev) =>
+            prev.map((item) =>
+              item.kind === "panel" && item.id === activePanelId
+                ? { ...item, ...enrichPatch }
+                : item,
+            ),
+          );
+          try {
+            await persistPanelPatch(activePanelId, enrichPatch);
+          } catch (error) {
+            console.error(error);
+          }
         })
-          .then(async (passport) => {
-            if (!passport?.buildingYear || !activePanelId) return;
-            const panelNow = items.find(
-              (item): item is PanelObject =>
-                item.kind === "panel" && item.id === activePanelId,
-            );
-            const savedAddress = passport.address || payload.address.trim();
-            const insight = buildLocalHouseInsight({
-              city: payload.city,
-              address: savedAddress,
-              fiasId: payload.fiasId,
-            });
-            insight.buildingYear = passport.buildingYear;
-            insight.moscowOpenDataUsed = true;
-            insight.electrical = electricalGuessForYear(passport.buildingYear);
-            insight.grounding = assessGroundingForYear(passport.buildingYear);
-            const enriched = houseInsightToPanelSnapshot(insight);
-            const enrichedGround = groundingToHasGround(
-              enriched.groundingExpectation,
-            );
-            const enrichPatch: Partial<
-              Pick<PanelObject, "houseSnapshot" | "address" | "hasGround">
-            > = {
-              houseSnapshot: { ...enriched, address: savedAddress },
-              address: savedAddress,
-            };
-            if (
-              enrichedGround !== undefined &&
-              panelNow?.hasGround === undefined
-            ) {
-              enrichPatch.hasGround = enrichedGround;
-            }
-            setItems((prev) =>
-              prev.map((item) =>
-                item.kind === "panel" && item.id === activePanelId
-                  ? { ...item, ...enrichPatch }
-                  : item,
-              ),
-            );
-            try {
-              await persistPanelPatch(activePanelId, enrichPatch);
-            } catch (error) {
-              console.error(error);
-            }
-          })
-          .catch((error) => console.error(error));
-      }
+        .catch((error) => console.error(error));
     },
     [activePanelId, items],
   );
@@ -2316,14 +2305,14 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
                 leadFlow === "master"
                   ? "Укажите город — так мы поймём, где вы можете брать заявки."
                   : helpElectricalFlow
-                    ? "Сначала город, затем точный адрес — подскажем год дома, типичную электрику и контакты УК."
+                    ? "Сначала город, затем точный адрес — подскажем год дома и типичную электрику."
                     : "Укажите город, мы подскажем, как сможем вам помочь."
               }
               moscowHint={
                 leadFlow === "master"
                   ? undefined
                   : helpElectricalFlow
-                    ? "Укажите точный адрес дома — покажем год постройки, как обычно устроена электрика, и контакты управляющей компании."
+                    ? "Укажите точный адрес дома — покажем год постройки и, есть ли заземление."
                     : "В этом городе у нас есть квалифицированные мастера-электрики. Укажите точный адрес, чтобы сориентировать вас по времени и цене."
               }
               onBack={() =>
@@ -2376,9 +2365,7 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
                   : undefined
               }
               description={
-                isMoscow(selectedCity)
-                  ? "Выберите дом из открытых данных Москвы — подтянем год постройки, заземление по году и сроки капремонта."
-                  : "Укажите точный адрес через DaData — улица и номер дома."
+                "Укажите точный адрес через DaData — улица и номер дома. По году постройки оценим заземление."
               }
               onBack={() => go("city-select")}
               onConfirm={(address) => {

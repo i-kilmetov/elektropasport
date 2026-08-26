@@ -2198,19 +2198,6 @@ export function SchemeScreen({
               <p className="text-[13px] leading-snug text-zinc-600">
                 {houseSnapshot.groundingTitle}. {houseSnapshot.groundingSummary}
               </p>
-              {houseSnapshot.capitalRepairMessage && (
-                <p className="text-[12px] leading-snug text-zinc-500">
-                  {houseSnapshot.capitalRepairMessage}
-                  {houseSnapshot.capitalRepairStartYear != null &&
-                    houseSnapshot.capitalRepairEndYear != null && (
-                      <>
-                        {" "}
-                        ({houseSnapshot.capitalRepairStartYear}–
-                        {houseSnapshot.capitalRepairEndYear})
-                      </>
-                    )}
-                </p>
-              )}
               {houseSnapshot.dataSource && (
                 <p className="text-[11px] text-zinc-400">
                   Источник: {houseSnapshot.dataSource}
@@ -2229,8 +2216,7 @@ export function SchemeScreen({
           ) : (
             <div>
               <p className="text-[13px] leading-snug text-zinc-400">
-                Укажите адрес дома — подскажем год постройки, заземление и
-                капремонт.
+                Укажите адрес дома — подскажем год постройки и заземление.
               </p>
               {!sharedPreview && onEditHouse && (
                 <button

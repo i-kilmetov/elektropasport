@@ -8,11 +8,9 @@ export type GroundingAssessment = {
   expectation: GroundingExpectation;
   title: string;
   summary: string;
-  /** True when user should see capital-repair timing (no or uncertain grounding). */
-  suggestCapitalRepair: boolean;
 };
 
-/** Grounding norms by construction year (Moscow / typical RF practice). */
+/** Grounding norms by construction year (typical RF practice). */
 export function groundingExpectationForYear(
   year: number | null,
 ): GroundingExpectation {
@@ -35,16 +33,14 @@ export function assessGroundingForYear(
         expectation,
         title: "Заземления, скорее всего, нет",
         summary:
-          "В домах, построенных до 1995 года, PE-шина и заземление розеток обычно не предусмотрены. Часто заземление появляется при капремонте дома — см. сроки ниже.",
-        suggestCapitalRepair: true,
+          "В домах, построенных до 1995 года, PE-шина и заземление розеток обычно не предусмотрены.",
       };
     case "uncertain":
       return {
         expectation,
-        title: "Заземление может быть частичным",
+        title: "Заземление может быть",
         summary:
-          "Для домов 1995–2002 годов нормы применялись неодинаково: где-то PE уже есть, где-то только ноль. Точный ответ — по вводному кабелю в щитке или данным капремонта.",
-        suggestCapitalRepair: true,
+          "Для домов 1995–2002 годов нормы применялись неодинаково: где-то PE уже есть, где-то только ноль. Точный ответ — по вводному кабелю в щитке.",
       };
     case "expected":
       return {
@@ -52,7 +48,6 @@ export function assessGroundingForYear(
         title: "Заземление должно быть",
         summary:
           "В домах с 2003 года заземление (жёлто-зелёная жила PE) предусмотрено нормами. Если в щитке её нет — это повод проверить ввод и этажный щит.",
-        suggestCapitalRepair: false,
       };
     default:
       return {
@@ -60,7 +55,6 @@ export function assessGroundingForYear(
         title: "Нужна проверка на месте",
         summary:
           "Год постройки не определён — мастер посмотрит вводной кабель и щиток и скажет, есть ли заземление.",
-        suggestCapitalRepair: false,
       };
   }
 }

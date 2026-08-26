@@ -6,7 +6,7 @@ import { ArrowLeft } from "lucide-react";
 import { AddressSuggestField } from "@/components/ui/address-suggest-field";
 import { Button } from "@/components/ui/button";
 import { hasFlat, hasHouse, type AddressSuggestion } from "@/lib/dadata";
-import { isMoscow, normalizeCityName } from "@/lib/lead-services";
+import { normalizeCityName } from "@/lib/lead-services";
 
 export type ConfirmedAddress = {
   value: string;
@@ -48,7 +48,6 @@ export function LeadAddressScreen({
   const [lookupFailed, setLookupFailed] = useState(false);
 
   const cityLabel = normalizeCityName(city);
-  const useMoscow = isMoscow(city);
   const trimmed = query.trim();
   const needsApartment =
     requireApartment &&
@@ -87,9 +86,7 @@ export function LeadAddressScreen({
       </h2>
       <p className="mb-5 text-[15px] leading-relaxed text-zinc-600">
         {description ??
-          (useMoscow
-            ? "Укажите улицу и дом — год постройки и капремонт подтянем из открытых данных Москвы."
-            : "Укажите точный адрес: улица и дом. Так мы точнее подскажем по электрике и времени выезда.")}
+          "Укажите точный адрес: улица и дом. По году постройки подскажем, есть ли заземление."}
       </p>
 
       <AddressSuggestField

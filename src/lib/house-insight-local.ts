@@ -6,7 +6,7 @@ import {
 } from "@/lib/house-insight";
 import { assessGroundingForYear } from "@/lib/grounding-assessment";
 
-/** Building year and kapremont from Moscow open data; address only elsewhere. */
+/** Local fallback when DaData is unavailable. */
 export function buildLocalHouseInsight(input: {
   city: string;
   address: string;
@@ -29,7 +29,7 @@ export function buildLocalHouseInsight(input: {
     capitalRepair: null,
     management: null,
     managementType: null,
-    moscowOpenDataUsed: false,
+    dataSource: null,
   };
 }
 

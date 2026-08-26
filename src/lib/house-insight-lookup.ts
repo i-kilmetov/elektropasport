@@ -3,12 +3,7 @@ import {
   type HouseInsight,
 } from "@/lib/house-insight";
 import { assessGroundingForYear } from "@/lib/grounding-assessment";
-import { isMoscow } from "@/lib/lead-services";
-import { lookupMoscowCapitalRepair } from "@/lib/moscow-capital-repair";
-import {
-  lookupMoscowHousePassportWithDebug,
-  type MoscowLookupDebug,
-} from "@/lib/moscow-house-passport";
+import { lookupHouseFromDaData } from "@/lib/dadata-house-lookup";
 import { buildLocalHouseInsight, buildPanelHouseSnapshot } from "@/lib/house-insight-local";
 
 export { buildLocalHouseInsight, buildPanelHouseSnapshot };
@@ -20,54 +15,32 @@ export async function lookupHouseInsight(input: {
   street?: string | null;
   house?: string | null;
   block?: string | null;
-}): Promise<HouseInsight & { moscowLookup?: MoscowLookupDebug }> {
+}): Promise<HouseInsight> {
   const city = input.city.trim();
-  let address = input.address.trim();
+  const address = input.address.trim();
   const rawFiasId = input.fiasId?.trim() || null;
   const fiasId = rawFiasId?.startsWith("mos:") ? null : rawFiasId;
 
-  let buildingYear: number | null = null;
-  let operationYear: number | null = null;
-  let moscowOpenDataUsed = false;
-  let moscowLookup: MoscowLookupDebug | undefined;
+  const dadata = await lookupHouseFromDaData({
+    city,
+    address,
+    fiasId,
+  });
 
-  if (isMoscow(city)) {
-    const { passport, debug } = await lookupMoscowHousePassportWithDebug(address, {
-      street: input.street,
-      house: input.house,
-      block: input.block,
-    });
-    moscowLookup = debug;
-    if (passport) {
-      address = passport.address || address;
-      buildingYear = passport.buildingYear;
-      operationYear = passport.operationYear;
-      moscowOpenDataUsed = Boolean(
-        passport.buildingYear ?? passport.operationYear ?? passport.address,
-      );
-    }
-  }
-
-  const effectiveYear = buildingYear ?? operationYear;
-  const grounding = assessGroundingForYear(effectiveYear);
-
-  let capitalRepair: HouseInsight["capitalRepair"] = null;
-  if (isMoscow(city) && grounding.suggestCapitalRepair) {
-    capitalRepair = await lookupMoscowCapitalRepair(city, address);
-  }
+  const buildingYear = dadata.buildingYear;
+  const grounding = assessGroundingForYear(buildingYear);
 
   return {
-    address,
-    city: city || null,
-    fiasId,
+    address: dadata.address || address,
+    city: dadata.city || city || null,
+    fiasId: dadata.fiasId,
     buildingYear,
-    operationYear,
-    electrical: electricalGuessForYear(effectiveYear),
+    operationYear: null,
+    electrical: electricalGuessForYear(buildingYear),
     grounding,
-    capitalRepair,
+    capitalRepair: null,
     management: null,
     managementType: null,
-    moscowOpenDataUsed,
-    ...(moscowLookup ? { moscowLookup } : {}),
+    dataSource: buildingYear != null ? "DaData" : null,
   };
 }

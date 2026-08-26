@@ -1,6 +1,4 @@
-import type { CapitalRepairInfo } from "@/lib/moscow-capital-repair";
 import type { GroundingAssessment, GroundingExpectation } from "@/lib/grounding-assessment";
-import { isMoscow } from "@/lib/lead-services";
 
 export type ElectricalEra = "legacy" | "transitional" | "modern" | "unknown";
 
@@ -39,11 +37,13 @@ export type HouseInsight = {
   operationYear: number | null;
   electrical: ElectricalGuess;
   grounding: GroundingAssessment;
-  capitalRepair: CapitalRepairInfo | null;
+  /** @deprecated Kept for payload compatibility; always null. */
+  capitalRepair: null;
+  /** @deprecated Kept for payload compatibility; always null. */
   management: HouseManagementCompany | null;
   managementType: string | null;
-  /** Year/address came from Moscow dommos open data (when applicable). */
-  moscowOpenDataUsed?: boolean;
+  /** Source label when building year was resolved (e.g. DaData). */
+  dataSource?: string | null;
 };
 
 export function electricalGuessForYear(year: number | null): ElectricalGuess {
@@ -61,7 +61,7 @@ export function electricalGuessForYear(year: number | null): ElectricalGuess {
       era: "legacy",
       title: "Старая электрика",
       description:
-        "До 1995 года в типовых домах часто алюминиевая проводка, общие автоматы на этаже и нет заземления в квартире. Обновление стояков и PE обычно привязано к капремонту дома.",
+        "До 1995 года в типовых домах часто алюминиевая проводка, общие автоматы на этаже и нет заземления в квартире.",
     };
   }
 
@@ -93,12 +93,10 @@ export function houseInsightToPanelSnapshot(
     groundingExpectation: insight.grounding.expectation,
     groundingTitle: insight.grounding.title,
     groundingSummary: insight.grounding.summary,
-    capitalRepairMessage: insight.capitalRepair?.userMessage ?? null,
-    capitalRepairStartYear: insight.capitalRepair?.plannedStartYear ?? null,
-    capitalRepairEndYear: insight.capitalRepair?.plannedEndYear ?? null,
-    dataSource:
-      insight.capitalRepair?.sourceLabel ??
-      (insight.moscowOpenDataUsed ? "Открытые данные Москвы" : null),
+    capitalRepairMessage: null,
+    capitalRepairStartYear: null,
+    capitalRepairEndYear: null,
+    dataSource: insight.dataSource ?? null,
   };
 }
 

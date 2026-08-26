@@ -12,7 +12,7 @@ import {
 } from "@/lib/address-suggest-client";
 import { hasHouse, type AddressSuggestion, type GeolocatedAddress } from "@/lib/dadata";
 import { hapticImpact, hapticNotification } from "@/lib/haptics";
-import { isMoscow, normalizeCityName } from "@/lib/lead-services";
+import { normalizeCityName } from "@/lib/lead-services";
 
 type Phase = "requesting" | "resolving" | "confirm" | "error";
 
@@ -66,7 +66,6 @@ export function GeoAddressScreen({
   const startedRef = useRef(false);
 
   const cityLabel = address ? normalizeCityName(address.city) : "";
-  const useMoscow = address ? isMoscow(cityLabel) : false;
   const trimmed = query.trim();
   const editReady =
     (selected != null &&
@@ -225,7 +224,7 @@ export function GeoAddressScreen({
         <AddressSuggestField
           city={cityLabel}
           value={query}
-          source={useMoscow ? "moscow" : "dadata"}
+          source="dadata"
           houseOnly
           autoFocus
           selectEndOnFocus

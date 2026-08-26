@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Portal } from "@/components/ui/portal";
 import { filterCities } from "@/lib/cities";
 import { hasHouse, type AddressSuggestion } from "@/lib/dadata";
-import { isMoscow, normalizeCityName } from "@/lib/lead-services";
+import { normalizeCityName } from "@/lib/lead-services";
 
 export function PanelHouseAddressSheet({
   open,
@@ -49,7 +49,6 @@ export function PanelHouseAddressSheet({
   );
   const city = citySelected ?? cityExact ?? null;
   const cityLabel = city ? normalizeCityName(city) : "";
-  const useMoscow = city ? isMoscow(city) : false;
   const addressTrimmed = addressQuery.trim();
   const addressReady =
     addressSelected != null &&
@@ -111,9 +110,7 @@ export function PanelHouseAddressSheet({
                 Адрес дома
               </h3>
               <p className="mt-1 text-[14px] leading-relaxed text-zinc-500">
-                Укажите город и дом — подскажем год постройки, заземление и
-                капремонт
-                {useMoscow ? " (для Москвы — из открытых данных города)" : ""}.
+                Укажите город и дом — подскажем год постройки и заземление.
               </p>
             </div>
             <button
