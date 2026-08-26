@@ -3,20 +3,21 @@ import type { LeadServiceType } from "@/lib/lead-services";
 
 export type BrandChoiceVariant = "ink" | "mustard" | "white";
 
+/** White cards with brand-accent icons (black / mustard / neutral). */
 export const brandChoiceClasses = {
   ink: {
-    card: "border-[#111113] bg-[#111113] text-white",
-    icon: "bg-[#D3DA00] text-[#111113]",
-    body: "text-white/70",
-    price: "bg-white/12 text-white",
-    inset: "bg-white/10 text-white",
+    card: "border-black/8 bg-white text-[#111113]",
+    icon: "bg-[#111113] text-white",
+    body: "text-zinc-500",
+    price: "bg-zinc-100 text-[#111113]",
+    inset: "bg-zinc-50 text-[#111113]",
   },
   mustard: {
-    card: "border-black/8 bg-[#D3DA00] text-[#111113]",
-    icon: "bg-[#111113] text-white",
-    body: "text-[#111113]/70",
-    price: "bg-white/75 text-[#111113]",
-    inset: "bg-white/60 text-[#111113]",
+    card: "border-black/8 bg-white text-[#111113]",
+    icon: "bg-[#D3DA00] text-[#111113]",
+    body: "text-zinc-500",
+    price: "bg-zinc-100 text-[#111113]",
+    inset: "bg-zinc-50 text-[#111113]",
   },
   white: {
     card: "border-black/8 bg-white text-[#111113]",
