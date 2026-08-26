@@ -8,7 +8,7 @@ export const LEGAL_OPERATOR = {
 } as const;
 
 export function operatorInn(): string {
-  return process.env.OPERATOR_INN?.trim() || "";
+  return process.env.OPERATOR_INN?.trim() || "026808950600";
 }
 
 export function operatorEmail(): string {
@@ -29,3 +29,26 @@ export function operatorContactLine(): string {
   ].filter(Boolean);
   return parts.join(", ");
 }
+
+export const LEGAL_DOCUMENTS = [
+  {
+    href: "/legal/offer",
+    title: "Публичная оферта",
+    description: "Условия оказания услуг, оплата и возвраты",
+  },
+  {
+    href: "/legal/privacy",
+    title: "Политика конфиденциальности",
+    description: "Как обрабатываются персональные данные (152-ФЗ)",
+  },
+  {
+    href: "/legal/terms",
+    title: "Пользовательское соглашение",
+    description: "Правила использования сервиса Током",
+  },
+  {
+    href: "/legal/consent",
+    title: "Согласие на обработку персональных данных",
+    description: "Текст согласия, которое вы даёте при входе",
+  },
+] as const;

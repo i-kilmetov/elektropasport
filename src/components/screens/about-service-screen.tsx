@@ -308,7 +308,14 @@ export function AboutServiceScreen({ onBack }: { onBack: () => void }) {
         </div>
       </div>
 
-      <Button className="mt-auto w-full" variant="secondary" onClick={onBack}>
+      <a
+        href="/legal"
+        className="mb-3 mt-2 block text-center text-[14px] font-medium text-zinc-500 underline decoration-zinc-300 underline-offset-4 hover:text-zinc-800"
+      >
+        Юридические документы и реквизиты
+      </a>
+
+      <Button className="w-full" variant="secondary" onClick={onBack}>
         Назад
       </Button>
     </motion.section>

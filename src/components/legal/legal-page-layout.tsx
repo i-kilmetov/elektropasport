@@ -12,12 +12,18 @@ export function LegalPageLayout({
 }) {
   return (
     <main className="mx-auto min-h-dvh max-w-2xl px-5 py-10 pb-16 pt-[max(2rem,env(safe-area-inset-top))] text-zinc-800">
-      <p className="mb-6">
+      <p className="mb-6 flex flex-wrap items-center gap-x-4 gap-y-1">
         <Link
-          href="/"
+          href="/legal"
           className="text-[14px] font-medium text-zinc-600 underline-offset-2 hover:underline"
         >
-          ← На главную
+          ← Все документы
+        </Link>
+        <Link
+          href="/"
+          className="text-[14px] font-medium text-zinc-500 underline-offset-2 hover:underline"
+        >
+          На главную
         </Link>
       </p>
       <h1 className="mb-2 text-[28px] font-bold tracking-tight text-zinc-900">
