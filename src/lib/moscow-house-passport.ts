@@ -96,8 +96,8 @@ function resolveAddressColumn(
   )?.name;
 }
 
-/** Known dommos / MKD passport tables on apidata.mos.ru (probed before full catalog scan). */
-const KNOWN_PASSPORT_DATASET_IDS = [60562, 29171, 27707];
+/** Known ids to probe; 60562 is address-only and must never win without year columns. */
+const KNOWN_PASSPORT_DATASET_IDS = [29171, 27707];
 
 function hasDommosYearColumn(
   columns: Array<{ name: string; caption: string }>,
