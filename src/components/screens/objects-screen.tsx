@@ -470,7 +470,7 @@ function EmptyState({
               src={imageSrc}
               alt={imageAlt ?? ""}
               draggable={false}
-              className="pointer-events-none h-[min(40dvh,280px)] w-auto max-w-full select-none object-contain"
+              className="pointer-events-none h-[min(40dvh,280px)] w-auto max-w-full select-none bg-white object-contain"
             />
           ) : null}
           <p className="mt-4 min-h-[6.25rem] text-center text-[15px] leading-relaxed text-zinc-600">
@@ -590,7 +590,7 @@ export function ObjectsScreen({
   );
   const atPanelLimit = isAtPanelLimit(quota, panels.length);
   const panelEmptyText =
-    "Щиток — электрическое сердце дома. Сфотографируйте его, чтобы оценить его состояние и добавлять в дальнейшем остальную технику";
+    "Щиток — электрическое сердце дома. Сфотографируйте, чтобы оценить его состояние, и добавлять в дальнейшем остальную технику";
 
   const pendingDelete = items.find((item) => item.id === pendingDeleteId);
   const actionsItem = items.find((item) => item.id === actionsItemId);

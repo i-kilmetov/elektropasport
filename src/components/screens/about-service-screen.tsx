@@ -4,10 +4,9 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowLeft,
-  BarChart3,
   ChevronDown,
-  Flame,
-  Shield,
+  HousePlug,
+  LayoutGrid,
   Users,
   Wrench,
   Zap,
@@ -29,31 +28,43 @@ function formatCount(value: number | null | undefined): string {
   return new Intl.NumberFormat("ru-RU").format(value);
 }
 
-const missionPoints = [
+const pillars = [
   {
-    icon: Shield,
-    title: "Безопасность людей",
-    text: "Понимание щитка помогает вовремя заметить перегруз, отсутствие УЗО и другие риски.",
-    accent: "text-sky-600 bg-sky-500/10",
-  },
-  {
-    icon: Flame,
-    title: "Пожаробезопасность",
-    text: "Большинство бытовых пожаров начинается с электрики. Разобраться в щитке — значит снизить опасность.",
-    accent: "text-orange-600 bg-orange-500/10",
-  },
-  {
+    id: "panel",
     icon: Zap,
-    title: "Спокойствие дома",
-    text: "Когда вы знаете, что за что отвечает, проще общаться с мастером и принимать решения.",
-    accent: "text-emerald-600 bg-emerald-500/10",
+    title: "Разобраться со щитком",
+    lead: "Понять, что происходит в электрическом сердце дома — и что с этим делать.",
+    body: [
+      "Щиток решает, будет ли дома безопасно: от него зависят перегрузки, УЗО и то, как быстро можно обесточить линию. Пока схема «в голове у электрика», вы не видите риски и не понимаете, что именно сломалось.",
+      "Током помогает сфотографировать щиток, разобрать автоматы простым языком и увидеть состояние защиты. Так проще принять решение: что можно оставить, что усилить и когда звать мастера — не наугад, а по делу.",
+    ],
+  },
+  {
+    id: "appliances",
+    icon: LayoutGrid,
+    title: "Вся техника дома в одном месте",
+    lead: "Собрать крупную технику рядом со щитком, чтобы видеть реальную нагрузку.",
+    body: [
+      "Духовка, стиральная, кондиционер и бойлер живут в разных комнатах, а питаются из одного щитка. Если не держать их вместе, легко перегрузить линию или купить технику, которую сеть просто не выдержит.",
+      "В Токоме техника привязывается к дому и щитку: мощность, модель и где она стоит. Это помогает планировать новые приборы, понимать запас по нагрузке и не собирать электрику заново после каждого ремонта.",
+    ],
+  },
+  {
+    id: "help",
+    icon: Wrench,
+    title: "Помощь по электрике — быстро и рядом",
+    lead: "Обратиться за любой помощью: онлайн или со специалистом на дом.",
+    body: [
+      "Электрика ломается в неудачный момент: выбило автомат, искрит розетка, неясно, можно ли подключать духовку. Искать «просто мастера» долго, а объяснять ситуацию с нуля ещё дольше.",
+      "Через Током можно оставить заявку на консультацию или выезд, не собирая историю заново: щиток и техника уже под рукой. Онлайн — чтобы быстро понять, что делать. На дом — если нужна скорая помощь и руки специалиста.",
+    ],
   },
 ] as const;
 
 export function AboutServiceScreen({ onBack }: { onBack: () => void }) {
   const [stats, setStats] = useState<PublicStats | null>(null);
   const [statsError, setStatsError] = useState(false);
-  const [fireStatsOpen, setFireStatsOpen] = useState(false);
+  const [openId, setOpenId] = useState<string | null>(pillars[0].id);
 
   useEffect(() => {
     let cancelled = false;
@@ -82,24 +93,17 @@ export function AboutServiceScreen({ onBack }: { onBack: () => void }) {
   const statCards = [
     {
       key: "users",
-      label: "пользователей в сервисе",
+      label: "человек уже в Токоме",
       value: statsError ? null : stats === null ? undefined : stats.usersCount,
       icon: Users,
-      tint: "from-sky-500/12 to-sky-500/4",
+      tone: "mustard" as const,
     },
     {
       key: "panels",
       label: "щитков добавлено",
       value: statsError ? null : stats === null ? undefined : stats.panelsCount,
-      icon: Zap,
-      tint: "from-amber-500/12 to-amber-500/4",
-    },
-    {
-      key: "masters",
-      label: "мастеров подали заявку",
-      value: statsError ? null : stats === null ? undefined : stats.mastersCount,
-      icon: Wrench,
-      tint: "from-emerald-500/12 to-emerald-500/4",
+      icon: HousePlug,
+      tone: "ink" as const,
     },
   ] as const;
 
@@ -110,7 +114,7 @@ export function AboutServiceScreen({ onBack }: { onBack: () => void }) {
       exit={{ opacity: 0, x: -40 }}
       className="flex min-h-dvh flex-col px-5 pb-8 pt-[max(1.25rem,env(safe-area-inset-top))]"
     >
-      <header className="mb-6 flex items-center gap-3">
+      <header className="mb-5 flex shrink-0 items-center gap-3">
         <button
           type="button"
           onClick={onBack}
@@ -122,214 +126,128 @@ export function AboutServiceScreen({ onBack }: { onBack: () => void }) {
         <h1 className="text-[20px] font-semibold text-zinc-900">О сервисе</h1>
       </header>
 
-      <div className="flex-1 space-y-4 overflow-y-auto pb-4">
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pb-4">
         <GlassCard className="overflow-hidden p-0">
-          <div className="px-5 py-6 text-zinc-950" style={{ backgroundColor: BRAND_YELLOW }}>
+          <div className="px-5 py-6 text-[#111113]" style={{ backgroundColor: BRAND_YELLOW }}>
             <BrandLogo className="mb-4 h-9" />
             <h2 className="text-[24px] font-bold tracking-tight">
-              Главная миссия — чтобы вы разбирались в своём щитке
+              Три опоры Токома
             </h2>
-            <p className="mt-3 text-[14px] leading-relaxed text-zinc-800">
-              <strong className="font-semibold">Током</strong> помогает увидеть
-              схему, состав устройств и уровень безопасности простым языком. Это
-              напрямую влияет на вашу безопасность и пожаробезопасность дома.
+            <p className="mt-3 text-[14px] leading-relaxed text-[#111113]/80">
+              Сервис держит электрику дома в одном месте: щиток, технику и
+              помощь специалиста — чтобы решения были понятными, а не наугад.
             </p>
           </div>
         </GlassCard>
 
         <div className="space-y-3">
-          {missionPoints.map((point, i) => (
-            <motion.div
-              key={point.title}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.06 * i }}
-            >
-              <GlassCard className="flex gap-3 p-4">
-                <span
-                  className={cn(
-                    "flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px]",
-                    point.accent,
-                  )}
+          {pillars.map((pillar, i) => {
+            const open = openId === pillar.id;
+            return (
+              <GlassCard key={pillar.id} className="overflow-hidden p-0">
+                <button
+                  type="button"
+                  onClick={() => setOpenId(open ? null : pillar.id)}
+                  className="flex w-full items-start gap-3 p-4 text-left"
+                  aria-expanded={open}
                 >
-                  <point.icon className="h-5 w-5" />
-                </span>
-                <div>
-                  <h3 className="text-[15px] font-semibold text-zinc-900">
-                    {point.title}
-                  </h3>
-                  <p className="mt-1 text-[13px] leading-relaxed text-zinc-500">
-                    {point.text}
-                  </p>
-                </div>
+                  <span
+                    className={cn(
+                      "mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px]",
+                      i === 1
+                        ? "bg-[#111113] text-white"
+                        : "bg-[#D3DA00] text-[#111113]",
+                    )}
+                  >
+                    <pillar.icon className="h-5 w-5" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-[16px] font-semibold text-zinc-900">
+                      {pillar.title}
+                    </h3>
+                    <p className="mt-0.5 text-[13px] leading-snug text-zinc-500">
+                      {pillar.lead}
+                    </p>
+                  </div>
+                  <ChevronDown
+                    className={cn(
+                      "mt-1 h-5 w-5 shrink-0 text-zinc-400 transition-transform",
+                      open && "rotate-180",
+                    )}
+                  />
+                </button>
+                <AnimatePresence initial={false}>
+                  {open && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.22, ease: "easeOut" }}
+                      className="overflow-hidden"
+                    >
+                      <div className="space-y-3 border-t border-black/[0.06] px-4 pb-4 pt-3">
+                        {pillar.body.map((paragraph) => (
+                          <p
+                            key={paragraph.slice(0, 24)}
+                            className="text-[13px] leading-relaxed text-zinc-600"
+                          >
+                            {paragraph}
+                          </p>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </GlassCard>
-            </motion.div>
-          ))}
+            );
+          })}
         </div>
 
-        <GlassCard className="overflow-hidden p-0">
-          <button
-            type="button"
-            onClick={() => setFireStatsOpen((open) => !open)}
-            className="flex w-full items-center gap-3 p-4 text-left"
-          >
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] bg-orange-500/10 text-orange-600">
-              <Flame className="h-5 w-5" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <h3 className="text-[16px] font-semibold text-zinc-900">
-                Почему это важно: цифры по пожарам
-              </h3>
-              <p className="mt-0.5 text-[13px] text-zinc-500">
-                Официальная статистика МЧС за 2025 год
-              </p>
-            </div>
-            <ChevronDown
-              className={cn(
-                "h-5 w-5 shrink-0 text-zinc-400 transition-transform",
-                fireStatsOpen && "rotate-180",
-              )}
-            />
-          </button>
-          <AnimatePresence initial={false}>
-            {fireStatsOpen && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: "auto", opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.22, ease: "easeOut" }}
-                className="overflow-hidden"
-              >
-                <div className="space-y-3 border-t border-black/[0.06] px-4 pb-4 pt-3 text-[13px] leading-relaxed text-zinc-600">
-                  <p>
-                    В 2025 году в России произошло{" "}
-                    <span className="font-semibold text-zinc-900">
-                      317 311 пожаров
-                    </span>
-                    . На них погибли{" "}
-                    <span className="font-semibold text-zinc-900">
-                      6 521 человек
-                    </span>
-                    , получили травмы{" "}
-                    <span className="font-semibold text-zinc-900">
-                      7 966 человек
-                    </span>
-                    .
-                  </p>
-                  <p>
-                    Около{" "}
-                    <span className="font-semibold text-zinc-900">19%</span>{" "}
-                    всех пожаров — каждый пятый — связаны с электрооборудованием
-                    и электропроводкой:{" "}
-                    <span className="font-semibold text-zinc-900">
-                      61 590 возгораний
-                    </span>
-                    . Из них{" "}
-                    <span className="font-semibold text-zinc-900">
-                      55 153
-                    </span>{" "}
-                    произошли из‑за кабеля и провода.
-                  </p>
-                  <p>
-                    На пожарах по этой причине погибли{" "}
-                    <span className="font-semibold text-zinc-900">
-                      2 104 человека
-                    </span>{" "}
-                    — примерно каждая третья смерть на пожаре. В городах
-                    аварийный режим электросетей и оборудования стал причиной{" "}
-                    <span className="font-semibold text-zinc-900">
-                      32 268
-                    </span>{" "}
-                    пожаров, в сельской местности —{" "}
-                    <span className="font-semibold text-zinc-900">
-                      29 126
-                    </span>
-                    .
-                  </p>
-                  <ul className="space-y-1.5 text-[12px] text-zinc-500">
-                    <li>
-                      <a
-                        href="https://vdpo64.ru/uploadedFiles/files/Analiz_obstanovki_s_pozharami_RF_za_2025.pdf"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="underline decoration-zinc-300 underline-offset-2 hover:text-zinc-800"
-                      >
-                        МЧС России. Анализ обстановки с пожарами за 12 месяцев
-                        2025 г.
-                      </a>
-                    </li>
-                    <li>
-                      <a
-                        href="https://mchs.gov.ru/deyatelnost/itogi-deyatelnosti-mchs-rossii/2025-god"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="underline decoration-zinc-300 underline-offset-2 hover:text-zinc-800"
-                      >
-                        МЧС России. Итоги деятельности за 2025 год
-                      </a>
-                    </li>
-                    <li>
-                      <a
-                        href="https://propb.ru/news/opublikovan-informatsionno-analiticheskiy-sbornik-pozhary-i-pozharnaya-bezopasnost-v-2025-g-/"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="underline decoration-zinc-300 underline-offset-2 hover:text-zinc-800"
-                      >
-                        ВНИИПО МЧС. Сборник «Пожары и пожарная безопасность в
-                        2025 г.»
-                      </a>
-                    </li>
-                    <li>
-                      <a
-                        href="https://mkc-energo.ru/bolee-61-tysyachi-pozharov-za-god-vniipo-mchs-opublikoval-statistiku-po-elektrooborudovaniyu/"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="underline decoration-zinc-300 underline-offset-2 hover:text-zinc-800"
-                      >
-                        Сводка ВНИИПО по пожарам из‑за электрооборудования, 2025
-                      </a>
-                    </li>
-                  </ul>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </GlassCard>
-
-        <GlassCard className="space-y-4 border-emerald-500/20 bg-gradient-to-b from-emerald-500/[0.06] to-transparent p-4">
-          <div className="flex items-start gap-3">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] bg-emerald-500/15 text-emerald-700">
-              <BarChart3 className="h-5 w-5" />
-            </span>
-            <div>
-              <h3 className="text-[16px] font-semibold text-zinc-900">
-                Счетчик сервиса
-              </h3>
-              <p className="mt-1 text-[13px] leading-relaxed text-zinc-500">
-                Открытые данные по работе нашего сервиса: сколько людей уже
-                пользуется <strong className="font-semibold text-zinc-700">Токомом</strong>,
-                сколько щитков добавлено и сколько мастеров подали заявку.
-              </p>
-            </div>
+        <GlassCard className="space-y-4 p-4">
+          <div>
+            <h3 className="text-[16px] font-semibold text-zinc-900">
+              Открытые цифры
+            </h3>
+            <p className="mt-1 text-[13px] leading-relaxed text-zinc-500">
+              Сколько людей уже пользуются Токомом и сколько щитков добавлено —
+              без прикрас, как есть.
+            </p>
           </div>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-2 gap-3">
             {statCards.map((card, i) => (
               <motion.div
                 key={card.key}
                 initial={{ opacity: 0, scale: 0.96 }}
                 animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.1 + i * 0.05 }}
+                transition={{ delay: 0.08 + i * 0.05 }}
                 className={cn(
-                  "rounded-[18px] border border-black/[0.06] bg-gradient-to-br p-4",
-                  card.tint,
+                  "rounded-[18px] border border-black/[0.06] p-4",
+                  card.tone === "mustard"
+                    ? "bg-[#D3DA00]"
+                    : "bg-[#111113] text-white",
                 )}
               >
-                <card.icon className="mb-3 h-5 w-5 text-zinc-600" />
-                <div className="text-[36px] font-bold leading-none tracking-tight tabular-nums text-zinc-900">
+                <card.icon
+                  className={cn(
+                    "mb-3 h-5 w-5",
+                    card.tone === "mustard" ? "text-[#111113]" : "text-[#D3DA00]",
+                  )}
+                />
+                <div
+                  className={cn(
+                    "text-[32px] font-bold leading-none tracking-tight tabular-nums",
+                    card.tone === "mustard" ? "text-[#111113]" : "text-white",
+                  )}
+                >
                   {formatCount(card.value)}
                 </div>
-                <div className="mt-2 text-[12px] leading-snug text-zinc-600">
+                <div
+                  className={cn(
+                    "mt-2 text-[12px] leading-snug",
+                    card.tone === "mustard" ? "text-[#111113]/70" : "text-white/70",
+                  )}
+                >
                   {card.label}
                 </div>
               </motion.div>
@@ -342,16 +260,6 @@ export function AboutServiceScreen({ onBack }: { onBack: () => void }) {
               позже.
             </p>
           )}
-        </GlassCard>
-
-        <GlassCard className="space-y-2 p-4">
-          <h3 className="text-[16px] font-semibold text-zinc-900">Важно знать</h3>
-          <p className="text-[13px] leading-relaxed text-zinc-500">
-            <strong className="font-semibold text-zinc-700">Током</strong> не
-            заменяет проектную документацию и очный осмотр электрика. Сервис
-            помогает разобраться в ситуации и быстрее связаться со специалистом,
-            но работы с напряжением должен выполнять квалифицированный мастер.
-          </p>
         </GlassCard>
       </div>
 
