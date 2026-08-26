@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import {
   ArrowLeft,
+  Bell,
   ClipboardList,
   LayoutDashboard,
   Loader2,
@@ -25,10 +26,13 @@ import {
   adminAddAdmin,
   adminDeleteRequest,
   adminRemoveAdmin,
+  adminSendPush,
   adminSetRequestStatus,
   adminSetRole,
   fetchAdminDashboard,
   fetchAdminPanel,
+  fetchAdminPushAudience,
+  type AdminPushAudience,
 } from "@/lib/user-data";
 import {
   installStatusLabels,
@@ -44,7 +48,8 @@ type Section =
   | "requests"
   | "invites"
   | "masters"
-  | "admins";
+  | "admins"
+  | "push";
 
 const SECTIONS: Array<{ id: Section; title: string; icon: typeof Shield }> = [
   { id: "overview", title: "Обзор", icon: LayoutDashboard },
@@ -53,6 +58,7 @@ const SECTIONS: Array<{ id: Section; title: string; icon: typeof Shield }> = [
   { id: "requests", title: "Заявки", icon: ClipboardList },
   { id: "invites", title: "Приглашения", icon: UserPlus },
   { id: "masters", title: "Мастера", icon: Wrench },
+  { id: "push", title: "Пуши", icon: Bell },
   { id: "admins", title: "Администраторы", icon: Shield },
 ];
 
@@ -284,6 +290,7 @@ export function AdminDashboardScreen({ onBack }: { onBack: () => void }) {
                   }
                 />
               )}
+              {section === "push" && <PushSection />}
               {section === "admins" && (
                 <AdminsSection
                   data={data}
@@ -1121,6 +1128,223 @@ function AdminsSection({
           </GlassCard>
         ))}
       </div>
+    </div>
+  );
+}
+
+function PushSection() {
+  const [audience, setAudience] = useState<AdminPushAudience | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<string | null>(null);
+  const [title, setTitle] = useState("Током");
+  const [text, setText] = useState("");
+  const [telegramId, setTelegramId] = useState("");
+  const [scope, setScope] = useState<"all" | "one">("all");
+
+  const reload = useCallback(async () => {
+    const next = await fetchAdminPushAudience();
+    setAudience(next);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const next = await fetchAdminPushAudience();
+        if (!cancelled) setAudience(next);
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "Не удалось загрузить");
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const send = async () => {
+    if (sending) return;
+    setSending(true);
+    setError(null);
+    setResult(null);
+    try {
+      const id = Number(telegramId.replace(/\D/g, ""));
+      const data = await adminSendPush({
+        title,
+        body: text,
+        telegramId: scope === "one" ? id : undefined,
+      });
+      setResult(
+        `Отправлено: ${data.sent} на ${data.users} ${data.users === 1 ? "пользователя" : "пользователей"}`,
+      );
+      setText("");
+      await reload();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не удалось отправить");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <Loader2 className="h-7 w-7 animate-spin text-zinc-300" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="mx-auto w-full max-w-[720px] space-y-5">
+      <div>
+        <h2 className="text-[28px] font-semibold tracking-tight text-zinc-950">
+          Пуш-уведомления
+        </h2>
+        <p className="mt-1 text-[15px] text-zinc-500">
+          Приходят только тем, кто установил Током на Домой и включил
+          уведомления. Заявки (мастер принял, смена статуса) уходят сами.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <GlassCard className="p-4">
+          <div className="text-[28px] font-semibold tabular-nums text-zinc-950">
+            {audience?.userCount ?? 0}
+          </div>
+          <div className="mt-1 text-[13px] text-zinc-500">Подписчиков</div>
+        </GlassCard>
+        <GlassCard className="p-4">
+          <div className="text-[28px] font-semibold tabular-nums text-zinc-950">
+            {audience?.deviceCount ?? 0}
+          </div>
+          <div className="mt-1 text-[13px] text-zinc-500">Устройств</div>
+        </GlassCard>
+      </div>
+
+      <GlassCard className="space-y-4 p-5">
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setScope("all")}
+            className={cn(
+              "rounded-full px-3 py-1.5 text-[13px] font-semibold",
+              scope === "all"
+                ? "bg-zinc-900 text-white"
+                : "bg-zinc-100 text-zinc-600",
+            )}
+          >
+            Всем
+          </button>
+          <button
+            type="button"
+            onClick={() => setScope("one")}
+            className={cn(
+              "rounded-full px-3 py-1.5 text-[13px] font-semibold",
+              scope === "one"
+                ? "bg-zinc-900 text-white"
+                : "bg-zinc-100 text-zinc-600",
+            )}
+          >
+            Одному
+          </button>
+        </div>
+        {scope === "one" && (
+          <label className="block">
+            <span className="mb-1.5 block text-[13px] text-zinc-500">
+              Telegram ID
+            </span>
+            <input
+              value={telegramId}
+              onChange={(e) => setTelegramId(e.target.value)}
+              placeholder="например 123456789"
+              className="h-12 w-full rounded-[16px] border border-black/8 bg-zinc-50 px-4 text-[15px] outline-none focus:border-zinc-300"
+            />
+          </label>
+        )}
+        <label className="block">
+          <span className="mb-1.5 block text-[13px] text-zinc-500">
+            Заголовок
+          </span>
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value.slice(0, 80))}
+            className="h-12 w-full rounded-[16px] border border-black/8 bg-zinc-50 px-4 text-[15px] outline-none focus:border-zinc-300"
+          />
+        </label>
+        <label className="block">
+          <span className="mb-1.5 block text-[13px] text-zinc-500">Текст</span>
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value.slice(0, 200))}
+            rows={3}
+            placeholder="Коротко, что случилось"
+            className="w-full resize-none rounded-[16px] border border-black/8 bg-zinc-50 px-4 py-3 text-[15px] outline-none focus:border-zinc-300"
+          />
+          <span className="mt-1 block text-right text-[12px] text-zinc-400">
+            {text.length}/200
+          </span>
+        </label>
+        {error && (
+          <p className="text-[13px] text-rose-600">{error}</p>
+        )}
+        {result && (
+          <p className="text-[13px] text-emerald-700">{result}</p>
+        )}
+        <Button
+          className="w-full"
+          disabled={sending || !title.trim() || !text.trim() || (scope === "one" && !telegramId.replace(/\D/g, ""))}
+          onClick={() => void send()}
+        >
+          {sending ? "Отправляем…" : scope === "all" ? "Отправить всем" : "Отправить"}
+        </Button>
+      </GlassCard>
+
+      <GlassCard className="overflow-hidden p-0">
+        <div className="border-b border-black/6 px-4 py-3 text-[14px] font-semibold text-zinc-900">
+          Кто подписан
+        </div>
+        {(audience?.subscribers.length ?? 0) === 0 ? (
+          <p className="px-4 py-8 text-center text-[14px] text-zinc-400">
+            Пока никто не включил пуши
+          </p>
+        ) : (
+          <ul>
+            {audience?.subscribers.map((item) => (
+              <li
+                key={item.telegramId}
+                className="flex items-center justify-between gap-3 border-t border-black/6 px-4 py-3 first:border-t-0"
+              >
+                <div className="min-w-0">
+                  <div className="truncate text-[14px] font-medium text-zinc-900">
+                    {displayName(item.firstName, item.lastName, "Без имени")}
+                    {item.username ? ` · @${item.username}` : ""}
+                  </div>
+                  <div className="text-[12px] tabular-nums text-zinc-400">
+                    {item.telegramId} · устройств: {item.devices}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setScope("one");
+                    setTelegramId(String(item.telegramId));
+                  }}
+                  className="shrink-0 text-[13px] font-medium text-zinc-500 underline-offset-2 hover:underline"
+                >
+                  Этому
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </GlassCard>
     </div>
   );
 }

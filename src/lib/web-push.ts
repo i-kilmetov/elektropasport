@@ -2,6 +2,7 @@ import webpush from "web-push";
 import {
   deletePushSubscriptionByEndpoint,
   ensureSchema,
+  listDistinctPushUserIds,
   listPushSubscriptions,
 } from "@/lib/db";
 import { getSql } from "@/lib/sql-client";
@@ -167,4 +168,16 @@ export async function notifyUserWebPush(
   } catch (error) {
     console.error("Web push notify failed", error);
   }
+}
+
+export async function sendWebPushBroadcast(
+  payload: WebPushPayload,
+): Promise<{ users: number; sent: number }> {
+  const ids = await listDistinctPushUserIds();
+  let sent = 0;
+  for (const telegramUserId of ids) {
+    const result = await sendWebPushToUser(telegramUserId, payload);
+    sent += result.sent;
+  }
+  return { users: ids.length, sent };
 }

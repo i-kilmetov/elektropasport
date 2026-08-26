@@ -2258,3 +2258,76 @@ export async function deletePushSubscriptionByEndpoint(
     WHERE endpoint = ${endpoint}
   `;
 }
+
+export type PushSubscriberRow = {
+  telegramId: number;
+  firstName: string;
+  lastName: string;
+  username: string;
+  devices: number;
+  updatedAt: string | null;
+};
+
+export async function getPushAudience(): Promise<{
+  deviceCount: number;
+  userCount: number;
+  subscribers: PushSubscriberRow[];
+}> {
+  const sql = getSql();
+  await ensureSchema();
+  const [counts] = (await sql`
+    SELECT
+      COUNT(*)::int AS devices,
+      COUNT(DISTINCT telegram_user_id)::int AS users
+    FROM push_subscriptions
+  `) as Array<{ devices: number; users: number }>;
+  const rows = (await sql`
+    SELECT
+      p.telegram_user_id,
+      COUNT(*)::int AS devices,
+      MAX(p.updated_at) AS updated_at,
+      COALESCE(u.profile_first_name, u.first_name, '') AS first_name,
+      COALESCE(u.profile_last_name, u.last_name, '') AS last_name,
+      COALESCE(u.username, '') AS username
+    FROM push_subscriptions p
+    LEFT JOIN users u ON u.telegram_id = p.telegram_user_id
+    GROUP BY
+      p.telegram_user_id,
+      u.profile_first_name,
+      u.first_name,
+      u.profile_last_name,
+      u.last_name,
+      u.username
+    ORDER BY MAX(p.updated_at) DESC NULLS LAST
+    LIMIT 200
+  `) as Array<{
+    telegram_user_id: string | number;
+    devices: number;
+    updated_at: string | Date | null;
+    first_name: string | null;
+    last_name: string | null;
+    username: string | null;
+  }>;
+  return {
+    deviceCount: counts?.devices ?? 0,
+    userCount: counts?.users ?? 0,
+    subscribers: rows.map((row) => ({
+      telegramId: Number(row.telegram_user_id),
+      firstName: row.first_name?.trim() ?? "",
+      lastName: row.last_name?.trim() ?? "",
+      username: row.username?.trim() ?? "",
+      devices: row.devices,
+      updatedAt: row.updated_at ? new Date(row.updated_at).toISOString() : null,
+    })),
+  };
+}
+
+export async function listDistinctPushUserIds(): Promise<number[]> {
+  const sql = getSql();
+  await ensureSchema();
+  const rows = (await sql`
+    SELECT DISTINCT telegram_user_id
+    FROM push_subscriptions
+  `) as Array<{ telegram_user_id: string | number }>;
+  return rows.map((row) => Number(row.telegram_user_id));
+}

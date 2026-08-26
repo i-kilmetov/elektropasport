@@ -1708,6 +1708,43 @@ export async function fetchAdminPanel(
   return data.panel;
 }
 
+export type AdminPushAudience = {
+  deviceCount: number;
+  userCount: number;
+  subscribers: Array<{
+    telegramId: number;
+    firstName: string;
+    lastName: string;
+    username: string;
+    devices: number;
+    updatedAt: string | null;
+  }>;
+};
+
+export async function fetchAdminPushAudience(): Promise<AdminPushAudience> {
+  const res = await fetch("/api/admin/push", {
+    headers: authHeaders(),
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return (await res.json()) as AdminPushAudience;
+}
+
+export async function adminSendPush(input: {
+  title: string;
+  body: string;
+  url?: string;
+  telegramId?: number;
+}): Promise<{ users: number; sent: number }> {
+  const res = await fetch("/api/admin/push", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return (await res.json()) as { users: number; sent: number };
+}
+
 const VISITOR_KEY = "elektropasport:visitor-key";
 
 export function getOrCreateVisitorKey(): string {
