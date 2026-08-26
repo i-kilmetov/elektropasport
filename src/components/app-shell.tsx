@@ -1956,7 +1956,7 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
       <div
         className={cn(
           "relative z-10",
-          fillViewport && "flex min-h-0 flex-1 flex-col",
+          fillViewport && "flex min-h-0 min-w-0 flex-1 flex-col",
           !wideLayout &&
             "mx-auto w-full max-w-xl lg:max-w-3xl lg:px-8 lg:py-8",
         )}

@@ -733,6 +733,34 @@ export async function updateStoredUserProfile(
   };
 }
 
+export async function getWaitlistSubscription(
+  telegramUserId: number,
+  list: string,
+): Promise<{ email: string } | null> {
+  const sql = getSql();
+  await ensureSchema();
+  const rows = (await sql`
+    SELECT waitlist.email
+    FROM waitlist
+    WHERE waitlist.list = ${list}
+      AND waitlist.email <> ''
+      AND (
+        waitlist.telegram_user_id = ${telegramUserId}
+        OR waitlist.email = (
+          SELECT users.email
+          FROM users
+          WHERE users.telegram_id = ${telegramUserId}
+            AND users.email IS NOT NULL
+            AND users.email <> ''
+        )
+      )
+    ORDER BY waitlist.created_at DESC
+    LIMIT 1
+  `) as Array<{ email: string }>;
+  const email = rows[0]?.email?.trim().toLowerCase();
+  return email ? { email } : null;
+}
+
 /** Delete this environment's user row (CASCADE removes panels, requests, etc.). */
 export async function deleteUserAccount(telegramUserId: number): Promise<void> {
   const sql = getSql();

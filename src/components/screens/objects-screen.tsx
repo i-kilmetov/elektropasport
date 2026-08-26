@@ -483,15 +483,17 @@ function EmptyState({
 }) {
   if (framed) {
     return (
-      <div className="flex min-h-full flex-1 flex-col items-center justify-center px-4 py-6">
-        <div className="flex w-full max-w-[320px] flex-col items-center">
+      <div className="flex h-full min-h-full w-full flex-1 flex-col items-center justify-center px-4 py-6">
+        <div className="flex w-full max-w-[320px] flex-col items-center lg:max-w-[420px]">
           {imageSrc ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={imageSrc}
               alt={imageAlt ?? ""}
+              width={800}
+              height={800}
               draggable={false}
-              className="pointer-events-none h-[min(40dvh,280px)] w-auto max-w-full select-none bg-white object-contain"
+              className="pointer-events-none h-[min(40dvh,280px)] w-auto max-w-full select-none object-contain lg:h-[min(48dvh,380px)]"
             />
           ) : null}
           <p className="mt-4 min-h-[6.25rem] text-center text-[15px] leading-relaxed text-zinc-600">
@@ -612,6 +614,20 @@ export function ObjectsScreen({
   const atPanelLimit = isAtPanelLimit(quota, panels.length);
   const panelEmptyText =
     "Щиток — электрическое сердце дома. Сфотографируйте, чтобы оценить его состояние, и добавлять в дальнейшем остальную технику";
+  const panelEmpty = {
+    icon: <BreakerIcon className="h-10 w-10" />,
+    text: panelEmptyText,
+    framed: true,
+    imageSrc: "/empty-states/panels.png",
+    imageAlt: "Электрический щиток в квартире",
+  };
+  const requestEmpty = {
+    icon: <ClipboardList className="h-10 w-10" />,
+    text: "Здесь можно обратиться за любой помощью в электрике. Поможем как онлайн, так и со скорой помощью на дом",
+    framed: true,
+    imageSrc: "/empty-states/requests.png",
+    imageAlt: "Мастер пришёл помочь с электрикой",
+  };
 
   const pendingDelete = items.find((item) => item.id === pendingDeleteId);
   const actionsItem = items.find((item) => item.id === actionsItemId);
@@ -724,9 +740,9 @@ export function ObjectsScreen({
       );
     }
     return (
-      <div className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:gap-4 xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 lg:gap-4">
         {list.map((obj) => (
-          <div key={obj.id}>
+          <div key={obj.id} className="min-w-0">
             {!homeAppliancesMode ? (
               <HomeListCard
                 item={obj}
@@ -781,7 +797,7 @@ export function ObjectsScreen({
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -40 }}
       transition={{ duration: 0.35 }}
-      className="relative flex min-h-0 flex-1 flex-col overflow-hidden overscroll-none lg:flex-row"
+      className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden overscroll-none lg:flex-row"
     >
       <aside className="hidden w-72 shrink-0 flex-col border-r border-black/[0.06] bg-zinc-50/70 px-6 py-8 lg:flex">
         <div className="mb-8">
@@ -833,7 +849,7 @@ export function ObjectsScreen({
         </nav>
       </aside>
 
-      <div className="flex min-h-0 flex-1 flex-col overscroll-none pt-[max(1.25rem,env(safe-area-inset-top))] lg:pt-8">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overscroll-none pt-[max(1.25rem,env(safe-area-inset-top))] lg:pt-8">
       <header className="mb-4 shrink-0 px-5 lg:px-10">
         <div className="relative flex items-center justify-center lg:justify-between">
           <button
@@ -930,7 +946,16 @@ export function ObjectsScreen({
         </p>
       )}
 
-      <div ref={pagerRef} className="min-h-0 flex-1 overflow-hidden overscroll-none">
+      <div className="hidden min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-none px-10 pb-10 lg:flex lg:flex-col">
+        {page === 0
+          ? renderList(panels, panelEmpty)
+          : renderList(requests, requestEmpty)}
+      </div>
+
+      <div
+        ref={pagerRef}
+        className="min-h-0 flex-1 overflow-hidden overscroll-none lg:hidden"
+      >
         <motion.div
           className="flex h-full touch-pan-x overscroll-none"
           drag="x"
@@ -945,28 +970,16 @@ export function ObjectsScreen({
           onDragEnd={onPagerDragEnd}
         >
           <div
-            className="flex h-full min-h-0 flex-col overflow-y-auto overscroll-none px-5 pb-2 lg:px-10 lg:pb-10"
+            className="flex h-full min-h-0 flex-col overflow-y-auto overscroll-none px-5 pb-2"
             style={{ width: pagerWidth || "50%", WebkitOverflowScrolling: "touch" }}
           >
-            {renderList(panels, {
-              icon: <BreakerIcon className="h-10 w-10" />,
-              text: panelEmptyText,
-              framed: true,
-              imageSrc: "/empty-states/panels.png",
-              imageAlt: "Электрический щиток в квартире",
-            })}
+            {renderList(panels, panelEmpty)}
           </div>
           <div
-            className="flex h-full min-h-0 flex-col overflow-y-auto overscroll-none px-5 pb-2 lg:px-10 lg:pb-10"
+            className="flex h-full min-h-0 flex-col overflow-y-auto overscroll-none px-5 pb-2"
             style={{ width: pagerWidth || "50%", WebkitOverflowScrolling: "touch" }}
           >
-            {renderList(requests, {
-              icon: <ClipboardList className="h-10 w-10" />,
-              text: "Здесь можно обратиться за любой помощью в электрике. Поможем как онлайн, так и со скорой помощью на дом",
-              framed: true,
-              imageSrc: "/empty-states/requests.png",
-              imageAlt: "Мастер пришёл помочь с электрикой",
-            })}
+            {renderList(requests, requestEmpty)}
           </div>
         </motion.div>
       </div>

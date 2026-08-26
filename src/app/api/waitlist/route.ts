@@ -7,6 +7,7 @@ import {
   dbErrorResponse,
   ensureSchema,
   getSql,
+  getWaitlistSubscription,
   upsertUser,
 } from "@/lib/db";
 import { notifyAdminWaitlist } from "@/lib/telegram-notify";
@@ -16,6 +17,26 @@ function isValidEmail(value: string): boolean {
 }
 
 const WAITLIST_KINDS = new Set(["school", "terminals", "launch"]);
+
+export async function GET(request: Request) {
+  try {
+    const user = requireTelegramUser(request);
+    const list = new URL(request.url).searchParams.get("list");
+    if (!list || !WAITLIST_KINDS.has(list)) {
+      return Response.json({ error: "Неизвестный список" }, { status: 400 });
+    }
+
+    await ensureSchema();
+    await upsertUser(user);
+    const subscription = await getWaitlistSubscription(user.telegramId, list);
+    return Response.json({
+      subscribed: Boolean(subscription),
+      email: subscription?.email ?? null,
+    });
+  } catch (error) {
+    return dbErrorResponse(error) ?? authErrorResponse(error);
+  }
+}
 
 export async function POST(request: Request) {
   try {

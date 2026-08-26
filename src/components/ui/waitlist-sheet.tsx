@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Cable, GraduationCap, X } from "lucide-react";
+import { Cable, Check, GraduationCap, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Portal } from "@/components/ui/portal";
 import { authHeaders, canUseServerAuth } from "@/lib/client-auth";
@@ -14,6 +14,43 @@ import {
 } from "@/lib/user-profile";
 
 export type WaitlistKind = "school" | "terminals";
+
+function isValidEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+}
+
+const WAITLIST_SUB_KEY = "elektropasport:waitlist-subscribed";
+
+function readLocalSubscriptions(): Partial<Record<WaitlistKind, string>> {
+  if (typeof window === "undefined") return {};
+  try {
+    const parsed = JSON.parse(
+      localStorage.getItem(WAITLIST_SUB_KEY) ?? "{}",
+    ) as unknown;
+    if (!parsed || typeof parsed !== "object") return {};
+    const next: Partial<Record<WaitlistKind, string>> = {};
+    for (const key of ["school", "terminals"] as const) {
+      const value = (parsed as Record<string, unknown>)[key];
+      if (typeof value === "string" && isValidEmail(value)) {
+        next[key] = value.trim().toLowerCase();
+      }
+    }
+    return next;
+  } catch {
+    return {};
+  }
+}
+
+function markLocalSubscription(kind: WaitlistKind, email: string): void {
+  try {
+    localStorage.setItem(
+      WAITLIST_SUB_KEY,
+      JSON.stringify({ ...readLocalSubscriptions(), [kind]: email }),
+    );
+  } catch {
+    // private mode
+  }
+}
 
 const COPY: Record<
   WaitlistKind,
@@ -38,10 +75,6 @@ const COPY: Record<
   },
 };
 
-function isValidEmail(value: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
-}
-
 export function WaitlistSheet({
   kind,
   onClose,
@@ -51,16 +84,52 @@ export function WaitlistSheet({
 }) {
   const copy = COPY[kind];
   const initialEmail = useMemo(
-    () => getUserProfile().email?.trim() ?? "",
-    [],
+    () =>
+      readLocalSubscriptions()[kind] || getUserProfile().email?.trim() || "",
+    [kind],
   );
   const [email, setEmail] = useState(initialEmail);
   const [busy, setBusy] = useState(false);
-  const [done, setDone] = useState(false);
+  const [subscribed, setSubscribed] = useState(
+    () => Boolean(readLocalSubscriptions()[kind]),
+  );
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    setEmail(getUserProfile().email?.trim() ?? "");
+    const local = readLocalSubscriptions()[kind];
+    const profileEmail = getUserProfile().email?.trim() ?? "";
+    setEmail(local || profileEmail);
+    setSubscribed(Boolean(local));
+    setError(null);
+
+    if (!canUseServerAuth()) return;
+    let cancelled = false;
+    void fetch(`/api/waitlist?list=${kind}`, {
+      headers: authHeaders(),
+      cache: "no-store",
+    })
+      .then(async (res) => {
+        if (!res.ok) return null;
+        return (await res.json()) as {
+          subscribed?: boolean;
+          email?: string | null;
+        };
+      })
+      .then((data) => {
+        if (cancelled || !data?.subscribed) return;
+        const nextEmail = data.email?.trim().toLowerCase();
+        if (nextEmail && isValidEmail(nextEmail)) {
+          setEmail(nextEmail);
+          markLocalSubscription(kind, nextEmail);
+        }
+        setSubscribed(true);
+      })
+      .catch(() => {
+        // local flag is enough
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [kind]);
 
   const submit = async () => {
@@ -102,7 +171,8 @@ export function WaitlistSheet({
         }
       }
       hapticNotification("success");
-      setDone(true);
+      markLocalSubscription(kind, next);
+      setSubscribed(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Не удалось подписаться");
     } finally {
@@ -150,28 +220,38 @@ export function WaitlistSheet({
             </button>
           </div>
 
-          {done ? (
-            <div className="py-2">
-              <p className="text-[15px] leading-relaxed text-zinc-700">
-                Готово. Напишем на {email.trim()}, когда всё запустим.
+          <div className="space-y-3">
+            {copy.body.map((paragraph) => (
+              <p
+                key={paragraph}
+                className="text-[15px] leading-relaxed text-zinc-600"
+              >
+                {paragraph}
               </p>
-              <Button className="mt-5 w-full" onClick={onClose}>
-                Закрыть
-              </Button>
+            ))}
+          </div>
+
+          {subscribed ? (
+            <div className="mt-5 flex items-start gap-2.5 rounded-[16px] bg-zinc-100 px-3.5 py-3">
+              <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#D3DA00] text-[#111113]">
+                <Check className="h-3 w-3" strokeWidth={3} />
+              </span>
+              <p className="text-[14px] leading-snug text-zinc-700">
+                Вы подписались
+                {email.trim() ? (
+                  <>
+                    {" "}
+                    — напишем на{" "}
+                    <span className="font-medium text-zinc-900">
+                      {email.trim()}
+                    </span>
+                  </>
+                ) : null}
+                .
+              </p>
             </div>
           ) : (
             <>
-              <div className="space-y-3">
-                {copy.body.map((paragraph) => (
-                  <p
-                    key={paragraph}
-                    className="text-[15px] leading-relaxed text-zinc-600"
-                  >
-                    {paragraph}
-                  </p>
-                ))}
-              </div>
-
               <label className="mt-5 block">
                 <span className="mb-1.5 block text-[13px] text-zinc-500">
                   {copy.emailHint}
