@@ -450,17 +450,33 @@ function ExpandableHomeCard({
 function EmptyState({
   icon,
   text,
+  imageSrc,
+  imageAlt,
   framed = false,
 }: {
   icon: ReactNode;
   text: string;
+  imageSrc?: string;
+  imageAlt?: string;
   framed?: boolean;
 }) {
   if (framed) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center px-4">
-        <div className="max-w-[320px] rounded-[20px] border border-black/8 bg-white px-5 py-4 text-center text-[15px] leading-relaxed text-zinc-600 shadow-sm">
-          {text}
+      <div className="flex min-h-full flex-1 flex-col items-center justify-center px-4 py-6">
+        <div className="w-full max-w-[320px] overflow-hidden rounded-[20px] border border-black/8 bg-white shadow-sm">
+          {imageSrc ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={imageSrc}
+              alt={imageAlt ?? ""}
+              draggable={false}
+              className="pointer-events-none mx-auto w-full select-none px-3 py-4"
+            />
+          ) : (
+            <p className="px-5 py-4 text-center text-[15px] leading-relaxed text-zinc-600">
+              {text}
+            </p>
+          )}
         </div>
       </div>
     );
@@ -665,7 +681,13 @@ export function ObjectsScreen({
 
   const renderList = (
     list: HomeListItem[],
-    empty: { icon: ReactNode; text: string; framed?: boolean },
+    empty: {
+      icon: ReactNode;
+      text: string;
+      framed?: boolean;
+      imageSrc?: string;
+      imageAlt?: string;
+    },
   ) => {
     if (loading) {
       return <HomeListSkeleton count={3} />;
@@ -676,6 +698,8 @@ export function ObjectsScreen({
           icon={empty.icon}
           text={empty.text}
           framed={empty.framed}
+          imageSrc={empty.imageSrc}
+          imageAlt={empty.imageAlt}
         />
       );
     }
@@ -906,6 +930,8 @@ export function ObjectsScreen({
               icon: <BreakerIcon className="h-10 w-10" />,
               text: panelEmptyText,
               framed: true,
+              imageSrc: "/empty-states/panels.png",
+              imageAlt: "Электрический щиток в квартире",
             })}
           </div>
           <div
@@ -916,6 +942,8 @@ export function ObjectsScreen({
               icon: <ClipboardList className="h-10 w-10" />,
               text: "Здесь хранятся все ваши запросы. Поможем в любом электрическом вопросе",
               framed: true,
+              imageSrc: "/empty-states/requests.png",
+              imageAlt: "Мастер пришёл помочь с электрикой",
             })}
           </div>
         </motion.div>
