@@ -7,6 +7,7 @@ import {
 import { dbErrorResponse, ensureSchema, upsertUser } from "@/lib/db";
 import {
   appendGoogleSheetRow,
+  googleSheetsBackend,
   googleSheetsWebhookKind,
   isGoogleSheetsConfigured,
 } from "@/lib/google-sheets";
@@ -38,6 +39,7 @@ function displayName(user: ValidatedTelegramUser | null): string {
 export async function GET() {
   return Response.json({
     sheetsConfigured: isGoogleSheetsConfigured(),
+    backend: googleSheetsBackend(),
     webhook: googleSheetsWebhookKind(),
   });
 }
@@ -70,7 +72,7 @@ export async function POST(request: Request) {
       return Response.json(
         {
           error:
-            "Таблица не подключена: в Vercel Production добавьте GOOGLE_SHEETS_WEBHOOK_URL (ссылка …/exec) и сделайте Redeploy",
+            "Таблица не подключена: в Vercel Production добавьте GOOGLE_SHEETS_ID и GOOGLE_SERVICE_ACCOUNT_JSON, затем Redeploy",
         },
         { status: 503 },
       );

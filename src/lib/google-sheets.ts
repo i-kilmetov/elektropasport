@@ -64,6 +64,14 @@ export function googleSheetsWebhookKind(): WebhookUrlKind | null {
   return webhook ? classifyWebhookUrl(webhook) : null;
 }
 
+export function googleSheetsBackend(): "service-account" | "webhook" | null {
+  if (process.env.GOOGLE_SHEETS_ID?.trim() && googleServiceAccount()) {
+    return "service-account";
+  }
+  if (googleSheetsWebhookUrl()) return "webhook";
+  return null;
+}
+
 function googleServiceAccount(): {
   email: string;
   privateKey: string;
@@ -99,20 +107,31 @@ export async function appendGoogleSheetRow(input: {
   headers: string[];
   values: string[];
 }): Promise<void> {
+  // Apps Script web apps from Vercel often get an HTML interstitial instead of
+  // JSON. Prefer the Sheets API service account when it is configured.
+  const spreadsheetId = process.env.GOOGLE_SHEETS_ID?.trim();
+  const account = googleServiceAccount();
+  if (spreadsheetId && account) {
+    await appendViaServiceAccount(spreadsheetId, account, input);
+    return;
+  }
+
   const webhook = googleSheetsWebhookUrl();
   if (webhook) {
     await appendViaWebhook(normalizeWebhookUrl(webhook), input);
     return;
   }
 
-  const spreadsheetId = process.env.GOOGLE_SHEETS_ID?.trim();
-  const account = googleServiceAccount();
-  if (!spreadsheetId || !account) {
-    throw new Error("Google Sheets не настроен");
-  }
+  throw new Error("Google Sheets не настроен");
+}
 
+async function appendViaServiceAccount(
+  spreadsheetId: string,
+  account: { email: string; privateKey: string },
+  input: { headers: string[]; values: string[] },
+): Promise<void> {
   const token = await googleSheetsAccessToken(account.email, account.privateKey);
-  const sheetName = process.env.GOOGLE_SHEETS_TAB?.trim() || "Sheet1";
+  const sheetName = await resolveSheetTitle(spreadsheetId, token);
   const range = `${sheetName}!A1`;
 
   await ensureHeaderRow(spreadsheetId, range, token, input.headers);
@@ -130,12 +149,31 @@ export async function appendGoogleSheetRow(input: {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ values: [input.values] }),
+    cache: "no-store",
   });
 
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`Google Sheets append failed: ${res.status} ${text}`);
+    throw new Error(describeSheetsApiError(res.status, text));
   }
+}
+
+function describeSheetsApiError(status: number, text: string): string {
+  const lower = text.toLowerCase();
+  if (
+    lower.includes("sheets api has not been used") ||
+    lower.includes("access_token_scope_insufficient") ||
+    lower.includes("access not configured")
+  ) {
+    return "В Google Cloud включите Google Sheets API для проекта сервисного аккаунта";
+  }
+  if (status === 403 || lower.includes("the caller does not have permission")) {
+    return "Сервисный аккаунт не имеет доступа к таблице. Откройте таблицу → Настройки доступа → вставьте его email с правом Редактор (галочку «уведомить» снимите)";
+  }
+  if (status === 404) {
+    return "Не найден Google Sheet: проверьте GOOGLE_SHEETS_ID";
+  }
+  return `Google Sheets append failed: ${status} ${text.slice(0, 240)}`;
 }
 
 const APPS_SCRIPT_LOGIN_ERROR =
@@ -332,6 +370,12 @@ async function appendViaWebhook(
     throw new Error(APPS_SCRIPT_LOGIN_ERROR);
   }
 
+  if (text.includes("<!DOCTYPE html") || text.includes("<html")) {
+    throw new Error(
+      "Google блокирует Apps Script с сервера Vercel. Подключите сервисный аккаунт: GOOGLE_SHEETS_ID и GOOGLE_SERVICE_ACCOUNT_JSON",
+    );
+  }
+
   throw new Error(
     `Google Sheets webhook: неожиданный ответ ${text.slice(0, 180).replace(/\s+/g, " ")}`,
   );
@@ -373,6 +417,34 @@ async function googleSheetsAccessToken(
     );
   }
   return data.access_token;
+}
+
+async function resolveSheetTitle(
+  spreadsheetId: string,
+  token: string,
+): Promise<string> {
+  const configured = process.env.GOOGLE_SHEETS_TAB?.trim();
+  if (configured) return configured;
+
+  const res = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets.properties.title`,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    },
+  );
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(describeSheetsApiError(res.status, text));
+  }
+  const data = (await res.json()) as {
+    sheets?: { properties?: { title?: string } }[];
+  };
+  const title = data.sheets?.[0]?.properties?.title?.trim();
+  if (!title) {
+    throw new Error("В таблице нет листов");
+  }
+  return title;
 }
 
 async function ensureHeaderRow(
