@@ -6,12 +6,16 @@ import { ArrowLeft } from "lucide-react";
 import { AddressSuggestField } from "@/components/ui/address-suggest-field";
 import { Button } from "@/components/ui/button";
 import { hasFlat, hasHouse, type AddressSuggestion } from "@/lib/dadata";
-import { normalizeCityName } from "@/lib/lead-services";
+import { isMoscow, normalizeCityName } from "@/lib/lead-services";
 
 export type ConfirmedAddress = {
   value: string;
   fiasId?: string;
   houseFiasId?: string;
+  street?: string;
+  house?: string;
+  block?: string;
+  buildingYear?: number;
 };
 
 export function LeadAddressScreen({
@@ -48,9 +52,11 @@ export function LeadAddressScreen({
   const [lookupFailed, setLookupFailed] = useState(false);
 
   const cityLabel = normalizeCityName(city);
+  const useMoscow = isMoscow(cityLabel);
   const trimmed = query.trim();
   const needsApartment =
     requireApartment &&
+    !useMoscow &&
     selected != null &&
     hasHouse(selected) &&
     !hasFlat(selected) &&
@@ -60,7 +66,7 @@ export function LeadAddressScreen({
       selected.value === trimmed &&
       hasHouse(selected) &&
       !needsApartment) ||
-    (lookupFailed && trimmed.length >= 8);
+    (!useMoscow && lookupFailed && trimmed.length >= 8);
 
   return (
     <motion.section
@@ -86,14 +92,16 @@ export function LeadAddressScreen({
       </h2>
       <p className="mb-5 text-[15px] leading-relaxed text-zinc-600">
         {description ??
-          "Укажите точный адрес: улица и дом. По году постройки подскажем, есть ли заземление."}
+          (useMoscow
+            ? "Выберите дом из реестра Москвы — год постройки возьмём оттуда и оценим заземление."
+            : "Укажите точный адрес: улица и дом. По году постройки подскажем, есть ли заземление.")}
       </p>
 
       <AddressSuggestField
         city={cityLabel}
         value={query}
-        source="dadata"
-        houseOnly={!requireApartment}
+        source={useMoscow ? "moscow" : "dadata"}
+        houseOnly={!requireApartment || useMoscow}
         onChange={(next) => {
           setQuery(next);
           if (selected && next.trim() !== selected.value) {
@@ -129,6 +137,10 @@ export function LeadAddressScreen({
               value: item?.value ?? trimmed,
               fiasId: item?.fiasId,
               houseFiasId: item?.houseFiasId ?? item?.fiasId,
+              street: item?.street,
+              house: item?.house,
+              block: item?.block,
+              buildingYear: item?.buildingYear,
             });
           }}
         >

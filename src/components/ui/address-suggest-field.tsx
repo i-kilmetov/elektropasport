@@ -248,7 +248,9 @@ export function AddressSuggestField({
                     )}
                   >
                     {source === "moscow"
-                      ? "Дом в реестре Москвы"
+                      ? item.buildingYear != null
+                        ? `Год постройки: ${item.buildingYear}`
+                        : "Дом в реестре Москвы"
                       : hasFlat(item)
                         ? "Квартира найдена в адресном реестре"
                         : hasHouse(item)

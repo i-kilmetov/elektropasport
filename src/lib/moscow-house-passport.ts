@@ -329,6 +329,7 @@ export function mapMoscowHitsToSuggestions(
     if (!value || seen.has(value)) continue;
     seen.add(value);
 
+    const key = buildMoscowAddressKey({ address: value });
     const houseMatch =
       /(?:д\.?|дом)\s*([\d/a-zа-я-]+)/i.exec(value) ??
       /,\s*([\d/a-zа-я-]+)\s*$/.exec(value);
@@ -337,8 +338,13 @@ export function mapMoscowHitsToSuggestions(
       value,
       unrestrictedValue: value,
       fiasId: `mos:${value}`,
+      houseFiasId: `mos:${value}`,
       fiasLevel: 8,
-      house: houseMatch?.[1]?.trim() ?? "1",
+      street: key?.street ?? undefined,
+      house: key?.house ?? houseMatch?.[1]?.trim() ?? "1",
+      block: key?.building ?? undefined,
+      city: "Москва",
+      buildingYear: hit.buildingYear ?? undefined,
     });
   }
 

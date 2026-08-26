@@ -1431,6 +1431,7 @@ export async function lookupHouseInsight(input: {
   street?: string | null;
   house?: string | null;
   block?: string | null;
+  buildingYear?: number | null;
 }): Promise<HouseInsight> {
   if (!canUseServer()) {
     throw new Error("Справка по дому доступна после входа через Telegram");
@@ -1449,6 +1450,7 @@ export async function lookupHouseInsight(input: {
       street: input.street ?? undefined,
       house: input.house ?? undefined,
       block: input.block ?? undefined,
+      buildingYear: input.buildingYear ?? undefined,
     }),
   });
 

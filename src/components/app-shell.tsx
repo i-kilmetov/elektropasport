@@ -337,6 +337,12 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
   const [selectedAddressFiasId, setSelectedAddressFiasId] = useState<
     string | null
   >(null);
+  const [selectedBuildingYear, setSelectedBuildingYear] = useState<
+    number | null
+  >(null);
+  const [selectedStreet, setSelectedStreet] = useState<string | null>(null);
+  const [selectedHouse, setSelectedHouse] = useState<string | null>(null);
+  const [selectedBlock, setSelectedBlock] = useState<string | null>(null);
   const [addressEntrySource, setAddressEntrySource] = useState<
     "geo" | "manual" | null
   >(null);
@@ -621,6 +627,10 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
       setSelectedCity(null);
       setSelectedAddress(null);
       setSelectedAddressFiasId(null);
+      setSelectedBuildingYear(null);
+      setSelectedStreet(null);
+      setSelectedHouse(null);
+      setSelectedBlock(null);
       setHelpElectricalFlow(true);
       setSelectedLeadService(null);
       setLeadBackScreen(pending === "help-electrical" ? "objects" : "scheme");
@@ -714,6 +724,10 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
     setSelectedCity(null);
     setSelectedAddress(null);
     setSelectedAddressFiasId(null);
+    setSelectedBuildingYear(null);
+    setSelectedStreet(null);
+    setSelectedHouse(null);
+    setSelectedBlock(null);
     setAddressEntrySource(null);
     setHelpElectricalFlow(true);
     setSelectedLeadService(null);
@@ -735,6 +749,10 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
     setSelectedCity(null);
     setSelectedAddress(null);
     setSelectedAddressFiasId(null);
+    setSelectedBuildingYear(null);
+    setSelectedStreet(null);
+    setSelectedHouse(null);
+    setSelectedBlock(null);
     setAddressEntrySource(null);
     // Same house-insight path as «Помочь с электрикой» (scheme CTA uses this).
     setHelpElectricalFlow(true);
@@ -869,6 +887,7 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
       street?: string;
       house?: string;
       block?: string;
+      buildingYear?: number;
     }) => {
       if (!activePanelId) return;
       setPanelHouseSaving(true);
@@ -923,6 +942,7 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
         street: payload.street,
         house: payload.house,
         block: payload.block,
+        buildingYear: payload.buildingYear,
       })
         .then(async (insight) => {
           if (!activePanelId || insight.buildingYear == null) return;
@@ -2237,6 +2257,10 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
                 setSelectedCity(null);
                 setSelectedAddress(null);
                 setSelectedAddressFiasId(null);
+                setSelectedBuildingYear(null);
+                setSelectedStreet(null);
+                setSelectedHouse(null);
+                setSelectedBlock(null);
                 setHelpElectricalFlow(false);
                 setSelectedLeadService(null);
                 setLeadPanelModules(null);
@@ -2255,6 +2279,10 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
                 setSelectedCity(null);
                 setSelectedAddress(null);
                 setSelectedAddressFiasId(null);
+                setSelectedBuildingYear(null);
+                setSelectedStreet(null);
+                setSelectedHouse(null);
+                setSelectedBlock(null);
                 setHelpElectricalFlow(false);
                 setSelectedLeadService(null);
                 setLeadPanelModules(null);
@@ -2273,6 +2301,10 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
                       address: selectedAddress,
                       fiasId: selectedAddressFiasId ?? undefined,
                       houseFiasId: selectedAddressFiasId ?? undefined,
+                      street: selectedStreet ?? undefined,
+                      house: selectedHouse ?? undefined,
+                      block: selectedBlock ?? undefined,
+                      buildingYear: selectedBuildingYear ?? undefined,
                     }
                   : undefined
               }
@@ -2281,13 +2313,30 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
                 setSelectedCity(null);
                 setSelectedAddress(null);
                 setSelectedAddressFiasId(null);
+                setSelectedBuildingYear(null);
+                setSelectedStreet(null);
+                setSelectedHouse(null);
+                setSelectedBlock(null);
                 setAddressEntrySource(null);
                 go("city-select");
               }}
-              onConfirm={({ city, address, fiasId, houseFiasId }) => {
+              onConfirm={({
+                city,
+                address,
+                fiasId,
+                houseFiasId,
+                street,
+                house,
+                block,
+                buildingYear,
+              }) => {
                 setSelectedCity(city);
                 setSelectedAddress(address);
                 setSelectedAddressFiasId(houseFiasId ?? fiasId ?? null);
+                setSelectedStreet(street ?? null);
+                setSelectedHouse(house ?? null);
+                setSelectedBlock(block ?? null);
+                setSelectedBuildingYear(buildingYear ?? null);
                 setAddressEntrySource("geo");
                 go("house-insight");
               }}
@@ -2312,7 +2361,7 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
                 leadFlow === "master"
                   ? undefined
                   : helpElectricalFlow
-                    ? "Укажите точный адрес дома — покажем год постройки и, есть ли заземление."
+                    ? "В Москве адрес берём из открытых данных города — с годом постройки. В других городах — через DaData."
                     : "В этом городе у нас есть квалифицированные мастера-электрики. Укажите точный адрес, чтобы сориентировать вас по времени и цене."
               }
               onBack={() =>
@@ -2326,6 +2375,10 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
                 setSelectedCity(city);
                 setSelectedAddress(null);
                 setSelectedAddressFiasId(null);
+                setSelectedBuildingYear(null);
+                setSelectedStreet(null);
+                setSelectedHouse(null);
+                setSelectedBlock(null);
                 if (leadFlow === "master") {
                   go("master-about");
                   return;
@@ -2346,6 +2399,10 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
                 setSelectedCity(null);
                 setSelectedAddress(null);
                 setSelectedAddressFiasId(null);
+                setSelectedBuildingYear(null);
+                setSelectedStreet(null);
+                setSelectedHouse(null);
+                setSelectedBlock(null);
                 setSelectedLeadService(null);
                 setLeadPanelModules(null);
                 setLeadBackScreen("request-type");
@@ -2365,7 +2422,9 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
                   : undefined
               }
               description={
-                "Укажите точный адрес через DaData — улица и номер дома. По году постройки оценим заземление."
+                isMoscow(selectedCity)
+                  ? "Выберите дом из реестра Москвы — год постройки возьмём оттуда и оценим заземление."
+                  : "Укажите точный адрес: улица и дом. По году постройки подскажем, есть ли заземление."
               }
               onBack={() => go("city-select")}
               onConfirm={(address) => {
@@ -2373,6 +2432,10 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
                 setSelectedAddressFiasId(
                   address.houseFiasId ?? address.fiasId ?? null,
                 );
+                setSelectedStreet(address.street ?? null);
+                setSelectedHouse(address.house ?? null);
+                setSelectedBlock(address.block ?? null);
+                setSelectedBuildingYear(address.buildingYear ?? null);
                 setAddressEntrySource("manual");
                 go("house-insight");
               }}
@@ -2380,10 +2443,14 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
           )}
           {screen === "house-insight" && selectedCity && selectedAddress && (
             <HouseInsightScreen
-              key={`house-${selectedCity}-${selectedAddress}`}
+              key={`house-${selectedCity}-${selectedAddress}-${selectedBuildingYear ?? "y"}`}
               city={selectedCity}
               address={selectedAddress}
               fiasId={selectedAddressFiasId}
+              buildingYear={selectedBuildingYear}
+              street={selectedStreet}
+              house={selectedHouse}
+              block={selectedBlock}
               onBack={() => {
                 if (addressEntrySource === "geo") {
                   go("geo-address");
@@ -2446,6 +2513,10 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
                 setSelectedCity(null);
                 setSelectedAddress(null);
                 setSelectedAddressFiasId(null);
+                setSelectedBuildingYear(null);
+                setSelectedStreet(null);
+                setSelectedHouse(null);
+                setSelectedBlock(null);
                 setHelpElectricalFlow(false);
                 setLeadPanelModules(null);
                 go("objects");
@@ -2591,6 +2662,10 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
                 setSelectedCity(null);
                 setSelectedAddress(null);
                 setSelectedAddressFiasId(null);
+                setSelectedBuildingYear(null);
+                setSelectedStreet(null);
+                setSelectedHouse(null);
+                setSelectedBlock(null);
                 setMasterAbout("");
                 go("city-select");
               }}

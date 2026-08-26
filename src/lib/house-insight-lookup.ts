@@ -4,9 +4,99 @@ import {
 } from "@/lib/house-insight";
 import { assessGroundingForYear } from "@/lib/grounding-assessment";
 import { lookupHouseFromDaData } from "@/lib/dadata-house-lookup";
-import { buildLocalHouseInsight, buildPanelHouseSnapshot } from "@/lib/house-insight-local";
+import { isMoscow } from "@/lib/lead-services";
+import {
+  buildMoscowAddressKey,
+  scoreMoscowAddressMatch,
+} from "@/lib/moscow-address-match";
+import {
+  lookupMoscowHousePassportWithDebug,
+  searchMoscowAddressSuggestions,
+} from "@/lib/moscow-house-passport";
+import {
+  buildLocalHouseInsight,
+  buildPanelHouseSnapshot,
+} from "@/lib/house-insight-local";
 
 export { buildLocalHouseInsight, buildPanelHouseSnapshot };
+
+async function resolveMoscowYear(input: {
+  address: string;
+  street?: string | null;
+  house?: string | null;
+  block?: string | null;
+}): Promise<{
+  address: string;
+  buildingYear: number | null;
+  operationYear: number | null;
+  sourceLabel: string | null;
+}> {
+  const { passport } = await lookupMoscowHousePassportWithDebug(input.address, {
+    street: input.street,
+    house: input.house,
+    block: input.block,
+  });
+  if (passport?.buildingYear != null || passport?.operationYear != null) {
+    return {
+      address: passport.address || input.address,
+      buildingYear: passport.buildingYear,
+      operationYear: passport.operationYear,
+      sourceLabel: passport.sourceLabel,
+    };
+  }
+
+  const key = buildMoscowAddressKey({
+    address: input.address,
+    street: input.street,
+    house: input.house,
+    block: input.block,
+  });
+  const query =
+    key != null
+      ? `${key.street} ${key.house}${key.building ? ` ${key.building}` : ""}`
+      : input.address;
+  const hits = await searchMoscowAddressSuggestions(query, 20);
+  if (!key || hits.length === 0) {
+    return {
+      address: input.address,
+      buildingYear: null,
+      operationYear: null,
+      sourceLabel: null,
+    };
+  }
+
+  let best: {
+    address: string;
+    buildingYear: number | null;
+    score: number;
+  } | null = null;
+  for (const hit of hits) {
+    const score = scoreMoscowAddressMatch(hit.address, key);
+    if (!best || score > best.score) {
+      best = {
+        address: hit.address,
+        buildingYear: hit.buildingYear,
+        score,
+      };
+    }
+  }
+
+  if (!best || best.score < 100 || best.buildingYear == null) {
+    return {
+      address: input.address,
+      buildingYear: null,
+      operationYear: null,
+      sourceLabel: null,
+    };
+  }
+
+  return {
+    address: best.address,
+    buildingYear: best.buildingYear,
+    operationYear: null,
+    sourceLabel: "Открытые данные Москвы",
+  };
+}
 
 export async function lookupHouseInsight(input: {
   city: string;
@@ -15,19 +105,72 @@ export async function lookupHouseInsight(input: {
   street?: string | null;
   house?: string | null;
   block?: string | null;
+  /** Year already known from Moscow open-data suggestion. */
+  buildingYear?: number | null;
 }): Promise<HouseInsight> {
   const city = input.city.trim();
   const address = input.address.trim();
   const rawFiasId = input.fiasId?.trim() || null;
-  const fiasId = rawFiasId?.startsWith("mos:") ? null : rawFiasId;
+  const knownYear =
+    typeof input.buildingYear === "number" &&
+    Number.isFinite(input.buildingYear)
+      ? input.buildingYear
+      : null;
 
+  if (isMoscow(city)) {
+    if (knownYear != null) {
+      const grounding = assessGroundingForYear(knownYear);
+      return {
+        address,
+        city: city || "Москва",
+        fiasId: rawFiasId?.startsWith("mos:") ? rawFiasId : `mos:${address}`,
+        buildingYear: knownYear,
+        operationYear: null,
+        electrical: electricalGuessForYear(knownYear),
+        grounding,
+        capitalRepair: null,
+        management: null,
+        managementType: null,
+        dataSource: "Открытые данные Москвы",
+      };
+    }
+
+    const resolved = await resolveMoscowYear({
+      address,
+      street: input.street,
+      house: input.house,
+      block: input.block,
+    });
+    const year = resolved.buildingYear ?? resolved.operationYear;
+    const grounding = assessGroundingForYear(year);
+
+    return {
+      address: resolved.address || address,
+      city: city || "Москва",
+      fiasId: rawFiasId?.startsWith("mos:")
+        ? rawFiasId
+        : resolved.buildingYear != null
+          ? `mos:${resolved.address || address}`
+          : rawFiasId,
+      buildingYear: resolved.buildingYear,
+      operationYear: resolved.operationYear,
+      electrical: electricalGuessForYear(year),
+      grounding,
+      capitalRepair: null,
+      management: null,
+      managementType: null,
+      dataSource: resolved.sourceLabel,
+    };
+  }
+
+  const fiasId = rawFiasId?.startsWith("mos:") ? null : rawFiasId;
   const dadata = await lookupHouseFromDaData({
     city,
     address,
     fiasId,
   });
 
-  const buildingYear = dadata.buildingYear;
+  const buildingYear = knownYear ?? dadata.buildingYear;
   const grounding = assessGroundingForYear(buildingYear);
 
   return {

@@ -15,6 +15,8 @@ export type AddressSuggestion = {
   block?: string;
   building?: string;
   city?: string;
+  /** Present when suggestion came from Moscow open-data house registry. */
+  buildingYear?: number;
 };
 
 export type GeolocatedAddress = AddressSuggestion & {

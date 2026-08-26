@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Portal } from "@/components/ui/portal";
 import { filterCities } from "@/lib/cities";
 import { hasHouse, type AddressSuggestion } from "@/lib/dadata";
-import { normalizeCityName } from "@/lib/lead-services";
+import { isMoscow, normalizeCityName } from "@/lib/lead-services";
 
 export function PanelHouseAddressSheet({
   open,
@@ -30,6 +30,7 @@ export function PanelHouseAddressSheet({
     street?: string;
     house?: string;
     block?: string;
+    buildingYear?: number;
   }) => void | Promise<void>;
 }) {
   const [cityQuery, setCityQuery] = useState("");
@@ -49,6 +50,7 @@ export function PanelHouseAddressSheet({
   );
   const city = citySelected ?? cityExact ?? null;
   const cityLabel = city ? normalizeCityName(city) : "";
+  const useMoscow = isMoscow(cityLabel);
   const addressTrimmed = addressQuery.trim();
   const addressReady =
     addressSelected != null &&
@@ -110,7 +112,9 @@ export function PanelHouseAddressSheet({
                 Адрес дома
               </h3>
               <p className="mt-1 text-[14px] leading-relaxed text-zinc-500">
-                Укажите город и дом — подскажем год постройки и заземление.
+                {useMoscow
+                  ? "Выберите дом из реестра Москвы — год постройки возьмём оттуда."
+                  : "Укажите город и дом — подскажем год постройки и заземление."}
               </p>
             </div>
             <button
@@ -162,7 +166,7 @@ export function PanelHouseAddressSheet({
             <AddressSuggestField
               city={cityLabel}
               value={addressQuery}
-              source="dadata"
+              source={useMoscow ? "moscow" : "dadata"}
               houseOnly
               onChange={(next) => {
                 setAddressQuery(next);
@@ -205,6 +209,7 @@ export function PanelHouseAddressSheet({
                   street: addressSelected?.street,
                   house: addressSelected?.house,
                   block: addressSelected?.block,
+                  buildingYear: addressSelected?.buildingYear,
                 });
               }}
             >

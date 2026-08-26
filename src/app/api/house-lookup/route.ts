@@ -1,9 +1,6 @@
 import { authErrorResponse, requireTelegramUser } from "@/lib/telegram-auth";
 import { normalizeCityName } from "@/lib/lead-services";
-import {
-  buildLocalHouseInsight,
-  lookupHouseInsight,
-} from "@/lib/house-insight-lookup";
+import { lookupHouseInsight } from "@/lib/house-insight-lookup";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -21,6 +18,7 @@ export async function POST(request: Request) {
       street?: string;
       house?: string;
       block?: string;
+      buildingYear?: number;
     };
 
     const city = normalizeCityName(body.city ?? "");
@@ -29,6 +27,10 @@ export async function POST(request: Request) {
     const street = body.street?.trim() || null;
     const house = body.house?.trim() || null;
     const block = body.block?.trim() || null;
+    const buildingYear =
+      typeof body.buildingYear === "number" && Number.isFinite(body.buildingYear)
+        ? body.buildingYear
+        : null;
 
     if (!city) {
       return Response.json({ error: "Укажите город" }, { status: 400 });
@@ -43,12 +45,6 @@ export async function POST(request: Request) {
       return Response.json({ error: "Слишком длинный адрес" }, { status: 400 });
     }
 
-    if (!process.env.DADATA_API_KEY?.trim()) {
-      return Response.json({
-        insight: buildLocalHouseInsight({ city, address, fiasId }),
-      });
-    }
-
     const insight = await lookupHouseInsight({
       city,
       address,
@@ -56,6 +52,7 @@ export async function POST(request: Request) {
       street,
       house,
       block,
+      buildingYear,
     });
 
     return Response.json({ insight });

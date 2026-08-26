@@ -16,12 +16,20 @@ export function HouseInsightScreen({
   city,
   address,
   fiasId,
+  buildingYear,
+  street,
+  house,
+  block,
   onBack,
   onCallMaster,
 }: {
   city: string;
   address: string;
   fiasId?: string | null;
+  buildingYear?: number | null;
+  street?: string | null;
+  house?: string | null;
+  block?: string | null;
   onBack: () => void;
   onCallMaster: () => void;
 }) {
@@ -33,7 +41,15 @@ export function HouseInsightScreen({
     let cancelled = false;
     setLoading(true);
     setError(null);
-    void lookupHouseInsight({ city, address, fiasId })
+    void lookupHouseInsight({
+      city,
+      address,
+      fiasId,
+      buildingYear,
+      street,
+      house,
+      block,
+    })
       .then((next) => {
         if (!cancelled) setInsight(next);
       })
@@ -52,7 +68,7 @@ export function HouseInsightScreen({
     return () => {
       cancelled = true;
     };
-  }, [city, address, fiasId]);
+  }, [city, address, fiasId, buildingYear, street, house, block]);
 
   const eraTone =
     insight?.electrical.era === "legacy"

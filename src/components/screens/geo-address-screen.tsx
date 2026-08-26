@@ -12,7 +12,7 @@ import {
 } from "@/lib/address-suggest-client";
 import { hasHouse, type AddressSuggestion, type GeolocatedAddress } from "@/lib/dadata";
 import { hapticImpact, hapticNotification } from "@/lib/haptics";
-import { normalizeCityName } from "@/lib/lead-services";
+import { isMoscow, normalizeCityName } from "@/lib/lead-services";
 
 type Phase = "requesting" | "resolving" | "confirm" | "error";
 
@@ -21,6 +21,10 @@ export type GeoAddressRestore = {
   address: string;
   fiasId?: string;
   houseFiasId?: string;
+  street?: string;
+  house?: string;
+  block?: string;
+  buildingYear?: number;
 };
 
 function toSuggestion(address: GeolocatedAddress): AddressSuggestion {
@@ -40,6 +44,17 @@ function toSuggestion(address: GeolocatedAddress): AddressSuggestion {
   };
 }
 
+function moscowEditQuery(address: GeolocatedAddress): string {
+  const street = address.street?.trim();
+  if (!street) return address.value;
+  const parts = [
+    street,
+    address.house ? `д. ${address.house}` : null,
+    address.block ? `к. ${address.block}` : null,
+  ].filter(Boolean);
+  return parts.join(", ");
+}
+
 export function GeoAddressScreen({
   onBack,
   onConfirm,
@@ -52,6 +67,10 @@ export function GeoAddressScreen({
     address: string;
     fiasId?: string;
     houseFiasId?: string;
+    street?: string;
+    house?: string;
+    block?: string;
+    buildingYear?: number;
   }) => void;
   onManual: () => void;
   restoreSnapshot?: GeoAddressRestore;
@@ -66,12 +85,13 @@ export function GeoAddressScreen({
   const startedRef = useRef(false);
 
   const cityLabel = address ? normalizeCityName(address.city) : "";
+  const useMoscow = isMoscow(cityLabel);
   const trimmed = query.trim();
   const editReady =
     (selected != null &&
       selected.value === trimmed &&
       hasHouse(selected)) ||
-    (lookupFailed && trimmed.length >= 8);
+    (!useMoscow && lookupFailed && trimmed.length >= 8);
 
   const runLocate = useCallback(async () => {
     setPhase("requesting");
@@ -107,6 +127,9 @@ export function GeoAddressScreen({
         city: restoreSnapshot.city,
         fiasId: restoreSnapshot.fiasId,
         houseFiasId: restoreSnapshot.houseFiasId ?? restoreSnapshot.fiasId,
+        street: restoreSnapshot.street,
+        house: restoreSnapshot.house,
+        block: restoreSnapshot.block,
         fiasLevel: 8,
       });
       setPhase("confirm");
@@ -120,8 +143,13 @@ export function GeoAddressScreen({
       onManual();
       return;
     }
-    setQuery(address.value);
-    setSelected(toSuggestion(address));
+    if (useMoscow) {
+      setQuery(moscowEditQuery(address));
+      setSelected(null);
+    } else {
+      setQuery(address.value);
+      setSelected(toSuggestion(address));
+    }
     setLookupFailed(false);
     setEditing(true);
     hapticImpact("light");
@@ -135,6 +163,29 @@ export function GeoAddressScreen({
       address: selected?.value ?? trimmed,
       fiasId: selected?.fiasId,
       houseFiasId: selected?.houseFiasId ?? selected?.fiasId,
+      street: selected?.street ?? address.street,
+      house: selected?.house ?? address.house,
+      block: selected?.block ?? address.block,
+      buildingYear: selected?.buildingYear,
+    });
+  };
+
+  const confirmGeoAddress = () => {
+    if (!address) return;
+    // Variant A: in Moscow prefer open-data house pick so year comes with the row.
+    if (useMoscow) {
+      beginManualEdit();
+      return;
+    }
+    hapticImpact("medium");
+    onConfirm({
+      city: cityLabel,
+      address: address.value,
+      fiasId: address.fiasId,
+      houseFiasId: address.houseFiasId ?? address.fiasId,
+      street: address.street,
+      house: address.house,
+      block: address.block,
     });
   };
 
@@ -167,8 +218,12 @@ export function GeoAddressScreen({
       <p className="mb-5 text-[15px] leading-relaxed text-zinc-600">
         {phase === "confirm"
           ? editing
-            ? "Исправьте адрес, если геопозиция определилась неточно."
-            : "Проверьте, верно ли определился дом по геопозиции."
+            ? useMoscow
+              ? "Выберите дом из реестра Москвы — год постройки возьмём оттуда."
+              : "Исправьте адрес, если геопозиция определилась неточно."
+            : useMoscow
+              ? "Адрес по геопозиции найден. Подтвердите дом в реестре Москвы — так мы узнаем год постройки."
+              : "Проверьте, верно ли определился дом по геопозиции."
           : "Разрешите доступ к геопозиции — подставим адрес автоматически."}
       </p>
 
@@ -224,7 +279,7 @@ export function GeoAddressScreen({
         <AddressSuggestField
           city={cityLabel}
           value={query}
-          source="dadata"
+          source={useMoscow ? "moscow" : "dadata"}
           houseOnly
           autoFocus
           selectEndOnFocus
@@ -260,17 +315,9 @@ export function GeoAddressScreen({
             <Button
               className="w-full rounded-full"
               size="lg"
-              onClick={() => {
-                hapticImpact("medium");
-                onConfirm({
-                  city: cityLabel,
-                  address: address.value,
-                  fiasId: address.fiasId,
-                  houseFiasId: address.houseFiasId ?? address.fiasId,
-                });
-              }}
+              onClick={confirmGeoAddress}
             >
-              Да, верно
+              {useMoscow ? "Выбрать дом в реестре" : "Да, верно"}
             </Button>
             <Button
               className="w-full rounded-full"
