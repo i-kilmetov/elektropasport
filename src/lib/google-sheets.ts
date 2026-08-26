@@ -26,6 +26,35 @@ export function isGoogleSheetsConfigured(): boolean {
   );
 }
 
+type WebhookUrlKind = "exec" | "dev" | "spreadsheet" | "other";
+
+function classifyWebhookUrl(url: string): WebhookUrlKind {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.toLowerCase();
+    const path = parsed.pathname;
+    if (host === "docs.google.com" || host.endsWith(".docs.google.com")) {
+      return "spreadsheet";
+    }
+    if (path.endsWith("/dev")) return "dev";
+    if (
+      (host === "script.google.com" || host.endsWith(".script.google.com")) &&
+      path.endsWith("/exec")
+    ) {
+      return "exec";
+    }
+    return "other";
+  } catch {
+    return "other";
+  }
+}
+
+/** Shape of GOOGLE_SHEETS_WEBHOOK_URL, without exposing the URL itself. */
+export function googleSheetsWebhookKind(): WebhookUrlKind | null {
+  const webhook = googleSheetsWebhookUrl();
+  return webhook ? classifyWebhookUrl(webhook) : null;
+}
+
 function googleServiceAccount(): {
   email: string;
   privateKey: string;
@@ -100,50 +129,173 @@ export async function appendGoogleSheetRow(input: {
   }
 }
 
+const APPS_SCRIPT_LOGIN_ERROR =
+  "Google не пустил сервер в Apps Script: в Deploy доступ должен быть «Все» / Anyone (не «с аккаунтом Google»), URL — …/exec, после смены доступа — New version";
+
+function webhookUrlError(url: string): string | null {
+  const kind = classifyWebhookUrl(url);
+
+  if (kind === "exec") return null;
+  if (kind === "spreadsheet") {
+    return "В Vercel вставлена ссылка на таблицу. Нужна ссылка веб-приложения Apps Script, которая заканчивается на /exec";
+  }
+  if (kind === "dev") {
+    return "В Vercel стоит тестовый URL …/dev. В Deploy → Manage deployments скопируйте боевой URL …/exec";
+  }
+  return "GOOGLE_SHEETS_WEBHOOK_URL должен быть https://script.google.com/macros/s/…/exec";
+}
+
+function isGoogleAccountsUrl(value: string): boolean {
+  try {
+    const host = new URL(value).hostname.toLowerCase();
+    return host === "accounts.google.com" || host.endsWith(".accounts.google.com");
+  } catch {
+    return /accounts\.google\.com/i.test(value);
+  }
+}
+
 function looksLikeGoogleLogin(body: string): boolean {
-  const sample = body.slice(0, 2000).toLowerCase();
+  const sample = body.slice(0, 4000).toLowerCase();
+  if (sample.includes("moved temporarily") && sample.includes("script.google")) {
+    return false;
+  }
   return (
-    sample.includes("<html") ||
-    sample.includes("sign in") ||
-    sample.includes("accounts.google.com")
+    sample.includes("accounts.google.com") ||
+    sample.includes("servicelogin") ||
+    sample.includes("sign in - google") ||
+    sample.includes("войдите в аккаунт google")
   );
+}
+
+function extractAppsScriptRedirect(body: string): string | null {
+  const quoted =
+    body.match(/\bHREF="([^"]+)"/i) ??
+    body.match(/\bhref=["']([^"']+)["']/i);
+  if (!quoted?.[1]) return null;
+  const href = quoted[1].replace(/&amp;/g, "&");
+  try {
+    const host = new URL(href).hostname.toLowerCase();
+    if (
+      host === "script.googleusercontent.com" ||
+      host.endsWith(".script.googleusercontent.com") ||
+      host === "script.google.com" ||
+      host.endsWith(".script.google.com")
+    ) {
+      return href;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+function parseWebhookPayload(text: string): { ok?: boolean; error?: string } | null {
+  const trimmed = text.trim();
+  if (!trimmed.startsWith("{")) return null;
+  try {
+    return JSON.parse(trimmed) as { ok?: boolean; error?: string };
+  } catch {
+    return null;
+  }
+}
+
+async function readAppsScriptBody(url: string, method: "GET" | "POST", body?: string) {
+  return fetch(url, {
+    method,
+    headers: {
+      Accept: "application/json,text/plain,*/*",
+      ...(method === "POST"
+        ? { "Content-Type": "text/plain;charset=utf-8" }
+        : {}),
+      "User-Agent": "TokomResearchSurvey/1.0",
+    },
+    body: method === "POST" ? body : undefined,
+    redirect: "manual",
+    cache: "no-store",
+  });
+}
+
+async function postAppsScriptWebApp(url: string, body: string): Promise<string> {
+  const posted = await readAppsScriptBody(url, "POST", body);
+  const location = posted.headers.get("location");
+
+  if (location && isGoogleAccountsUrl(location)) {
+    throw new Error(APPS_SCRIPT_LOGIN_ERROR);
+  }
+
+  if (location && posted.status >= 300 && posted.status < 400) {
+    return getAppsScriptRedirect(new URL(location, url).href);
+  }
+
+  const text = await posted.text();
+  if (parseWebhookPayload(text)) return text;
+
+  const href = extractAppsScriptRedirect(text);
+  if (href) {
+    if (isGoogleAccountsUrl(href)) {
+      throw new Error(APPS_SCRIPT_LOGIN_ERROR);
+    }
+    return getAppsScriptRedirect(new URL(href, url).href);
+  }
+
+  if (looksLikeGoogleLogin(text) || posted.type === "opaqueredirect") {
+    throw new Error(APPS_SCRIPT_LOGIN_ERROR);
+  }
+
+  return text;
+}
+
+async function getAppsScriptRedirect(url: string): Promise<string> {
+  if (isGoogleAccountsUrl(url)) {
+    throw new Error(APPS_SCRIPT_LOGIN_ERROR);
+  }
+
+  const res = await readAppsScriptBody(url, "GET");
+  const location = res.headers.get("location");
+  if (location && isGoogleAccountsUrl(location)) {
+    throw new Error(APPS_SCRIPT_LOGIN_ERROR);
+  }
+  if (location && res.status >= 300 && res.status < 400) {
+    const next = await fetch(new URL(location, url).href, {
+      method: "GET",
+      redirect: "follow",
+      cache: "no-store",
+    });
+    const nextText = await next.text();
+    if (looksLikeGoogleLogin(nextText)) {
+      throw new Error(APPS_SCRIPT_LOGIN_ERROR);
+    }
+    return nextText;
+  }
+
+  const text = await res.text();
+  if (looksLikeGoogleLogin(text)) {
+    throw new Error(APPS_SCRIPT_LOGIN_ERROR);
+  }
+  return text;
 }
 
 async function appendViaWebhook(
   url: string,
   input: { headers: string[]; values: string[] },
 ): Promise<void> {
-  const res = await fetch(url, {
-    method: "POST",
-    // text/plain avoids Apps Script dropping JSON bodies on the auth redirect
-    headers: { "Content-Type": "text/plain;charset=utf-8" },
-    body: JSON.stringify({
+  const urlError = webhookUrlError(url);
+  if (urlError) {
+    throw new Error(urlError);
+  }
+
+  const text = await postAppsScriptWebApp(
+    url,
+    JSON.stringify({
       secret: googleSheetsWebhookSecret(),
       headers: input.headers,
       values: input.values,
     }),
-    redirect: "follow",
-  });
+  );
 
-  const text = await res.text();
-  if (looksLikeGoogleLogin(text)) {
-    throw new Error(
-      "Google не записал строку: в Apps Script доступ должен быть Anyone (не Google-аккаунт), URL — …/exec, после правок — New version",
-    );
-  }
+  const parsed = parseWebhookPayload(text);
 
-  let parsed: { ok?: boolean; error?: string } | null = null;
-  try {
-    parsed = JSON.parse(text) as { ok?: boolean; error?: string };
-  } catch {
-    parsed = null;
-  }
-
-  if (!res.ok) {
-    throw new Error(
-      `Google Sheets webhook failed: ${res.status} ${text.slice(0, 240)}`,
-    );
-  }
+  if (parsed?.ok === true) return;
 
   if (parsed?.ok === false) {
     if (parsed.error === "forbidden") {
@@ -163,6 +315,14 @@ async function appendViaWebhook(
     }
     throw new Error(`Google Sheets webhook: ${parsed.error || "ошибка"}`);
   }
+
+  if (looksLikeGoogleLogin(text)) {
+    throw new Error(APPS_SCRIPT_LOGIN_ERROR);
+  }
+
+  throw new Error(
+    `Google Sheets webhook: неожиданный ответ ${text.slice(0, 180).replace(/\s+/g, " ")}`,
+  );
 }
 
 async function googleSheetsAccessToken(

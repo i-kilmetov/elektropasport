@@ -7,6 +7,7 @@ import {
 import { dbErrorResponse, ensureSchema, upsertUser } from "@/lib/db";
 import {
   appendGoogleSheetRow,
+  googleSheetsWebhookKind,
   isGoogleSheetsConfigured,
 } from "@/lib/google-sheets";
 import {
@@ -37,6 +38,7 @@ function displayName(user: ValidatedTelegramUser | null): string {
 export async function GET() {
   return Response.json({
     sheetsConfigured: isGoogleSheetsConfigured(),
+    webhook: googleSheetsWebhookKind(),
   });
 }
 
