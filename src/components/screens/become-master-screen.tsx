@@ -178,14 +178,7 @@ export function BecomeMasterScreen({
           }}
           className="w-full text-center text-[15px] font-medium text-white/40 underline decoration-white/20 underline-offset-4 transition-colors hover:text-white/70"
         >
-          Знаете хорошего электрика? Посоветуйте нам
-        </button>
-        <button
-          type="button"
-          onClick={onBack}
-          className="w-full text-center text-[15px] font-medium text-white/35 transition-colors hover:text-white/60"
-        >
-          Не сейчас
+          Знаете электрика? Посоветуйте нам
         </button>
       </div>
       </div>

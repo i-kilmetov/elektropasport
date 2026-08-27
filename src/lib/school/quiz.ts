@@ -3,7 +3,8 @@ import type { ExamGrade, SchoolQuestion } from "@/lib/school/types";
 export const EXAM_QUESTION_COUNT = 20;
 export const PLACEMENT_QUESTION_COUNT = 10;
 export const PLACEMENT_PASS_SCORE = 7;
-export const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+export const DAY_MS = 24 * 60 * 60 * 1000;
+export const WEEK_MS = 7 * DAY_MS;
 /** Choice questions (single/multi) in exams and master testing. */
 export const CHOICE_SECONDS = 30;
 /** Written answers in exams and master testing. */
