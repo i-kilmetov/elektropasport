@@ -11,13 +11,14 @@ export const SCHOOL_GRADE_PRICE_RUB: Record<GradeId, number> = {
   1: 299,
   2: 499,
   3: 999,
+  4: 99,
 };
 
 function parsePaid(raw: unknown): GradeId[] {
   if (!Array.isArray(raw)) return [];
   const next: GradeId[] = [];
   for (const value of raw) {
-    if (value === 1 || value === 2 || value === 3) next.push(value);
+    if (value === 1 || value === 2 || value === 3 || value === 4) next.push(value);
   }
   return next;
 }
@@ -38,7 +39,9 @@ export function isGradePaid(gradeId: GradeId, paid = readPaidGrades()): boolean 
 }
 
 export function markGradePaid(gradeId: GradeId): GradeId[] {
-  const next = Array.from(new Set([...readPaidGrades(), gradeId])).sort() as GradeId[];
+  const next = Array.from(new Set([...readPaidGrades(), gradeId])).sort(
+    (a, b) => a - b,
+  ) as GradeId[];
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
   } catch {

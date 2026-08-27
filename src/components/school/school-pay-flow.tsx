@@ -8,12 +8,13 @@ import { GlassCard } from "@/components/ui/glass-card";
 import { Portal } from "@/components/ui/portal";
 import { formatRub } from "@/lib/lead-services";
 import { hapticImpact, hapticNotification } from "@/lib/haptics";
+import { getGrade } from "@/lib/school";
 import { SCHOOL_GRADE_PRICE_RUB } from "@/lib/school/access";
 import type { GradeId } from "@/lib/school/types";
 import { cn } from "@/lib/utils";
 
 function classCaption(gradeId: GradeId): string {
-  return String(gradeId);
+  return getGrade(gradeId).title;
 }
 
 export function SchoolPaySheet({
@@ -226,7 +227,7 @@ export function SchoolPayScreen({
             </div>
             <h2 className="text-[20px] font-bold text-zinc-900">Оплата прошла</h2>
             <p className="mt-2 text-[14px] leading-relaxed text-zinc-500">
-              {classCaption(gradeId)} открыт. Можно приступать к урокам.
+              {classCaption(gradeId)} — доступ открыт. Можно приступать к урокам.
             </p>
             <Button className="mt-5 w-full" size="lg" onClick={onPaid}>
               Перейти к обучению

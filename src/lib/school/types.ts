@@ -1,4 +1,4 @@
-export type GradeId = 1 | 2 | 3;
+export type GradeId = 1 | 2 | 3 | 4;
 
 export type DiagramId =
   | "water-analogy"

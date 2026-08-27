@@ -2,9 +2,10 @@ import type { GradeId, SchoolGrade, SchoolQuestion, Topic } from "@/lib/school/t
 import { grade1 } from "@/lib/school/grade-1";
 import { grade2 } from "@/lib/school/grade-2";
 import { grade3 } from "@/lib/school/grade-3";
+import { grade4 } from "@/lib/school/grade-4";
 import { pickQuestions } from "@/lib/school/quiz";
 
-export const SCHOOL_GRADES: SchoolGrade[] = [grade1, grade2, grade3];
+export const SCHOOL_GRADES: SchoolGrade[] = [grade1, grade2, grade3, grade4];
 
 export function getGrade(id: GradeId): SchoolGrade {
   const grade = SCHOOL_GRADES.find((item) => item.id === id);

@@ -7,15 +7,15 @@ import {
   BookOpen,
   Check,
   ChevronDown,
+  CircuitBoard,
   GraduationCap,
   Lock,
+  Plug,
+  WashingMachine,
+  Wrench,
+  type LucideIcon,
 } from "lucide-react";
 import { LessonBlocks } from "@/components/school/lesson-blocks";
-import {
-  AdultAgeIcon,
-  BabyAgeIcon,
-  TeenAgeIcon,
-} from "@/components/school/grade-age-icons";
 import { SchoolPayScreen, SchoolPaySheet } from "@/components/school/school-pay-flow";
 import { QuizFlow, type QuizFinish } from "@/components/school/quiz-flow";
 import { Button } from "@/components/ui/button";
@@ -285,14 +285,19 @@ function SchoolHome({
 
         <div>
           <p className="text-[15px] leading-relaxed text-zinc-500">
-            Короткие уроки, живые примеры, схемы и экзамен с оценкой. Идти по
-            порядку: следующий класс открывается, когда сдан предыдущий.
+            Короткие уроки, живые примеры, схемы и экзамен с оценкой. Классы
+            идут по порядку: следующий открывается, когда сдан предыдущий.
+            Продлёнка доступна после 1 класса.
           </p>
           {finished > 0 ? (
             <p className="mt-2 text-[13px] text-zinc-500">
-              {finished === 3
-                ? "Диплом школы получен"
-                : `Закрыто классов: ${finished} из 3`}
+              {finished === 4
+                ? "Все курсы пройдены"
+                : gradeCompleted(progress, 1) &&
+                    gradeCompleted(progress, 2) &&
+                    gradeCompleted(progress, 3)
+                  ? "Диплом школы получен"
+                  : `Закрыто курсов: ${finished} из ${SCHOOL_GRADES.length}`}
             </p>
           ) : null}
         </div>
@@ -304,7 +309,7 @@ function SchoolHome({
           <ul className="mt-3 space-y-2 text-[15px] text-zinc-700">
             {SCHOOL_GRADES.map((grade) => (
               <li key={grade.id} className="flex items-center justify-between gap-3">
-                <span className="tabular-nums">{grade.id}</span>
+                <span>{grade.title}</span>
                 <span className="font-semibold tabular-nums text-zinc-900">
                   {formatRub(SCHOOL_GRADE_PRICE_RUB[grade.id])}
                 </span>
@@ -358,11 +363,19 @@ function SchoolHome({
   );
 }
 
-const GRADE_AGE_ICONS = {
-  1: BabyAgeIcon,
-  2: TeenAgeIcon,
-  3: AdultAgeIcon,
-} as const;
+const GRADE_ICONS: Record<GradeId, LucideIcon> = {
+  1: Plug,
+  2: CircuitBoard,
+  3: Wrench,
+  4: WashingMachine,
+};
+
+const GRADE_ICON_TONE: Record<GradeId, string> = {
+  1: "bg-[#D3DA00] text-zinc-900",
+  2: "bg-zinc-900 text-[#D3DA00]",
+  3: "bg-zinc-100 text-zinc-900",
+  4: "bg-[#E8EEF9] text-zinc-900",
+};
 
 function GradeAgeMark({
   gradeId,
@@ -371,15 +384,16 @@ function GradeAgeMark({
   gradeId: GradeId;
   className?: string;
 }) {
-  const Icon = GRADE_AGE_ICONS[gradeId];
+  const Icon = GRADE_ICONS[gradeId];
   return (
     <span
       className={cn(
-        "flex shrink-0 items-center justify-center overflow-hidden rounded-[18px]",
+        "flex shrink-0 items-center justify-center rounded-[18px]",
+        GRADE_ICON_TONE[gradeId],
         className,
       )}
     >
-      <Icon className="h-full w-full" />
+      <Icon className="h-[46%] w-[46%]" strokeWidth={1.75} />
     </span>
   );
 }
@@ -417,13 +431,13 @@ function GradeAccordion({
         onClick={onToggle}
         className="flex w-full items-start gap-3 p-4 text-left"
         aria-expanded={expanded}
-        aria-label={`Класс ${grade.id}`}
+        aria-label={grade.title}
       >
         <GradeAgeMark gradeId={gradeId} className="h-16 w-16" />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <h3 className="text-[22px] font-bold tabular-nums leading-none text-zinc-900">
-              {grade.id}
+            <h3 className="text-[18px] font-bold leading-tight text-zinc-900">
+              {grade.title}
             </h3>
             {isGradePaid(gradeId, paid) ? (
               <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
@@ -496,7 +510,7 @@ function GradeAccordion({
               ) : purchasable ? null : (
                 <p className="flex items-center gap-1 text-[12px] text-zinc-500">
                   <Lock className="h-3.5 w-3.5 shrink-0" />
-                  Сначала окончите {prev ? `${prev} класс` : "предыдущий класс"}
+                  Сначала окончите {prev ? getGrade(prev).title : "предыдущий класс"}
                 </p>
               )}
               <Button
@@ -511,7 +525,9 @@ function GradeAccordion({
                     ? "Продолжить"
                     : "Поступить"
                   : purchasable
-                    ? "Выбрать класс"
+                    ? gradeId === 4
+                      ? "Выбрать курс"
+                      : "Выбрать класс"
                     : "Пока закрыто"}
               </Button>
             </div>
@@ -556,7 +572,7 @@ function GradeProgram({
         exit={{ opacity: 0, y: -12 }}
         className="flex min-h-0 flex-1 flex-col"
       >
-        <SchoolHeader title={String(grade.id)} onBack={onBack} />
+        <SchoolHeader title={grade.title} onBack={onBack} />
         <GlassCard className="p-5 text-center">
           <Lock className="mx-auto h-8 w-8 text-zinc-400" />
           <h2 className="mt-3 text-[18px] font-semibold text-zinc-900">
@@ -565,7 +581,7 @@ function GradeProgram({
           <p className="mt-2 text-[14px] leading-relaxed text-zinc-600">
             {needsPay
               ? "Этот курс откроется после оплаты. Доступ к оплаченным классам сохраняется."
-              : `Чтобы учиться здесь, нужно окончить ${prev ? `${prev} класс` : "предыдущий класс"} — пройти темы и сдать экзамен.`}
+              : `Чтобы учиться здесь, нужно окончить ${prev ? getGrade(prev).title : "предыдущий класс"} — пройти темы и сдать экзамен.`}
           </p>
         </GlassCard>
       </motion.div>
@@ -580,7 +596,7 @@ function GradeProgram({
       className="flex min-h-0 flex-1 flex-col"
     >
       <SchoolHeader
-        title={String(grade.id)}
+        title={grade.title}
         subtitle={grade.subtitle}
         onBack={onBack}
       />

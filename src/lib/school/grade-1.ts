@@ -3,7 +3,7 @@ import { multi, single, written } from "@/lib/school/questions";
 
 export const grade1: SchoolGrade = {
   id: 1,
-  title: "Первый класс",
+  title: "1 класс",
   shortTitle: "Азы",
   subtitle: "От «что такое ток» до розетки и выключателя",
   promise:

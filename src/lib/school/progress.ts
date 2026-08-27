@@ -19,6 +19,7 @@ export function emptyProgress(): SchoolProgress {
       1: emptyGrade(),
       2: emptyGrade(),
       3: emptyGrade(),
+      4: emptyGrade(),
     },
   };
 }
@@ -79,6 +80,7 @@ export function parseProgress(raw: unknown): SchoolProgress {
       1: parseGrade(grades[1] ?? grades["1"]),
       2: parseGrade(grades[2] ?? grades["2"]),
       3: parseGrade(grades[3] ?? grades["3"]),
+      4: parseGrade(grades[4] ?? grades["4"]),
     },
   };
 }
@@ -104,6 +106,7 @@ export function writeSchoolProgress(progress: SchoolProgress): void {
 
 export function previousGradeId(gradeId: GradeId): GradeId | null {
   if (gradeId === 1) return null;
+  if (gradeId === 4) return 1;
   return (gradeId - 1) as GradeId;
 }
 
