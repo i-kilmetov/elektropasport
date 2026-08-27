@@ -23,6 +23,8 @@ import { GeoAddressScreen } from "@/components/screens/geo-address-screen";
 import { FeedbackScreen } from "@/components/screens/feedback-screen";
 import { ResearchSurveyScreen } from "@/components/screens/research-survey-screen";
 import { MasterAboutScreen } from "@/components/screens/master-about-screen";
+import { MasterDocsScreen } from "@/components/screens/master-docs-screen";
+import { MasterExamScreen } from "@/components/screens/master-exam-screen";
 import {
   ElectricalDetailsScreen,
   type ElectricalDetails,
@@ -148,6 +150,7 @@ import {
   stripPanelShareFromLocation,
 } from "@/lib/panel-share";
 import { isResearchSurveyLaunch } from "@/lib/research-survey-access";
+import { markMasterApplied } from "@/lib/achievements";
 import type {
   AnalyzePanelResult,
   AppScreen,
@@ -397,6 +400,12 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
     useState<LeadServiceType | null>(null);
   const [leadPanelModules, setLeadPanelModules] = useState<number | null>(null);
   const [masterAbout, setMasterAbout] = useState("");
+  const [masterDocPhotos, setMasterDocPhotos] = useState<string[]>([]);
+  const [masterExam, setMasterExam] = useState<{
+    score: number;
+    total: number;
+    grade: 3 | 4 | 5;
+  } | null>(null);
   const [leadFlow, setLeadFlow] = useState<LeadFlow>("install");
   const [activeRuleId, setActiveRuleId] = useState<string | null>(null);
   const [isMaster, setIsMaster] = useState(false);
@@ -1839,6 +1848,12 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
   const submitLead = useCallback(
     async (payload: LeadFinishPayload) => {
       if (leadFlow === "master") {
+        if (!masterExam || masterDocPhotos.length === 0) {
+          setItemsError(
+            "Сначала приложите документы и сдайте экзамен 3 класса",
+          );
+          return;
+        }
         const id = payload.id ?? `master-${Date.now()}`;
         if (submittedLeadIds.current.has(id)) return;
         submittedLeadIds.current.add(id);
@@ -1849,6 +1864,13 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
           contactMethod: payload.contactMethod,
           phone: payload.phone,
           name: payload.name,
+          educationDocs: masterDocPhotos,
+          educationDocsCount: masterDocPhotos.length,
+          examScore: masterExam?.score,
+          examTotal: masterExam?.total,
+          examGrade: masterExam?.grade,
+        }).then(() => {
+          markMasterApplied();
         }).catch((error) => {
           console.error(error);
           setItemsError(
@@ -1931,6 +1953,8 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
       leadBackScreen,
       leadFlow,
       masterAbout,
+      masterDocPhotos,
+      masterExam,
       noPanelSetupId,
       requestNeedId,
       selectedCity,
@@ -2013,6 +2037,14 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
     );
   }
 
+  const masterApply =
+    screen === "become-master" ||
+    screen === "master-docs" ||
+    screen === "master-exam" ||
+    screen === "master-about" ||
+    (screen === "city-select" && leadFlow === "master") ||
+    (screen === "lead-contact" && leadFlow === "master");
+
   const fillViewport =
     screen === "objects" ||
     screen === "scheme" ||
@@ -2027,25 +2059,27 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
     screen === "no-panel-options" ||
     screen === "no-panel-detail" ||
     screen === "panel-advantages" ||
-    screen === "become-master";
+    masterApply;
   const wideLayout =
     screen === "objects" ||
     screen === "scheme" ||
     screen === "photo" ||
     screen === "admin" ||
-    screen === "become-master";
+    masterApply;
 
   return (
     <div
       className={cn(
         "relative w-full text-zinc-900",
-        screen === "become-master" ? "bg-[#111113]" : "bg-[var(--bg)]",
+        masterApply ? "bg-[#111113] text-white" : "bg-[var(--bg)] text-zinc-900",
         fillViewport
           ? "flex h-[var(--app-height,100dvh)] flex-col overflow-hidden overscroll-none"
           : "min-h-[var(--app-height,100dvh)]",
       )}
     >
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(17,17,19,0.035),transparent_55%)]" />
+      {!masterApply && (
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(17,17,19,0.035),transparent_55%)]" />
+      )}
       <div
         className={cn(
           "relative z-10",
@@ -2219,11 +2253,6 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
                 go("objects");
               }}
               onCapture={handlePhoto}
-              onNoPanel={
-                homeAppliancesEnabled
-                  ? () => requireTelegramAuth("no-panel")
-                  : undefined
-              }
             />
           )}
           {homeAppliancesEnabled &&
@@ -2620,12 +2649,13 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
                 setSelectedHouse(null);
                 setSelectedBlock(null);
                 if (leadFlow === "master") {
-                  go("master-about");
+                  go("master-docs");
                   return;
                 }
                 // Install / help-electrical: always collect address for house insight.
                 go("address-select");
               }}
+              tone={leadFlow === "master" ? "dark" : "light"}
             />
           )}
           {screen === "request-type" && (
@@ -2794,6 +2824,13 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
               key="profile"
               panelsUnlimited={Boolean(quota?.unlimited)}
               inviteCount={quota?.events.length ?? 0}
+              panelCount={
+                items.filter((item) => item.kind === "panel").length
+              }
+              applianceCount={items.reduce((count, item) => {
+                if (item.kind !== "panel") return count;
+                return count + (item.appliances?.length ?? 0);
+              }, 0)}
               onOpenInvites={() => {
                 void refreshQuota().then(() => openPanelLimit());
               }}
@@ -2914,7 +2951,30 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
                 setSelectedHouse(null);
                 setSelectedBlock(null);
                 setMasterAbout("");
+                setMasterDocPhotos([]);
+                setMasterExam(null);
                 go("city-select");
+              }}
+            />
+          )}
+          {screen === "master-docs" && (
+            <MasterDocsScreen
+              key="master-docs"
+              initialPhotos={masterDocPhotos}
+              onBack={() => go("city-select")}
+              onConfirm={(photos) => {
+                setMasterDocPhotos(photos);
+                go("master-exam");
+              }}
+            />
+          )}
+          {screen === "master-exam" && (
+            <MasterExamScreen
+              key="master-exam"
+              onBack={() => go("master-docs")}
+              onPassed={(result) => {
+                setMasterExam(result);
+                go("master-about");
               }}
             />
           )}
@@ -2922,7 +2982,7 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
             <MasterAboutScreen
               key="master-about"
               initialValue={masterAbout}
-              onBack={() => go("city-select")}
+              onBack={() => go("master-exam")}
               onConfirm={(about) => {
                 setMasterAbout(about);
                 go("lead-contact");

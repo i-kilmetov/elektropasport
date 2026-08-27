@@ -4,6 +4,10 @@ export const EXAM_QUESTION_COUNT = 20;
 export const PLACEMENT_QUESTION_COUNT = 10;
 export const PLACEMENT_PASS_SCORE = 7;
 export const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+/** Choice questions (single/multi) in exams and master testing. */
+export const CHOICE_SECONDS = 30;
+/** Written answers in exams and master testing. */
+export const WRITTEN_SECONDS = 59;
 
 export function normalizeAnswer(raw: string): string {
   return raw

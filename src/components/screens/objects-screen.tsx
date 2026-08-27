@@ -49,6 +49,10 @@ import {
   persistPanel,
   restoreDeletedHomeItem,
 } from "@/lib/user-data";
+import {
+  readHomeExpandedPanelId,
+  writeHomeExpandedPanelId,
+} from "@/lib/home-expanded";
 import { cn } from "@/lib/utils";
 
 const PAGE_SPRING = { type: "spring" as const, stiffness: 420, damping: 40 };
@@ -582,7 +586,9 @@ export function ObjectsScreen({
   const [pendingDelete, setPendingDelete] = useState<HomeListItem | null>(null);
   const [actionsItemId, setActionsItemId] = useState<string | null>(null);
   const [renameItemId, setRenameItemId] = useState<string | null>(null);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(
+    readHomeExpandedPanelId,
+  );
   const [addApplianceOpen, setAddApplianceOpen] = useState(false);
   const [tabMetrics, setTabMetrics] = useState({
     left0: 4,
@@ -609,6 +615,10 @@ export function ObjectsScreen({
     }
     return result;
   }, [items, pendingDelete]);
+
+  useEffect(() => {
+    writeHomeExpandedPanelId(expandedId);
+  }, [expandedId]);
   const requests = useMemo(
     () =>
       items.filter(

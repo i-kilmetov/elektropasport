@@ -100,6 +100,7 @@ export type GradeProgress = {
   topicPassed: Record<string, boolean>;
   examBest?: ExamRecord;
   examAttempts: number;
+  examFailedAt?: number;
   placementPassedAt?: number;
   placementFailedAt?: number;
 };

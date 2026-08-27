@@ -26,6 +26,7 @@ import {
 import {
   allTopicsPassed,
   canEnterGrade,
+  examLockUntil,
   gradeCompleted,
   markTopicPassed,
   needsPlacement,
@@ -36,7 +37,12 @@ import {
   topicsPassedCount,
   writeSchoolProgress,
 } from "@/lib/school/progress";
-import { daysHoursLeft, examPassed } from "@/lib/school/quiz";
+import {
+  CHOICE_SECONDS,
+  daysHoursLeft,
+  examPassed,
+  WRITTEN_SECONDS,
+} from "@/lib/school/quiz";
 import type { GradeId, SchoolProgress, Topic } from "@/lib/school/types";
 import { cn } from "@/lib/utils";
 
@@ -383,6 +389,7 @@ function GradeProgram({
   const topicIds = grade.topics.map((topic) => topic.id);
   const passedCount = topicsPassedCount(progress, gradeId, topicIds);
   const readyForExam = allTopicsPassed(progress, gradeId, topicIds);
+  const examLock = examLockUntil(progress, gradeId);
   const best = progress.grades[gradeId].examBest;
   const percent = Math.round((passedCount / topicIds.length) * 100);
 
@@ -487,7 +494,9 @@ function GradeProgram({
           </div>
           <p className="mt-1 text-[13px] leading-relaxed text-zinc-500">
             20 вопросов: 16 с вариантами (иногда несколько верных) и 4
-            письменных. Оценка от 2 до 5. Для зачёта нужно не меньше 10 верных.
+            письменных. На вариант — {CHOICE_SECONDS} с, на письменный —{" "}
+            {WRITTEN_SECONDS} с. Оценка от 2 до 5. Для зачёта нужно не меньше 10
+            верных. Несдача — следующая попытка через неделю.
           </p>
           {best ? (
             <p className="mt-2 text-[13px] text-zinc-700">
@@ -498,17 +507,24 @@ function GradeProgram({
                 : ""}
             </p>
           ) : null}
+          {examLock ? (
+            <p className="mt-2 text-[13px] text-amber-700">
+              Следующая попытка через {daysHoursLeft(examLock)}
+            </p>
+          ) : null}
           <Button
             className="mt-4 w-full"
             size="sm"
-            disabled={!readyForExam}
+            disabled={!readyForExam || Boolean(examLock)}
             onClick={onExam}
           >
-            {readyForExam
-              ? best
-                ? "Пересдать экзамен"
-                : "Сдать экзамен"
-              : "Сначала закройте все темы"}
+            {examLock
+              ? `Повтор через ${daysHoursLeft(examLock)}`
+              : readyForExam
+                ? best
+                  ? "Пересдать экзамен"
+                  : "Сдать экзамен"
+                : "Сначала закройте все темы"}
           </Button>
         </GlassCard>
       </div>
@@ -574,10 +590,10 @@ function QuizGate({
 }) {
   const intro = useMemo(() => {
     if (mode === "exam") {
-      return "20 вопросов без подсказок по ходу. В конце — оценка и разбор.";
+      return `20 вопросов без подсказок по ходу. На вариант — ${CHOICE_SECONDS} с, на письменный — ${WRITTEN_SECONDS} с. В конце — оценка и разбор. Неудача — следующая попытка через неделю.`;
     }
     if (mode === "placement") {
-      return "10 вопросов из экзамена предыдущего класса. Нужно 7 верных. Неудача — пауза на неделю.";
+      return `10 вопросов из экзамена предыдущего класса. Нужно 7 верных. На вариант — ${CHOICE_SECONDS} с, на письменный — ${WRITTEN_SECONDS} с. Неудача — пауза на неделю.`;
     }
     return "Короткий зачёт по теме. После каждого вопроса сразу разбор.";
   }, [mode]);

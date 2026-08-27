@@ -40,7 +40,7 @@ import { buildInviteUrl } from "@/lib/panel-share";
 let schemaReady: Promise<void> | null = null;
 
 /** Bump when DDL below changes so cold starts re-run migrations once. */
-const SCHEMA_VERSION = "2026-08-27-panel-catalog-iek";
+const SCHEMA_VERSION = "2026-08-27-master-exam-docs";
 /** One-shot data wipe flag — never re-run after it is written. */
 const FRESH_START_KEY = "fresh_start_2026_08_25_b";
 /** Bumped on each factory wipe so clients drop localStorage orphans. */
@@ -167,6 +167,22 @@ export async function ensureSchema(): Promise<void> {
       await sql`
         ALTER TABLE master_applications
         ADD COLUMN IF NOT EXISTS about_text TEXT
+      `;
+      await sql`
+        ALTER TABLE master_applications
+        ADD COLUMN IF NOT EXISTS education_docs_count INTEGER
+      `;
+      await sql`
+        ALTER TABLE master_applications
+        ADD COLUMN IF NOT EXISTS exam_score INTEGER
+      `;
+      await sql`
+        ALTER TABLE master_applications
+        ADD COLUMN IF NOT EXISTS exam_total INTEGER
+      `;
+      await sql`
+        ALTER TABLE master_applications
+        ADD COLUMN IF NOT EXISTS exam_grade INTEGER
       `;
       await sql`
         ALTER TABLE users
@@ -1694,13 +1710,18 @@ export async function insertMasterApplication(
     contactMethod: "phone" | "telegram";
     phone?: string;
     name: string;
+    educationDocsCount?: number;
+    examScore?: number;
+    examTotal?: number;
+    examGrade?: number;
   },
 ): Promise<void> {
   const sql = getSql();
   await ensureSchema();
   await sql`
     INSERT INTO master_applications (
-      id, telegram_user_id, city, about_text, contact_method, phone, name, created_at
+      id, telegram_user_id, city, about_text, contact_method, phone, name,
+      education_docs_count, exam_score, exam_total, exam_grade, created_at
     ) VALUES (
       ${payload.id},
       ${telegramUserId},
@@ -1709,6 +1730,10 @@ export async function insertMasterApplication(
       ${payload.contactMethod},
       ${payload.phone ?? null},
       ${payload.name},
+      ${payload.educationDocsCount ?? null},
+      ${payload.examScore ?? null},
+      ${payload.examTotal ?? null},
+      ${payload.examGrade ?? null},
       NOW()
     )
   `;

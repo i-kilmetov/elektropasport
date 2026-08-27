@@ -22,6 +22,7 @@ import {
   clearLocalAppData,
   isTelegramMiniApp,
 } from "@/lib/client-auth";
+import { listAchievements } from "@/lib/achievements";
 import { hapticNotification } from "@/lib/haptics";
 import { getTelegramProfileInfo } from "@/lib/telegram-user";
 import {
@@ -32,6 +33,7 @@ import {
   profileInitials,
   syncUserProfileFromServer,
 } from "@/lib/user-profile";
+import { cn } from "@/lib/utils";
 
 type ProfileDraft = {
   firstName: string;
@@ -54,6 +56,8 @@ export function ProfileScreen({
   onLoggedOut,
   panelsUnlimited = false,
   inviteCount = 0,
+  panelCount = 0,
+  applianceCount = 0,
   onOpenInvites,
   isAdmin = false,
   onOpenAdmin,
@@ -62,6 +66,8 @@ export function ProfileScreen({
   onLoggedOut?: () => void;
   panelsUnlimited?: boolean;
   inviteCount?: number;
+  panelCount?: number;
+  applianceCount?: number;
   onOpenInvites?: () => void;
   isAdmin?: boolean;
   onOpenAdmin?: () => void;
@@ -166,6 +172,11 @@ export function ProfileScreen({
     { firstName: draft.firstName, lastName: draft.lastName },
     telegram.username,
   );
+  const achievements = useMemo(
+    () => listAchievements({ panelCount, applianceCount, inviteCount }),
+    [panelCount, applianceCount, inviteCount],
+  );
+  const unlockedCount = achievements.filter((item) => item.unlocked).length;
 
   const logout = () => {
     clearLocalAppData();
@@ -294,6 +305,58 @@ export function ProfileScreen({
             </GlassCard>
           )
         ) : null}
+
+        <div>
+          <div className="mb-2 flex items-end justify-between gap-3">
+            <h3 className="text-[14px] font-medium text-zinc-600">Ачивки</h3>
+            <span className="text-[12px] tabular-nums text-zinc-400">
+              {unlockedCount} из {achievements.length}
+            </span>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            {achievements.map((item) => {
+              const Icon = item.icon;
+              return (
+                <div
+                  key={item.id}
+                  className={cn(
+                    "flex flex-col items-center rounded-[20px] border px-2 py-3 text-center",
+                    item.unlocked
+                      ? "border-[#D3DA00]/45 bg-[#D3DA00]/14 shadow-[0_8px_20px_rgba(211,218,0,0.12)]"
+                      : "border-black/6 bg-zinc-50",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "flex h-11 w-11 items-center justify-center rounded-full",
+                      item.unlocked
+                        ? "bg-[#D3DA00] text-[#111113]"
+                        : "bg-zinc-200/80 text-zinc-400",
+                    )}
+                  >
+                    <Icon className="h-5 w-5" strokeWidth={2.2} />
+                  </span>
+                  <div
+                    className={cn(
+                      "mt-2 text-[12px] font-semibold leading-tight",
+                      item.unlocked ? "text-zinc-900" : "text-zinc-400",
+                    )}
+                  >
+                    {item.title}
+                  </div>
+                  <div
+                    className={cn(
+                      "mt-0.5 text-[10px] leading-snug",
+                      item.unlocked ? "text-zinc-500" : "text-zinc-400",
+                    )}
+                  >
+                    {item.hint}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
 
         <GlassCard className="overflow-hidden p-0">
           <label className="block px-4 py-3">

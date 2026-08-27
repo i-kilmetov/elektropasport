@@ -266,6 +266,10 @@ export async function notifyAdminMasterApplication(payload: {
   phone?: string;
   name: string;
   customerTelegramId: number;
+  educationDocsCount?: number;
+  examScore?: number;
+  examTotal?: number;
+  examGrade?: number;
 }): Promise<void> {
   const contact =
     payload.contactMethod === "telegram"
@@ -273,6 +277,16 @@ export async function notifyAdminMasterApplication(payload: {
       : `Телефон · ${payload.phone ?? "—"}`;
 
   const about = payload.about?.trim();
+  const exam =
+    payload.examScore != null &&
+    payload.examTotal != null &&
+    payload.examGrade != null
+      ? `Экзамен 3 класса: ${payload.examScore} из ${payload.examTotal}, оценка ${payload.examGrade}`
+      : null;
+  const docs =
+    payload.educationDocsCount != null
+      ? `Документов об образовании: ${payload.educationDocsCount}`
+      : null;
 
   await sendToAdmins({
     text: [
@@ -283,6 +297,8 @@ export async function notifyAdminMasterApplication(payload: {
       `Город: ${payload.city}`,
       `Telegram user id: ${payload.customerTelegramId}`,
       `ID: ${payload.id}`,
+      ...(exam ? [exam] : []),
+      ...(docs ? [docs] : []),
       ...(about ? ["", "О себе:", about] : []),
     ].join("\n"),
     reply_markup: {
@@ -293,6 +309,34 @@ export async function notifyAdminMasterApplication(payload: {
     },
     disable_web_page_preview: true,
   });
+}
+
+export async function notifyAdminMasterEducationPhoto(payload: {
+  applicationId: string;
+  name: string;
+  file: Blob;
+  filename: string;
+  index: number;
+  total: number;
+}): Promise<void> {
+  const ids = await listAdminTelegramIds();
+  if (ids.length === 0) {
+    console.warn("No admin chat ids — skip education photo");
+    return;
+  }
+
+  const caption = `Документ ${payload.index}/${payload.total} · ${payload.name} · ${payload.applicationId}`;
+
+  for (const chatId of ids) {
+    const form = new FormData();
+    form.append("chat_id", String(chatId));
+    form.append("photo", payload.file, payload.filename);
+    form.append("caption", caption.slice(0, 1024));
+    const result = await telegramApiForm("sendPhoto", form);
+    if (!result.ok) {
+      console.error("Failed to send master education photo", result.error);
+    }
+  }
 }
 
 /** Send a request to all master Telegram chats with Accept button. */

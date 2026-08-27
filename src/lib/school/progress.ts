@@ -57,6 +57,8 @@ function parseGrade(raw: unknown): GradeProgress {
       typeof src.examAttempts === "number" && src.examAttempts >= 0
         ? src.examAttempts
         : 0,
+    examFailedAt:
+      typeof src.examFailedAt === "number" ? src.examFailedAt : undefined,
     placementPassedAt:
       typeof src.placementPassedAt === "number"
         ? src.placementPassedAt
@@ -108,6 +110,17 @@ export function previousGradeId(gradeId: GradeId): GradeId | null {
 export function gradeCompleted(progress: SchoolProgress, gradeId: GradeId): boolean {
   const best = progress.grades[gradeId].examBest;
   return Boolean(best && examPassed(best.grade));
+}
+
+export function examLockUntil(
+  progress: SchoolProgress,
+  gradeId: GradeId,
+): number | null {
+  const failedAt = progress.grades[gradeId].examFailedAt;
+  if (!failedAt) return null;
+  const until = failedAt + WEEK_MS;
+  if (Date.now() >= until) return null;
+  return until;
 }
 
 export function placementLockUntil(
@@ -187,6 +200,7 @@ export function recordExam(
     !current.examBest || record.grade > current.examBest.grade
       ? record
       : current.examBest;
+  const passed = examPassed(record.grade);
   return {
     ...progress,
     grades: {
@@ -195,6 +209,7 @@ export function recordExam(
         ...current,
         examBest: best,
         examAttempts: current.examAttempts + 1,
+        examFailedAt: passed ? undefined : Date.now(),
       },
     },
   };

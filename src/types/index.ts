@@ -216,6 +216,8 @@ export type AppScreen =
   | "electrical-rules"
   | "electrical-rule-detail"
   | "become-master"
+  | "master-docs"
+  | "master-exam"
   | "master-about"
   | "feedback"
   | "telegram-auth"

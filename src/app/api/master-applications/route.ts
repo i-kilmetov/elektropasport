@@ -23,11 +23,36 @@ export async function POST(request: Request) {
       contactMethod?: "phone" | "telegram";
       phone?: string;
       name?: string;
+      educationDocsCount?: number;
+      examScore?: number;
+      examTotal?: number;
+      examGrade?: number;
     };
 
     if (!body.id || !body.city || !body.contactMethod || !body.name) {
       return Response.json(
         { error: "Некорректные данные заявки мастера" },
+        { status: 400 },
+      );
+    }
+
+    const examGrade = body.examGrade;
+    if (examGrade !== 3 && examGrade !== 4 && examGrade !== 5) {
+      return Response.json(
+        { error: "Нужно сдать экзамен 3 класса школы Током" },
+        { status: 400 },
+      );
+    }
+
+    const docsCount =
+      typeof body.educationDocsCount === "number" &&
+      body.educationDocsCount >= 1 &&
+      body.educationDocsCount <= 3
+        ? Math.round(body.educationDocsCount)
+        : 0;
+    if (docsCount < 1) {
+      return Response.json(
+        { error: "Приложите фото документов об образовании" },
         { status: 400 },
       );
     }
@@ -41,6 +66,12 @@ export async function POST(request: Request) {
       contactMethod: body.contactMethod,
       phone: body.phone,
       name: body.name,
+      educationDocsCount: docsCount,
+      examScore:
+        typeof body.examScore === "number" ? body.examScore : undefined,
+      examTotal:
+        typeof body.examTotal === "number" ? body.examTotal : undefined,
+      examGrade,
     });
 
     // Must await: Vercel freezes the function after the response is sent.
@@ -53,6 +84,10 @@ export async function POST(request: Request) {
         phone: body.phone,
         name: body.name,
         customerTelegramId: user.telegramId,
+        educationDocsCount: docsCount,
+        examScore: body.examScore,
+        examTotal: body.examTotal,
+        examGrade,
       });
     } catch (error) {
       console.error("Failed to notify admin about master application", error);

@@ -17,6 +17,7 @@ import type {
   PhaseCount,
 } from "@/components/screens/electrical-details-screen";
 import { Button } from "@/components/ui/button";
+import { MASTER_YELLOW_BTN } from "@/components/master-apply/master-apply-frame";
 import { hapticImpact, hapticNotification } from "@/lib/haptics";
 import { allocateRequestPublicCode } from "@/lib/user-data";
 import type { RequestTypeCode } from "@/lib/request-codes";
@@ -119,6 +120,7 @@ export function LeadContactScreen({
   const phoneValid = digits.length === 10;
   const canSubmit = phoneValid && !submitting;
   const isOnlineConsultation = serviceType === "online_consultation";
+  const dark = variant === "master";
 
   const estimatedPriceRub = resolveEstimatedPriceRub(
     serviceType,
@@ -245,7 +247,12 @@ export function LeadContactScreen({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="relative flex min-h-dvh flex-col px-5 pb-8 pt-[max(2rem,env(safe-area-inset-top))]"
+        className={cn(
+          "relative flex flex-col",
+          dark
+            ? "mx-auto h-full min-h-0 w-full max-w-xl flex-1 overflow-hidden bg-[#111113] px-5 pb-8 pt-[max(2rem,env(safe-area-inset-top))] text-white"
+            : "min-h-dvh px-5 pb-8 pt-[max(2rem,env(safe-area-inset-top))]",
+        )}
       >
         <div className="mb-5 flex flex-col items-center text-center">
           {variant === "install" && publicCode ? (
@@ -253,14 +260,31 @@ export function LeadContactScreen({
               <RequestTicket publicCode={publicCode} />
             </div>
           ) : (
-            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-600">
+            <div
+              className={cn(
+                "mb-4 flex h-16 w-16 items-center justify-center rounded-full",
+                dark
+                  ? "bg-[#D3DA00]/20 text-[#D3DA00]"
+                  : "bg-emerald-500/15 text-emerald-600",
+              )}
+            >
               <Check className="h-8 w-8" />
             </div>
           )}
-          <h1 className="mb-2 text-[24px] font-bold text-zinc-900">
+          <h1
+            className={cn(
+              "mb-2 text-[24px] font-bold",
+              dark ? "text-white" : "text-zinc-900",
+            )}
+          >
             {variant === "master" ? "Заявка отправлена" : "Заявка принята"}
           </h1>
-          <p className="max-w-sm text-[15px] leading-relaxed text-zinc-500">
+          <p
+            className={cn(
+              "max-w-sm text-[15px] leading-relaxed",
+              dark ? "text-white/55" : "text-zinc-500",
+            )}
+          >
             {variant === "master"
               ? `Спасибо${displayName ? `, ${displayName}` : ""}! Мы получили вашу заявку и свяжемся для обсуждения сотрудничества.`
               : "Свяжемся с вами в ближайшее время."}
@@ -376,7 +400,11 @@ export function LeadContactScreen({
         )}
 
         <div className="mt-auto shrink-0 pt-2">
-          <Button className="w-full" size="lg" onClick={goHome}>
+          <Button
+            className={cn("w-full", dark && MASTER_YELLOW_BTN)}
+            size="lg"
+            onClick={goHome}
+          >
             {hasDetails ? "Отправить" : "На главную"}
           </Button>
         </div>
@@ -389,21 +417,42 @@ export function LeadContactScreen({
       initial={{ opacity: 0, x: 40 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -40 }}
-      className="flex min-h-dvh flex-col px-5 pb-8 pt-[max(1.25rem,env(safe-area-inset-top))]"
+      className={cn(
+        "flex flex-col",
+        dark
+          ? "mx-auto h-full min-h-0 w-full max-w-xl flex-1 overflow-hidden bg-[#111113] px-5 pb-8 pt-[max(1.25rem,env(safe-area-inset-top))] text-white"
+          : "min-h-dvh px-5 pb-8 pt-[max(1.25rem,env(safe-area-inset-top))]",
+      )}
     >
       <header className="mb-6 flex items-center gap-3">
         <button
           type="button"
           onClick={onBack}
-          className="flex h-11 w-11 items-center justify-center rounded-full border border-black/8 bg-zinc-100 text-zinc-900"
+          className={cn(
+            "flex h-11 w-11 items-center justify-center rounded-full",
+            dark
+              ? "border border-white/12 bg-white/5 text-white"
+              : "border border-black/8 bg-zinc-100 text-zinc-900",
+          )}
           aria-label="Назад"
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <h1 className="text-[20px] font-semibold text-zinc-900">
+        <h1
+          className={cn(
+            "text-[20px] font-semibold",
+            dark ? "text-white" : "text-zinc-900",
+          )}
+        >
           {variant === "master" ? "Контакты для связи" : "Связь с мастером"}
         </h1>
       </header>
+
+      {dark && city ? (
+        <p className="mb-5 text-[14px] text-white/50">
+          Город: <span className="font-medium text-white">{city}</span>
+        </p>
+      ) : null}
 
       {variant === "install" && (city || serviceType) && (
         <div className="mb-5 rounded-[20px] border border-black/8 bg-zinc-50 p-4">
@@ -436,14 +485,36 @@ export function LeadContactScreen({
         </div>
       )}
 
-      <div className="mb-5 rounded-[20px] border border-sky-400/20 bg-sky-500/10 p-4">
-        <div className="mb-2 flex items-center gap-2 text-sky-700">
+      <div
+        className={cn(
+          "mb-5 rounded-[20px] border p-4",
+          dark
+            ? "border-white/10 bg-white/[0.06]"
+            : "border-sky-400/20 bg-sky-500/10",
+        )}
+      >
+        <div
+          className={cn(
+            "mb-2 flex items-center gap-2",
+            dark ? "text-[#D3DA00]" : "text-sky-700",
+          )}
+        >
           <Clock3 className="h-4 w-4 shrink-0" />
-          <h2 className="text-[15px] font-semibold text-zinc-900">
+          <h2
+            className={cn(
+              "text-[15px] font-semibold",
+              dark ? "text-white" : "text-zinc-900",
+            )}
+          >
             Как мы свяжемся
           </h2>
         </div>
-        <p className="text-[14px] leading-relaxed text-sky-900/75">
+        <p
+          className={cn(
+            "text-[14px] leading-relaxed",
+            dark ? "text-white/55" : "text-sky-900/75",
+          )}
+        >
           {variant === "master"
             ? "Оставьте номер телефона — менеджер сервиса позвонит в течение рабочего дня, обычно в течение нескольких часов."
             : isOnlineConsultation
@@ -454,11 +525,37 @@ export function LeadContactScreen({
         </p>
       </div>
 
-      <div className="mb-3 text-[14px] font-medium text-zinc-600">Телефон</div>
+      <div
+        className={cn(
+          "mb-3 text-[14px] font-medium",
+          dark ? "text-white/50" : "text-zinc-600",
+        )}
+      >
+        Телефон
+      </div>
       <div className="mb-3 flex items-center gap-2">
-        <label className="flex h-14 min-w-0 flex-1 items-center gap-2 rounded-[20px] border border-black/8 bg-zinc-50 px-4 focus-within:border-zinc-300">
-          <Phone className="h-4 w-4 shrink-0 text-zinc-500" />
-          <span className="text-[16px] font-medium text-zinc-700">+7</span>
+        <label
+          className={cn(
+            "flex h-14 min-w-0 flex-1 items-center gap-2 rounded-[20px] border px-4",
+            dark
+              ? "border-white/12 bg-white/5 focus-within:border-white/30"
+              : "border-black/8 bg-zinc-50 focus-within:border-zinc-300",
+          )}
+        >
+          <Phone
+            className={cn(
+              "h-4 w-4 shrink-0",
+              dark ? "text-white/40" : "text-zinc-500",
+            )}
+          />
+          <span
+            className={cn(
+              "text-[16px] font-medium",
+              dark ? "text-white/80" : "text-zinc-700",
+            )}
+          >
+            +7
+          </span>
           <input
             inputMode="numeric"
             value={phoneDisplay}
@@ -468,7 +565,12 @@ export function LeadContactScreen({
               if (next.length !== 10) setPreferTelegram(false);
             }}
             placeholder="999 000-00-00"
-            className="h-full min-w-0 flex-1 bg-transparent text-[16px] text-zinc-900 outline-none placeholder:text-zinc-400"
+            className={cn(
+              "h-full min-w-0 flex-1 bg-transparent text-[16px] outline-none",
+              dark
+                ? "text-white placeholder:text-white/30"
+                : "text-zinc-900 placeholder:text-zinc-400",
+            )}
           />
         </label>
         {variant === "install" && (
@@ -529,7 +631,7 @@ export function LeadContactScreen({
 
       <div className="mt-auto">
         <Button
-          className="w-full"
+          className={cn("w-full", dark && MASTER_YELLOW_BTN)}
           size="lg"
           disabled={!canSubmit}
           onClick={() => void submit()}

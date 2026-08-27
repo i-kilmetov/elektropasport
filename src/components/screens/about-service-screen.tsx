@@ -135,7 +135,7 @@ const pillars = [
 export function AboutServiceScreen({ onBack }: { onBack: () => void }) {
   const [stats, setStats] = useState<PublicStats | null>(null);
   const [statsError, setStatsError] = useState(false);
-  const [openId, setOpenId] = useState<string | null>(pillars[0].id);
+  const [openId, setOpenId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;

@@ -20,6 +20,7 @@ import {
 } from "@/lib/request-codes";
 import { sortHomeItemsByRecency } from "@/lib/panel-list-meta";
 import { countPanelDevices } from "@/lib/panel-rails";
+import { dataUrlToFile } from "@/lib/image";
 
 const LOCAL_KEY = "elektropasport:home-items";
 
@@ -1921,6 +1922,11 @@ export async function persistMasterApplication(payload: {
   contactMethod: "phone" | "telegram";
   phone?: string;
   name: string;
+  educationDocsCount?: number;
+  examScore?: number;
+  examTotal?: number;
+  examGrade?: number;
+  educationDocs?: string[];
 }): Promise<void> {
   if (!canUseServer()) return;
 
@@ -1930,12 +1936,43 @@ export async function persistMasterApplication(payload: {
       "Content-Type": "application/json",
       ...authHeaders(),
     },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({
+      id: payload.id,
+      city: payload.city,
+      about: payload.about,
+      contactMethod: payload.contactMethod,
+      phone: payload.phone,
+      name: payload.name,
+      educationDocsCount:
+        payload.educationDocsCount ?? payload.educationDocs?.length,
+      examScore: payload.examScore,
+      examTotal: payload.examTotal,
+      examGrade: payload.examGrade,
+    }),
   });
 
   if (!res.ok) {
     if (res.status === 503) return;
     throw new Error(await parseError(res));
+  }
+
+  const docs = payload.educationDocs ?? [];
+  for (let i = 0; i < docs.length; i += 1) {
+    const file = dataUrlToFile(docs[i], `education-${i + 1}.jpg`);
+    const form = new FormData();
+    form.append("file", file, file.name);
+    form.append("applicationId", payload.id);
+    form.append("name", payload.name);
+    form.append("index", String(i + 1));
+    form.append("total", String(docs.length));
+    const attachRes = await fetch("/api/master-applications/attachment", {
+      method: "POST",
+      headers: authHeaders(),
+      body: form,
+    });
+    if (!attachRes.ok) {
+      console.error(await parseError(attachRes));
+    }
   }
 }
 
