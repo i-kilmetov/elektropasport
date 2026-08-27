@@ -6,11 +6,15 @@ import {
   ArrowLeft,
   BookOpen,
   Check,
-  Clock,
   GraduationCap,
   Lock,
 } from "lucide-react";
 import { LessonBlocks } from "@/components/school/lesson-blocks";
+import {
+  AdultAgeIcon,
+  BabyAgeIcon,
+  TeenAgeIcon,
+} from "@/components/school/grade-age-icons";
 import { QuizFlow, type QuizFinish } from "@/components/school/quiz-flow";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
@@ -18,7 +22,6 @@ import { Progress } from "@/components/ui/progress";
 import {
   getGrade,
   getTopic,
-  placementQuestions,
   SCHOOL_DISCLAIMER,
   SCHOOL_GRADES,
 } from "@/lib/school";
@@ -28,11 +31,9 @@ import {
   examLockUntil,
   gradeCompleted,
   markTopicPassed,
-  needsPlacement,
-  placementLockUntil,
+  previousGradeId,
   readSchoolProgress,
   recordExam,
-  recordPlacement,
   topicsPassedCount,
   writeSchoolProgress,
 } from "@/lib/school/progress";
@@ -42,7 +43,7 @@ import {
   examPassed,
   WRITTEN_SECONDS,
 } from "@/lib/school/quiz";
-import type { GradeId, SchoolProgress, Topic } from "@/lib/school/types";
+import type { GradeId, SchoolProgress, SchoolQuestion, Topic } from "@/lib/school/types";
 import { cn } from "@/lib/utils";
 
 type View =
@@ -50,8 +51,7 @@ type View =
   | { kind: "grade"; gradeId: GradeId }
   | { kind: "lesson"; gradeId: GradeId; topicId: string }
   | { kind: "quiz"; gradeId: GradeId; topicId: string }
-  | { kind: "exam"; gradeId: GradeId }
-  | { kind: "placement"; gradeId: 2 | 3 };
+  | { kind: "exam"; gradeId: GradeId };
 
 export function SchoolScreen({ onBack }: { onBack: () => void }) {
   const [progress, setProgress] = useState<SchoolProgress>(() =>
@@ -81,7 +81,6 @@ export function SchoolScreen({ onBack }: { onBack: () => void }) {
             progress={progress}
             onBack={onBack}
             onOpenGrade={goGrade}
-            onPlacement={(gradeId) => setView({ kind: "placement", gradeId })}
           />
         ) : null}
         {view.kind === "grade" ? (
@@ -94,9 +93,6 @@ export function SchoolScreen({ onBack }: { onBack: () => void }) {
               setView({ kind: "lesson", gradeId: view.gradeId, topicId })
             }
             onExam={() => setView({ kind: "exam", gradeId: view.gradeId })}
-            onPlacement={() =>
-              setView({ kind: "placement", gradeId: view.gradeId as 2 | 3 })
-            }
           />
         ) : null}
         {view.kind === "lesson" ? (
@@ -150,20 +146,6 @@ export function SchoolScreen({ onBack }: { onBack: () => void }) {
             }}
           />
         ) : null}
-        {view.kind === "placement" ? (
-          <QuizGate
-            key={`place-${view.gradeId}`}
-            title="Входной тест"
-            mode="placement"
-            questions={placementQuestions(view.gradeId)}
-            onExit={goHome}
-            onFinish={(result) => {
-              persist(recordPlacement(progress, view.gradeId, result.passed));
-              if (result.passed) goGrade(view.gradeId);
-              else goHome();
-            }}
-          />
-        ) : null}
       </AnimatePresence>
     </motion.section>
   );
@@ -204,12 +186,10 @@ function SchoolHome({
   progress,
   onBack,
   onOpenGrade,
-  onPlacement,
 }: {
   progress: SchoolProgress;
   onBack: () => void;
   onOpenGrade: (gradeId: GradeId) => void;
-  onPlacement: (gradeId: 2 | 3) => void;
 }) {
   const finished = SCHOOL_GRADES.filter((grade) =>
     gradeCompleted(progress, grade.id),
@@ -251,16 +231,16 @@ function SchoolHome({
         </p>
       </div>
 
-      <div className="mt-3 flex min-h-[200px] flex-1 gap-2">
-        {SCHOOL_GRADES.map((grade) => (
-          <GradeCard
+      <div className="mt-3 flex min-h-[200px] flex-1 overflow-hidden rounded-[24px] border border-black/8 bg-white">
+        {SCHOOL_GRADES.map((grade, index) => (
+          <GradePane
             key={grade.id}
             gradeId={grade.id}
             progress={progress}
             expanded={expandedId === grade.id}
+            showDivider={index > 0}
             onExpand={() => setExpandedId(grade.id)}
             onOpen={() => onOpenGrade(grade.id)}
-            onPlacement={() => onPlacement(grade.id as 2 | 3)}
           />
         ))}
       </div>
@@ -272,25 +252,50 @@ function SchoolHome({
   );
 }
 
-function GradeCard({
+const GRADE_AGE_ICONS = {
+  1: BabyAgeIcon,
+  2: TeenAgeIcon,
+  3: AdultAgeIcon,
+} as const;
+
+function GradeAgeMark({
+  gradeId,
+  className,
+}: {
+  gradeId: GradeId;
+  className?: string;
+}) {
+  const Icon = GRADE_AGE_ICONS[gradeId];
+  return (
+    <span
+      className={cn(
+        "flex shrink-0 items-center justify-center rounded-[16px] border border-black/8 bg-white text-zinc-900",
+        className,
+      )}
+    >
+      <Icon className="h-[55%] w-[55%]" />
+    </span>
+  );
+}
+
+function GradePane({
   gradeId,
   progress,
   expanded,
+  showDivider,
   onExpand,
   onOpen,
-  onPlacement,
 }: {
   gradeId: GradeId;
   progress: SchoolProgress;
   expanded: boolean;
+  showDivider: boolean;
   onExpand: () => void;
   onOpen: () => void;
-  onPlacement: () => void;
 }) {
   const grade = getGrade(gradeId);
   const open = canEnterGrade(progress, gradeId);
-  const lockUntil = placementLockUntil(progress, gradeId);
-  const needTest = needsPlacement(progress, gradeId);
+  const prev = previousGradeId(gradeId);
   const best = progress.grades[gradeId].examBest;
   const passedTopics = topicsPassedCount(
     progress,
@@ -298,137 +303,78 @@ function GradeCard({
     grade.topics.map((topic) => topic.id),
   );
   const topicTotal = grade.topics.length;
-  const dark = grade.id === 3;
 
   return (
-    <motion.div
-      layout
-      transition={{ type: "spring", stiffness: 380, damping: 34 }}
-      className={cn(
-        "flex min-h-0 min-w-0 flex-col overflow-hidden rounded-[24px] border",
-        dark ? "border-zinc-800 bg-[#111113] text-white" : "border-black/8 bg-white",
-      )}
-      style={{ flex: expanded ? 2 : 0.5 }}
-    >
-      {expanded ? (
-        <div className="flex min-h-0 flex-1 flex-col p-4">
-          <div className="flex items-start gap-3">
-            <span
-              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[16px] text-[18px] font-bold"
-              style={{
-                background: dark ? "#D3DA00" : grade.accent,
-                color: "#111113",
+    <>
+      {showDivider ? <div className="w-px shrink-0 self-stretch bg-black/8" /> : null}
+      <motion.div
+        layout
+        transition={{ type: "spring", stiffness: 380, damping: 34 }}
+        className="flex min-h-0 min-w-0 flex-col overflow-hidden bg-white"
+        style={{ flex: expanded ? 2 : 0.5 }}
+      >
+        {expanded ? (
+          <div className="flex min-h-0 flex-1 flex-col p-4">
+            <div className="flex items-start gap-3">
+              <GradeAgeMark gradeId={gradeId} className="h-12 w-12" />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-[16px] font-semibold leading-tight text-zinc-900">
+                    {grade.title}
+                  </h2>
+                  {best && examPassed(best.grade) ? (
+                    <span className="rounded-full bg-zinc-900 px-2 py-0.5 text-[11px] font-semibold text-white">
+                      {best.grade}
+                    </span>
+                  ) : null}
+                </div>
+                <p className="mt-0.5 text-[13px] leading-snug text-zinc-500">
+                  {grade.subtitle}
+                </p>
+              </div>
+            </div>
+            {open ? (
+              <p className="mt-3 text-[12px] text-zinc-400">
+                Темы {passedTopics} / {topicTotal}
+                {best ? ` · экзамен ${best.grade}` : ""}
+              </p>
+            ) : (
+              <p className="mt-3 flex items-center gap-1 text-[12px] text-zinc-500">
+                <Lock className="h-3.5 w-3.5 shrink-0" />
+                Сначала окончите {prev ? `${prev} класс` : "предыдущий класс"}
+              </p>
+            )}
+            <Button
+              className="mt-auto w-full"
+              size="sm"
+              variant={open ? "default" : "secondary"}
+              disabled={!open}
+              onClick={() => {
+                if (open) onOpen();
               }}
             >
-              {grade.id}
-            </span>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <h2
-                  className={cn(
-                    "text-[16px] font-semibold leading-tight",
-                    dark ? "text-white" : "text-zinc-900",
-                  )}
-                >
-                  {grade.title}
-                </h2>
-                {best && examPassed(best.grade) ? (
-                  <span
-                    className={cn(
-                      "rounded-full px-2 py-0.5 text-[11px] font-semibold",
-                      dark ? "bg-[#D3DA00] text-[#111113]" : "bg-zinc-900 text-white",
-                    )}
-                  >
-                    {best.grade}
-                  </span>
-                ) : null}
-              </div>
-              <p
-                className={cn(
-                  "mt-0.5 text-[13px] leading-snug",
-                  dark ? "text-white/55" : "text-zinc-500",
-                )}
-              >
-                {grade.subtitle}
-              </p>
-            </div>
+              {open
+                ? passedTopics > 0 || best
+                  ? "Продолжить"
+                  : "Поступить"
+                : "Пока закрыто"}
+            </Button>
           </div>
-          {open ? (
-            <p
-              className={cn(
-                "mt-3 text-[12px]",
-                dark ? "text-white/40" : "text-zinc-400",
-              )}
-            >
-              Темы {passedTopics} / {topicTotal}
-              {best ? ` · экзамен ${best.grade}` : ""}
-            </p>
-          ) : lockUntil ? (
-            <p className="mt-3 flex items-center gap-1 text-[12px] text-amber-500">
-              <Clock className="h-3.5 w-3.5 shrink-0" />
-              Повтор через {daysHoursLeft(lockUntil)}
-            </p>
-          ) : (
-            <p
-              className={cn(
-                "mt-3 flex items-center gap-1 text-[12px]",
-                dark ? "text-white/50" : "text-zinc-500",
-              )}
-            >
-              <Lock className="h-3.5 w-3.5 shrink-0" />
-              Сначала входной тест
-            </p>
-          )}
-          <Button
-            className={cn(
-              "mt-auto w-full",
-              dark &&
-                "border-0 !bg-[#D3DA00] text-[#111113] shadow-none hover:!bg-[#c8cf00]",
-            )}
-            size="sm"
-            variant={open || dark ? "default" : "secondary"}
-            disabled={Boolean(!open && lockUntil)}
-            onClick={() => {
-              if (open) onOpen();
-              else if (!lockUntil && needTest) onPlacement();
-            }}
+        ) : (
+          <button
+            type="button"
+            onClick={onExpand}
+            className="flex h-full min-h-0 w-full flex-col items-center justify-center gap-2 bg-white px-1 py-3"
+            aria-label={grade.title}
           >
-            {open
-              ? passedTopics > 0 || best
-                ? "Продолжить"
-                : "Поступить"
-              : lockUntil
-                ? "Пока закрыто"
-                : "Пройти входной тест"}
-          </Button>
-        </div>
-      ) : (
-        <button
-          type="button"
-          onClick={onExpand}
-          className="flex h-full min-h-0 w-full flex-col items-center justify-center gap-2 px-1 py-3"
-          aria-label={grade.title}
-        >
-          <span
-            className="flex h-11 w-11 items-center justify-center rounded-[14px] text-[18px] font-bold"
-            style={{
-              background: dark ? "#D3DA00" : grade.accent,
-              color: "#111113",
-            }}
-          >
-            {grade.id}
-          </span>
-          <span
-            className={cn(
-              "text-center text-[11px] font-semibold leading-tight",
-              dark ? "text-white/80" : "text-zinc-700",
-            )}
-          >
-            {grade.shortTitle}
-          </span>
-        </button>
-      )}
-    </motion.div>
+            <GradeAgeMark gradeId={gradeId} className="h-11 w-11" />
+            <span className="text-center text-[11px] font-semibold leading-tight text-zinc-700">
+              {grade.shortTitle}
+            </span>
+          </button>
+        )}
+      </motion.div>
+    </>
   );
 }
 
@@ -438,18 +384,16 @@ function GradeProgram({
   onBack,
   onOpenTopic,
   onExam,
-  onPlacement,
 }: {
   gradeId: GradeId;
   progress: SchoolProgress;
   onBack: () => void;
   onOpenTopic: (topicId: string) => void;
   onExam: () => void;
-  onPlacement: () => void;
 }) {
   const grade = getGrade(gradeId);
   const open = canEnterGrade(progress, gradeId);
-  const lockUntil = placementLockUntil(progress, gradeId);
+  const prev = previousGradeId(gradeId);
   const topicIds = grade.topics.map((topic) => topic.id);
   const passedCount = topicsPassedCount(progress, gradeId, topicIds);
   const readyForExam = allTopicsPassed(progress, gradeId, topicIds);
@@ -469,21 +413,13 @@ function GradeProgram({
         <GlassCard className="p-5 text-center">
           <Lock className="mx-auto h-8 w-8 text-zinc-400" />
           <h2 className="mt-3 text-[18px] font-semibold text-zinc-900">
-            Сначала входной тест
+            Сначала предыдущий класс
           </h2>
           <p className="mt-2 text-[14px] leading-relaxed text-zinc-600">
-            10 вопросов из экзамена предыдущего класса. Нужно 7 верных. Если не
-            получится — следующая попытка через неделю.
+            Чтобы учиться здесь, нужно окончить{" "}
+            {prev ? `${prev} класс` : "предыдущий класс"} — пройти темы и сдать
+            экзамен.
           </p>
-          {lockUntil ? (
-            <p className="mt-3 text-[13px] text-amber-700">
-              Можно снова через {daysHoursLeft(lockUntil)}
-            </p>
-          ) : (
-            <Button className="mt-5 w-full" onClick={onPlacement}>
-              Начать тест
-            </Button>
-          )}
         </GlassCard>
       </motion.div>
     );
@@ -647,17 +583,14 @@ function QuizGate({
   onFinish,
 }: {
   title: string;
-  mode: "mini" | "exam" | "placement";
-  questions: ReturnType<typeof placementQuestions>;
+  mode: "mini" | "exam";
+  questions: SchoolQuestion[];
   onExit: () => void;
   onFinish: (result: QuizFinish) => void;
 }) {
   const intro = useMemo(() => {
     if (mode === "exam") {
       return `20 вопросов без подсказок по ходу. На вариант — ${CHOICE_SECONDS} с, на письменный — ${WRITTEN_SECONDS} с. В конце — оценка и разбор. Неудача — следующая попытка через неделю.`;
-    }
-    if (mode === "placement") {
-      return `10 вопросов из экзамена предыдущего класса. Нужно 7 верных. На вариант — ${CHOICE_SECONDS} с, на письменный — ${WRITTEN_SECONDS} с. Неудача — пауза на неделю.`;
     }
     return "Короткий зачёт по теме. После каждого вопроса сразу разбор.";
   }, [mode]);

@@ -141,15 +141,13 @@ export function canEnterGrade(
 ): boolean {
   if (gradeId === 1) return true;
   const prev = previousGradeId(gradeId);
-  if (prev && gradeCompleted(progress, prev)) return true;
-  return Boolean(progress.grades[gradeId].placementPassedAt);
+  return Boolean(prev && gradeCompleted(progress, prev));
 }
 
 export function needsPlacement(
   progress: SchoolProgress,
   gradeId: GradeId,
 ): boolean {
-  if (gradeId === 1) return false;
   return !canEnterGrade(progress, gradeId);
 }
 
