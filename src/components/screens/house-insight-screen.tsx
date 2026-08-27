@@ -5,30 +5,12 @@ import { motion } from "framer-motion";
 import { ArrowLeft, Building2, Cable, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
-import { assessGroundingForYear } from "@/lib/grounding-assessment";
 import {
-  electricalGuessForYear,
   formatBuildingYear,
   type HouseInsight,
 } from "@/lib/house-insight";
-import { isMoscow } from "@/lib/lead-services";
-import { clientLookupMoscowPassport } from "@/lib/moscow-client-lookup";
 import { lookupHouseInsight } from "@/lib/user-data";
 import { cn } from "@/lib/utils";
-
-function withBuildingYear(
-  base: HouseInsight,
-  year: number,
-  dataSource: string,
-): HouseInsight {
-  return {
-    ...base,
-    buildingYear: year,
-    electrical: electricalGuessForYear(year),
-    grounding: assessGroundingForYear(year),
-    dataSource,
-  };
-}
 
 export function HouseInsightScreen({
   city,
@@ -62,7 +44,7 @@ export function HouseInsightScreen({
 
     void (async () => {
       try {
-        let next = await lookupHouseInsight({
+        const next = await lookupHouseInsight({
           city,
           address,
           fiasId,
@@ -71,27 +53,6 @@ export function HouseInsightScreen({
           house,
           block,
         });
-
-        if (
-          !cancelled &&
-          isMoscow(city) &&
-          next.buildingYear == null &&
-          buildingYear == null
-        ) {
-          const client = await clientLookupMoscowPassport(address, {
-            street,
-            house,
-            block,
-          });
-          if (client?.buildingYear != null) {
-            next = withBuildingYear(
-              { ...next, address: client.address || next.address },
-              client.buildingYear,
-              "Открытые данные Москвы (с устройства)",
-            );
-          }
-        }
-
         if (!cancelled) setInsight(next);
       } catch (err: unknown) {
         if (cancelled) return;
