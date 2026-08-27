@@ -763,6 +763,7 @@ function applyServerDataEpoch(dataEpoch: string | null): boolean {
     try {
       localStorage.removeItem("elektropasport:user-profile");
       localStorage.removeItem("elektropasport:panel-snake");
+      localStorage.removeItem("elektropasport:panel-snake-continues");
     } catch {
       // ignore
     }

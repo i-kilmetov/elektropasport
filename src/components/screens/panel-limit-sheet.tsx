@@ -19,7 +19,7 @@ function formatEventDate(value: string): string {
   });
 }
 
-const points = [
+const panelPoints = [
   {
     icon: Zap,
     text: "Каждому пользователю доступно добавление одного щитка.",
@@ -34,16 +34,36 @@ const points = [
   },
 ] as const;
 
+const snakeLifePoints = [
+  {
+    icon: Zap,
+    text: "После столкновения можно восстановить жизнь — пригласите человека в Током.",
+  },
+  {
+    icon: Infinity,
+    text: "Когда новый пользователь откроет сервис по вашей ссылке, игра продолжится с того же места.",
+  },
+  {
+    icon: Heart,
+    text: "Каждое такое приглашение даёт ещё одну жизнь в змейке.",
+  },
+] as const;
+
 export function PanelLimitSheet({
   quota,
   onClose,
+  reason = "panels",
 }: {
   quota: PanelQuota;
   onClose: () => void;
+  reason?: "panels" | "snake-life";
 }) {
   const [shareOpen, setShareOpen] = useState(false);
   const canInvite = Boolean(quota.inviteUrl);
   const unlocked = Boolean(quota.unlimited);
+  const isLife = reason === "snake-life";
+  const showUnlocked = !isLife && unlocked;
+  const points = isLife ? snakeLifePoints : panelPoints;
 
   return (
     <Portal>
@@ -65,12 +85,18 @@ export function PanelLimitSheet({
           <div className="mb-4 flex items-start justify-between gap-3">
             <div>
               <h2 className="text-[20px] font-semibold text-zinc-900">
-                {unlocked ? "Лимит щитков снят" : "Пригласите человека"}
+                {isLife
+                  ? "Восстановить жизнь"
+                  : showUnlocked
+                    ? "Лимит щитков снят"
+                    : "Пригласите человека"}
               </h2>
               <p className="mt-1 text-[13px] text-zinc-500">
-                {unlocked
-                  ? "Можно добавлять любое количество щитков"
-                  : `${quota.panelCount} из ${BASE_PANEL_LIMIT} ${panelWord(BASE_PANEL_LIMIT)} без приглашения`}
+                {isLife
+                  ? "Пригласите хотя бы одного нового человека в Током"
+                  : showUnlocked
+                    ? "Можно добавлять любое количество щитков"
+                    : `${quota.panelCount} из ${BASE_PANEL_LIMIT} ${panelWord(BASE_PANEL_LIMIT)} без приглашения`}
               </p>
             </div>
             <button
@@ -83,7 +109,7 @@ export function PanelLimitSheet({
             </button>
           </div>
 
-          {!unlocked && (
+          {!showUnlocked && (
             <ul className="space-y-3">
               {points.map((point) => (
                 <li key={point.text} className="flex gap-3">
@@ -100,7 +126,7 @@ export function PanelLimitSheet({
 
           {canInvite && (
             <Button
-              className={unlocked ? "mt-1 w-full" : "mt-5 w-full"}
+              className={showUnlocked ? "mt-1 w-full" : "mt-5 w-full"}
               onClick={() => setShareOpen(true)}
             >
               <UserPlus className="h-5 w-5" />
@@ -108,14 +134,17 @@ export function PanelLimitSheet({
             </Button>
           )}
 
-          <div className={unlocked ? "mt-5" : "mt-6"}>
+          <div className={showUnlocked ? "mt-5" : "mt-6"}>
             <h3 className="mb-2 text-[14px] font-medium text-zinc-600">
               Приглашённые
             </h3>
             {quota.events.length === 0 ? (
               <p className="text-[13px] leading-relaxed text-zinc-400">
                 Пока никто не открыл вашу ссылку. Когда новый человек зайдёт в
-                приложение по вашей ссылке, лимит щитков снимется.
+                приложение по вашей ссылке,{" "}
+                {isLife
+                  ? "можно будет продолжить игру."
+                  : "лимит щитков снимется."}
               </p>
             ) : (
               <ul className="divide-y divide-black/[0.06] overflow-hidden rounded-[20px] border border-black/8 bg-zinc-50">
@@ -140,8 +169,12 @@ export function PanelLimitSheet({
                           )}
                         >
                           {event.outcome === "credited"
-                            ? "Новый пользователь — лимит снят"
-                            : "Уже был в сервисе — лимит не снят"}
+                            ? isLife
+                              ? "Новый пользователь — можно продолжить игру"
+                              : "Новый пользователь — лимит снят"
+                            : isLife
+                              ? "Уже был в сервисе — жизнь не восстановлена"
+                              : "Уже был в сервисе — лимит не снят"}
                         </p>
                       </div>
                       <span className="shrink-0 text-[12px] text-zinc-400">

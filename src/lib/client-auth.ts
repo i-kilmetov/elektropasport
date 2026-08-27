@@ -82,6 +82,7 @@ export function clearLocalAppData(): void {
     localStorage.removeItem("elektropasport:data-epoch");
     localStorage.removeItem("elektropasport:user-profile");
     localStorage.removeItem("elektropasport:panel-snake");
+    localStorage.removeItem("elektropasport:panel-snake-continues");
   } catch {
     // private mode
   }

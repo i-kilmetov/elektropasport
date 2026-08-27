@@ -2,24 +2,32 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, Check, Zap } from "lucide-react";
+import { ArrowLeft, Check, UserPlus, Zap } from "lucide-react";
 import { DeviceFaceStatic, MODULE_PX } from "@/components/icons/device-face";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { PanelLimitSheet } from "@/components/screens/panel-limit-sheet";
 import { hapticImpact, hapticNotification } from "@/lib/haptics";
 import {
+  collectedDeviceIds,
+  continueSnakeGame,
   createSnakeGame,
   DEVICE_SHORT,
   deviceShortLabel,
+  moduleTotal,
+  readSnakeContinuesUsed,
   setSnakeDirection,
   SNAKE_COLS,
   SNAKE_ROWS,
   SNAKE_TICK_MS,
+  snakeContinuesAvailable,
   stepSnakeGame,
+  writeSnakeContinuesUsed,
   type SnakeDir,
   type SnakeGameState,
 } from "@/lib/panel-game";
 import { deviceModules, groupDevicesByRail } from "@/lib/panel-rails";
+import type { PanelQuota } from "@/lib/invites";
 import { cn } from "@/lib/utils";
 import type { Device, PanelObject } from "@/types";
 
@@ -183,10 +191,14 @@ export function PanelGameScreen({
   panels,
   onBack,
   onAddPanel,
+  quota = null,
+  onRefreshQuota,
 }: {
   panels: PanelObject[];
   onBack: () => void;
   onAddPanel?: () => void;
+  quota?: PanelQuota | null;
+  onRefreshQuota?: () => Promise<unknown>;
 }) {
   const playable = panels.filter(
     (panel) => playDevices(panel).length > 0,
@@ -199,6 +211,8 @@ export function PanelGameScreen({
   const [panelId, setPanelId] = useState<string | null>(null);
   const [state, setState] = useState<SnakeGameState | null>(null);
   const [confirmLeave, setConfirmLeave] = useState(false);
+  const [lifeSheetOpen, setLifeSheetOpen] = useState(false);
+  const [continuesUsed, setContinuesUsed] = useState(readSnakeContinuesUsed);
 
   const panel = useMemo(
     () => panels.find((item) => item.id === panelId) ?? null,
@@ -213,8 +227,14 @@ export function PanelGameScreen({
     [devices],
   );
   const collectedIds = useMemo(
-    () => new Set(state?.collectedIds ?? []),
-    [state?.collectedIds],
+    () => collectedDeviceIds(state?.collected ?? [], devices),
+    [state?.collected, devices],
+  );
+  const collectedCount = state?.collected.length ?? 0;
+  const totalModules = moduleTotal(devices);
+  const continuesLeft = snakeContinuesAvailable(
+    quota?.creditedInvites ?? 0,
+    continuesUsed,
   );
 
   const stateRef = useRef(state);
@@ -254,7 +274,7 @@ export function PanelGameScreen({
         hapticNotification("success");
       } else if (!next.alive) {
         hapticNotification("error");
-      } else if (next.collectedIds.length > current.collectedIds.length) {
+      } else if (next.collected.length > current.collected.length) {
         hapticImpact("medium");
       }
     }, SNAKE_TICK_MS);
@@ -285,9 +305,49 @@ export function PanelGameScreen({
 
   const restart = () => {
     if (!panel) return;
+    setLifeSheetOpen(false);
     setState(createSnakeGame(playDevices(panel)));
     hapticImpact("soft");
   };
+
+  const applyContinue = useCallback(() => {
+    setState((prev) => (prev ? continueSnakeGame(prev) : prev));
+    setContinuesUsed((used) => {
+      const next = used + 1;
+      writeSnakeContinuesUsed(next);
+      return next;
+    });
+    setLifeSheetOpen(false);
+    hapticNotification("success");
+  }, []);
+
+  const creditsRef = useRef<number | null>(null);
+  useEffect(() => {
+    const current = quota?.creditedInvites ?? 0;
+    if (creditsRef.current == null) {
+      creditsRef.current = current;
+      return;
+    }
+    const prev = creditsRef.current;
+    creditsRef.current = current;
+    if (current <= prev) return;
+    if (!state || state.alive || state.won) return;
+    const available = snakeContinuesAvailable(current, continuesUsed);
+    if (available < 1) return;
+    applyContinue();
+  }, [applyContinue, continuesUsed, quota?.creditedInvites, state]);
+
+  useEffect(() => {
+    const waiting =
+      lifeSheetOpen ||
+      (phase === "play" && state && !state.alive && !state.won);
+    if (!waiting || !onRefreshQuota) return;
+    void onRefreshQuota();
+    const id = window.setInterval(() => {
+      void onRefreshQuota();
+    }, 4000);
+    return () => window.clearInterval(id);
+  }, [lifeSheetOpen, onRefreshQuota, phase, state?.alive, state?.won]);
 
   const title =
     phase === "gate"
@@ -331,7 +391,7 @@ export function PanelGameScreen({
           </h1>
           <p className="text-[13px] text-zinc-500">
             {phase === "play"
-              ? `Собрано ${state?.collectedIds.length ?? 0} из ${devices.length}`
+              ? `Собрано ${collectedCount} из ${totalModules}`
               : "Собери приборы щитка"}
           </p>
         </div>
@@ -389,7 +449,9 @@ export function PanelGameScreen({
             </div>
           ) : (
             playable.map((item) => {
-              const count = playDevices(item).length;
+              const list = playDevices(item);
+              const count = list.length;
+              const modules = moduleTotal(list);
               return (
                 <button
                   key={item.id}
@@ -411,6 +473,7 @@ export function PanelGameScreen({
                         : count < 5
                           ? "прибора"
                           : "приборов"}
+                      {modules !== count ? ` · ${modules} модулей` : ""}
                     </div>
                   </div>
                   <ArrowLeft className="h-4 w-4 rotate-180 text-zinc-400" />
@@ -429,8 +492,9 @@ export function PanelGameScreen({
             collectedIds={new Set()}
           />
           <p className="mt-4 text-[14px] leading-relaxed text-zinc-500">
-            Сверху — ваш щиток с погасшими приборами. На поле появятся эти же
-            приборы: соберите их все змейкой, чтобы «включить» щиток.
+            Сверху — ваш щиток с погасшими приборами. На поле каждый прибор
+            займёт столько клеток, сколько у него модулей в щитке. Соберите все
+            клетки змейкой, чтобы «включить» щиток.
           </p>
           <div className="mt-auto pt-6">
             <Button className="w-full" onClick={() => startGame(panel)}>
@@ -506,12 +570,34 @@ export function PanelGameScreen({
                       Удар о стену
                     </h2>
                     <p className="mt-3 text-[15px] leading-relaxed text-zinc-600">
-                      Змейка врезалась. Попробуйте снова — приборы всё ещё ждут
-                      на поле.
+                      Змейка врезалась. Можно начать заново или восстановить
+                      жизнь, пригласив человека в Током.
                     </p>
-                    <Button className="mt-5 w-full" onClick={restart}>
-                      Заново
-                    </Button>
+                    <div className="mt-5 space-y-2">
+                      {continuesLeft > 0 ? (
+                        <Button className="w-full" onClick={applyContinue}>
+                          Продолжить
+                        </Button>
+                      ) : (
+                        <Button
+                          className="w-full"
+                          onClick={() => {
+                            void onRefreshQuota?.();
+                            setLifeSheetOpen(true);
+                          }}
+                        >
+                          <UserPlus className="h-5 w-5" />
+                          Восстановить жизнь
+                        </Button>
+                      )}
+                      <Button
+                        className="w-full"
+                        variant="secondary"
+                        onClick={restart}
+                      >
+                        Заново
+                      </Button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -519,8 +605,8 @@ export function PanelGameScreen({
           </div>
 
           <p className="mx-auto mt-4 max-w-[420px] text-[13px] leading-relaxed text-zinc-500">
-            Смахивайте или стрелками. Цель — собрать все приборы с выбранного
-            щитка
+            Смахивайте или стрелками. Клетка прибора равна одному модулю в
+            щитке
             {state.targets[0]
               ? `. Сейчас на поле: ${
                   devicesById.get(state.targets[0].deviceId)
@@ -533,6 +619,14 @@ export function PanelGameScreen({
             .
           </p>
         </div>
+      )}
+
+      {lifeSheetOpen && quota && (
+        <PanelLimitSheet
+          quota={quota}
+          reason="snake-life"
+          onClose={() => setLifeSheetOpen(false)}
+        />
       )}
 
       {confirmLeave && (

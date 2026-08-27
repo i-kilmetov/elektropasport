@@ -1,21 +1,33 @@
 import type { Device, DeviceType } from "@/types";
+import { deviceModules } from "@/lib/panel-rails";
 
 export const SNAKE_COLS = 14;
 export const SNAKE_ROWS = 14;
 export const SNAKE_TICK_MS = 140;
 export const SNAKE_STORAGE_KEY = "elektropasport:panel-snake";
+export const SNAKE_CONTINUES_KEY = "elektropasport:panel-snake-continues";
 
 export type SnakeDir = "up" | "down" | "left" | "right";
 
 export type SnakeCell = { x: number; y: number };
 
 export type SnakeTarget = {
-  /** Stable id for progress UI (device id) */
   deviceId: number;
+  moduleIndex: number;
   type: DeviceType;
   name: string;
   rating: string;
   cell: SnakeCell;
+};
+
+export type SnakeCollected = {
+  deviceId: number;
+  moduleIndex: number;
+};
+
+export type SnakeQueueItem = {
+  deviceId: number;
+  moduleIndex: number;
 };
 
 export type SnakeGameState = {
@@ -23,9 +35,8 @@ export type SnakeGameState = {
   dir: SnakeDir;
   pendingDir: SnakeDir | null;
   targets: SnakeTarget[];
-  collectedIds: number[];
-  /** Device ids still waiting to appear on the board */
-  queue: number[];
+  collected: SnakeCollected[];
+  queue: SnakeQueueItem[];
   alive: boolean;
   won: boolean;
   tick: number;
@@ -48,6 +59,54 @@ export function deviceShortLabel(device: Device): string {
   const rating = device.rating?.trim();
   if (!rating) return short;
   return rating.length <= 6 ? `${short} ${rating}` : short;
+}
+
+export function moduleTotal(devices: Device[]): number {
+  return devices.reduce((sum, device) => sum + deviceModules(device), 0);
+}
+
+export function collectedDeviceIds(
+  collected: SnakeCollected[],
+  devices: Device[],
+): Set<number> {
+  const byDevice = new Map<number, Set<number>>();
+  for (const item of collected) {
+    const set = byDevice.get(item.deviceId) ?? new Set<number>();
+    set.add(item.moduleIndex);
+    byDevice.set(item.deviceId, set);
+  }
+  const ids = new Set<number>();
+  for (const device of devices) {
+    const have = byDevice.get(device.id);
+    if (have && have.size >= deviceModules(device)) ids.add(device.id);
+  }
+  return ids;
+}
+
+export function readSnakeContinuesUsed(): number {
+  if (typeof window === "undefined") return 0;
+  try {
+    const raw = localStorage.getItem(SNAKE_CONTINUES_KEY);
+    const n = raw ? Number.parseInt(raw, 10) : 0;
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  } catch {
+    return 0;
+  }
+}
+
+export function writeSnakeContinuesUsed(count: number): void {
+  try {
+    localStorage.setItem(SNAKE_CONTINUES_KEY, String(Math.max(0, count)));
+  } catch {
+    // private mode
+  }
+}
+
+export function snakeContinuesAvailable(
+  creditedInvites: number,
+  used: number,
+): number {
+  return Math.max(0, creditedInvites - used);
 }
 
 function cellKey(cell: SnakeCell): string {
@@ -78,6 +137,66 @@ function randomEmptyCell(
   return free[Math.floor(rnd() * free.length)]!;
 }
 
+function randomEmptyRun(
+  occupied: Set<string>,
+  length: number,
+  rnd: () => number = Math.random,
+): SnakeCell[] | null {
+  if (length <= 1) {
+    const cell = randomEmptyCell(occupied, rnd);
+    return cell ? [cell] : null;
+  }
+
+  const runs: SnakeCell[][] = [];
+  for (let y = 0; y < SNAKE_ROWS; y += 1) {
+    for (let x = 0; x <= SNAKE_COLS - length; x += 1) {
+      const cells: SnakeCell[] = [];
+      let ok = true;
+      for (let i = 0; i < length; i += 1) {
+        if (occupied.has(`${x + i},${y}`)) {
+          ok = false;
+          break;
+        }
+        cells.push({ x: x + i, y });
+      }
+      if (ok) runs.push(cells);
+    }
+  }
+  for (let x = 0; x < SNAKE_COLS; x += 1) {
+    for (let y = 0; y <= SNAKE_ROWS - length; y += 1) {
+      const cells: SnakeCell[] = [];
+      let ok = true;
+      for (let i = 0; i < length; i += 1) {
+        if (occupied.has(`${x},${y + i}`)) {
+          ok = false;
+          break;
+        }
+        cells.push({ x, y: y + i });
+      }
+      if (ok) runs.push(cells);
+    }
+  }
+  if (runs.length === 0) return null;
+  return runs[Math.floor(rnd() * runs.length)]!;
+}
+
+function placeModuleCells(
+  occupied: Set<string>,
+  length: number,
+): SnakeCell[] | null {
+  const run = randomEmptyRun(occupied, length);
+  if (run) return run;
+  const cells: SnakeCell[] = [];
+  const nextOccupied = new Set(occupied);
+  for (let i = 0; i < length; i += 1) {
+    const cell = randomEmptyCell(nextOccupied);
+    if (!cell) return cells.length > 0 ? cells : null;
+    nextOccupied.add(cellKey(cell));
+    cells.push(cell);
+  }
+  return cells;
+}
+
 function opposite(a: SnakeDir, b: SnakeDir): boolean {
   return (
     (a === "up" && b === "down") ||
@@ -93,14 +212,82 @@ export function queueDevices(devices: Device[]): Device[] {
     .sort((a, b) => (a.position ?? a.id) - (b.position ?? b.id));
 }
 
-/** How many targets to keep on the board at once. */
-function spawnBudget(totalDevices: number): number {
-  const capacity = Math.floor((SNAKE_COLS * SNAKE_ROWS) / 5);
-  return Math.min(Math.max(3, Math.ceil(totalDevices / 2)), capacity, totalDevices);
+function moduleQueue(devices: Device[]): SnakeQueueItem[] {
+  const queue: SnakeQueueItem[] = [];
+  for (const device of queueDevices(devices)) {
+    const n = deviceModules(device);
+    for (let i = 0; i < n; i += 1) {
+      queue.push({ deviceId: device.id, moduleIndex: i });
+    }
+  }
+  return queue;
+}
+
+function nextDeviceSpan(queue: SnakeQueueItem[]): number {
+  const first = queue[0];
+  if (!first) return 0;
+  let n = 1;
+  while (n < queue.length && queue[n]?.deviceId === first.deviceId) {
+    n += 1;
+  }
+  return n;
+}
+
+function spawnBudget(totalCells: number): number {
+  const capacity = Math.floor((SNAKE_COLS * SNAKE_ROWS) / 6);
+  return Math.min(
+    Math.max(6, Math.ceil(totalCells / 2)),
+    capacity,
+    totalCells,
+  );
+}
+
+function targetFromDevice(
+  device: Device,
+  moduleIndex: number,
+  cell: SnakeCell,
+): SnakeTarget {
+  return {
+    deviceId: device.id,
+    moduleIndex,
+    type: device.type,
+    name: device.name,
+    rating: device.rating,
+    cell,
+  };
+}
+
+function spawnNextDevice(
+  state: SnakeGameState,
+  devicesById: Map<number, Device>,
+): SnakeGameState {
+  if (state.queue.length === 0) return state;
+  const span = nextDeviceSpan(state.queue);
+  const first = state.queue[0]!;
+  const device = devicesById.get(first.deviceId);
+  if (!device) {
+    return { ...state, queue: state.queue.slice(span) };
+  }
+
+  const occupied = occupiedSet(state.snake, state.targets);
+  const cells = placeModuleCells(occupied, span);
+  if (!cells || cells.length === 0) return state;
+
+  const placed = cells.length;
+  const nextTargets = [...state.targets];
+  for (let i = 0; i < placed; i += 1) {
+    const token = state.queue[i]!;
+    nextTargets.push(targetFromDevice(device, token.moduleIndex, cells[i]!));
+  }
+
+  return {
+    ...state,
+    queue: state.queue.slice(placed),
+    targets: nextTargets,
+  };
 }
 
 export function createSnakeGame(devices: Device[]): SnakeGameState {
-  const ordered = queueDevices(devices);
   const start: SnakeCell = {
     x: Math.floor(SNAKE_COLS / 2),
     y: Math.floor(SNAKE_ROWS / 2),
@@ -110,41 +297,29 @@ export function createSnakeGame(devices: Device[]): SnakeGameState {
     { x: start.x - 1, y: start.y },
     { x: start.x - 2, y: start.y },
   ];
-  const queueIds = ordered.map((device) => device.id);
-  const budget = spawnBudget(ordered.length);
-  const targets: SnakeTarget[] = [];
-  const occupied = occupiedSet(snake, targets);
+  const queue = moduleQueue(devices);
+  const budget = spawnBudget(queue.length);
+  const devicesById = new Map(devices.map((device) => [device.id, device]));
 
-  while (targets.length < budget && queueIds.length > 0) {
-    const id = queueIds.shift()!;
-    const device = ordered.find((item) => item.id === id);
-    if (!device) continue;
-    const cell = randomEmptyCell(occupied);
-    if (!cell) {
-      queueIds.unshift(id);
-      break;
-    }
-    occupied.add(cellKey(cell));
-    targets.push({
-      deviceId: device.id,
-      type: device.type,
-      name: device.name,
-      rating: device.rating,
-      cell,
-    });
-  }
-
-  return {
+  let state: SnakeGameState = {
     snake,
     dir: "right",
     pendingDir: null,
-    targets,
-    collectedIds: [],
-    queue: queueIds,
+    targets: [],
+    collected: [],
+    queue,
     alive: true,
     won: false,
     tick: 0,
   };
+
+  while (state.queue.length > 0 && state.targets.length < budget) {
+    const spawned = spawnNextDevice(state, devicesById);
+    if (spawned.targets.length === state.targets.length) break;
+    state = spawned;
+  }
+
+  return state;
 }
 
 export function setSnakeDirection(
@@ -157,33 +332,9 @@ export function setSnakeDirection(
   return { ...state, pendingDir: next };
 }
 
-function spawnNextTarget(
-  state: SnakeGameState,
-  devicesById: Map<number, Device>,
-): SnakeGameState {
-  if (state.queue.length === 0) return state;
-  const occupied = occupiedSet(state.snake, state.targets);
-  const cell = randomEmptyCell(occupied);
-  if (!cell) return state;
-  const id = state.queue[0]!;
-  const device = devicesById.get(id);
-  if (!device) {
-    return { ...state, queue: state.queue.slice(1) };
-  }
-  return {
-    ...state,
-    queue: state.queue.slice(1),
-    targets: [
-      ...state.targets,
-      {
-        deviceId: device.id,
-        type: device.type,
-        name: device.name,
-        rating: device.rating,
-        cell,
-      },
-    ],
-  };
+export function continueSnakeGame(state: SnakeGameState): SnakeGameState {
+  if (state.alive || state.won) return state;
+  return { ...state, alive: true, pendingDir: null };
 }
 
 export function stepSnakeGame(
@@ -226,13 +377,15 @@ export function stepSnakeGame(
   if (!growing) nextSnake.pop();
 
   let targets = state.targets;
-  let collectedIds = state.collectedIds;
-  let queue = state.queue;
+  let collected = state.collected;
 
   if (growing) {
     const eaten = targets[targetIndex]!;
     targets = targets.filter((_, index) => index !== targetIndex);
-    collectedIds = [...collectedIds, eaten.deviceId];
+    collected = [
+      ...collected,
+      { deviceId: eaten.deviceId, moduleIndex: eaten.moduleIndex },
+    ];
   }
 
   let next: SnakeGameState = {
@@ -241,20 +394,19 @@ export function stepSnakeGame(
     dir,
     pendingDir: null,
     targets,
-    collectedIds,
-    queue,
+    collected,
     tick: state.tick + 1,
   };
 
-  const total = devices.length;
-  if (collectedIds.length >= total && total > 0) {
+  const total = moduleTotal(devices);
+  if (collected.length >= total && total > 0) {
     return { ...next, won: true, alive: true };
   }
 
   const devicesById = new Map(devices.map((device) => [device.id, device]));
   const budget = spawnBudget(total);
   while (next.targets.length < budget && next.queue.length > 0) {
-    const spawned = spawnNextTarget(next, devicesById);
+    const spawned = spawnNextDevice(next, devicesById);
     if (spawned.targets.length === next.targets.length) break;
     next = spawned;
   }
@@ -262,9 +414,12 @@ export function stepSnakeGame(
   return next;
 }
 
-export function snakeProgress(state: SnakeGameState, total: number): {
+export function snakeProgress(
+  state: SnakeGameState,
+  devices: Device[],
+): {
   collected: number;
   total: number;
 } {
-  return { collected: state.collectedIds.length, total };
+  return { collected: state.collected.length, total: moduleTotal(devices) };
 }

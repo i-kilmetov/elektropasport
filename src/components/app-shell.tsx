@@ -2732,6 +2732,8 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
                 panels={items.filter(
                   (item): item is PanelObject => item.kind === "panel",
                 )}
+                quota={quota}
+                onRefreshQuota={refreshQuota}
                 onBack={() => go("objects")}
                 onAddPanel={() => requireTelegramAuth("add-panel")}
               />
