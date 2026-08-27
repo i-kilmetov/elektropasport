@@ -23,6 +23,9 @@ import { cn } from "@/lib/utils";
 
 const FEEDBACK_DELAY_MS = 5 * 60 * 1000;
 
+const darkCard =
+  "border-white/10 bg-white/[0.06] shadow-none";
+
 export function MasterDashboardScreen({
   onSwitchToUser,
   onOpenRequest,
@@ -52,12 +55,8 @@ export function MasterDashboardScreen({
       setRequests(r);
       setLoading(false);
 
-      // Check if any recent accepted request needs 5-min feedback
       for (const req of r) {
-        if (
-          req.masterAcceptedAt &&
-          !req.dispatchedAt
-        ) continue;
+        if (req.masterAcceptedAt && !req.dispatchedAt) continue;
         if (!req.masterAcceptedAt) continue;
         const acceptedMs = new Date(req.masterAcceptedAt).getTime();
         const elapsed = Date.now() - acceptedMs;
@@ -67,13 +66,14 @@ export function MasterDashboardScreen({
         }
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  const ratingDisplay =
-    profile?.profile
-      ? `${profile.profile.rating}%`
-      : "—";
+  const ratingDisplay = profile?.profile
+    ? `${profile.profile.rating}%`
+    : "—";
   const ordersDisplay = profile?.profile?.ordersCount ?? 0;
 
   return (
@@ -81,19 +81,19 @@ export function MasterDashboardScreen({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="flex min-h-0 flex-1 flex-col pt-[max(1.25rem,env(safe-area-inset-top))]"
+      className="flex min-h-0 flex-1 flex-col bg-[#111113] pt-[max(1.25rem,env(safe-area-inset-top))] text-white"
     >
       <header className="mb-4 flex items-center justify-between gap-3 px-5">
         <div className="min-w-0">
-          <h1 className="text-[22px] font-bold text-zinc-900">Режим мастера</h1>
-          <p className="mt-0.5 text-[13px] text-emerald-700">
+          <h1 className="text-[22px] font-bold text-white">Режим мастера</h1>
+          <p className="mt-0.5 text-[13px] text-[#D3DA00]">
             Сейчас включён кабинет мастера
           </p>
         </div>
         <button
           type="button"
           onClick={onSwitchToUser}
-          className="flex shrink-0 items-center gap-1.5 rounded-full border border-black/8 bg-white px-3 py-1.5 text-[13px] font-medium text-zinc-600 shadow-sm"
+          className="flex shrink-0 items-center gap-1.5 rounded-full border border-white/12 bg-white/5 px-3 py-1.5 text-[13px] font-medium text-white"
         >
           <ArrowLeftRight className="h-3.5 w-3.5" />
           Пользователь
@@ -101,28 +101,28 @@ export function MasterDashboardScreen({
       </header>
 
       <div className="mb-4 grid grid-cols-2 gap-3 px-5">
-        <GlassCard className="p-4">
-          <div className="mb-1 flex items-center gap-1.5 text-[12px] text-zinc-500">
-            <Star className="h-3.5 w-3.5 text-amber-400" />
+        <GlassCard className={cn("p-4", darkCard)}>
+          <div className="mb-1 flex items-center gap-1.5 text-[12px] text-white/50">
+            <Star className="h-3.5 w-3.5 text-amber-300" />
             Рейтинг
           </div>
-          <div className="text-[24px] font-bold text-zinc-900">
+          <div className="text-[24px] font-bold text-white">
             {loading ? "…" : ratingDisplay}
           </div>
         </GlassCard>
-        <GlassCard className="p-4">
-          <div className="mb-1 flex items-center gap-1.5 text-[12px] text-zinc-500">
-            <Zap className="h-3.5 w-3.5 text-emerald-500" />
+        <GlassCard className={cn("p-4", darkCard)}>
+          <div className="mb-1 flex items-center gap-1.5 text-[12px] text-white/50">
+            <Zap className="h-3.5 w-3.5 text-[#D3DA00]" />
             Заказы
           </div>
-          <div className="text-[24px] font-bold text-zinc-900">
+          <div className="text-[24px] font-bold text-white">
             {loading ? "…" : ordersDisplay}
           </div>
         </GlassCard>
       </div>
 
       <div className="mb-3 px-5">
-        <h2 className="text-[17px] font-semibold text-zinc-900">
+        <h2 className="text-[17px] font-semibold text-white">
           Заявки клиентов
         </h2>
       </div>
@@ -130,32 +130,36 @@ export function MasterDashboardScreen({
       <div className="flex-1 overflow-y-auto px-5 pb-[max(5rem,calc(4rem+env(safe-area-inset-bottom)))]">
         {loading ? (
           <div className="flex items-center justify-center py-10">
-            <Loader2 className="h-6 w-6 animate-spin text-zinc-300" />
+            <Loader2 className="h-6 w-6 animate-spin text-white/30" />
           </div>
         ) : requests.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-10 text-center">
-            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-[20px] bg-zinc-100 text-zinc-400">
+            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-[20px] bg-white/8 text-white/40">
               <ClipboardList className="h-7 w-7" />
             </div>
-            <p className="max-w-[260px] text-[15px] text-zinc-500">
-              Пока нет принятых заявок. Они появятся, когда вы примете заявку в Telegram-боте.
+            <p className="max-w-[260px] text-[15px] text-white/50">
+              Пока нет принятых заявок. Они появятся, когда вы примете заявку в
+              Telegram-боте.
             </p>
           </div>
         ) : (
           <div className="space-y-3">
             {requests.map((req) => (
-              <GlassCard key={req.id} className="flex items-center gap-2 p-2 pr-3">
+              <GlassCard
+                key={req.id}
+                className={cn("flex items-center gap-2 p-2 pr-3", darkCard)}
+              >
                 {req.panelId ? (
                   <button
                     type="button"
                     onClick={() => onOpenPanel(req)}
-                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] bg-zinc-100 text-zinc-600"
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] bg-white/10 text-white"
                     aria-label="Открыть щиток клиента"
                   >
                     <BreakerIcon className="h-6 w-6" />
                   </button>
                 ) : (
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] bg-zinc-100 text-zinc-500">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] bg-white/10 text-white/60">
                     <ClipboardList className="h-5 w-5" />
                   </div>
                 )}
@@ -165,7 +169,7 @@ export function MasterDashboardScreen({
                   className="min-w-0 flex-1 py-1 text-left"
                 >
                   <div className="mb-0.5 flex items-center justify-between gap-2">
-                    <span className="truncate text-[15px] font-semibold text-zinc-900">
+                    <span className="truncate text-[15px] font-semibold text-white">
                       {req.publicCode ?? req.title}
                     </span>
                     <span
@@ -177,7 +181,7 @@ export function MasterDashboardScreen({
                       {req.statusLabel}
                     </span>
                   </div>
-                  <p className="truncate text-[13px] text-zinc-500">
+                  <p className="truncate text-[13px] text-white/50">
                     {req.exactAddress ?? req.city ?? "—"}
                   </p>
                 </button>

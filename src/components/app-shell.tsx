@@ -2020,17 +2020,20 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
     screen === "admin" ||
     masterApply;
 
+  const masterDesk = masterMode && screen === "objects";
+  const darkShell = masterApply || masterDesk;
+
   return (
     <div
       className={cn(
         "relative w-full text-zinc-900",
-        masterApply ? "bg-[#111113] text-white" : "bg-[var(--bg)] text-zinc-900",
+        darkShell ? "bg-[#111113] text-white" : "bg-[var(--bg)] text-zinc-900",
         fillViewport
           ? "flex h-[var(--app-height,100dvh)] flex-col overflow-hidden overscroll-none"
           : "min-h-[var(--app-height,100dvh)]",
       )}
     >
-      {!masterApply && (
+      {!darkShell && (
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(17,17,19,0.035),transparent_55%)]" />
       )}
       <div
