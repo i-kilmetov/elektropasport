@@ -68,6 +68,24 @@ export function hapticNav(): void {
   hapticImpact("light");
 }
 
+/** Subtle tick when a drop target / insertion slot changes. */
+export function hapticSelection(): void {
+  try {
+    const haptic = webAppHaptic() as
+      | { selectionChanged?: () => void }
+      | null;
+    if (haptic?.selectionChanged) {
+      haptic.selectionChanged();
+      return;
+    }
+    if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+      navigator.vibrate(8);
+    }
+  } catch {
+    // ignore
+  }
+}
+
 /** Feedback when the user deletes a panel or request. */
 export function hapticDelete(): void {
   hapticNotification("error");

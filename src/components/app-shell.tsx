@@ -127,7 +127,7 @@ import {
 } from "@/lib/house-insight";
 import { buildPanelHouseSnapshot } from "@/lib/house-insight-local";
 import { syncRatingFromCharacteristics } from "@/lib/device-spec-guide";
-import { deriveRailCount } from "@/lib/panel-rails";
+import { deriveRailCount, isRailDevice } from "@/lib/panel-rails";
 import { isAtPanelLimit, isInviteToken, type PanelQuota } from "@/lib/invites";
 import {
   DEVICE_TYPE_OPTIONS,
@@ -1623,6 +1623,37 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
     [activePanelId],
   );
 
+  const updatePanelDevices = useCallback(
+    (nextDevices: Device[], nextRailCount?: number) => {
+      if (!activePanelId) return;
+      const ids = new Set(nextDevices.map((device) => device.id));
+      const railDevices = nextDevices.filter(isRailDevice);
+      const railCountValue = nextRailCount ?? deriveRailCount(railDevices);
+      setDevices(nextDevices);
+      setRailCount(railCountValue);
+      setLinesCount(railDevices.length);
+      setItems((prev) =>
+        prev.map((item) => {
+          if (item.kind !== "panel" || item.id !== activePanelId) return item;
+          const next = {
+            ...item,
+            devices: nextDevices,
+            railCount: railCountValue,
+            breakers: railDevices.length,
+            linesCount: railDevices.length,
+            wires: (item.wires ?? []).filter(
+              (wire) =>
+                ids.has(wire.from.deviceId) && ids.has(wire.to.deviceId),
+            ),
+          };
+          void persistPanel(next).catch((error) => console.error(error));
+          return next;
+        }),
+      );
+    },
+    [activePanelId],
+  );
+
   const assessPanelSafety = useCallback(
     (payload: {
       phases: "1" | "3";
@@ -2324,6 +2355,9 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
                 onUpdateDeviceCharacteristic={updateDeviceCharacteristic}
                 onUpdateDeviceIdentity={updateDeviceIdentity}
                 onUpdateWires={sharedPreview ? undefined : updatePanelWires}
+                onUpdateDevices={
+                  sharedPreview ? undefined : updatePanelDevices
+                }
                 onAssessSafety={assessPanelSafety}
                 onCallMaster={startCallMaster}
                 devices={devices ?? undefined}

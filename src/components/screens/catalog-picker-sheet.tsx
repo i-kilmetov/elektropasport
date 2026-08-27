@@ -17,6 +17,8 @@ import {
   type CatalogProduct,
 } from "@/lib/device-catalog";
 import { deviceTypeGuide, type DeviceGuideEntry } from "@/lib/panel-device-guide";
+import { DEVICE_TYPE_OPTIONS } from "@/lib/manufacturer-brands";
+import { hapticImpact } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
 import type { DeviceType } from "@/types";
 
@@ -31,18 +33,35 @@ export function CatalogPickerSheet({
   type,
   open,
   onClose,
+  onPick,
+  allowTypeSwitch = false,
+  title: titleProp,
 }: {
   type: DeviceType | null;
   open: boolean;
   onClose: () => void;
+  onPick?: (product: CatalogProduct) => void;
+  allowTypeSwitch?: boolean;
+  title?: string;
 }) {
-  const category = type ? deviceTypeToCategory(type) : null;
+  const [pickedType, setPickedType] = useState<DeviceType | null>(type);
+  const category = pickedType ? deviceTypeToCategory(pickedType) : null;
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [brand, setBrand] = useState("all");
   const [modules, setModules] = useState<number | "all">("all");
   const [poles, setPoles] = useState("all");
   const [search, setSearch] = useState("");
   const [liveCatalog, setLiveCatalog] = useState<CatalogProduct[] | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    setPickedType(type);
+    setSearch("");
+    setBrand("all");
+    setModules("all");
+    setPoles("all");
+    setFiltersOpen(false);
+  }, [open, type]);
 
   useEffect(() => {
     if (!open || !category) return;
@@ -85,11 +104,12 @@ export function CatalogPickerSheet({
     return filterCatalogProducts(category, active, pool).slice(0, 80);
   }, [category, brand, modules, poles, search, pool]);
 
-  const title = type ? guideTitle(type) : "Каталог";
+  const title =
+    titleProp ?? (pickedType ? guideTitle(pickedType) : "Добавить прибор");
 
   return (
     <AnimatePresence>
-      {open && type && category && (
+      {open && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -123,7 +143,9 @@ export function CatalogPickerSheet({
             </div>
 
             <div className="border-b border-black/[0.06] px-5 py-3">
-              <div className="flex gap-2">
+              {pickedType ? (
+                <>
+                  <div className="flex gap-2">
                 <input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
@@ -200,10 +222,47 @@ export function CatalogPickerSheet({
                   </label>
                 </div>
               )}
+                </>
+              ) : (
+                <p className="text-[13px] text-zinc-500">
+                  Сначала выберите тип прибора
+                </p>
+              )}
             </div>
 
             <div className="flex-1 overflow-y-auto px-5 py-4">
-              {products.length === 0 ? (
+              {(allowTypeSwitch || !pickedType) && (
+                <div className="mb-4 flex flex-wrap gap-2">
+                  {DEVICE_TYPE_OPTIONS.map((option) => {
+                    const active = pickedType === option.type;
+                    return (
+                      <button
+                        key={option.type}
+                        type="button"
+                        onClick={() => {
+                          hapticImpact("light");
+                          setPickedType(option.type);
+                          setBrand("all");
+                          setSearch("");
+                        }}
+                        className={cn(
+                          "rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors",
+                          active
+                            ? "bg-zinc-900 text-white"
+                            : "bg-zinc-100 text-zinc-600",
+                        )}
+                      >
+                        {option.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              {!pickedType ? (
+                <p className="py-8 text-center text-[14px] text-zinc-500">
+                  Выберите тип прибора
+                </p>
+              ) : products.length === 0 ? (
                 <p className="py-8 text-center text-[14px] text-zinc-500">
                   Ничего не найдено. Измените фильтры.
                 </p>
@@ -219,41 +278,61 @@ export function CatalogPickerSheet({
                       0,
                       4,
                     );
+                    const cardBody = (
+                      <>
+                        <CatalogProductThumb
+                          device={preview}
+                          brand={
+                            <DeviceFaceIdentityMark
+                              series={product.series}
+                              brandKey={product.brandKey}
+                              brand={product.brand}
+                            />
+                          }
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="text-[14px] font-semibold text-zinc-900">
+                            {product.displayName}
+                          </div>
+                          <div className="mt-0.5 text-[12px] text-zinc-500">
+                            {product.article} · {product.brand}
+                          </div>
+                          <dl className="mt-2 space-y-1">
+                            {specs.map(([key, value]) => (
+                              <div
+                                key={key}
+                                className="flex gap-2 text-[11px] leading-snug"
+                              >
+                                <dt className="shrink-0 text-zinc-400">
+                                  {key}:
+                                </dt>
+                                <dd className="text-zinc-600">{value}</dd>
+                              </div>
+                            ))}
+                          </dl>
+                        </div>
+                      </>
+                    );
                     return (
                       <li key={product.id}>
-                        <GlassCard className="flex gap-3 p-3">
-                          <CatalogProductThumb
-                            device={preview}
-                            brand={
-                              <DeviceFaceIdentityMark
-                                series={product.series}
-                                brandKey={product.brandKey}
-                                brand={product.brand}
-                              />
-                            }
-                          />
-                          <div className="min-w-0 flex-1">
-                            <div className="text-[14px] font-semibold text-zinc-900">
-                              {product.displayName}
-                            </div>
-                            <div className="mt-0.5 text-[12px] text-zinc-500">
-                              {product.article} · {product.brand}
-                            </div>
-                            <dl className="mt-2 space-y-1">
-                              {specs.map(([key, value]) => (
-                                <div
-                                  key={key}
-                                  className="flex gap-2 text-[11px] leading-snug"
-                                >
-                                  <dt className="shrink-0 text-zinc-400">
-                                    {key}:
-                                  </dt>
-                                  <dd className="text-zinc-600">{value}</dd>
-                                </div>
-                              ))}
-                            </dl>
-                          </div>
-                        </GlassCard>
+                        {onPick ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              hapticImpact("light");
+                              onPick(product);
+                            }}
+                            className="w-full text-left"
+                          >
+                            <GlassCard className="flex gap-3 p-3 transition-colors hover:bg-zinc-50">
+                              {cardBody}
+                            </GlassCard>
+                          </button>
+                        ) : (
+                          <GlassCard className="flex gap-3 p-3">
+                            {cardBody}
+                          </GlassCard>
+                        )}
                       </li>
                     );
                   })}

@@ -8,6 +8,7 @@ import {
   useState,
   type Dispatch,
   type PointerEvent,
+  type ReactNode,
   type SetStateAction,
 } from "react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -20,6 +21,7 @@ import {
   ImageIcon,
   MoreHorizontal,
   Pencil,
+  Plus,
   Shield,
   Trash2,
   Zap,
@@ -34,9 +36,12 @@ import {
 } from "@/components/icons/supply-cable";
 import {
   DeviceFace,
+  DeviceFaceStatic,
   DeviceStatusBar,
   DEVICE_GAP_PX,
   MODULE_PX,
+  BODY_HEIGHT_PX,
+  deviceFaceHeight,
 } from "@/components/icons/device-face";
 import {
   findTerminalAtPoint,
@@ -82,18 +87,23 @@ import {
   terminalKey,
   wireConnectsSamePair,
 } from "@/lib/panel-wires";
-import { hapticContextMenu, hapticImpact } from "@/lib/haptics";
+import { hapticContextMenu, hapticImpact, hapticNotification } from "@/lib/haptics";
 import {
   analyzePanelSafety,
   computePanelSafetyScore,
 } from "@/lib/safety-score";
+import { CatalogPickerSheet } from "@/components/screens/catalog-picker-sheet";
 import { PanelDeviceGuideSection } from "@/components/screens/panel-device-guide-section";
+import { useRailEdit } from "@/components/scheme/use-rail-edit";
+import { productToDevice, type CatalogProduct } from "@/lib/device-catalog";
 import { StickerDesigner } from "@/components/screens/sticker-designer";
 import {
   deviceModules,
+  deriveRailCount,
   groupDevicesByRail,
   railModuleTotal,
 } from "@/lib/panel-rails";
+import { appendDevice, nextDeviceId } from "@/lib/panel-edit";
 import {
   DEVICE_TYPE_OPTIONS,
   getManufacturerBrand,
@@ -163,21 +173,31 @@ function DeviceBlock({
   showTerminals,
   highlightTerminalKey,
   onSelect,
+  onPressStart,
   onTerminalPointerDown,
   caption,
   loadMismatch = false,
+  editing = false,
+  jiggling = false,
+  lifted = false,
+  onDelete,
 }: {
   device: Device;
   selected: boolean;
   showTerminals: boolean;
   highlightTerminalKey?: string | null;
   onSelect: (clientY: number) => void;
+  onPressStart?: (event: PointerEvent<HTMLButtonElement>) => void;
   onTerminalPointerDown?: (
     terminal: { deviceId: number; side: "top" | "bottom"; index: number },
     event: PointerEvent<HTMLButtonElement>,
   ) => void;
   caption?: string;
   loadMismatch?: boolean;
+  editing?: boolean;
+  jiggling?: boolean;
+  lifted?: boolean;
+  onDelete?: () => void;
 }) {
   const modules = deviceModules(device);
   const width = modules * MODULE_PX;
@@ -193,9 +213,22 @@ function DeviceBlock({
     (storedLabel && !isAutoRoleCircuitLabel(device.type, storedLabel)
       ? storedLabel
       : undefined);
+  const jiggleClass =
+    jiggling && !lifted
+      ? `panel-jiggle panel-jiggle-${["a", "b", "c"][Math.abs(device.id) % 3]}`
+      : undefined;
 
   return (
-    <div className="flex flex-col items-stretch" style={{ width, flex: "none" }}>
+    <motion.div
+      layout={!lifted}
+      transition={{ type: "spring", stiffness: 520, damping: 38 }}
+      className="flex flex-col items-stretch"
+      style={{
+        width,
+        flex: "none",
+        visibility: lifted ? "hidden" : "visible",
+      }}
+    >
       <span
         className={cn(
           "mb-1 line-clamp-1 min-h-[14px] text-left text-[10px] font-medium leading-tight",
@@ -204,17 +237,32 @@ function DeviceBlock({
       >
         {confident ? typeShort[device.type] : "·"}
       </span>
-      <div className="relative">
+      <div className={cn("relative", jiggleClass)}>
+        {editing && onDelete && (
+          <button
+            type="button"
+            aria-label={`Удалить ${device.name}`}
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={(event) => {
+              event.stopPropagation();
+              onDelete();
+            }}
+            className="absolute -left-1.5 -top-1.5 z-20 flex h-5 w-5 items-center justify-center rounded-full bg-zinc-400 text-white shadow-sm"
+          >
+            <X className="h-3 w-3" strokeWidth={3} />
+          </button>
+        )}
         <DeviceFace
           device={device}
           modules={modules}
-          selected={selected}
+          selected={selected && !editing}
           showTerminals={showTerminals}
-          interactiveTerminals={showTerminals}
+          interactiveTerminals={showTerminals && !editing}
           highlightTerminalKey={highlightTerminalKey}
           showDetails={confident}
           onSelect={(event) => onSelect(event.clientY)}
-          onTerminalPointerDown={onTerminalPointerDown}
+          onPressStart={onPressStart}
+          onTerminalPointerDown={editing ? undefined : onTerminalPointerDown}
           brand={
             confident && (device.manufacturer || device.brandKey) ? (
               <DeviceFaceIdentityMark
@@ -225,7 +273,7 @@ function DeviceBlock({
             ) : undefined
           }
         />
-        {loadMismatch && (
+        {loadMismatch && !editing && (
           <span
             className="pointer-events-none absolute -right-1 -top-1 z-[6] flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-white shadow-sm"
             title="Нагрузка не соответствует номиналу"
@@ -240,7 +288,31 @@ function DeviceBlock({
           {bottomCaption}
         </span>
       )}
-    </div>
+    </motion.div>
+  );
+}
+
+function RailInsertGap({
+  modules,
+  showTerminals,
+}: {
+  modules: number;
+  showTerminals: boolean;
+}) {
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, scale: 0.92 }}
+      animate={{ opacity: 1, scale: 1 }}
+      className="flex flex-col items-stretch"
+      style={{ width: modules * MODULE_PX, flex: "none" }}
+    >
+      <span className="mb-1 min-h-[14px]" />
+      <div
+        className="rounded-[8px] border-2 border-dashed border-zinc-300 bg-zinc-100/80"
+        style={{ height: deviceFaceHeight(showTerminals) }}
+      />
+    </motion.div>
   );
 }
 
@@ -1605,6 +1677,7 @@ export function SchemeScreen({
   onUpdateDeviceIdentity,
   onUpdateDeviceSticker,
   onUpdateWires,
+  onUpdateDevices,
   onAssessSafety,
   onCallMaster,
   devices: devicesProp,
@@ -1653,6 +1726,7 @@ export function SchemeScreen({
     patch: { circuitLabel?: string; stickerIcon?: string },
   ) => void;
   onUpdateWires?: (wires: PanelWire[]) => void;
+  onUpdateDevices?: (devices: Device[], railCount?: number) => void;
   onAssessSafety?: (payload: {
     phases: "1" | "3";
     powerKw: string;
@@ -1864,7 +1938,30 @@ export function SchemeScreen({
     () => groupDevicesByRail(allRailDevices, railCount),
     [allRailDevices, railCount],
   );
-  const numRails = rails.length;
+  const commitDevices = useCallback(
+    (nextRail: Device[]) => {
+      const buses = devices.filter(
+        (device) => device.type === "pe_bus" || device.type === "n_bus",
+      );
+      onUpdateDevices?.([...nextRail, ...buses], deriveRailCount(nextRail));
+    },
+    [devices, onUpdateDevices],
+  );
+  const railEdit = useRailEdit({
+    devices: allRailDevices,
+    railCount,
+    enabled: !sharedPreview && Boolean(onUpdateDevices),
+    onCommit: commitDevices,
+  });
+  const [addPickerOpen, setAddPickerOpen] = useState(false);
+  const boardRails = railEdit.displayRails;
+  const numRails = boardRails.length;
+
+  useEffect(() => {
+    if (!railEdit.editing) return;
+    setSelectedId(null);
+    setSheetAnchorY(null);
+  }, [railEdit.editing]);
 
   useEffect(() => {
     if (canUseTerminals) return;
@@ -2044,10 +2141,11 @@ export function SchemeScreen({
     }
   };
   const widestRailModules = Math.max(
-    ...rails.map((railDevices) => railModuleTotal(railDevices)),
+    ...boardRails.map((railDevices) => railModuleTotal(railDevices)),
+    railEdit.dragging ? deviceModules(railEdit.dragging) : 1,
     1,
   );
-  const widestRailDevices = Math.max(...rails.map((rail) => rail.length), 1);
+  const widestRailDevices = Math.max(...boardRails.map((rail) => rail.length), 1);
   const railMinWidth = Math.max(
     320,
     widestRailModules * MODULE_PX +
@@ -2056,6 +2154,10 @@ export function SchemeScreen({
   );
 
   const handleBack = () => {
+    if (railEdit.editing) {
+      railEdit.exitEdit();
+      return;
+    }
     if (sharedPreview) {
       if (!onSaveShared) {
         onBack();
@@ -2520,7 +2622,22 @@ export function SchemeScreen({
               )}
               style={{ minWidth: railMinWidth }}
             >
-            <div className="mb-3 flex items-center justify-end">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              {railEdit.editing && !sharedPreview ? (
+                <button
+                  type="button"
+                  onClick={railEdit.exitEdit}
+                  className="rounded-full bg-zinc-900 px-3.5 py-1.5 text-[13px] font-semibold text-white"
+                >
+                  Готово
+                </button>
+              ) : sharedPreview ? (
+                <span />
+              ) : (
+                <span className="text-[12px] text-zinc-400">
+                  Удерживайте прибор, чтобы изменить схему
+                </span>
+              )}
               <span className="text-[12px] text-zinc-400">
                 {allRailDevices.length} приборов
               </span>
@@ -2542,11 +2659,107 @@ export function SchemeScreen({
                   }
                 />
               )}
-              {rails.map((railDevices, railIdx) => {
-                const railModules = railModuleTotal(railDevices);
+              {boardRails.map((railDevices, railIdx) => {
+                const railModules =
+                  railModuleTotal(railDevices) +
+                  (railEdit.dropSlot?.rail === railIdx &&
+                  !railEdit.dropSlot.isNewRail &&
+                  railEdit.dragging
+                    ? deviceModules(railEdit.dragging)
+                    : 0);
+                const isLastRail = railIdx === boardRails.length - 1;
+                const nodes: ReactNode[] = [];
+                railDevices.forEach((device, deviceIdx) => {
+                  if (
+                    railEdit.dropSlot &&
+                    !railEdit.dropSlot.isNewRail &&
+                    railEdit.dropSlot.rail === railIdx &&
+                    railEdit.dropSlot.index === deviceIdx &&
+                    railEdit.dragging
+                  ) {
+                    nodes.push(
+                      <RailInsertGap
+                        key={`gap-${railIdx}-${deviceIdx}`}
+                        modules={deviceModules(railEdit.dragging)}
+                        showTerminals={showTerminals && canUseTerminals}
+                      />,
+                    );
+                  }
+                  nodes.push(
+                    <DeviceBlock
+                      key={device.id}
+                      device={device}
+                      selected={selectedId === device.id}
+                      showTerminals={showTerminals && canUseTerminals}
+                      highlightTerminalKey={
+                        hoverTerminalKey ??
+                        (wireDraft ? terminalKey(wireDraft.from) : null)
+                      }
+                      editing={railEdit.editing}
+                      jiggling={railEdit.editing}
+                      lifted={railEdit.draggingId === device.id}
+                      onDelete={
+                        sharedPreview || !onUpdateDevices
+                          ? undefined
+                          : () => railEdit.deleteDevice(device.id)
+                      }
+                      onPressStart={
+                        sharedPreview || !onUpdateDevices
+                          ? undefined
+                          : (event) => {
+                              const face =
+                                event.currentTarget.parentElement?.getBoundingClientRect() ??
+                                event.currentTarget.getBoundingClientRect();
+                              railEdit.onDevicePointerDown(device, event, face);
+                            }
+                      }
+                      onSelect={(clientY) => {
+                        if (wireDraft || railEdit.editing) return;
+                        if (railEdit.consumeClick()) return;
+                        setSheetAnchorY(clientY);
+                        setSelectedId(device.id);
+                      }}
+                      onTerminalPointerDown={
+                        sharedPreview ||
+                        !canUseTerminals ||
+                        railEdit.editing
+                          ? undefined
+                          : handleTerminalPointerDown
+                      }
+                      caption={
+                        device.type === "rcd"
+                          ? (rcdSchemeCaption(
+                              device,
+                              allRailDevices,
+                              wires,
+                            ) ?? undefined)
+                          : (defaultDeviceCircuitLabel(
+                              device,
+                              allRailDevices,
+                            ) ?? undefined)
+                      }
+                      loadMismatch={loadMismatchIds.has(device.id)}
+                    />,
+                  );
+                });
+                if (
+                  railEdit.dropSlot &&
+                  !railEdit.dropSlot.isNewRail &&
+                  railEdit.dropSlot.rail === railIdx &&
+                  railEdit.dropSlot.index === railDevices.length &&
+                  railEdit.dragging
+                ) {
+                  nodes.push(
+                    <RailInsertGap
+                      key={`gap-${railIdx}-end`}
+                      modules={deviceModules(railEdit.dragging)}
+                      showTerminals={showTerminals && canUseTerminals}
+                    />,
+                  );
+                }
                 return (
                   <div key={railIdx} className={railIdx > 0 ? "mt-5" : ""}>
-                    {numRails > 1 && (
+                    {(numRails > 1 || railEdit.editing) && (
                       <div className="mb-1.5 flex items-center justify-between">
                         <span className="text-[11px] font-medium text-zinc-400">
                           Ряд {railIdx + 1}
@@ -2558,48 +2771,75 @@ export function SchemeScreen({
                     )}
                     <div className="mb-2 h-2 rounded-full bg-gradient-to-r from-zinc-500 via-zinc-300 to-zinc-500 shadow-inner" />
                     <div
-                      className="mb-2 flex items-start"
+                      data-rail-drop={railIdx}
+                      className="mb-2 flex min-h-[40px] items-start"
                       style={{ gap: DEVICE_GAP_PX }}
                     >
-                      {railDevices.map((device, deviceIdx) => (
-                        <DeviceBlock
-                          key={`${device.id}-${deviceIdx}`}
-                          device={device}
-                          selected={selectedId === device.id}
-                          showTerminals={showTerminals && canUseTerminals}
-                          highlightTerminalKey={
-                            hoverTerminalKey ??
-                            (wireDraft ? terminalKey(wireDraft.from) : null)
-                          }
-                          onSelect={(clientY) => {
-                            if (wireDraft) return;
-                            setSheetAnchorY(clientY);
-                            setSelectedId(device.id);
+                      {nodes}
+                      {isLastRail && !sharedPreview && onUpdateDevices && (
+                        <button
+                          type="button"
+                          aria-label="Добавить прибор"
+                          onClick={() => {
+                            hapticImpact("light");
+                            setAddPickerOpen(true);
                           }}
-                          onTerminalPointerDown={
-                            sharedPreview || !canUseTerminals
-                              ? undefined
-                              : handleTerminalPointerDown
-                          }
-                          caption={
-                            device.type === "rcd"
-                              ? (rcdSchemeCaption(
-                                  device,
-                                  allRailDevices,
-                                  wires,
-                                ) ?? undefined)
-                              : (defaultDeviceCircuitLabel(
-                                  device,
-                                  allRailDevices,
-                                ) ?? undefined)
-                          }
-                          loadMismatch={loadMismatchIds.has(device.id)}
-                        />
-                      ))}
+                          className="mt-[18px] flex shrink-0 items-center justify-center rounded-[8px] border-2 border-dashed border-zinc-300 bg-white text-zinc-500 transition-colors hover:border-zinc-400 hover:text-zinc-800"
+                          style={{
+                            width: MODULE_PX,
+                            height: BODY_HEIGHT_PX,
+                          }}
+                        >
+                          <Plus className="h-5 w-5" strokeWidth={2.25} />
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
               })}
+              {railEdit.dragging && railEdit.canAddRail && (
+                <div
+                  data-new-rail-zone={railEdit.newRailIndex}
+                  className={cn(
+                    "mt-4 rounded-[16px] border-2 border-dashed px-3 py-4 transition-colors",
+                    railEdit.dropSlot?.isNewRail
+                      ? "border-zinc-900 bg-zinc-900/[0.06]"
+                      : "border-zinc-200 bg-zinc-50",
+                  )}
+                >
+                  <div className="mb-2 flex items-center justify-between">
+                    <span
+                      className={cn(
+                        "text-[12px] font-semibold",
+                        railEdit.dropSlot?.isNewRail
+                          ? "text-zinc-900"
+                          : "text-zinc-500",
+                      )}
+                    >
+                      {railEdit.dropSlot?.isNewRail
+                        ? "Отпустите — появится новая рейка"
+                        : "Перетащите сюда, чтобы создать рейку"}
+                    </span>
+                    <span className="text-[11px] text-zinc-400">
+                      Ряд {railEdit.newRailIndex + 1}
+                    </span>
+                  </div>
+                  <div className="mb-2 h-2 rounded-full bg-gradient-to-r from-zinc-400 via-zinc-200 to-zinc-400" />
+                  <div className="flex items-start" style={{ gap: DEVICE_GAP_PX }}>
+                    {railEdit.dropSlot?.isNewRail && railEdit.dragging ? (
+                      <RailInsertGap
+                        modules={deviceModules(railEdit.dragging)}
+                        showTerminals={showTerminals && canUseTerminals}
+                      />
+                    ) : (
+                      <div
+                        className="rounded-[8px] border border-dashed border-zinc-200"
+                        style={{ width: MODULE_PX * 3, height: 48 }}
+                      />
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </GlassCard>
           </div>
@@ -2668,6 +2908,65 @@ export function SchemeScreen({
       </AnimatePresence>
 
       <SchemeOnboardingTour open={tourOpen} onClose={finishSchemeTour} />
+
+      <CatalogPickerSheet
+        type={null}
+        open={addPickerOpen}
+        allowTypeSwitch
+        title="Добавить прибор"
+        onClose={() => setAddPickerOpen(false)}
+        onPick={(product: CatalogProduct) => {
+          const device = {
+            ...productToDevice(product, {
+              id: nextDeviceId(devices),
+              position: 0,
+              status: "verified",
+            }),
+            confidence: 100,
+          };
+          const next = appendDevice(allRailDevices, device);
+          setAddPickerOpen(false);
+          if (!next) {
+            hapticImpact("rigid");
+            return;
+          }
+          hapticNotification("success");
+          commitDevices(next);
+          railEdit.enterEdit();
+        }}
+      />
+
+      {railEdit.dragging && railEdit.pointer && (
+        <Portal>
+          <div
+            className="pointer-events-none fixed z-[180] origin-top-left"
+            style={{
+              left: railEdit.pointer.x - railEdit.grab.x,
+              top: railEdit.pointer.y - railEdit.grab.y,
+              transform: "scale(1.08)",
+              filter: "drop-shadow(0 16px 28px rgba(17,17,19,0.28))",
+            }}
+          >
+            <DeviceFaceStatic
+              device={railEdit.dragging}
+              modules={deviceModules(railEdit.dragging)}
+              showTerminals={showTerminals && canUseTerminals}
+              showDetails={isDeviceDetailsConfident(railEdit.dragging)}
+              brand={
+                isDeviceDetailsConfident(railEdit.dragging) &&
+                (railEdit.dragging.manufacturer ||
+                  railEdit.dragging.brandKey) ? (
+                  <DeviceFaceIdentityMark
+                    brandKey={railEdit.dragging.brandKey}
+                    brand={railEdit.dragging.manufacturer}
+                    series={railEdit.dragging.series}
+                  />
+                ) : undefined
+              }
+            />
+          </div>
+        </Portal>
+      )}
 
       <AnimatePresence>
         {stickerBlockedOpen && (

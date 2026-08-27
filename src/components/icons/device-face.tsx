@@ -639,6 +639,7 @@ export function DeviceFace({
   selected,
   showTerminals,
   onSelect,
+  onPressStart,
   brand,
   showDetails = true,
   interactiveTerminals = false,
@@ -650,6 +651,7 @@ export function DeviceFace({
   selected: boolean;
   showTerminals: boolean;
   onSelect: (event: MouseEvent<HTMLButtonElement>) => void;
+  onPressStart?: (event: PointerEvent<HTMLButtonElement>) => void;
   brand?: ReactNode;
   showDetails?: boolean;
   interactiveTerminals?: boolean;
@@ -677,12 +679,13 @@ export function DeviceFace({
     >
       <button
         type="button"
+        onPointerDown={onPressStart}
         onClick={onSelect}
         className="absolute inset-x-0 z-[4] p-0"
         style={{
           top: showTerminals ? TERMINAL_HEIGHT_PX : 0,
           bottom: showTerminals ? TERMINAL_HEIGHT_PX : 0,
-          touchAction: "manipulation",
+          touchAction: onPressStart ? "none" : "manipulation",
         }}
         aria-label={device.name}
       />

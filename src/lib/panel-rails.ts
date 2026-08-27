@@ -3,6 +3,8 @@ import type { PanelObject } from "@/types";
 
 /** Standard DIN rail width in modules (typical residential panel). */
 export const MAX_MODULES_PER_RAIL = 18;
+/** Typical residential board: 1–4 DIN rows. */
+export const MAX_RAILS = 4;
 
 /** Rail devices only — same basis as scheme / game (no PE/N bus bars). */
 export function isRailDevice(device: Device): boolean {
@@ -88,12 +90,15 @@ export function groupDevicesByRail(
     list.reduce((max, device) => Math.max(max, device.rail ?? 0), 0) + 1;
   const numRails = Math.max(
     1,
-    Math.min(4, Math.max(railCount ?? 0, maxRail)),
+    Math.min(MAX_RAILS, Math.max(railCount ?? 0, maxRail)),
   );
   const rails: Device[][] = Array.from({ length: numRails }, () => []);
   for (const device of list) {
     const rail = Math.min(Math.max(device.rail ?? 0, 0), numRails - 1);
     rails[rail].push(device);
+  }
+  for (const rail of rails) {
+    rail.sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
   }
   return rails;
 }
@@ -104,5 +109,5 @@ export function deriveRailCount(devices?: Device[] | null): number {
   if (list.length === 0) return 1;
   const maxRail =
     list.reduce((max, device) => Math.max(max, device.rail ?? 0), 0) + 1;
-  return Math.min(4, Math.max(1, maxRail));
+  return Math.min(MAX_RAILS, Math.max(1, maxRail));
 }

@@ -164,6 +164,45 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   background-color: transparent !important;
 }
 
+/* iOS home-screen jiggle while editing panel devices. */
+@keyframes panel-jiggle {
+  0% {
+    transform: rotate(-1.15deg);
+  }
+  25% {
+    transform: rotate(1.2deg);
+  }
+  50% {
+    transform: rotate(-1.05deg);
+  }
+  75% {
+    transform: rotate(1.1deg);
+  }
+  100% {
+    transform: rotate(-1.15deg);
+  }
+}
+
+.panel-jiggle {
+  animation: panel-jiggle 0.26s ease-in-out infinite;
+  transform-origin: 50% 42%;
+  will-change: transform;
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+
+.panel-jiggle-a {
+  animation-delay: -0.04s;
+}
+
+.panel-jiggle-b {
+  animation-delay: -0.11s;
+}
+
+.panel-jiggle-c {
+  animation-delay: -0.19s;
+}
+
 /* Phones: block landscape use when OS won't lock orientation. */
 @media screen and (orientation: landscape) and (max-height: 500px) {
   body::after {
