@@ -12,45 +12,38 @@ import {
 } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
-import { GlassCard } from "@/components/ui/glass-card";
 import { hapticNotification } from "@/lib/haptics";
 import {
   buildMasterReferralUrl,
   MASTER_REFERRAL_SHARE_TEXT,
   shareViaTelegram,
 } from "@/lib/panel-share";
-import { cn } from "@/lib/utils";
 
 const workTypes = [
   {
     icon: MessageCircle,
     title: "Консультации онлайн",
     text: "Разбираем ситуацию по схеме щитка, фото и описанию — в чате или по телефону.",
-    accent: "text-[#111113] bg-white border border-black/8",
   },
   {
     icon: Headphones,
     title: "Поддержка по телефону",
     text: "Помогаете пользователю понять, что происходит в щитке и что делать дальше.",
-    accent: "text-[#111113] bg-white border border-black/8",
   },
   {
     icon: MapPin,
     title: "Выезд по заявке",
     text: "Оценка текущего состояния, схемы электрики, прозвонка линий и рекомендации на объекте.",
-    accent: "text-[#111113] bg-white border border-black/8",
   },
   {
     icon: Wrench,
     title: "Сборка щитков",
     text: "Подбор и сборка щитка под задачи объекта — от квартиры до частного дома.",
-    accent: "text-[#111113] bg-white border border-black/8",
   },
   {
     icon: Hammer,
     title: "Монтаж и подключение",
     text: "Установка щитка, прокладка линий, замена автоматов, УЗО и других устройств.",
-    accent: "text-[#111113] bg-white border border-black/8",
   },
 ] as const;
 
@@ -73,106 +66,103 @@ export function BecomeMasterScreen({
       initial={{ opacity: 0, x: 40 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -40 }}
-      className="flex min-h-dvh flex-col px-5 pb-8 pt-[max(1.25rem,env(safe-area-inset-top))]"
+      className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-[#111113] text-white"
     >
-      <header className="mb-6 flex items-center gap-3">
+      <div className="mx-auto flex min-h-0 w-full max-w-xl flex-1 flex-col overflow-hidden px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-[max(0.75rem,env(safe-area-inset-top))]">
+      <header className="mb-6 shrink-0">
         <button
           type="button"
           onClick={onBack}
-          className="flex h-11 w-11 items-center justify-center rounded-full border border-black/8 bg-zinc-100 text-zinc-900"
+          className="flex h-11 w-11 items-center justify-center rounded-full border border-white/12 bg-white/5 text-white"
           aria-label="Назад"
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <h1 className="text-[20px] font-semibold text-zinc-900">Стать мастером</h1>
       </header>
 
-      <div className="flex-1 space-y-4 overflow-y-auto pb-4">
-        <div>
-          <h2 className="text-[24px] font-bold tracking-tight text-zinc-900">
-            Присоединяйся к команде
-          </h2>
-          <BrandLogo className="mt-4 h-9" />
-          <p className="mt-4 text-[15px] leading-relaxed text-zinc-600">
+      <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-none pb-4">
+        <div className="pt-2">
+          <h1 className="text-[28px] font-bold tracking-tight text-white sm:text-[32px]">
+            Переходи на сторону
+          </h1>
+          <BrandLogo className="mt-4 h-12 sm:h-14" onDark />
+          <p className="mt-5 max-w-[34ch] text-[15px] leading-relaxed text-white/55">
             Мы ищем сильных специалистов, которые аккуратно работают с
             электрикой, умеют объяснять простым языком и отвечают за результат.
-            У нас есть реальные задачи — от консультаций до выезда и монтажа.
           </p>
         </div>
 
         <div>
-          <h3 className="mb-3 text-[15px] font-semibold text-zinc-900">
+          <h2 className="mb-3 text-[15px] font-semibold text-white">
             Какие задачи бывают
-          </h3>
-          <div className="space-y-3">
+          </h2>
+          <div className="space-y-2.5">
             {workTypes.map((item, i) => (
               <motion.div
                 key={item.title}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.05 * i }}
+                transition={{ delay: 0.04 * i }}
+                className="flex gap-3 rounded-[20px] border border-white/8 bg-white/[0.04] p-4"
               >
-                <GlassCard className="flex gap-3 p-4">
-                  <span
-                    className={cn(
-                      "flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px]",
-                      item.accent,
-                    )}
-                  >
-                    <item.icon className="h-5 w-5" />
-                  </span>
-                  <div>
-                    <div className="text-[15px] font-semibold text-zinc-900">
-                      {item.title}
-                    </div>
-                    <p className="mt-1 text-[13px] leading-relaxed text-zinc-500">
-                      {item.text}
-                    </p>
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] bg-[#D3DA00]/15 text-[#D3DA00]">
+                  <item.icon className="h-5 w-5" />
+                </span>
+                <div>
+                  <div className="text-[15px] font-semibold text-white">
+                    {item.title}
                   </div>
-                </GlassCard>
+                  <p className="mt-1 text-[13px] leading-relaxed text-white/45">
+                    {item.text}
+                  </p>
+                </div>
               </motion.div>
             ))}
           </div>
         </div>
 
-        <GlassCard className="flex gap-3 bg-white p-4">
-          <span className="mt-0.5 text-[#111113]">
+        <div className="flex gap-3 rounded-[20px] border border-white/8 bg-white/[0.04] p-4">
+          <span className="mt-0.5 text-[#D3DA00]">
             <GraduationCap className="h-5 w-5" />
           </span>
           <div>
-            <div className="mb-1 text-[15px] font-semibold text-zinc-900">
+            <div className="mb-1 text-[15px] font-semibold text-white">
               Обязательное условие
             </div>
-            <p className="text-[13px] leading-relaxed text-zinc-500">
+            <p className="text-[13px] leading-relaxed text-white/45">
               Профильное образование и подтверждённая квалификация. Без этого мы
               не подключаем мастеров к заявкам сервиса — это вопрос безопасности
               пользователей.
             </p>
           </div>
-        </GlassCard>
+        </div>
 
-        <GlassCard className="space-y-3 p-4">
-          <h3 className="text-[15px] font-semibold text-zinc-900">
+        <div className="space-y-3 rounded-[20px] border border-white/8 bg-white/[0.04] p-4">
+          <h2 className="text-[15px] font-semibold text-white">
             Как подать заявку
-          </h3>
+          </h2>
           <ol className="space-y-2.5">
             {steps.map((step, i) => (
               <li
                 key={step}
-                className="flex gap-3 text-[14px] leading-relaxed text-zinc-500"
+                className="flex gap-3 text-[14px] leading-relaxed text-white/55"
               >
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-zinc-900 text-[12px] font-semibold text-white">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#D3DA00] text-[12px] font-semibold text-[#111113]">
                   {i + 1}
                 </span>
                 <span className="pt-0.5">{step}</span>
               </li>
             ))}
           </ol>
-        </GlassCard>
+        </div>
       </div>
 
-      <div className="mt-auto space-y-3 pt-2">
-        <Button className="w-full" size="lg" onClick={onConfirm}>
+      <div className="mt-auto shrink-0 space-y-3 pt-3">
+        <Button
+          className="w-full border-0 !bg-[#D3DA00] text-[#111113] shadow-none hover:!bg-[#c8cf00] hover:brightness-100"
+          size="lg"
+          onClick={onConfirm}
+        >
           Отправить заявку
         </Button>
         <button
@@ -186,13 +176,18 @@ export function BecomeMasterScreen({
               hapticNotification("error");
             });
           }}
-          className="w-full text-center text-[15px] font-medium text-zinc-500 underline decoration-zinc-300 underline-offset-4 transition-colors hover:text-zinc-800"
+          className="w-full text-center text-[15px] font-medium text-white/40 underline decoration-white/20 underline-offset-4 transition-colors hover:text-white/70"
         >
           Знаете хорошего электрика? Посоветуйте нам
         </button>
-        <Button className="w-full" variant="secondary" onClick={onBack}>
+        <button
+          type="button"
+          onClick={onBack}
+          className="w-full text-center text-[15px] font-medium text-white/35 transition-colors hover:text-white/60"
+        >
           Не сейчас
-        </Button>
+        </button>
+      </div>
       </div>
     </motion.section>
   );

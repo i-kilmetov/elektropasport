@@ -1936,17 +1936,20 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
     screen === "panel-game" ||
     screen === "no-panel-options" ||
     screen === "no-panel-detail" ||
-    screen === "panel-advantages";
+    screen === "panel-advantages" ||
+    screen === "become-master";
   const wideLayout =
     screen === "objects" ||
     screen === "scheme" ||
     screen === "photo" ||
-    screen === "admin";
+    screen === "admin" ||
+    screen === "become-master";
 
   return (
     <div
       className={cn(
-        "relative w-full bg-[var(--bg)] text-zinc-900",
+        "relative w-full text-zinc-900",
+        screen === "become-master" ? "bg-[#111113]" : "bg-[var(--bg)]",
         fillViewport
           ? "flex h-[var(--app-height,100dvh)] flex-col overflow-hidden overscroll-none"
           : "min-h-[var(--app-height,100dvh)]",
