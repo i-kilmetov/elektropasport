@@ -51,6 +51,7 @@ import {
   type RequestNeedId,
 } from "@/components/screens/request-type-screen";
 import { SchemeScreen } from "@/components/screens/scheme-screen";
+import { SchoolScreen } from "@/components/screens/school-screen";
 import { TelegramAuthScreen } from "@/components/screens/telegram-auth-screen";
 import {
   WaitlistSheet,
@@ -158,9 +159,25 @@ import { useHomeAppliancesEnabled } from "@/hooks/use-home-appliances-enabled";
 import { isProductionLaunchWaitlistHost } from "@/lib/app-env";
 import { cn } from "@/lib/utils";
 
+function isLocalDevHost(): boolean {
+  if (typeof window === "undefined") return false;
+  const host = window.location.hostname;
+  return host === "localhost" || host === "127.0.0.1";
+}
+
+function isSchoolPreviewQuery(): boolean {
+  if (!isLocalDevHost()) return false;
+  try {
+    return new URLSearchParams(window.location.search).get("open") === "school";
+  } catch {
+    return false;
+  }
+}
+
 function isProdLaunchWaitlistClient(): boolean {
   return (
     typeof window !== "undefined" &&
+    !isLocalDevHost() &&
     isProductionLaunchWaitlistHost(window.location.hostname)
   );
 }
@@ -480,6 +497,15 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
       return;
     }
 
+    if (isSchoolPreviewQuery()) {
+      setShowAuthIntro(false);
+      markSplashSeen();
+      setSplashPhase("done");
+      setScreen("school");
+      setOnboardingReady(true);
+      return;
+    }
+
     if (canUseServerAuth()) {
       try {
         sessionStorage.removeItem("ep_intent");
@@ -514,7 +540,7 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
     if (!onboardingReady) return;
     if (isProdLaunchWaitlistClient()) return;
     if (canUseServerAuth() || isTelegramMiniApp()) return;
-    const allowed: AppScreen[] = ["telegram-auth", "research-survey"];
+    const allowed: AppScreen[] = ["telegram-auth", "research-survey", "school"];
     if (!allowed.includes(screen)) {
       setScreen("telegram-auth");
     }
@@ -1929,7 +1955,7 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
     void openSharedPanel(token);
   }, [itemsLoading, onboardingReady, openSharedPanel]);
 
-  if (isProdLaunchWaitlistClient() && !surveyLaunch) {
+  if (isProdLaunchWaitlistClient() && !surveyLaunch && !isSchoolPreviewQuery()) {
     return (
       <BrandLaunchWaitlist bootReady={onboardingReady && !itemsLoading} />
     );
@@ -1939,7 +1965,8 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
     showAuthIntro &&
     !canUseServerAuth() &&
     !isTelegramMiniApp() &&
-    !surveyLaunch
+    !surveyLaunch &&
+    !isSchoolPreviewQuery()
   ) {
     return (
       <BrandAuthIntro
@@ -2154,11 +2181,7 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
                 setMainMenuOpen(false);
                 if (id === "profile") go("profile");
                 if (id === "game") go("panel-game");
-                if (id === "school") {
-                  setMainMenuOpen(false);
-                  setWaitlistKind("school");
-                  return;
-                }
+                if (id === "school") go("school");
                 if (id === "about") go("about-service");
                 if (id === "feedback") go("feedback");
                 if (id === "master") go("become-master");
@@ -2780,6 +2803,9 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
               key="about-service"
               onBack={() => go("objects")}
             />
+          )}
+          {screen === "school" && (
+            <SchoolScreen key="school" onBack={() => go("objects")} />
           )}
           {screen === "panel-game" && (
             <SchemeErrorBoundary

@@ -43,7 +43,7 @@ const items: Array<{
   {
     id: "school",
     title: "Школа",
-    description: "Курсы по электрике с нуля",
+    description: "Три класса: от розетки до щитка",
     icon: GraduationCap,
   },
   {

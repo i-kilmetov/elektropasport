@@ -210,6 +210,7 @@ export type AppScreen =
   | "request-type"
   | "request-details"
   | "about-service"
+  | "school"
   | "panel-game"
   | "profile"
   | "electrical-rules"
