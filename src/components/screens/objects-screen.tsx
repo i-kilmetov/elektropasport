@@ -478,6 +478,85 @@ function ExpandableHomeCard({
   );
 }
 
+const EMPTY_ILLUSTRATION_CLASS =
+  "pointer-events-none h-[min(40dvh,280px)] w-auto max-w-full select-none object-contain lg:h-[min(48dvh,380px)]";
+
+type FramedEmpty = {
+  icon: ReactNode;
+  text: string;
+  framed?: boolean;
+  imageSrc?: string;
+  imageAlt?: string;
+};
+
+function EmptyCartoon({
+  page,
+  panelEmpty,
+  requestEmpty,
+  onPageChange,
+}: {
+  page: 0 | 1;
+  panelEmpty: FramedEmpty;
+  requestEmpty: FramedEmpty;
+  onPageChange: (next: 0 | 1) => void;
+}) {
+  return (
+    <motion.div
+      className="flex min-h-0 w-full flex-1 touch-pan-y flex-col items-center justify-center px-5 py-6 lg:px-10"
+      drag="x"
+      dragDirectionLock
+      dragElastic={0.12}
+      dragConstraints={{ left: 0, right: 0 }}
+      dragMomentum={false}
+      onDragEnd={(_, info: PanInfo) => {
+        const { offset, velocity } = info;
+        const absOffset = Math.abs(offset.x);
+        const committed =
+          absOffset >= SWIPE_DISTANCE ||
+          (absOffset >= SWIPE_MIN_OFFSET &&
+            Math.abs(velocity.x) >= SWIPE_VELOCITY);
+        if (!committed) return;
+        if (offset.x < 0 && page === 0) onPageChange(1);
+        if (offset.x > 0 && page === 1) onPageChange(0);
+      }}
+    >
+      <div className="flex w-full max-w-[320px] flex-col items-center lg:max-w-[420px]">
+        <div className="relative h-[min(40dvh,280px)] w-full lg:h-[min(48dvh,380px)]">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={panelEmpty.imageSrc}
+            alt={page === 0 ? (panelEmpty.imageAlt ?? "") : ""}
+            width={698}
+            height={800}
+            draggable={false}
+            aria-hidden={page !== 0}
+            className={cn(
+              "pointer-events-none absolute inset-0 m-auto h-full w-full select-none object-contain",
+              page === 0 ? "opacity-100" : "opacity-0",
+            )}
+          />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={requestEmpty.imageSrc}
+            alt={page === 1 ? (requestEmpty.imageAlt ?? "") : ""}
+            width={698}
+            height={800}
+            draggable={false}
+            aria-hidden={page !== 1}
+            className={cn(
+              "pointer-events-none absolute inset-0 m-auto h-full w-full select-none object-contain",
+              page === 1 ? "opacity-100" : "opacity-0",
+            )}
+          />
+        </div>
+        <p className="mt-4 min-h-[6.25rem] text-center text-[15px] leading-relaxed text-zinc-600">
+          {page === 0 ? panelEmpty.text : requestEmpty.text}
+        </p>
+      </div>
+    </motion.div>
+  );
+}
+
 function EmptyState({
   icon,
   text,
@@ -500,10 +579,10 @@ function EmptyState({
             <img
               src={imageSrc}
               alt={imageAlt ?? ""}
-              width={800}
+              width={698}
               height={800}
               draggable={false}
-              className="pointer-events-none h-[min(40dvh,280px)] w-auto max-w-full select-none object-contain lg:h-[min(48dvh,380px)]"
+              className={EMPTY_ILLUSTRATION_CLASS}
             />
           ) : null}
           <p className="mt-4 min-h-[6.25rem] text-center text-[15px] leading-relaxed text-zinc-600">
@@ -646,6 +725,8 @@ export function ObjectsScreen({
     imageSrc: "/empty-states/requests.png",
     imageAlt: "Мастер пришёл помочь с электрикой",
   };
+  const bothEmpty =
+    !loading && panels.length === 0 && requests.length === 0;
 
   const actionsItem = items.find((item) => item.id === actionsItemId);
   const renameItem = items.find((item) => item.id === renameItemId);
@@ -966,6 +1047,15 @@ export function ObjectsScreen({
         </p>
       )}
 
+      {bothEmpty ? (
+        <EmptyCartoon
+          page={page}
+          panelEmpty={panelEmpty}
+          requestEmpty={requestEmpty}
+          onPageChange={settlePage}
+        />
+      ) : (
+        <>
       <div className="hidden min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-none px-10 pb-10 lg:flex lg:flex-col">
         {page === 0
           ? renderList(panels, panelEmpty)
@@ -1003,6 +1093,8 @@ export function ObjectsScreen({
           </div>
         </motion.div>
       </div>
+        </>
+      )}
 
       <div className="shrink-0 border-t border-black/[0.06] bg-[var(--bg)] px-5 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))] lg:hidden">
         {page === 0 ? (
