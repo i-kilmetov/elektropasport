@@ -44,6 +44,14 @@ import {
   applianceKindLabel,
   formatAppliancePower,
 } from "@/lib/home-appliances";
+import {
+  markHomeItemDeleted,
+  persistDeleteInstallRequest,
+  persistDeletePanel,
+  persistInstallRequest,
+  persistPanel,
+  restoreDeletedHomeItem,
+} from "@/lib/user-data";
 import { cn } from "@/lib/utils";
 
 const PAGE_SPRING = { type: "spring" as const, stiffness: 420, damping: 40 };
@@ -1067,6 +1075,21 @@ export function ObjectsScreen({
               setActionsItemId(null);
             }}
             onDelete={() => {
+              markHomeItemDeleted(
+                actionsItem.id,
+                actionsItem.kind === "panel" ? "panel" : "install_request",
+              );
+              if (actionsItem.kind === "panel") {
+                void persistDeletePanel(actionsItem.id).catch((error) => {
+                  console.error(error);
+                });
+              } else {
+                void persistDeleteInstallRequest(actionsItem.id).catch(
+                  (error) => {
+                    console.error(error);
+                  },
+                );
+              }
               setPendingDeleteId(actionsItem.id);
               setActionsItemId(null);
             }}
@@ -1110,7 +1133,20 @@ export function ObjectsScreen({
                   pendingDelete.kind === "panel"
                     ? "Щиток будет удалён"
                     : "Заявка будет удалена",
-                onUndo: () => setPendingDeleteId(null),
+                onUndo: () => {
+                  const restored = restoreDeletedHomeItem(pendingDelete.id);
+                  setPendingDeleteId(null);
+                  if (!restored) return;
+                  if (restored.kind === "panel") {
+                    void persistPanel(restored).catch((error) => {
+                      console.error(error);
+                    });
+                  } else {
+                    void persistInstallRequest(restored).catch((error) => {
+                      console.error(error);
+                    });
+                  }
+                },
                 onCommit: () => {
                   const id = pendingDelete.id;
                   setPendingDeleteId(null);

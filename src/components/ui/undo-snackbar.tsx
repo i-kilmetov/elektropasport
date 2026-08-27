@@ -47,7 +47,20 @@ export function UndoSnackbar({
       frame = requestAnimationFrame(tick);
     };
     frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
+    const flushOnLeave = () => {
+      if (undone.current || committed.current) return;
+      committed.current = true;
+      onCommitRef.current();
+    };
+    window.addEventListener("pagehide", flushOnLeave);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("pagehide", flushOnLeave);
+      if (!undone.current && !committed.current) {
+        committed.current = true;
+        onCommitRef.current();
+      }
+    };
   }, [durationMs]);
 
   const undo = () => {

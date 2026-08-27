@@ -91,6 +91,12 @@ import {
 } from "@/lib/panel-wires";
 import { hapticContextMenu, hapticDelete, hapticImpact, hapticNotification } from "@/lib/haptics";
 import {
+  markHomeItemDeleted,
+  persistDeletePanel,
+  persistPanel,
+  restoreDeletedHomeItem,
+} from "@/lib/user-data";
+import {
   analyzePanelSafety,
   computePanelSafetyScore,
 } from "@/lib/safety-score";
@@ -2499,6 +2505,12 @@ export function SchemeScreen({
                     className="flex w-full items-center gap-2 px-4 py-3 text-left text-[15px] text-rose-600 hover:bg-zinc-50"
                     onClick={() => {
                       setMenuOpen(false);
+                      if (panelId) {
+                        markHomeItemDeleted(panelId, "panel");
+                        void persistDeletePanel(panelId).catch((error) => {
+                          console.error(error);
+                        });
+                      }
                       setPendingDelete(true);
                     }}
                   >
@@ -3245,7 +3257,17 @@ export function SchemeScreen({
             ? {
                 key: `delete-panel-${panelId ?? title}`,
                 message: "Щиток будет удалён",
-                onUndo: () => setPendingDelete(false),
+                onUndo: () => {
+                  if (panelId) {
+                    const restored = restoreDeletedHomeItem(panelId);
+                    if (restored?.kind === "panel") {
+                      void persistPanel(restored).catch((error) => {
+                        console.error(error);
+                      });
+                    }
+                  }
+                  setPendingDelete(false);
+                },
                 onCommit: () => {
                   setPendingDelete(false);
                   onDelete();

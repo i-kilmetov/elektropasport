@@ -91,7 +91,115 @@ function writeLocalItems(items: HomeListItem[]): void {
   }
 }
 
+const DELETED_ITEMS_KEY = "elektropasport:deleted-item-ids";
+const DELETED_ITEM_TTL_MS = 1000 * 60 * 60 * 24 * 30;
+
+type DeletedHomeRecord = {
+  id: string;
+  kind: "panel" | "install_request";
+  at: number;
+  snapshot?: HomeListItem;
+};
+
+function slimDeletedSnapshot(item: HomeListItem): HomeListItem {
+  if (item.kind !== "panel") return item;
+  return {
+    ...item,
+    photoDataUrl: undefined,
+    appliances: item.appliances?.map((appliance) => ({
+      ...appliance,
+      photoDataUrl: undefined,
+    })),
+  };
+}
+
+function readDeletedItems(): DeletedHomeRecord[] {
+  try {
+    const raw = localStorage.getItem(DELETED_ITEMS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    const cutoff = Date.now() - DELETED_ITEM_TTL_MS;
+    return parsed.filter((entry): entry is DeletedHomeRecord => {
+      if (!entry || typeof entry !== "object") return false;
+      const rec = entry as DeletedHomeRecord;
+      return (
+        typeof rec.id === "string" &&
+        (rec.kind === "panel" || rec.kind === "install_request") &&
+        typeof rec.at === "number" &&
+        rec.at >= cutoff
+      );
+    });
+  } catch {
+    return [];
+  }
+}
+
+function writeDeletedItems(items: DeletedHomeRecord[]): void {
+  try {
+    localStorage.setItem(DELETED_ITEMS_KEY, JSON.stringify(items));
+  } catch (error) {
+    console.error("Failed to write deleted items", error);
+  }
+}
+
+export function isHomeItemDeleted(id: string): boolean {
+  return readDeletedItems().some((item) => item.id === id);
+}
+
+/** Remember a delete immediately so a reload cannot resurrect the item. */
+export function markHomeItemDeleted(
+  id: string,
+  kind: "panel" | "install_request",
+): void {
+  const existing = readDeletedItems().find((item) => item.id === id);
+  const fromCache = readLocalItems().find((item) => item.id === id);
+  const snapshot = fromCache
+    ? slimDeletedSnapshot(fromCache)
+    : existing?.snapshot;
+  const next = readDeletedItems().filter((item) => item.id !== id);
+  next.push({
+    id,
+    kind,
+    at: existing?.at ?? Date.now(),
+    snapshot,
+  });
+  writeDeletedItems(next);
+  writeLocalItems(readLocalItems().filter((item) => item.id !== id));
+}
+
+export function restoreDeletedHomeItem(id: string): HomeListItem | null {
+  const record = readDeletedItems().find((item) => item.id === id);
+  writeDeletedItems(readDeletedItems().filter((item) => item.id !== id));
+  if (!record?.snapshot) return null;
+  upsertLocalItem(record.snapshot);
+  return record.snapshot;
+}
+
+async function flushDeletedItemsToServer(): Promise<void> {
+  if (!canUseServer()) return;
+  for (const item of readDeletedItems()) {
+    try {
+      const path =
+        item.kind === "panel"
+          ? `/api/panels/${encodeURIComponent(item.id)}`
+          : `/api/install-requests/${encodeURIComponent(item.id)}`;
+      const res = await fetch(path, {
+        method: "DELETE",
+        headers: authHeaders(),
+        keepalive: true,
+      });
+      if (!res.ok && res.status !== 404 && res.status !== 503) {
+        // Keep the tombstone and retry on the next load.
+      }
+    } catch {
+      // Keep the tombstone and retry on the next load.
+    }
+  }
+}
+
 function upsertLocalItem(item: HomeListItem): void {
+  if (isHomeItemDeleted(item.id)) return;
   const items = readLocalItems();
   const existing = items.find((i) => i.id === item.id);
   let merged = item;
@@ -647,7 +755,7 @@ async function syncPanelPatchToServer(
   sanitized: ReturnType<typeof sanitizePanelPatch>,
   items: HomeListItem[],
 ): Promise<void> {
-  if (!canUseServer()) return;
+  if (!canUseServer() || isHomeItemDeleted(id)) return;
 
   const res = await fetchWithTimeout(`/api/panels/${encodeURIComponent(id)}`, {
     method: "PATCH",
@@ -658,13 +766,13 @@ async function syncPanelPatchToServer(
     body: JSON.stringify(sanitized),
   });
 
-  if (!res.ok) {
-    if (res.status === 404) {
-      const local = items.find(
-        (item): item is PanelObject =>
-          item.kind === "panel" && item.id === id,
-      );
-      if (local) {
+    if (!res.ok) {
+      if (res.status === 404 && !isHomeItemDeleted(id)) {
+        const local = items.find(
+          (item): item is PanelObject =>
+            item.kind === "panel" && item.id === id,
+        );
+        if (local) {
         const createRes = await fetchWithTimeout("/api/panels", {
           method: "POST",
           headers: {
@@ -723,6 +831,7 @@ export async function persistPanelRename(
   title: string,
   panelSnapshot?: PanelObject | null,
 ): Promise<void> {
+  if (isHomeItemDeleted(id)) return;
   const trimmed = title.trim();
   if (!trimmed) throw new Error("Введите название щитка");
 
@@ -772,6 +881,7 @@ export async function persistPanelPatch(
     >
   >,
 ): Promise<void> {
+  if (isHomeItemDeleted(id)) return;
   const sanitized = sanitizePanelPatch(patch);
 
   // Title changes use the dedicated rename path (immediate local + server).
@@ -803,6 +913,7 @@ export async function persistPanelScheme(
     railCount: number;
   },
 ): Promise<void> {
+  if (isHomeItemDeleted(id)) return;
   const schemeUpdatedAt = new Date().toISOString();
   const items = readLocalItems().map((item) => {
     if (item.kind !== "panel" || item.id !== id) return item;
@@ -820,7 +931,7 @@ export async function persistPanelScheme(
   writeLocalItems(items);
 
   return enqueuePanelOp(id, async () => {
-    if (!canUseServer()) return;
+    if (!canUseServer() || isHomeItemDeleted(id)) return;
     const local = readLocalItems().find(
       (item): item is PanelObject => item.kind === "panel" && item.id === id,
     );
@@ -842,7 +953,7 @@ export async function persistPanelScheme(
     });
 
     if (!res.ok) {
-      if (res.status === 404 && local) {
+      if (res.status === 404 && local && !isHomeItemDeleted(id)) {
         const createRes = await fetchWithTimeout("/api/panels", {
           method: "POST",
           headers: {
@@ -1149,9 +1260,13 @@ export async function fetchHomeItems(): Promise<HomeListItem[]> {
   }
 
   try {
+    await flushDeletedItemsToServer();
     const remote = await fetchServerHomeItems();
     applyServerDataEpoch(remote.dataEpoch);
-    const merged = mergeServerWithLocal(remote.items);
+    const deletedIds = new Set(readDeletedItems().map((item) => item.id));
+    const merged = mergeServerWithLocal(
+      remote.items.filter((item) => !deletedIds.has(item.id)),
+    );
     writeLocalItems(merged);
 
     // Heal server copies that lost scheme/appliances after a partial client save.
@@ -1261,6 +1376,7 @@ export async function importHomeBackup(
 
 export async function persistPanel(panel: PanelObject): Promise<void> {
   return enqueuePanelOp(panel.id, async () => {
+    if (isHomeItemDeleted(panel.id)) return;
     const stored = readLocalItems().find(
       (item): item is PanelObject =>
         item.kind === "panel" && item.id === panel.id,
@@ -1359,6 +1475,7 @@ export async function fetchPanelById(id: string): Promise<PanelObject | null> {
       item.kind === "panel" && item.id === data.panel!.id,
   );
   const merged = mergePanelForPersist(data.panel, local);
+  if (isHomeItemDeleted(merged.id)) return merged;
   upsertLocalItem(merged);
   return merged;
 }
@@ -1368,6 +1485,7 @@ export async function persistPanelAppliances(
   appliances: NonNullable<PanelObject["appliances"]>,
 ): Promise<PanelObject | null> {
   return enqueuePanelOp(id, async () => {
+    if (isHomeItemDeleted(id)) return null;
     const stored = readLocalItems().find(
       (item): item is PanelObject =>
         item.kind === "panel" && item.id === id,
@@ -1405,7 +1523,7 @@ export async function persistPanelAppliances(
     });
 
     if (!res.ok) {
-      if (res.status === 404) {
+      if (res.status === 404 && !isHomeItemDeleted(id)) {
         // Panel not on server yet — full create with scheme + appliances.
         const createRes = await fetchWithTimeout("/api/panels", {
           method: "POST",
@@ -1497,6 +1615,7 @@ export async function fetchSharedPanel(token: string): Promise<{
 }
 
 export async function persistDeletePanel(id: string): Promise<void> {
+  markHomeItemDeleted(id, "panel");
   return enqueuePanelOp(id, async () => {
     writeLocalItems(readLocalItems().filter((item) => item.id !== id));
 
@@ -1505,6 +1624,7 @@ export async function persistDeletePanel(id: string): Promise<void> {
     const res = await fetchWithTimeout(`/api/panels/${encodeURIComponent(id)}`, {
       method: "DELETE",
       headers: authHeaders(),
+      keepalive: true,
     });
 
     if (!res.ok) {
@@ -1686,6 +1806,7 @@ export function openSbpPayload(payload: string): void {
 export async function persistInstallRequest(
   request: InstallRequest,
 ): Promise<{ botCanMessage?: boolean }> {
+  if (isHomeItemDeleted(request.id)) return {};
   upsertLocalItem(request);
 
   if (!canUseServer()) return {};
@@ -1726,6 +1847,7 @@ export async function persistInstallRequestPatch(
     Pick<InstallRequest, "title" | "status" | "statusLabel" | "exactAddress">
   >,
 ): Promise<void> {
+  if (isHomeItemDeleted(id)) return;
   const items = readLocalItems().map((item) =>
     item.kind === "install_request" && item.id === id
       ? { ...item, ...patch }
@@ -1751,6 +1873,7 @@ export async function persistInstallRequestPatch(
 }
 
 export async function persistDeleteInstallRequest(id: string): Promise<void> {
+  markHomeItemDeleted(id, "install_request");
   writeLocalItems(readLocalItems().filter((item) => item.id !== id));
 
   if (!canUseServer()) return;
@@ -1758,6 +1881,7 @@ export async function persistDeleteInstallRequest(id: string): Promise<void> {
   const res = await fetch(`/api/install-requests/${encodeURIComponent(id)}`, {
     method: "DELETE",
     headers: authHeaders(),
+    keepalive: true,
   });
 
   if (!res.ok) {
