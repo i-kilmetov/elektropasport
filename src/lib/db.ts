@@ -40,7 +40,7 @@ import { buildInviteUrl } from "@/lib/panel-share";
 let schemaReady: Promise<void> | null = null;
 
 /** Bump when DDL below changes so cold starts re-run migrations once. */
-const SCHEMA_VERSION = "2026-08-27-no-panel-cards";
+const SCHEMA_VERSION = "2026-08-27-panel-catalog-iek";
 /** One-shot data wipe flag — never re-run after it is written. */
 const FRESH_START_KEY = "fresh_start_2026_08_25_b";
 /** Bumped on each factory wipe so clients drop localStorage orphans. */
@@ -474,6 +474,38 @@ export async function ensureSchema(): Promise<void> {
       await sql`
         ALTER TABLE panels
         ADD COLUMN IF NOT EXISTS no_panel_setup_id TEXT
+      `;
+      await sql`
+        CREATE TABLE IF NOT EXISTS panel_catalog_products (
+          id TEXT PRIMARY KEY,
+          source TEXT NOT NULL,
+          article TEXT NOT NULL,
+          name TEXT NOT NULL,
+          brand TEXT NOT NULL,
+          brand_key TEXT NOT NULL,
+          category TEXT NOT NULL,
+          series TEXT NOT NULL,
+          model TEXT NOT NULL,
+          modules INT NOT NULL,
+          poles TEXT NOT NULL,
+          rating TEXT NOT NULL,
+          display_name TEXT NOT NULL,
+          characteristics JSONB NOT NULL DEFAULT '{}'::jsonb,
+          image_png TEXT,
+          image_jpg TEXT,
+          category_p TEXT,
+          group_p TEXT,
+          subgroup_p TEXT,
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+      `;
+      await sql`
+        CREATE INDEX IF NOT EXISTS panel_catalog_brand_category_idx
+        ON panel_catalog_products (brand_key, category)
+      `;
+      await sql`
+        CREATE INDEX IF NOT EXISTS panel_catalog_article_idx
+        ON panel_catalog_products (article)
       `;
 
       // One-time factory reset requested for clean testing.

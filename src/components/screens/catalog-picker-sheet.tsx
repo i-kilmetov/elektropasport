@@ -1,18 +1,20 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { SlidersHorizontal, X } from "lucide-react";
 import { DeviceFaceIdentityMark } from "@/components/icons/brand-mark";
-import { DeviceMiniPreview } from "@/components/icons/device-face";
+import { CatalogProductThumb } from "@/components/icons/device-face";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
 import {
+  deviceCatalog,
   deviceTypeToCategory,
   filterCatalogProducts,
   getCatalogBrands,
   productToDevice,
   type CatalogFilters,
+  type CatalogProduct,
 } from "@/lib/device-catalog";
 import { deviceTypeGuide, type DeviceGuideEntry } from "@/lib/panel-device-guide";
 import { cn } from "@/lib/utils";
@@ -40,17 +42,39 @@ export function CatalogPickerSheet({
   const [modules, setModules] = useState<number | "all">("all");
   const [poles, setPoles] = useState("all");
   const [search, setSearch] = useState("");
+  const [liveCatalog, setLiveCatalog] = useState<CatalogProduct[] | null>(null);
+
+  useEffect(() => {
+    if (!open || !category) return;
+    let cancelled = false;
+    fetch(`/api/catalog/products?category=${encodeURIComponent(category)}`)
+      .then((res) => res.json())
+      .then((data: { products?: CatalogProduct[] }) => {
+        if (cancelled || !Array.isArray(data.products) || data.products.length === 0) {
+          return;
+        }
+        setLiveCatalog(data.products);
+      })
+      .catch(() => {
+        /* keep seed catalog */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, category]);
+
+  const pool = liveCatalog ?? deviceCatalog;
 
   const brands = useMemo(
-    () => (category ? getCatalogBrands(category) : []),
-    [category],
+    () => (category ? getCatalogBrands(category, pool) : []),
+    [category, pool],
   );
 
   const polesOptions = useMemo(() => {
     if (!category) return [];
-    const items = filterCatalogProducts(category, {});
+    const items = filterCatalogProducts(category, {}, pool);
     return [...new Set(items.map((p) => p.poles))].sort();
-  }, [category]);
+  }, [category, pool]);
 
   const products = useMemo(() => {
     if (!category) return [];
@@ -58,8 +82,8 @@ export function CatalogPickerSheet({
     if (brand !== "all") active.brand = brand;
     if (modules !== "all") active.modules = modules;
     if (poles !== "all") active.poles = poles;
-    return filterCatalogProducts(category, active).slice(0, 80);
-  }, [category, brand, modules, poles, search]);
+    return filterCatalogProducts(category, active, pool).slice(0, 80);
+  }, [category, brand, modules, poles, search, pool]);
 
   const title = type ? guideTitle(type) : "Каталог";
 
@@ -85,7 +109,7 @@ export function CatalogPickerSheet({
               <div>
                 <h3 className="text-[20px] font-semibold text-zinc-900">{title}</h3>
                 <p className="mt-1 text-[13px] text-zinc-500">
-                  Примеры приборов из каталога — для ориентира при выборе
+                  Артикул, имя и фото — тот же формат, что у инфобазы IEK
                 </p>
               </div>
               <button
@@ -198,9 +222,8 @@ export function CatalogPickerSheet({
                     return (
                       <li key={product.id}>
                         <GlassCard className="flex gap-3 p-3">
-                          <DeviceMiniPreview
+                          <CatalogProductThumb
                             device={preview}
-                            scale={0.34}
                             brand={
                               <DeviceFaceIdentityMark
                                 series={product.series}
@@ -214,7 +237,7 @@ export function CatalogPickerSheet({
                               {product.displayName}
                             </div>
                             <div className="mt-0.5 text-[12px] text-zinc-500">
-                              {product.brand} · {product.model}
+                              {product.article} · {product.brand}
                             </div>
                             <dl className="mt-2 space-y-1">
                               {specs.map(([key, value]) => (

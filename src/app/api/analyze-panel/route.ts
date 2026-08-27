@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { enrichDevicesFromPanelCatalog } from "@/lib/panel-catalog";
 import {
   extractJsonObject,
   normalizeAnalyzeResult,
@@ -292,8 +293,9 @@ export async function POST(request: Request) {
 
       const parsed = extractJsonObject(result.text);
       const normalized = normalizeAnalyzeResult(parsed);
+      const devices = await enrichDevicesFromPanelCatalog(normalized.devices);
 
-      if (normalized.devices.length === 0) {
+      if (devices.length === 0) {
         return NextResponse.json(
           {
             error:
@@ -303,7 +305,12 @@ export async function POST(request: Request) {
         );
       }
 
-      return NextResponse.json({ ...normalized, model, provider: "qwen" });
+      return NextResponse.json({
+        ...normalized,
+        devices,
+        model,
+        provider: "qwen",
+      });
     }
 
     return NextResponse.json({ error: lastError }, { status: 502 });

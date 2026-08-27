@@ -13,6 +13,10 @@ export type CatalogCategory =
 
 export interface CatalogProduct {
   id: string;
+  /** Manufacturer SKU — same role as IEK `Article`. */
+  article: string;
+  /** Full commercial name — same role as IEK `Name`. */
+  name: string;
   brand: string;
   brandKey: string;
   category: CatalogCategory;
@@ -23,6 +27,13 @@ export interface CatalogProduct {
   rating: string;
   characteristics: Record<string, string>;
   displayName: string;
+  /** Transparent PNG (IEK infobase `Image/png`). */
+  imageUrl?: string;
+  imageJpg?: string;
+  categoryP?: string;
+  groupP?: string;
+  subgroupP?: string;
+  source?: "iek" | "seed";
 }
 
 const BRANDS = [
@@ -83,7 +94,7 @@ export function resolveDeviceSeriesLabel(
   }
 }
 
-function polesToModules(poles: string, category: CatalogCategory): number {
+export function polesToModules(poles: string, category: CatalogCategory): number {
   if (category === "voltage_relay") return 1;
   if (category === "spd") {
     if (poles.includes("3+N") || poles === "4P") return 4;
@@ -98,9 +109,24 @@ function polesToModules(poles: string, category: CatalogCategory): number {
   return 1;
 }
 
-function pushUnique(list: CatalogProduct[], item: CatalogProduct) {
-  if (list.some((x) => x.id === item.id)) return;
-  list.push(item);
+function pushUnique(
+  list: CatalogProduct[],
+  item: Omit<CatalogProduct, "article" | "name" | "source"> &
+    Partial<Pick<CatalogProduct, "article" | "name" | "source">>,
+) {
+  const article = item.article ?? item.id.toUpperCase();
+  const full: CatalogProduct = {
+    ...item,
+    article,
+    name: item.name ?? `${item.brand} ${item.model}`,
+    source: item.source ?? "seed",
+    characteristics: {
+      Артикул: article,
+      ...item.characteristics,
+    },
+  };
+  if (list.some((x) => x.id === full.id)) return;
+  list.push(full);
 }
 
 function buildCatalog(): CatalogProduct[] {
@@ -358,14 +384,51 @@ export type CatalogFilters = {
   search?: string;
 };
 
+function ampsFromProduct(product: CatalogProduct): number {
+  const raw =
+    product.characteristics["Номинальный ток"] || product.rating || "";
+  const match = raw.match(/(\d+(?:[.,]\d+)?)/);
+  return match ? Number(match[1]!.replace(",", ".")) : 0;
+}
+
+/** IEK stores incomers as regular breakers; keep them visible in the incomer picker. */
+export function isIncomerCandidate(product: CatalogProduct): boolean {
+  if (product.category === "main_breaker") return true;
+  if (product.category !== "breaker") return false;
+  if (!["2P", "3P", "4P", "3P+N"].includes(product.poles)) return false;
+  return ampsFromProduct(product) >= 40;
+}
+
+export function productMatchesCategory(
+  product: CatalogProduct,
+  category: CatalogCategory,
+): boolean {
+  if (product.category === category) return true;
+  return category === "main_breaker" && isIncomerCandidate(product);
+}
+
+export function mergeCatalogWithIek(
+  iekProducts: CatalogProduct[],
+): CatalogProduct[] {
+  if (iekProducts.length === 0) return deviceCatalog;
+  const others = deviceCatalog.filter((product) => product.brandKey !== "iek");
+  return [...iekProducts, ...others];
+}
+
 export function filterCatalogProducts(
   category: CatalogCategory,
   filters: CatalogFilters = {},
+  products: CatalogProduct[] = deviceCatalog,
 ): CatalogProduct[] {
   const q = filters.search?.trim().toLowerCase();
-  return deviceCatalog.filter((product) => {
-    if (product.category !== category) return false;
-    if (filters.brand && filters.brand !== "all" && product.brand !== filters.brand)
+  return products.filter((product) => {
+    if (!productMatchesCategory(product, category)) return false;
+    if (
+      filters.brand &&
+      filters.brand !== "all" &&
+      product.brand !== filters.brand &&
+      product.brandKey !== filters.brand
+    )
       return false;
     if (filters.modules && product.modules !== filters.modules) return false;
     if (filters.poles && filters.poles !== "all" && product.poles !== filters.poles)
@@ -373,6 +436,8 @@ export function filterCatalogProducts(
     if (q) {
       const haystack = [
         product.displayName,
+        product.article,
+        product.name,
         product.model,
         product.brand,
         product.rating,
@@ -387,8 +452,17 @@ export function filterCatalogProducts(
   });
 }
 
-export function getCatalogBrands(category: CatalogCategory): string[] {
-  return [...new Set(deviceCatalog.filter((p) => p.category === category).map((p) => p.brand))].sort();
+export function getCatalogBrands(
+  category: CatalogCategory,
+  products: CatalogProduct[] = deviceCatalog,
+): string[] {
+  return [
+    ...new Set(
+      products
+        .filter((product) => productMatchesCategory(product, category))
+        .map((product) => product.brand),
+    ),
+  ].sort();
 }
 
 export function getSampleCatalogDevice(type: DeviceType): Device | null {
@@ -420,6 +494,8 @@ export function productToDevice(
     position: opts.position,
     modules: product.modules,
     catalogId: product.id,
+    article: product.article,
+    imageUrl: product.imageUrl,
     poles: product.poles,
     series: product.series,
     model: product.model,

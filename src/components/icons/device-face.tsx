@@ -1,6 +1,6 @@
 "use client";
 
-import { type MouseEvent, type PointerEvent, type ReactNode } from "react";
+import { type MouseEvent, type PointerEvent, type ReactNode, useState } from "react";
 import {
   DEVICE_BODY_COLOR,
   DEVICE_BORDER_COLOR,
@@ -417,6 +417,62 @@ export function deviceFaceHeight(showTerminals: boolean): number {
   return BODY_HEIGHT_PX + (showTerminals ? TERMINAL_HEIGHT_PX * 2 : 0);
 }
 
+function CatalogPhoto({
+  src,
+  className,
+  onFailed,
+}: {
+  src: string;
+  className?: string;
+  onFailed?: () => void;
+}) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return null;
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt=""
+      referrerPolicy="no-referrer"
+      className={className}
+      onError={() => {
+        setFailed(true);
+        onFailed?.();
+      }}
+    />
+  );
+}
+
+/** Official manufacturer photo when the catalog has one; otherwise the DIN face. */
+export function CatalogProductThumb({
+  device,
+  brand,
+  className,
+}: {
+  device: Device;
+  brand?: ReactNode;
+  className?: string;
+}) {
+  if (device.imageUrl) {
+    return (
+      <div
+        className={cn(
+          "flex h-[88px] w-[72px] shrink-0 items-center justify-center overflow-hidden rounded-[12px] bg-zinc-50",
+          className,
+        )}
+      >
+        <CatalogPhoto
+          src={device.imageUrl}
+          className="max-h-full max-w-full object-contain"
+        />
+      </div>
+    );
+  }
+  return (
+    <DeviceMiniPreview device={device} scale={0.34} brand={brand} />
+  );
+}
+
 export function DeviceFaceStatic({
   device,
   modules,
@@ -448,6 +504,8 @@ export function DeviceFaceStatic({
   const accent = showDetails ? palette.accent : "#A1A1AA";
   const body = DEVICE_BODY_COLOR;
   const border = DEVICE_BORDER_COLOR;
+  const [photoFailed, setPhotoFailed] = useState(false);
+  const showPhoto = Boolean(showDetails && device.imageUrl && !photoFailed);
 
   return (
     <div
@@ -486,22 +544,33 @@ export function DeviceFaceStatic({
         className="relative z-[1] flex w-full flex-col px-[3px] pt-2 pb-1.5"
         style={{ height: BODY_HEIGHT_PX }}
       >
+        {showPhoto && device.imageUrl ? (
+          <CatalogPhoto
+            src={device.imageUrl}
+            className="pointer-events-none absolute inset-x-0 top-1 bottom-7 z-0 mx-auto max-h-[78px] object-contain"
+            onFailed={() => setPhotoFailed(true)}
+          />
+        ) : null}
         {showDetails && brand && (
           <div
-            className="mb-1 min-h-[16px] overflow-hidden"
+            className="relative z-[1] mb-1 min-h-[16px] overflow-hidden"
             style={{ maxWidth: MODULE_PX - 4, width: MODULE_PX - 4 }}
           >
             {brand}
           </div>
         )}
-        <DeviceFunction
-          type={device.type}
-          device={device}
-          modules={modules}
-          powered={powered}
-          accent={accent}
-          showDetails={showDetails}
-        />
+        {!showPhoto ? (
+          <DeviceFunction
+            type={device.type}
+            device={device}
+            modules={modules}
+            powered={powered}
+            accent={accent}
+            showDetails={showDetails}
+          />
+        ) : (
+          <div className="flex-1" aria-hidden />
+        )}
         {showDetails ? (
           <RatingBlock
             rating={device.rating}

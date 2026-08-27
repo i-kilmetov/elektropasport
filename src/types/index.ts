@@ -27,6 +27,10 @@ export interface Device {
   position?: number;
   modules?: number;
   catalogId?: string;
+  /** Manufacturer SKU (IEK Article and the same field for other brands). */
+  article?: string;
+  /** Official product photo (transparent PNG when available). */
+  imageUrl?: string;
   poles?: string;
   series?: string;
   model?: string;

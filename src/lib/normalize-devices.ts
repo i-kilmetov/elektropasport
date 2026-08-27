@@ -78,6 +78,8 @@ function normalizeDevice(raw: unknown, index: number): Device | null {
     modules: Math.min(4, Math.max(1, Math.round(asNumber(raw.modules, 1)))),
     rail: Math.min(3, Math.max(0, Math.round(asNumber(raw.rail, 0)))),
     catalogId: asString(raw.catalogId) || undefined,
+    article: asString(raw.article) || undefined,
+    imageUrl: asString(raw.imageUrl) || undefined,
     poles:
       confidence >= DEVICE_DETAILS_CONFIDENCE
         ? asString(raw.poles) || undefined
@@ -87,6 +89,14 @@ function normalizeDevice(raw: unknown, index: number): Device | null {
       confidence >= DEVICE_DETAILS_CONFIDENCE
         ? asString(raw.model) || undefined
         : undefined,
+    characteristics: isRecord(raw.characteristics)
+      ? Object.fromEntries(
+          Object.entries(raw.characteristics).filter(
+            (entry): entry is [string, string] =>
+              typeof entry[1] === "string" && entry[1].trim().length > 0,
+          ),
+        )
+      : undefined,
     circuitLabel: asString(raw.circuitLabel) || undefined,
     brandKey:
       confidence >= DEVICE_DETAILS_CONFIDENCE ? brandKey : undefined,
