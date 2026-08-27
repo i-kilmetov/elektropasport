@@ -1,12 +1,19 @@
 import type { LucideIcon } from "lucide-react";
 import {
   AirVent,
+  Blend,
+  Coffee,
   CookingPot,
   Droplets,
+  Fan,
   Flame,
   Heater,
   Microwave,
+  MoreHorizontal,
   Refrigerator,
+  Sandwich,
+  Scissors,
+  Sparkles,
   Tv,
   WashingMachine,
   Wind,
@@ -21,13 +28,17 @@ import type { HomeApplianceKind } from "@/types";
 export {
   APPLIANCE_CATALOG,
   CATALOG_KIND_OPTIONS,
+  OTHER_CATALOG_KIND_OPTIONS,
+  PRIMARY_CATALOG_KIND_OPTIONS,
   catalogBrandsForKind,
   catalogKindTitle,
   catalogModelsForBrand,
   findCatalogModel,
   isCatalogApplianceKind,
+  isPrimaryCatalogApplianceKind,
   type ApplianceCatalogModel,
   type CatalogApplianceKind,
+  type CatalogKindOption,
 } from "@/lib/appliance-catalog";
 
 /** @deprecated Prefer CATALOG_KIND_OPTIONS + appliance catalog models. */
@@ -73,31 +84,61 @@ export function applianceKindLabel(kind: HomeApplianceKind): string {
 }
 
 export function applianceKindIcon(
-  kind: HomeApplianceKind | CatalogApplianceKind,
+  kind: HomeApplianceKind | CatalogApplianceKind | "other-picker",
 ): LucideIcon {
   switch (kind) {
     case "fridge":
+    case "wine_cooler":
       return Refrigerator;
     case "washer":
       return WashingMachine;
     case "dishwasher":
+    case "boiler":
+    case "water_dispenser":
+    case "pump":
       return Droplets;
     case "dryer":
       return Wind;
     case "microwave":
       return Microwave;
     case "oven":
+    case "grill":
+    case "air_fryer":
       return Flame;
     case "hob":
+    case "hood":
       return CookingPot;
     case "ac":
       return AirVent;
-    case "boiler":
-      return Droplets;
     case "tv":
       return Tv;
     case "heater":
+    case "sauna":
       return Heater;
+    case "coffee_maker":
+      return Coffee;
+    case "toaster":
+      return Sandwich;
+    case "blender_mixer":
+    case "food_processor":
+    case "juicer":
+      return Blend;
+    case "vacuum":
+    case "robot_vacuum":
+    case "humidifier":
+    case "fan":
+      return Fan;
+    case "iron":
+    case "sewing_machine":
+      return Scissors;
+    case "kettle":
+    case "steamer":
+    case "multicooker":
+    case "bread_maker":
+    case "ice_maker":
+      return Sparkles;
+    case "other-picker":
+      return MoreHorizontal;
     default:
       return Zap;
   }

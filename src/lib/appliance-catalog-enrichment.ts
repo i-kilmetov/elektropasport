@@ -9,7 +9,30 @@ export type CatalogApplianceKind =
   | "ac"
   | "boiler"
   | "tv"
-  | "heater";
+  | "heater"
+  | "coffee_maker"
+  | "kettle"
+  | "toaster"
+  | "blender_mixer"
+  | "food_processor"
+  | "vacuum"
+  | "robot_vacuum"
+  | "iron"
+  | "hood"
+  | "air_fryer"
+  | "grill"
+  | "juicer"
+  | "bread_maker"
+  | "ice_maker"
+  | "steamer"
+  | "multicooker"
+  | "wine_cooler"
+  | "water_dispenser"
+  | "humidifier"
+  | "fan"
+  | "pump"
+  | "sauna"
+  | "sewing_machine";
 
 export type ApplianceSpec = { label: string; value: string };
 

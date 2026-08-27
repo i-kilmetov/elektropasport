@@ -23,10 +23,13 @@ export type ApplianceCatalogModel = {
   manualUrl: string;
 };
 
-export const CATALOG_KIND_OPTIONS: {
+export type CatalogKindOption = {
   id: CatalogApplianceKind;
   title: string;
-}[] = [
+};
+
+/** Main grid in «Добавить технику». */
+export const PRIMARY_CATALOG_KIND_OPTIONS: CatalogKindOption[] = [
   { id: "washer", title: "Стиральная машина" },
   { id: "fridge", title: "Холодильник" },
   { id: "dishwasher", title: "Посудомоечная машина" },
@@ -39,6 +42,48 @@ export const CATALOG_KIND_OPTIONS: {
   { id: "tv", title: "Телевизор" },
   { id: "heater", title: "Обогреватель" },
 ];
+
+/** Shown after tapping «Другое». */
+export const OTHER_CATALOG_KIND_OPTIONS: CatalogKindOption[] = [
+  { id: "coffee_maker", title: "Кофемашина" },
+  { id: "kettle", title: "Электрический чайник" },
+  { id: "toaster", title: "Тостер" },
+  { id: "blender_mixer", title: "Блендер / миксер" },
+  { id: "food_processor", title: "Кухонный комбайн" },
+  { id: "multicooker", title: "Мультиварка / рисоварка" },
+  { id: "steamer", title: "Пароварка" },
+  { id: "air_fryer", title: "Аэрогриль / фритюрница" },
+  { id: "grill", title: "Электрогриль" },
+  { id: "juicer", title: "Соковыжималка" },
+  { id: "bread_maker", title: "Хлебопечка" },
+  { id: "ice_maker", title: "Льдогенератор" },
+  { id: "hood", title: "Вытяжка" },
+  { id: "wine_cooler", title: "Винный шкаф" },
+  { id: "water_dispenser", title: "Кулер / диспенсер воды" },
+  { id: "vacuum", title: "Пылесос" },
+  { id: "robot_vacuum", title: "Робот-пылесос" },
+  { id: "iron", title: "Утюг / отпариватель" },
+  { id: "sewing_machine", title: "Швейная машина" },
+  { id: "humidifier", title: "Увлажнитель / осушитель" },
+  { id: "fan", title: "Вентилятор" },
+  { id: "pump", title: "Насос" },
+  { id: "sauna", title: "Сауна / инфрокабина" },
+];
+
+export const CATALOG_KIND_OPTIONS: CatalogKindOption[] = [
+  ...PRIMARY_CATALOG_KIND_OPTIONS,
+  ...OTHER_CATALOG_KIND_OPTIONS,
+];
+
+const PRIMARY_KIND_IDS = new Set(
+  PRIMARY_CATALOG_KIND_OPTIONS.map((item) => item.id),
+);
+
+export function isPrimaryCatalogApplianceKind(
+  kind: CatalogApplianceKind,
+): boolean {
+  return PRIMARY_KIND_IDS.has(kind);
+}
 
 function slugPart(value: string): string {
   return value
@@ -74,6 +119,7 @@ export function catalogKindTitle(
 ): string {
   const found = CATALOG_KIND_OPTIONS.find((item) => item.id === kind);
   if (found) return found.title;
+  if (kind === "other") return "Другая техника";
   return "Техника";
 }
 

@@ -11,11 +11,94 @@ const REFS_BASE = "https://data.icecat.biz/export/freexml/refs";
 const INDEX_URL =
   "https://data.icecat.biz/export/freexml/EN/files.index.csv.gz";
 
-/** Map Icecat category name (EN) → our appliance kind. */
+/** Map Icecat category name (EN) → our appliance kind. First match wins. */
 const CATEGORY_KIND_RULES: Array<{
   kind: CatalogApplianceKind;
   match: RegExp;
 }> = [
+  { kind: "robot_vacuum", match: /\brobot(?:ic)? vacuums?\b/i },
+  {
+    kind: "vacuum",
+    match: /\bvacuum cleaners?\b|\bcanister vacuums?\b|\bupright vacuums?\b|\bhandheld vacuums?\b/i,
+  },
+  {
+    kind: "coffee_maker",
+    match: /\bcoffee makers?\b|\bespresso machines?\b|\bcoffee machines?\b/i,
+  },
+  {
+    kind: "kettle",
+    match: /\belectric kettles?\b|\bwater kettles?\b|\bkettles?\b/i,
+  },
+  {
+    kind: "toaster",
+    match: /\btoasters?\b|\bsandwich makers?\b|\btoaster ovens?\b/i,
+  },
+  {
+    kind: "blender_mixer",
+    match: /\bblenders?\b|\bstand mixers?\b|\bhand mixers?\b|\bstick mixers?\b/i,
+  },
+  {
+    kind: "food_processor",
+    match: /\bfood processors?\b|\bchoppers?\b|\bkitchen machines?\b/i,
+  },
+  {
+    kind: "multicooker",
+    match: /\bmulticookers?\b|\bslow cookers?\b|\brice cookers?\b|\bpressure cookers?\b/i,
+  },
+  {
+    kind: "steamer",
+    match: /\bsteam cookers?\b|\bfood steamers?\b/i,
+  },
+  {
+    kind: "air_fryer",
+    match: /\bair fryers?\b|\bdeep fryers?\b|\bfryers?\b/i,
+  },
+  {
+    kind: "grill",
+    match: /\belectric grills?\b|\bcontact grills?\b|\bgrills?\b|\bbarbecues?\b/i,
+  },
+  { kind: "juicer", match: /\bjuicers?\b|\bcitrus presses?\b/i },
+  {
+    kind: "bread_maker",
+    match: /\bbread makers?\b|\bbread machines?\b/i,
+  },
+  { kind: "ice_maker", match: /\bice makers?\b|\bice machines?\b/i },
+  {
+    kind: "hood",
+    match: /\bextractor hoods?\b|\brange hoods?\b|\bcooker hoods?\b|\b(?:kitchen )?hoods?\b/i,
+  },
+  {
+    kind: "wine_cooler",
+    match: /\bwine coolers?\b|\bwine cabinets?\b|\bwine cellars?\b/i,
+  },
+  {
+    kind: "water_dispenser",
+    match: /\bwater dispensers?\b|\bwater coolers?\b/i,
+  },
+  {
+    kind: "iron",
+    match: /\bsteam irons?\b|\bgarment steamers?\b|\bsteam generators?\b|\birons?\b/i,
+  },
+  {
+    kind: "sewing_machine",
+    match: /\bsewing machines?\b|\boverlockers?\b|\bsergers?\b/i,
+  },
+  {
+    kind: "humidifier",
+    match: /\bhumidifiers?\b|\bdehumidifiers?\b|\bair purifiers?\b/i,
+  },
+  {
+    kind: "fan",
+    match: /\btable fans?\b|\bceiling fans?\b|\btower fans?\b|\b(?:desk )?fans?\b|\bventilators?\b/i,
+  },
+  {
+    kind: "pump",
+    match: /\bsump pumps?\b|\bcirculation pumps?\b|\bwater pumps?\b|\bpumps?\b/i,
+  },
+  {
+    kind: "sauna",
+    match: /\bsaunas?\b|\binfrared cabins?\b|\bsauna heaters?\b/i,
+  },
   { kind: "washer", match: /\bwashing machines?\b|\bwasher[- ]?dryers?\b/i },
   { kind: "dryer", match: /\btumble dryers?\b|\bdryers?\b/i },
   { kind: "dishwasher", match: /\bdishwashers?\b/i },
@@ -173,6 +256,38 @@ function parseCategoriesToKindMap(xml: string): Map<string, CatalogApplianceKind
       if (
         rule.kind === "dryer" &&
         /hair|hand|clothes dryer rack|dehumidifier/i.test(name)
+      ) {
+        continue;
+      }
+      if (
+        rule.kind === "fan" &&
+        /fan heater|heat fan|heater fan|exhaust fan kit|cpu fan|case fan/i.test(
+          name,
+        )
+      ) {
+        continue;
+      }
+      if (
+        rule.kind === "grill" &&
+        /accessories|cover|spare|cleaning|brush/i.test(name)
+      ) {
+        continue;
+      }
+      if (
+        rule.kind === "kettle" &&
+        /whistle|stovetop|gas kettle|travel mug/i.test(name)
+      ) {
+        continue;
+      }
+      if (
+        rule.kind === "iron" &&
+        /ironing board|ironing cover|ironing mat/i.test(name)
+      ) {
+        continue;
+      }
+      if (
+        rule.kind === "vacuum" &&
+        /robot|accessories|bags|filters|parts/i.test(name)
       ) {
         continue;
       }

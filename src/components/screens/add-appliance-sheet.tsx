@@ -2,15 +2,18 @@
 
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, X } from "lucide-react";
+import { ArrowLeft, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Portal } from "@/components/ui/portal";
 import {
-  CATALOG_KIND_OPTIONS,
+  OTHER_CATALOG_KIND_OPTIONS,
+  PRIMARY_CATALOG_KIND_OPTIONS,
   applianceKindIcon,
   createApplianceId,
   formatAppliancePower,
   isCatalogApplianceKind,
+  isPrimaryCatalogApplianceKind,
+  catalogKindTitle,
   type CatalogApplianceKind,
 } from "@/lib/home-appliances";
 import type {
@@ -54,10 +57,13 @@ export function AddApplianceSheet({
   onAddPanel?: () => void;
 }) {
   const editing = Boolean(initialAppliance);
-  const [kind, setKind] = useState<CatalogApplianceKind | null>(
+  const initialKind =
     initialAppliance && isCatalogApplianceKind(initialAppliance.kind)
       ? initialAppliance.kind
-      : null,
+      : null;
+  const [kind, setKind] = useState<CatalogApplianceKind | null>(initialKind);
+  const [otherKindsOpen, setOtherKindsOpen] = useState(
+    initialKind != null && !isPrimaryCatalogApplianceKind(initialKind),
   );
   const [brand, setBrand] = useState<string | null>(
     initialAppliance?.brand ?? null,
@@ -83,6 +89,21 @@ export function AddApplianceSheet({
   const [detailsLoading, setDetailsLoading] = useState(false);
 
   const selectedModel = models.find((m) => m.id === modelId) ?? null;
+  const otherKindSelected =
+    kind != null && !isPrimaryCatalogApplianceKind(kind);
+
+  const selectKind = (nextKind: CatalogApplianceKind) => {
+    if (kind === nextKind) return;
+    setKind(nextKind);
+    setBrand(null);
+    setModelId(null);
+    setModels([]);
+    setDetails(null);
+    setError(null);
+    if (isPrimaryCatalogApplianceKind(nextKind)) {
+      setOtherKindsOpen(false);
+    }
+  };
 
   useEffect(() => {
     if (!kind) {
@@ -305,47 +326,120 @@ export function AddApplianceSheet({
             <p className="mb-3 text-[13px] font-medium text-zinc-500">
               Тип техники
             </p>
-            <div className="grid grid-cols-2 gap-2.5">
-              {CATALOG_KIND_OPTIONS.map((item) => {
-                const Icon = applianceKindIcon(item.id);
-                const selected = kind === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => {
-                      if (kind === item.id) return;
-                      setKind(item.id);
-                      setBrand(null);
-                      setModelId(null);
-                      setModels([]);
-                      setDetails(null);
-                      setError(null);
-                    }}
-                    className={cn(
-                      "flex min-h-[104px] flex-col items-start gap-3 rounded-[20px] border p-3.5 text-left transition-colors",
-                      selected
-                        ? "border-zinc-900 bg-zinc-900 text-white"
-                        : "border-black/8 bg-zinc-50 text-zinc-900 hover:bg-zinc-100",
-                    )}
-                  >
-                    <span
+
+            {otherKindsOpen ? (
+              <div className="space-y-3">
+                <button
+                  type="button"
+                  onClick={() => setOtherKindsOpen(false)}
+                  className="inline-flex items-center gap-1.5 text-[13px] font-medium text-zinc-600 hover:text-zinc-900"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  К основным типам
+                </button>
+                <div className="grid grid-cols-2 gap-2.5">
+                  {OTHER_CATALOG_KIND_OPTIONS.map((item) => {
+                    const Icon = applianceKindIcon(item.id);
+                    const selected = kind === item.id;
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => selectKind(item.id)}
+                        className={cn(
+                          "flex min-h-[104px] flex-col items-start gap-3 rounded-[20px] border p-3.5 text-left transition-colors",
+                          selected
+                            ? "border-zinc-900 bg-zinc-900 text-white"
+                            : "border-black/8 bg-zinc-50 text-zinc-900 hover:bg-zinc-100",
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "flex h-10 w-10 items-center justify-center rounded-[12px]",
+                            selected
+                              ? "bg-white/15 text-white"
+                              : "bg-white text-zinc-700 shadow-sm",
+                          )}
+                        >
+                          <Icon className="h-5 w-5" />
+                        </span>
+                        <span className="text-[13px] font-semibold leading-snug">
+                          {item.title}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-2.5">
+                {PRIMARY_CATALOG_KIND_OPTIONS.map((item) => {
+                  const Icon = applianceKindIcon(item.id);
+                  const selected = kind === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => selectKind(item.id)}
                       className={cn(
-                        "flex h-10 w-10 items-center justify-center rounded-[12px]",
+                        "flex min-h-[104px] flex-col items-start gap-3 rounded-[20px] border p-3.5 text-left transition-colors",
                         selected
-                          ? "bg-white/15 text-white"
-                          : "bg-white text-zinc-700 shadow-sm",
+                          ? "border-zinc-900 bg-zinc-900 text-white"
+                          : "border-black/8 bg-zinc-50 text-zinc-900 hover:bg-zinc-100",
                       )}
                     >
-                      <Icon className="h-5 w-5" />
-                    </span>
-                    <span className="text-[13px] font-semibold leading-snug">
-                      {item.title}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+                      <span
+                        className={cn(
+                          "flex h-10 w-10 items-center justify-center rounded-[12px]",
+                          selected
+                            ? "bg-white/15 text-white"
+                            : "bg-white text-zinc-700 shadow-sm",
+                        )}
+                      >
+                        <Icon className="h-5 w-5" />
+                      </span>
+                      <span className="text-[13px] font-semibold leading-snug">
+                        {item.title}
+                      </span>
+                    </button>
+                  );
+                })}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOtherKindsOpen(true);
+                    setError(null);
+                  }}
+                  className={cn(
+                    "flex min-h-[104px] flex-col items-start gap-3 rounded-[20px] border p-3.5 text-left transition-colors",
+                    otherKindSelected
+                      ? "border-zinc-900 bg-zinc-900 text-white"
+                      : "border-black/8 bg-zinc-50 text-zinc-900 hover:bg-zinc-100",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "flex h-10 w-10 items-center justify-center rounded-[12px]",
+                      otherKindSelected
+                        ? "bg-white/15 text-white"
+                        : "bg-white text-zinc-700 shadow-sm",
+                    )}
+                  >
+                    {(() => {
+                      const Icon = otherKindSelected
+                        ? applianceKindIcon(kind!)
+                        : applianceKindIcon("other-picker");
+                      return <Icon className="h-5 w-5" />;
+                    })()}
+                  </span>
+                  <span className="text-[13px] font-semibold leading-snug">
+                    {otherKindSelected && kind
+                      ? catalogKindTitle(kind)
+                      : "Другое"}
+                  </span>
+                </button>
+              </div>
+            )}
 
             <AnimatePresence initial={false}>
               {kind && (
