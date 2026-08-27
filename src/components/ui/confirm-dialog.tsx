@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import { IosHapticHit } from "@/components/ui/ios-haptic-hit";
 import { Portal } from "@/components/ui/portal";
 
 export function ConfirmDialog({
@@ -45,18 +46,20 @@ export function ConfirmDialog({
             {description}
           </p>
           <div className="flex gap-3">
-            <Button className="flex-1" variant="secondary" onClick={onCancel}>
-              {cancelLabel}
+            <Button className="relative flex-1" variant="secondary" onClick={onCancel}>
+              <IosHapticHit onActivate={onCancel} />
+              <span className="relative z-[2]">{cancelLabel}</span>
             </Button>
             <Button
               className={
                 danger
-                  ? "flex-1 bg-rose-500 text-white shadow-none hover:bg-rose-600"
-                  : "flex-1"
+                  ? "relative flex-1 bg-rose-500 text-white shadow-none hover:bg-rose-600"
+                  : "relative flex-1"
               }
               onClick={onConfirm}
             >
-              {confirmLabel}
+              <IosHapticHit onActivate={onConfirm} />
+              <span className="relative z-[2]">{confirmLabel}</span>
             </Button>
           </div>
         </motion.div>

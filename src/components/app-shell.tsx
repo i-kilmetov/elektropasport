@@ -112,6 +112,7 @@ import {
   persistPanel,
   persistPanelAppliances,
   persistPanelPatch,
+  persistPanelScheme,
   persistPanelRename,
   createPanelShare,
   fetchPanelById,
@@ -184,6 +185,7 @@ function pickLivePanelFields(
   | "devices"
   | "appliances"
   | "appliancesUpdatedAt"
+  | "schemeUpdatedAt"
   | "title"
   | "named"
   | "titleUpdatedAt"
@@ -212,6 +214,24 @@ function pickLivePanelFields(
           titleUpdatedAt: remote.titleUpdatedAt ?? live.titleUpdatedAt,
         };
 
+  const liveSchemeAt = live.schemeUpdatedAt
+    ? Date.parse(live.schemeUpdatedAt)
+    : 0;
+  const remoteSchemeAt = remote.schemeUpdatedAt
+    ? Date.parse(remote.schemeUpdatedAt)
+    : 0;
+  const schemeFields =
+    liveSchemeAt > remoteSchemeAt
+      ? {
+          devices: live.devices ?? remote.devices,
+          schemeUpdatedAt: live.schemeUpdatedAt ?? remote.schemeUpdatedAt,
+        }
+      : {
+          devices:
+            (remote.devices?.length ?? 0) > 0 ? remote.devices : live.devices,
+          schemeUpdatedAt: remote.schemeUpdatedAt ?? live.schemeUpdatedAt,
+        };
+
   const liveAt = live.appliancesUpdatedAt
     ? Date.parse(live.appliancesUpdatedAt)
     : 0;
@@ -224,8 +244,7 @@ function pickLivePanelFields(
       ...titleFields,
       noPanelSetupId,
       photoDataUrl: remote.photoDataUrl || live.photoDataUrl,
-      devices:
-        (remote.devices?.length ?? 0) > 0 ? remote.devices : live.devices,
+      ...schemeFields,
       appliances: live.appliances,
       appliancesUpdatedAt: live.appliancesUpdatedAt,
     };
@@ -235,8 +254,7 @@ function pickLivePanelFields(
       ...titleFields,
       noPanelSetupId,
       photoDataUrl: remote.photoDataUrl || live.photoDataUrl,
-      devices:
-        (remote.devices?.length ?? 0) > 0 ? remote.devices : live.devices,
+      ...schemeFields,
       appliances: remote.appliances,
       appliancesUpdatedAt: remote.appliancesUpdatedAt,
     };
@@ -245,7 +263,7 @@ function pickLivePanelFields(
     ...titleFields,
     noPanelSetupId,
     photoDataUrl: remote.photoDataUrl || live.photoDataUrl,
-    devices: (remote.devices?.length ?? 0) > 0 ? remote.devices : live.devices,
+    ...schemeFields,
     appliances: mergeAppliancesUnion(remote.appliances, live.appliances),
     appliancesUpdatedAt:
       remote.appliancesUpdatedAt ?? live.appliancesUpdatedAt,
@@ -1080,26 +1098,26 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
                     ...pickLivePanelFields(live, remote),
                   }
                 : remote;
+              const mergedDevices = Array.isArray(merged.devices)
+                ? merged.devices
+                : [];
+              setDevices((current) =>
+                mergedDevices.length > 0 ? mergedDevices : current,
+              );
+              setLinesCount(merged.linesCount ?? remote.linesCount ?? null);
+              setRailCount(
+                panelRailCount({
+                  ...merged,
+                  devices:
+                    mergedDevices.length > 0 ? mergedDevices : nextDevices,
+                }),
+              );
               const exists = prev.some((item) => item.id === remote.id);
               if (!exists) return [merged, ...prev];
               return prev.map((item) =>
                 item.kind === "panel" && item.id === remote.id ? merged : item,
               );
             });
-            const remoteDevices = Array.isArray(remote.devices)
-              ? remote.devices
-              : [];
-            setDevices((prev) =>
-              remoteDevices.length > 0 ? remoteDevices : prev,
-            );
-            setLinesCount(remote.linesCount ?? null);
-            setRailCount(
-              panelRailCount({
-                ...remote,
-                devices:
-                  remoteDevices.length > 0 ? remoteDevices : nextDevices,
-              }),
-            );
             setSafetyScore(
               remote.phases &&
                 remote.powerKw?.trim() &&
@@ -1645,8 +1663,15 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
               (wire) =>
                 ids.has(wire.from.deviceId) && ids.has(wire.to.deviceId),
             ),
+            schemeUpdatedAt: new Date().toISOString(),
           };
-          void persistPanel(next).catch((error) => console.error(error));
+          void persistPanelScheme(activePanelId, {
+            devices: nextDevices,
+            wires: next.wires,
+            breakers: next.breakers,
+            linesCount: next.linesCount ?? railDevices.length,
+            railCount: railCountValue,
+          }).catch((error) => console.error(error));
           return next;
         }),
       );

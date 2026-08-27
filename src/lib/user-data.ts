@@ -336,6 +336,80 @@ function pickAppliances(
   };
 }
 
+function schemeLayoutKey(devices?: PanelObject["devices"]): string {
+  if (!Array.isArray(devices) || devices.length === 0) return "";
+  return devices
+    .map((device) => `${device.id}:${device.rail ?? ""}:${device.position ?? ""}`)
+    .join(",");
+}
+
+function schemeTouchMs(panel?: PanelObject | null): number {
+  if (!panel?.schemeUpdatedAt) return 0;
+  const ms = Date.parse(panel.schemeUpdatedAt);
+  return Number.isFinite(ms) ? ms : 0;
+}
+
+function pickSchemeFields(
+  primary: PanelObject,
+  fallback?: PanelObject | null,
+): Pick<
+  PanelObject,
+  | "devices"
+  | "wires"
+  | "railCount"
+  | "breakers"
+  | "linesCount"
+  | "schemeUpdatedAt"
+> {
+  if (!fallback) {
+    return {
+      devices: primary.devices,
+      wires: primary.wires,
+      railCount: primary.railCount,
+      breakers: primary.breakers,
+      linesCount: primary.linesCount,
+      schemeUpdatedAt: primary.schemeUpdatedAt,
+    };
+  }
+  const primaryAt = schemeTouchMs(primary);
+  const fallbackAt = schemeTouchMs(fallback);
+  if (fallbackAt > primaryAt) {
+    return {
+      devices: Array.isArray(fallback.devices)
+        ? fallback.devices
+        : primary.devices,
+      wires: Array.isArray(fallback.wires) ? fallback.wires : primary.wires,
+      railCount: fallback.railCount ?? primary.railCount,
+      breakers: fallback.breakers || primary.breakers,
+      linesCount: fallback.linesCount ?? primary.linesCount,
+      schemeUpdatedAt: fallback.schemeUpdatedAt,
+    };
+  }
+  if (primaryAt > fallbackAt) {
+    return {
+      devices: Array.isArray(primary.devices)
+        ? primary.devices
+        : fallback.devices,
+      wires: Array.isArray(primary.wires) ? primary.wires : fallback.wires,
+      railCount: primary.railCount ?? fallback.railCount,
+      breakers: primary.breakers || fallback.breakers,
+      linesCount: primary.linesCount ?? fallback.linesCount,
+      schemeUpdatedAt: primary.schemeUpdatedAt,
+    };
+  }
+  return {
+    devices: preferNonEmptyArray(primary.devices, fallback.devices),
+    wires: preferNonEmptyArray(primary.wires, fallback.wires),
+    railCount: primary.railCount ?? fallback.railCount,
+    breakers:
+      typeof primary.breakers === "number" && primary.breakers > 0
+        ? primary.breakers
+        : fallback.breakers,
+    linesCount: primary.linesCount ?? fallback.linesCount,
+    schemeUpdatedAt: primary.schemeUpdatedAt ?? fallback.schemeUpdatedAt,
+  };
+}
+
 function titleTouchMs(panel?: PanelObject | null): number {
   if (!panel?.titleUpdatedAt) return 0;
   const ms = Date.parse(panel.titleUpdatedAt);
@@ -396,26 +470,22 @@ function mergePanelForPersist(
   if (!stored) return panel;
   const appliancesPick = pickAppliances(panel, stored);
   const titlePick = pickTitleFields(panel, stored);
-  const devices = preferNonEmptyArray(panel.devices, stored.devices);
+  const schemePick = pickSchemeFields(panel, stored);
   const breakers = countPanelDevices({
-    devices,
-    breakers:
-      typeof panel.breakers === "number" && panel.breakers > 0
-        ? panel.breakers
-        : stored.breakers,
+    devices: schemePick.devices,
+    breakers: schemePick.breakers,
   });
   return {
     ...stored,
     ...panel,
     ...titlePick,
+    ...schemePick,
     address:
       panel.address && panel.address !== "Добавлен по фото"
         ? panel.address
         : stored.address,
     houseSnapshot: panel.houseSnapshot ?? stored.houseSnapshot,
     photoDataUrl: panel.photoDataUrl || stored.photoDataUrl,
-    devices,
-    wires: preferNonEmptyArray(panel.wires, stored.wires),
     appliances: appliancesPick.appliances,
     appliancesUpdatedAt: appliancesPick.appliancesUpdatedAt,
     breakers,
@@ -723,6 +793,95 @@ export async function persistPanelPatch(
   });
 }
 
+export async function persistPanelScheme(
+  id: string,
+  patch: {
+    devices: NonNullable<PanelObject["devices"]>;
+    wires?: PanelObject["wires"];
+    breakers: number;
+    linesCount: number;
+    railCount: number;
+  },
+): Promise<void> {
+  const schemeUpdatedAt = new Date().toISOString();
+  const items = readLocalItems().map((item) => {
+    if (item.kind !== "panel" || item.id !== id) return item;
+    return {
+      ...item,
+      devices: patch.devices,
+      wires: patch.wires ?? item.wires,
+      breakers: patch.breakers,
+      linesCount: patch.linesCount,
+      railCount: patch.railCount,
+      schemeUpdatedAt,
+      lastCheck: "сегодня",
+    };
+  });
+  writeLocalItems(items);
+
+  return enqueuePanelOp(id, async () => {
+    if (!canUseServer()) return;
+    const local = readLocalItems().find(
+      (item): item is PanelObject => item.kind === "panel" && item.id === id,
+    );
+    const body = {
+      devices: patch.devices,
+      wires: patch.wires ?? local?.wires ?? [],
+      breakers: patch.breakers,
+      linesCount: patch.linesCount,
+      railCount: patch.railCount,
+      lastCheck: "сегодня",
+    };
+    const res = await fetchWithTimeout(`/api/panels/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeaders(),
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      if (res.status === 404 && local) {
+        const createRes = await fetchWithTimeout("/api/panels", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...authHeaders(),
+          },
+          body: JSON.stringify({ panel: panelForApi(local) }),
+        });
+        if (createRes.ok) return;
+        throw new Error(await parseError(createRes));
+      }
+      throw new Error(await parseError(res));
+    }
+
+    try {
+      const data = (await res.json()) as { panel?: PanelObject };
+      if (data.panel?.id) {
+        const latest = readLocalItems().find(
+          (item): item is PanelObject =>
+            item.kind === "panel" && item.id === data.panel!.id,
+        );
+        upsertLocalItem(
+          mergePanelForPersist(
+            {
+              ...data.panel,
+              schemeUpdatedAt:
+                latest?.schemeUpdatedAt ?? schemeUpdatedAt,
+              photoDataUrl: latest?.photoDataUrl ?? data.panel.photoDataUrl,
+            },
+            latest,
+          ),
+        );
+      }
+    } catch {
+      // local scheme already written
+    }
+  });
+}
+
 async function fetchServerHomeItems(): Promise<{
   items: HomeListItem[];
   dataEpoch: string | null;
@@ -1004,12 +1163,16 @@ export async function fetchHomeItems(): Promise<HomeListItem[]> {
       );
       const localHasDevices = (item.devices?.length ?? 0) > 0;
       const serverHasDevices = (server?.devices?.length ?? 0) > 0;
+      const localSchemeNewer = schemeTouchMs(item) > schemeTouchMs(server);
+      const localSchemeDiffers =
+        schemeLayoutKey(item.devices) !== schemeLayoutKey(server?.devices);
       const localAppliancesNewer =
         applianceUpdatedAtMs(item) > applianceUpdatedAtMs(server);
       const localHasMoreAppliances =
         (item.appliances?.length ?? 0) > (server?.appliances?.length ?? 0);
       if (
         (localHasDevices && !serverHasDevices) ||
+        (localSchemeNewer && localSchemeDiffers) ||
         localAppliancesNewer ||
         localHasMoreAppliances
       ) {

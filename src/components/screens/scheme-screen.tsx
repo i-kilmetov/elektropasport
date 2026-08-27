@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
   type Dispatch,
+  type MouseEvent,
   type PointerEvent,
   type ReactNode,
   type SetStateAction,
@@ -51,6 +52,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { IosHapticHit } from "@/components/ui/ios-haptic-hit";
 import { UndoSnackbarHost } from "@/components/ui/undo-snackbar";
 import { ShareSheet } from "@/components/ui/share-sheet";
 import { SafetyParamsSheet } from "@/components/ui/safety-params-sheet";
@@ -87,7 +89,7 @@ import {
   terminalKey,
   wireConnectsSamePair,
 } from "@/lib/panel-wires";
-import { hapticContextMenu, hapticImpact, hapticNotification } from "@/lib/haptics";
+import { hapticContextMenu, hapticDelete, hapticImpact, hapticNotification } from "@/lib/haptics";
 import {
   analyzePanelSafety,
   computePanelSafetyScore,
@@ -174,6 +176,7 @@ function DeviceBlock({
   highlightTerminalKey,
   onSelect,
   onPressStart,
+  onContextMenu,
   onTerminalPointerDown,
   caption,
   loadMismatch = false,
@@ -188,6 +191,7 @@ function DeviceBlock({
   highlightTerminalKey?: string | null;
   onSelect: (clientY: number) => void;
   onPressStart?: (event: PointerEvent<HTMLButtonElement>) => void;
+  onContextMenu?: (event: MouseEvent<HTMLButtonElement>) => void;
   onTerminalPointerDown?: (
     terminal: { deviceId: number; side: "top" | "bottom"; index: number },
     event: PointerEvent<HTMLButtonElement>,
@@ -249,7 +253,13 @@ function DeviceBlock({
             }}
             className="absolute -left-1.5 -top-1.5 z-20 flex h-5 w-5 items-center justify-center rounded-full bg-zinc-400 text-white shadow-sm"
           >
-            <X className="h-3 w-3" strokeWidth={3} />
+            <IosHapticHit
+              onActivate={(event) => {
+                event.stopPropagation();
+                onDelete();
+              }}
+            />
+            <X className="relative z-[2] h-3 w-3" strokeWidth={3} />
           </button>
         )}
         <DeviceFace
@@ -262,6 +272,7 @@ function DeviceBlock({
           showDetails={confident}
           onSelect={(event) => onSelect(event.clientY)}
           onPressStart={onPressStart}
+          onContextMenu={onContextMenu}
           onTerminalPointerDown={editing ? undefined : onTerminalPointerDown}
           brand={
             confident && (device.manufacturer || device.brandKey) ? (
@@ -1765,6 +1776,7 @@ export function SchemeScreen({
   const [menuOpen, setMenuOpen] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
   const [pendingDelete, setPendingDelete] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Device | null>(null);
   const [nameOnBackOpen, setNameOnBackOpen] = useState(false);
   const [saveSharedOpen, setSaveSharedOpen] = useState(false);
   const [tourOpen, setTourOpen] = useState(false);
@@ -2155,6 +2167,7 @@ export function SchemeScreen({
 
   const handleBack = () => {
     if (railEdit.editing) {
+      commitDevices(allRailDevices);
       railEdit.exitEdit();
       return;
     }
@@ -2626,10 +2639,19 @@ export function SchemeScreen({
               {railEdit.editing && !sharedPreview ? (
                 <button
                   type="button"
-                  onClick={railEdit.exitEdit}
-                  className="rounded-full bg-zinc-900 px-3.5 py-1.5 text-[13px] font-semibold text-white"
+                  onClick={() => {
+                    commitDevices(allRailDevices);
+                    railEdit.exitEdit();
+                  }}
+                  className="relative rounded-full bg-zinc-900 px-3.5 py-1.5 text-[13px] font-semibold text-white"
                 >
-                  Готово
+                  <IosHapticHit
+                    onActivate={() => {
+                      commitDevices(allRailDevices);
+                      railEdit.exitEdit();
+                    }}
+                  />
+                  <span className="relative z-[2]">Готово</span>
                 </button>
               ) : sharedPreview ? (
                 <span />
@@ -2701,7 +2723,10 @@ export function SchemeScreen({
                       onDelete={
                         sharedPreview || !onUpdateDevices
                           ? undefined
-                          : () => railEdit.deleteDevice(device.id)
+                          : () => {
+                              hapticImpact("light");
+                              setDeleteTarget(device);
+                            }
                       }
                       onPressStart={
                         sharedPreview || !onUpdateDevices
@@ -2712,6 +2737,11 @@ export function SchemeScreen({
                                 event.currentTarget.getBoundingClientRect();
                               railEdit.onDevicePointerDown(device, event, face);
                             }
+                      }
+                      onContextMenu={
+                        sharedPreview || !onUpdateDevices
+                          ? undefined
+                          : railEdit.onDeviceContextMenu
                       }
                       onSelect={(clientY) => {
                         if (wireDraft || railEdit.editing) return;
@@ -2784,13 +2814,19 @@ export function SchemeScreen({
                             hapticImpact("light");
                             setAddPickerOpen(true);
                           }}
-                          className="mt-[18px] flex shrink-0 items-center justify-center rounded-[8px] border-2 border-dashed border-zinc-300 bg-white text-zinc-500 transition-colors hover:border-zinc-400 hover:text-zinc-800"
+                          className="relative mt-[18px] flex shrink-0 items-center justify-center rounded-[8px] border-2 border-dashed border-zinc-300 bg-white text-zinc-500 transition-colors hover:border-zinc-400 hover:text-zinc-800"
                           style={{
                             width: MODULE_PX,
                             height: BODY_HEIGHT_PX,
                           }}
                         >
-                          <Plus className="h-5 w-5" strokeWidth={2.25} />
+                          <IosHapticHit
+                            onActivate={() => {
+                              hapticImpact("light");
+                              setAddPickerOpen(true);
+                            }}
+                          />
+                          <Plus className="relative z-[2] h-5 w-5" strokeWidth={2.25} />
                         </button>
                       )}
                     </div>
@@ -3135,6 +3171,24 @@ export function SchemeScreen({
             onConfirm={(name) => {
               onRename(name);
               setRenameOpen(false);
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {deleteTarget && (
+          <ConfirmDialog
+            title="Удалить прибор?"
+            description={`«${deleteTarget.name}» пропадёт со схемы. Приборы справа сдвинутся на его место.`}
+            confirmLabel="Удалить"
+            cancelLabel="Отмена"
+            onCancel={() => setDeleteTarget(null)}
+            onConfirm={() => {
+              const id = deleteTarget.id;
+              setDeleteTarget(null);
+              hapticDelete();
+              railEdit.deleteDevice(id);
             }}
           />
         )}

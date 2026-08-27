@@ -640,6 +640,7 @@ export function DeviceFace({
   showTerminals,
   onSelect,
   onPressStart,
+  onContextMenu,
   brand,
   showDetails = true,
   interactiveTerminals = false,
@@ -652,6 +653,7 @@ export function DeviceFace({
   showTerminals: boolean;
   onSelect: (event: MouseEvent<HTMLButtonElement>) => void;
   onPressStart?: (event: PointerEvent<HTMLButtonElement>) => void;
+  onContextMenu?: (event: MouseEvent<HTMLButtonElement>) => void;
   brand?: ReactNode;
   showDetails?: boolean;
   interactiveTerminals?: boolean;
@@ -680,6 +682,7 @@ export function DeviceFace({
       <button
         type="button"
         onPointerDown={onPressStart}
+        onContextMenu={onContextMenu}
         onClick={onSelect}
         className="absolute inset-x-0 z-[4] p-0"
         style={{

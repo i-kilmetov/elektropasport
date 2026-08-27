@@ -146,6 +146,8 @@ export interface PanelObject {
   createdAt?: string;
   /** ISO timestamp of last title rename — protects against stale sync overwrites */
   titleUpdatedAt?: string;
+  /** ISO timestamp of last scheme (devices / rails / wires) write */
+  schemeUpdatedAt?: string;
   /** Setup without a photographed щиток (пробки, этажный щит, …) */
   noPanelSetupId?: NoPanelSetupId;
 }

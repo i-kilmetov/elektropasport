@@ -10,7 +10,6 @@ import {
 import { DEVICE_GAP_PX, MODULE_PX } from "@/components/icons/device-face";
 import {
   hapticContextMenu,
-  hapticDelete,
   hapticImpact,
   hapticSelection,
 } from "@/lib/haptics";
@@ -73,6 +72,7 @@ export function useRailEdit({
   const dragging = devices.find((device) => device.id === draggingId) ?? null;
 
   const exitEdit = useCallback(() => {
+    editingRef.current = false;
     setEditing(false);
     setDraggingId(null);
     setPointer(null);
@@ -81,9 +81,10 @@ export function useRailEdit({
     hapticImpact("light");
   }, []);
 
-  const enterEdit = useCallback(() => {
+  const enterEdit = useCallback((withHaptic = true) => {
+    editingRef.current = true;
     setEditing(true);
-    hapticContextMenu();
+    if (withHaptic) hapticContextMenu();
   }, []);
 
   const resolveSlot = useCallback(
@@ -171,11 +172,6 @@ export function useRailEdit({
       skipClickRef.current = false;
       const pointerId = event.pointerId;
       const target = event.currentTarget as HTMLElement;
-      try {
-        target.setPointerCapture(pointerId);
-      } catch {
-        /* ignore */
-      }
 
       const session: Session = {
         deviceId: device.id,
@@ -188,36 +184,45 @@ export function useRailEdit({
         dragging: false,
       };
 
-      const startDrag = (x: number, y: number, fromLongPress: boolean) => {
+      const startDrag = (x: number, y: number) => {
         const live = sessionRef.current;
         if (!live || live.pointerId !== pointerId || live.dragging) return;
         live.dragging = true;
         live.startX = x;
         live.startY = y;
         skipClickRef.current = true;
+        try {
+          target.setPointerCapture(pointerId);
+        } catch {
+          /* ignore */
+        }
         document.body.style.overflow = "hidden";
         document.body.style.touchAction = "none";
         setGrab({ x: live.grabX, y: live.grabY });
+        editingRef.current = true;
         setEditing(true);
         setDraggingId(device.id);
         setPointer({ x, y });
         const slot = resolveSlot(x, y, device.id);
         dropSlotRef.current = slot;
         setDropSlot(slot);
-        if (fromLongPress) hapticContextMenu();
-        else hapticImpact("medium");
+        hapticImpact("medium");
+      };
+
+      const armEdit = () => {
+        const live = sessionRef.current;
+        if (!live || live.pointerId !== pointerId || live.dragging) return;
+        skipClickRef.current = true;
+        enterEdit();
       };
 
       if (editingRef.current) {
         session.timer = window.setTimeout(
-          () => startDrag(session.startX, session.startY, false),
+          () => startDrag(session.startX, session.startY),
           40,
         );
       } else {
-        session.timer = window.setTimeout(
-          () => startDrag(session.startX, session.startY, true),
-          LONG_PRESS_MS,
-        );
+        session.timer = window.setTimeout(armEdit, LONG_PRESS_MS);
       }
       sessionRef.current = session;
 
@@ -234,7 +239,7 @@ export function useRailEdit({
               sessionRef.current = null;
               return;
             }
-            startDrag(move.clientX, move.clientY, false);
+            startDrag(move.clientX, move.clientY);
           }
           return;
         }
@@ -268,7 +273,19 @@ export function useRailEdit({
       window.addEventListener("pointerup", onUp);
       window.addEventListener("pointercancel", onUp);
     },
-    [enabled, finishDrag, resolveSlot],
+    [enabled, enterEdit, finishDrag, resolveSlot],
+  );
+
+  const onDeviceContextMenu = useCallback(
+    (event: { preventDefault: () => void }) => {
+      if (!enabled) return;
+      event.preventDefault();
+      skipClickRef.current = true;
+      const live = sessionRef.current;
+      if (live) window.clearTimeout(live.timer);
+      enterEdit(false);
+    },
+    [enabled, enterEdit],
   );
 
   const consumeClick = useCallback(() => {
@@ -278,7 +295,6 @@ export function useRailEdit({
   }, []);
 
   const deleteDevice = useCallback((id: number) => {
-    hapticDelete();
     onCommitRef.current(removeDevice(devicesRef.current, id));
     setDraggingId((current) => (current === id ? null : current));
     setDropSlot(null);
@@ -308,6 +324,7 @@ export function useRailEdit({
     enterEdit,
     exitEdit,
     onDevicePointerDown,
+    onDeviceContextMenu,
     consumeClick,
     deleteDevice,
   };

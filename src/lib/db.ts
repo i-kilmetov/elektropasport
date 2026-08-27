@@ -1086,10 +1086,9 @@ export async function insertPanel(
       breakers = EXCLUDED.breakers,
       safety = EXCLUDED.safety,
       devices = CASE
-        WHEN EXCLUDED.devices IS NOT NULL
-          AND jsonb_typeof(EXCLUDED.devices) = 'array'
-          AND jsonb_array_length(EXCLUDED.devices) > 0
-        THEN EXCLUDED.devices
+        WHEN jsonb_typeof(EXCLUDED.devices) = 'array' THEN EXCLUDED.devices
+        WHEN jsonb_typeof(EXCLUDED.devices) = 'string'
+          THEN (EXCLUDED.devices #>> '{}')::jsonb
         ELSE panels.devices
       END,
       lines_count = COALESCE(EXCLUDED.lines_count, panels.lines_count),
@@ -1103,10 +1102,9 @@ export async function insertPanel(
       house_snapshot = COALESCE(EXCLUDED.house_snapshot, panels.house_snapshot),
       rail_count = COALESCE(EXCLUDED.rail_count, panels.rail_count),
       wires = CASE
-        WHEN EXCLUDED.wires IS NOT NULL
-          AND jsonb_typeof(EXCLUDED.wires) = 'array'
-          AND jsonb_array_length(EXCLUDED.wires) > 0
-        THEN EXCLUDED.wires
+        WHEN jsonb_typeof(EXCLUDED.wires) = 'array' THEN EXCLUDED.wires
+        WHEN jsonb_typeof(EXCLUDED.wires) = 'string'
+          THEN (EXCLUDED.wires #>> '{}')::jsonb
         ELSE panels.wires
       END,
       appliances = CASE
@@ -1235,12 +1233,8 @@ export async function updatePanel(
       ? patch.railCount
       : (existing.railCount ?? null);
 
-  const nextDevices =
-    Array.isArray(patch.devices) && patch.devices.length > 0
-      ? patch.devices
-      : null;
-  const nextWires =
-    Array.isArray(patch.wires) && patch.wires.length > 0 ? patch.wires : null;
+  const nextDevices = Array.isArray(patch.devices) ? patch.devices : null;
+  const nextWires = Array.isArray(patch.wires) ? patch.wires : null;
   const writingAppliances = patch.appliances !== undefined;
   const nextAppliances = writingAppliances ? (patch.appliances ?? []) : null;
   const appliancesUpdatedAt = writingAppliances
