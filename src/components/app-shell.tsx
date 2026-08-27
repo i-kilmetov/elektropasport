@@ -2176,7 +2176,10 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
                 setMainMenuOpen(false);
                 if (id === "profile") go("profile");
                 if (id === "game") go("panel-game");
-                if (id === "school") go("school");
+                if (id === "school") {
+                  window.location.assign("/school");
+                  return;
+                }
                 if (id === "about") go("about-service");
                 if (id === "feedback") go("feedback");
                 if (id === "master") go("become-master");

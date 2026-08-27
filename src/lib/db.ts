@@ -36,6 +36,7 @@ import {
   type PanelQuota,
 } from "@/lib/invites";
 import { buildInviteUrl } from "@/lib/panel-share";
+import { ensureConnectedMoscowMaster } from "@/lib/ensure-moscow-master";
 
 let schemaReady: Promise<void> | null = null;
 
@@ -59,7 +60,14 @@ export async function ensureSchema(): Promise<void> {
           WHERE key = 'version'
           LIMIT 1
         `) as Array<{ value: string }>;
-        if (meta?.value === SCHEMA_VERSION) return;
+        if (meta?.value === SCHEMA_VERSION) {
+          try {
+            await ensureConnectedMoscowMaster();
+          } catch (error) {
+            console.error("ensureConnectedMoscowMaster", error);
+          }
+          return;
+        }
       } catch {
         // schema_meta missing — fall through to full migrate
       }
@@ -567,6 +575,12 @@ export async function ensureSchema(): Promise<void> {
         VALUES ('version', ${SCHEMA_VERSION})
         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
       `;
+
+      try {
+        await ensureConnectedMoscowMaster();
+      } catch (error) {
+        console.error("ensureConnectedMoscowMaster", error);
+      }
     })().catch((error) => {
       schemaReady = null;
       throw error;

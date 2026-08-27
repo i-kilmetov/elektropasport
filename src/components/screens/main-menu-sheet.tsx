@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import { Portal } from "@/components/ui/portal";
+import { APP_VERSION } from "@/lib/app-version";
 
 export type MainMenuId =
   | "profile"
@@ -164,6 +165,10 @@ export function MainMenuSheet({
               </button>
             )}
           </div>
+
+          <p className="mt-5 text-center text-[12px] tabular-nums text-zinc-400">
+            {APP_VERSION}
+          </p>
         </motion.div>
       </motion.div>
     </Portal>

@@ -49,6 +49,7 @@ import {
   persistPanel,
   restoreDeletedHomeItem,
 } from "@/lib/user-data";
+import { APP_VERSION } from "@/lib/app-version";
 import {
   readHomeExpandedPanelId,
   writeHomeExpandedPanelId,
@@ -863,6 +864,9 @@ export function ObjectsScreen({
             </button>
           )}
         </nav>
+        <p className="mt-4 px-3 text-[11px] tabular-nums text-zinc-400">
+          {APP_VERSION}
+        </p>
       </aside>
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overscroll-none pt-[max(1.25rem,env(safe-area-inset-top))] lg:pt-8">

@@ -2299,7 +2299,14 @@ export function SchemeScreen({
   const networkSafetyCards = (
     <>
       <div className="min-w-0 col-span-2 lg:col-span-1">
-        <GlassCard className="flex h-full flex-col p-4 lg:p-5">
+        <GlassCard
+          className={cn(
+            "flex h-full flex-col p-4 lg:p-5",
+            onEditHouse && "cursor-pointer transition-colors active:bg-zinc-50",
+          )}
+          onClick={onEditHouse}
+          role={onEditHouse ? "button" : undefined}
+        >
           <div className="mb-2 flex items-center gap-1.5 text-[12px] text-zinc-500">
             <Building2 className="h-3.5 w-3.5 text-zinc-400" />
             Дом
@@ -2328,29 +2335,21 @@ export function SchemeScreen({
                   )}
                 </>
               )}
-              {!sharedPreview && onEditHouse && (
-                <button
-                  type="button"
-                  onClick={onEditHouse}
-                  className="pt-1 text-[13px] font-medium text-zinc-700 underline-offset-2 hover:underline"
-                >
+              {onEditHouse && (
+                <span className="block pt-1 text-[13px] font-medium text-zinc-700">
                   Изменить адрес
-                </button>
+                </span>
               )}
             </div>
           ) : (
             <div>
-                <p className="text-[13px] leading-snug text-zinc-400">
-                  Укажите адрес дома.
-                </p>
-              {!sharedPreview && onEditHouse && (
-                <button
-                  type="button"
-                  onClick={onEditHouse}
-                  className="mt-2 text-[13px] font-medium text-zinc-700 underline-offset-2 hover:underline"
-                >
-                  Указать адрес
-                </button>
+              <p className="text-[13px] leading-snug text-zinc-400">
+                Укажем адрес автоматически по геопозиции.
+              </p>
+              {onEditHouse && (
+                <span className="mt-2 block text-[13px] font-medium text-zinc-700">
+                  Определить адрес
+                </span>
               )}
             </div>
           )}

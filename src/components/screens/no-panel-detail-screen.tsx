@@ -118,7 +118,11 @@ export function NoPanelDetailScreen({
         })}
 
         {saved && (
-          <GlassCard className="p-4">
+          <GlassCard
+            className={`p-4 ${onEditAddress ? "cursor-pointer transition-colors active:bg-zinc-50" : ""}`}
+            onClick={onEditAddress}
+            role={onEditAddress ? "button" : undefined}
+          >
             <div className="mb-2 flex items-center gap-1.5 text-[12px] text-zinc-500">
               <MapPin className="h-3.5 w-3.5 text-zinc-400" />
               Адрес
@@ -147,28 +151,20 @@ export function NoPanelDetailScreen({
                   </>
                 )}
                 {onEditAddress && (
-                  <button
-                    type="button"
-                    onClick={onEditAddress}
-                    className="pt-1 text-[13px] font-medium text-zinc-700 underline-offset-2 hover:underline"
-                  >
+                  <span className="block pt-1 text-[13px] font-medium text-zinc-700">
                     Изменить адрес
-                  </button>
+                  </span>
                 )}
               </div>
             ) : (
               <div>
                 <p className="text-[13px] leading-snug text-zinc-400">
-                  Укажите адрес дома.
+                  Укажем адрес автоматически по геопозиции.
                 </p>
                 {onEditAddress && (
-                  <button
-                    type="button"
-                    onClick={onEditAddress}
-                    className="mt-2 text-[13px] font-medium text-zinc-700 underline-offset-2 hover:underline"
-                  >
-                    Указать адрес
-                  </button>
+                  <span className="mt-2 block text-[13px] font-medium text-zinc-700">
+                    Определить адрес
+                  </span>
                 )}
               </div>
             )}
