@@ -130,16 +130,20 @@ export function NoPanelDetailScreen({
                 </p>
                 {houseSnapshot && (
                   <>
-                    <p className="text-[13px] text-zinc-600">
-                      Год постройки:{" "}
-                      <span className="font-medium text-zinc-800">
-                        {formatBuildingYear(houseSnapshot.buildingYear)}
-                      </span>
-                    </p>
-                    <p className="text-[13px] leading-snug text-zinc-600">
-                      {houseSnapshot.groundingTitle}.{" "}
-                      {houseSnapshot.groundingSummary}
-                    </p>
+                    {houseSnapshot.buildingYear != null && (
+                      <>
+                        <p className="text-[13px] text-zinc-600">
+                          Год постройки:{" "}
+                          <span className="font-medium text-zinc-800">
+                            {formatBuildingYear(houseSnapshot.buildingYear)}
+                          </span>
+                        </p>
+                        <p className="text-[13px] leading-snug text-zinc-600">
+                          {houseSnapshot.groundingTitle}.{" "}
+                          {houseSnapshot.groundingSummary}
+                        </p>
+                      </>
+                    )}
                   </>
                 )}
                 {onEditAddress && (
@@ -155,7 +159,7 @@ export function NoPanelDetailScreen({
             ) : (
               <div>
                 <p className="text-[13px] leading-snug text-zinc-400">
-                  Укажите адрес дома — подскажем год постройки и заземление.
+                  Укажите адрес дома.
                 </p>
                 {onEditAddress && (
                   <button

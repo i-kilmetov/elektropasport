@@ -113,8 +113,8 @@ export function PanelHouseAddressSheet({
               </h3>
               <p className="mt-1 text-[14px] leading-relaxed text-zinc-500">
                 {useMoscow
-                  ? "Укажите улицу и дом — подтянем год постройки и оценим заземление."
-                  : "Укажите город и дом — подскажем год постройки и заземление."}
+                  ? "Укажите улицу и дом."
+                  : "Укажите город, улицу и дом."}
               </p>
             </div>
             <button

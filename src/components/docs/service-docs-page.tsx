@@ -488,7 +488,7 @@ export function ServiceDocsPage() {
                     "Сценарий «нет щитка»",
                   ],
                   [
-                    "city-select / address-select / house-insight",
+                    "city-select / address-select / lead-service",
                     "Город, адрес, справка по дому",
                   ],
                   ["lead-service / lead-contact", "Выбор услуги и контакты"],

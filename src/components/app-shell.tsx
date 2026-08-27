@@ -37,7 +37,6 @@ import {
 } from "@/components/screens/lead-contact-screen";
 import { LeadServiceScreen } from "@/components/screens/lead-service-screen";
 import { LeadAddressScreen } from "@/components/screens/lead-address-screen";
-import { HouseInsightScreen } from "@/components/screens/house-insight-screen";
 import { NoPanelDetailScreen } from "@/components/screens/no-panel-detail-screen";
 import { NoPanelOptionsScreen } from "@/components/screens/no-panel-options-screen";
 import { ObjectsScreen } from "@/components/screens/objects-screen";
@@ -105,7 +104,6 @@ import {
   fetchMasterProfile,
   fetchMasterRequestPanel,
   fetchPanelQuota,
-  lookupHouseInsight,
   getCachedHomeItems,
   persistDeleteInstallRequest,
   persistDeletePanel,
@@ -127,7 +125,6 @@ import {
 } from "@/lib/user-data";
 import {
   groundingToHasGround,
-  houseInsightToPanelSnapshot,
 } from "@/lib/house-insight";
 import { buildPanelHouseSnapshot } from "@/lib/house-insight-local";
 import { syncRatingFromCharacteristics } from "@/lib/device-spec-guide";
@@ -424,7 +421,8 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
 
   const go = useCallback((next: AppScreen) => {
     hapticNav();
-    setScreen(next);
+    // House passport screen paused until we have a reliable year source.
+    setScreen(next === "house-insight" ? "lead-service" : next);
   }, []);
 
   /** After Telegram OAuth return — home with skeletons, not boot splash. */
@@ -820,7 +818,7 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
     setSelectedHouse(null);
     setSelectedBlock(null);
     setAddressEntrySource(null);
-    // Same house-insight path as «Помочь с электрикой» (scheme CTA uses this).
+    // Same address → service path as «Помочь с электрикой».
     setHelpElectricalFlow(true);
     setSelectedLeadService(null);
     setRequestNeedId(null);
@@ -1000,52 +998,6 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
         setPanelHouseSaveError(message);
         setItemsError(message);
       });
-
-      void lookupHouseInsight({
-        city: payload.city,
-        address: payload.address,
-        fiasId: payload.fiasId,
-        street: payload.street,
-        house: payload.house,
-        block: payload.block,
-        buildingYear: payload.buildingYear,
-      })
-        .then(async (insight) => {
-          if (!activePanelId || insight.buildingYear == null) return;
-          const panelNow = items.find(
-            (item): item is PanelObject =>
-              item.kind === "panel" && item.id === activePanelId,
-          );
-          const enriched = houseInsightToPanelSnapshot(insight);
-          const enrichedGround = groundingToHasGround(
-            enriched.groundingExpectation,
-          );
-          const enrichPatch: Partial<
-            Pick<PanelObject, "houseSnapshot" | "address" | "hasGround">
-          > = {
-            houseSnapshot: enriched,
-            address: enriched.address,
-          };
-          if (
-            enrichedGround !== undefined &&
-            panelNow?.hasGround === undefined
-          ) {
-            enrichPatch.hasGround = enrichedGround;
-          }
-          setItems((prev) =>
-            prev.map((item) =>
-              item.kind === "panel" && item.id === activePanelId
-                ? { ...item, ...enrichPatch }
-                : item,
-            ),
-          );
-          try {
-            await persistPanelPatch(activePanelId, enrichPatch);
-          } catch (error) {
-            console.error(error);
-          }
-        })
-        .catch((error) => console.error(error));
     },
     [activePanelId, items],
   );
@@ -2608,7 +2560,7 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
                 setSelectedBlock(block ?? null);
                 setSelectedBuildingYear(buildingYear ?? null);
                 setAddressEntrySource("geo");
-                go("house-insight");
+                go("lead-service");
               }}
             />
           )}
@@ -2624,14 +2576,14 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
                 leadFlow === "master"
                   ? "Укажите город — так мы поймём, где вы можете брать заявки."
                   : helpElectricalFlow
-                    ? "Сначала город, затем точный адрес — подскажем год дома и типичную электрику."
+                    ? "Сначала город, затем точный адрес дома."
                     : "Укажите город, мы подскажем, как сможем вам помочь."
               }
               moscowHint={
                 leadFlow === "master"
                   ? undefined
                   : helpElectricalFlow
-                    ? "В Москве адрес берём из открытых данных города — с годом постройки. В других городах — через DaData."
+                    ? "В этом городе у нас есть мастера-электрики. Укажите точный адрес — так проще сориентировать по выезду."
                     : "В этом городе у нас есть квалифицированные мастера-электрики. Укажите точный адрес, чтобы сориентировать вас по времени и цене."
               }
               onBack={() =>
@@ -2653,7 +2605,7 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
                   go("master-docs");
                   return;
                 }
-                // Install / help-electrical: always collect address for house insight.
+                // Install / help-electrical: collect address, then service choice.
                 go("address-select");
               }}
               tone={leadFlow === "master" ? "dark" : "light"}
@@ -2694,8 +2646,8 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
               }
               description={
                 isMoscow(selectedCity)
-                  ? "Укажите улицу и дом. Год постройки подтянем из открытых источников и оценим заземление."
-                  : "Укажите точный адрес: улица и дом. По году постройки подскажем, есть ли заземление."
+                  ? "Укажите улицу и дом."
+                  : "Укажите точный адрес: улица и дом."
               }
               onBack={() => go("city-select")}
               onConfirm={(address) => {
@@ -2708,28 +2660,8 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
                 setSelectedBlock(address.block ?? null);
                 setSelectedBuildingYear(address.buildingYear ?? null);
                 setAddressEntrySource("manual");
-                go("house-insight");
+                go("lead-service");
               }}
-            />
-          )}
-          {screen === "house-insight" && selectedCity && selectedAddress && (
-            <HouseInsightScreen
-              key={`house-${selectedCity}-${selectedAddress}-${selectedBuildingYear ?? "y"}`}
-              city={selectedCity}
-              address={selectedAddress}
-              fiasId={selectedAddressFiasId}
-              buildingYear={selectedBuildingYear}
-              street={selectedStreet}
-              house={selectedHouse}
-              block={selectedBlock}
-              onBack={() => {
-                if (addressEntrySource === "geo") {
-                  go("geo-address");
-                  return;
-                }
-                go("address-select");
-              }}
-              onCallMaster={() => go("lead-service")}
             />
           )}
           {screen === "lead-service" && selectedCity && (
@@ -2740,7 +2672,11 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
               isFirstOrder={isFirstLeadOrder}
               onBack={() => {
                 if (selectedAddress) {
-                  go("house-insight");
+                  if (addressEntrySource === "geo") {
+                    go("geo-address");
+                    return;
+                  }
+                  go("address-select");
                   return;
                 }
                 go("geo-address");

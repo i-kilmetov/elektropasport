@@ -2309,19 +2309,24 @@ export function SchemeScreen({
               <p className="text-[14px] font-semibold leading-snug text-zinc-900">
                 {houseSnapshot.address}
               </p>
-              <p className="text-[13px] text-zinc-600">
-                Год постройки:{" "}
-                <span className="font-medium text-zinc-800">
-                  {formatBuildingYear(houseSnapshot.buildingYear)}
-                </span>
-              </p>
-              <p className="text-[13px] leading-snug text-zinc-600">
-                {houseSnapshot.groundingTitle}. {houseSnapshot.groundingSummary}
-              </p>
-              {houseSnapshot.dataSource && (
-                <p className="text-[11px] text-zinc-400">
-                  Источник: {houseSnapshot.dataSource}
-                </p>
+              {houseSnapshot.buildingYear != null && (
+                <>
+                  <p className="text-[13px] text-zinc-600">
+                    Год постройки:{" "}
+                    <span className="font-medium text-zinc-800">
+                      {formatBuildingYear(houseSnapshot.buildingYear)}
+                    </span>
+                  </p>
+                  <p className="text-[13px] leading-snug text-zinc-600">
+                    {houseSnapshot.groundingTitle}.{" "}
+                    {houseSnapshot.groundingSummary}
+                  </p>
+                  {houseSnapshot.dataSource && (
+                    <p className="text-[11px] text-zinc-400">
+                      Источник: {houseSnapshot.dataSource}
+                    </p>
+                  )}
+                </>
               )}
               {!sharedPreview && onEditHouse && (
                 <button
@@ -2335,9 +2340,9 @@ export function SchemeScreen({
             </div>
           ) : (
             <div>
-              <p className="text-[13px] leading-snug text-zinc-400">
-                Укажите адрес дома — подскажем год постройки и заземление.
-              </p>
+                <p className="text-[13px] leading-snug text-zinc-400">
+                  Укажите адрес дома.
+                </p>
               {!sharedPreview && onEditHouse && (
                 <button
                   type="button"
