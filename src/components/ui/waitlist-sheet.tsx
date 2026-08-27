@@ -195,7 +195,7 @@ export function WaitlistSheet({
           exit={{ y: 40, opacity: 0 }}
           transition={{ type: "spring", stiffness: 320, damping: 30 }}
           onClick={(e) => e.stopPropagation()}
-          className="w-full max-w-[430px] rounded-t-[28px] border border-black/[0.06] bg-white p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-[0_20px_60px_rgba(17,17,19,0.15)] sm:rounded-[28px]"
+          className="max-h-[90dvh] w-full max-w-[430px] overflow-y-auto rounded-t-[28px] border border-black/[0.06] bg-white p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-[0_20px_60px_rgba(17,17,19,0.15)] sm:rounded-[28px]"
         >
           <div className="mb-4 flex items-start justify-between gap-3">
             <div className="flex items-center gap-3">
@@ -219,6 +219,18 @@ export function WaitlistSheet({
               <X className="h-4 w-4" />
             </button>
           </div>
+
+          {kind === "school" ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src="/empty-states/school.png"
+              alt="Класс Школы Током"
+              width={921}
+              height={1006}
+              draggable={false}
+              className="pointer-events-none mx-auto mb-4 h-[min(28dvh,180px)] w-auto max-w-full select-none object-contain"
+            />
+          ) : null}
 
           <div className="space-y-3">
             {copy.body.map((paragraph) => (
