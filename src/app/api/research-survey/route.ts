@@ -98,7 +98,9 @@ export async function POST(request: Request) {
         branch: validated.branch,
         dwelling: formatAnswerLabel("q2", answers),
         typology: formatAnswerLabel("q12", answers),
-        need: formatAnswerLabel("q13", answers),
+        need: formatAnswerLabel("c1", answers),
+        manuals: formatAnswerLabel("a3", answers),
+        helpFirst: formatAnswerLabel("h1", answers),
       });
       stored.push("telegram");
     } catch (error) {

@@ -9,6 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import { hapticImpact, hapticNotification } from "@/lib/haptics";
 import {
   RESEARCH_SURVEY_TOTAL_STEPS,
+  SURVEY_TOPIC_LABEL,
   getSurveyQuestion,
   nextSurveyStep,
   type SurveyAnswers,
@@ -200,7 +201,10 @@ export function ResearchSurveyScreen() {
           )}
           <div className="min-w-0 flex-1">
             <div className="text-[13px] font-medium text-zinc-400">
-              Исследование · {stepNumber} из {RESEARCH_SURVEY_TOTAL_STEPS}
+              {question.topic
+                ? SURVEY_TOPIC_LABEL[question.topic]
+                : "Исследование"}{" "}
+              · {stepNumber} из {RESEARCH_SURVEY_TOTAL_STEPS}
             </div>
           </div>
         </div>

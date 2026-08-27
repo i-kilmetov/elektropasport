@@ -471,6 +471,8 @@ export async function notifyAdminResearchSurvey(payload: {
   dwelling: string;
   typology: string;
   need: string;
+  manuals?: string;
+  helpFirst?: string;
 }): Promise<void> {
   if ((await listAdminTelegramIds()).length === 0) return;
   await sendToAdmins({
@@ -485,6 +487,8 @@ export async function notifyAdminResearchSurvey(payload: {
       `Жильё: ${payload.dwelling}`,
       `Ветка ввода: ${payload.branch}`,
       `Тип: ${payload.typology}`,
+      `Инструкции: ${payload.manuals || "—"}`,
+      `Помощь: ${payload.helpFirst || "—"}`,
       `Нужен сервис: ${payload.need}`,
     ]
       .filter((line): line is string => line !== null)
