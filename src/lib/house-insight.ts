@@ -52,7 +52,7 @@ export function electricalGuessForYear(year: number | null): ElectricalGuess {
       era: "unknown",
       title: "Тип электрики пока неясен",
       description:
-        "Не удалось определить год дома. Мастер Током на месте оценит щит, кабель и заземление.",
+        "Год дома не определили. Мастер Током на месте оценит щит, кабель и заземление.",
     };
   }
 
@@ -109,6 +109,6 @@ export function groundingToHasGround(
 }
 
 export function formatBuildingYear(year: number | null): string {
-  if (year == null) return "неизвестно";
+  if (year == null) return "не определили";
   return `${year} г.`;
 }

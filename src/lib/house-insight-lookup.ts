@@ -5,14 +5,6 @@ import {
 import { assessGroundingForYear } from "@/lib/grounding-assessment";
 import { lookupHouseFromDaData } from "@/lib/dadata-house-lookup";
 import { isMoscow } from "@/lib/lead-services";
-import {
-  buildMoscowAddressKey,
-  scoreMoscowAddressMatch,
-} from "@/lib/moscow-address-match";
-import {
-  lookupMoscowHousePassportWithDebug,
-  searchMoscowAddressSuggestions,
-} from "@/lib/moscow-house-passport";
 import { lookupMoscowYearFromSeed } from "@/lib/moscow-year-seed";
 import { lookupBuildingYearFromOsm } from "@/lib/osm-building-year";
 import {
@@ -22,7 +14,9 @@ import {
 
 export { buildLocalHouseInsight, buildPanelHouseSnapshot };
 
-async function resolveMoscowYear(input: {
+/** Year sources: tiny seed → OSM. Mos.ru open catalog has no reliable year dataset. */
+async function resolveBuildingYear(input: {
+  city: string;
   address: string;
   street?: string | null;
   house?: string | null;
@@ -33,72 +27,25 @@ async function resolveMoscowYear(input: {
   operationYear: number | null;
   sourceLabel: string | null;
 }> {
-  const seed = lookupMoscowYearFromSeed(input);
-  if (seed) {
-    return {
-      address: seed.address,
-      buildingYear: seed.buildingYear,
-      operationYear: null,
-      sourceLabel: "Справочник домов Москвы",
-    };
-  }
-
-  try {
-    const { passport } = await lookupMoscowHousePassportWithDebug(input.address, {
-      street: input.street,
-      house: input.house,
-      block: input.block,
-    });
-    if (passport?.buildingYear != null || passport?.operationYear != null) {
+  if (isMoscow(input.city)) {
+    const seed = lookupMoscowYearFromSeed(input);
+    if (seed) {
       return {
-        address: passport.address || input.address,
-        buildingYear: passport.buildingYear,
-        operationYear: passport.operationYear,
-        sourceLabel: passport.sourceLabel,
+        address: seed.address,
+        buildingYear: seed.buildingYear,
+        operationYear: null,
+        sourceLabel: "Справочник домов Москвы",
       };
     }
-
-    const key = buildMoscowAddressKey({
-      address: input.address,
-      street: input.street,
-      house: input.house,
-      block: input.block,
-    });
-    const query =
-      key != null
-        ? `${key.street} ${key.house}${key.building ? ` ${key.building}` : ""}`
-        : input.address;
-    const hits = await searchMoscowAddressSuggestions(query, 20);
-    if (key && hits.length > 0) {
-      let best: {
-        address: string;
-        buildingYear: number | null;
-        score: number;
-      } | null = null;
-      for (const hit of hits) {
-        const score = scoreMoscowAddressMatch(hit.address, key);
-        if (!best || score > best.score) {
-          best = {
-            address: hit.address,
-            buildingYear: hit.buildingYear,
-            score,
-          };
-        }
-      }
-      if (best && best.score >= 100 && best.buildingYear != null) {
-        return {
-          address: best.address,
-          buildingYear: best.buildingYear,
-          operationYear: null,
-          sourceLabel: "Открытые данные Москвы",
-        };
-      }
-    }
-  } catch (error) {
-    console.error("Moscow open-data year resolve failed", error);
   }
 
-  const osm = await lookupBuildingYearFromOsm(input);
+  const osm = await lookupBuildingYearFromOsm({
+    address: input.address,
+    city: input.city,
+    street: input.street,
+    house: input.house,
+    block: input.block,
+  });
   if (osm.buildingYear != null) {
     return {
       address: osm.address || input.address,
@@ -123,7 +70,7 @@ export async function lookupHouseInsight(input: {
   street?: string | null;
   house?: string | null;
   block?: string | null;
-  /** Year already known from Moscow open-data suggestion. */
+  /** Year already known from suggestion extras. */
   buildingYear?: number | null;
 }): Promise<HouseInsight> {
   const city = input.city.trim();
@@ -149,11 +96,12 @@ export async function lookupHouseInsight(input: {
         capitalRepair: null,
         management: null,
         managementType: null,
-        dataSource: "Открытые данные Москвы",
+        dataSource: "подсказка адреса",
       };
     }
 
-    const resolved = await resolveMoscowYear({
+    const resolved = await resolveBuildingYear({
+      city,
       address,
       street: input.street,
       house: input.house,
@@ -188,11 +136,34 @@ export async function lookupHouseInsight(input: {
     fiasId,
   });
 
-  const buildingYear = knownYear ?? dadata.buildingYear;
+  let buildingYear = knownYear ?? dadata.buildingYear;
+  let dataSource: string | null =
+    knownYear != null
+      ? "подсказка адреса"
+      : buildingYear != null
+        ? "DaData"
+        : null;
+  let resolvedAddress = dadata.address || address;
+
+  if (buildingYear == null) {
+    const osm = await resolveBuildingYear({
+      city: dadata.city || city,
+      address: resolvedAddress,
+      street: input.street,
+      house: input.house,
+      block: input.block,
+    });
+    if (osm.buildingYear != null) {
+      buildingYear = osm.buildingYear;
+      dataSource = osm.sourceLabel;
+      resolvedAddress = osm.address || resolvedAddress;
+    }
+  }
+
   const grounding = assessGroundingForYear(buildingYear);
 
   return {
-    address: dadata.address || address,
+    address: resolvedAddress,
     city: dadata.city || city || null,
     fiasId: dadata.fiasId,
     buildingYear,
@@ -202,6 +173,6 @@ export async function lookupHouseInsight(input: {
     capitalRepair: null,
     management: null,
     managementType: null,
-    dataSource: buildingYear != null ? "DaData" : null,
+    dataSource,
   };
 }

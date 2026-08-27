@@ -20,16 +20,39 @@ function parseOsmYear(raw: string | undefined): number | null {
   return year >= 1800 && year <= new Date().getFullYear() + 2 ? year : null;
 }
 
+function osmAreaName(city?: string | null): string {
+  const raw = (city ?? "").trim().toLowerCase().replace(/ё/g, "е");
+  if (!raw || raw.includes("москв")) return "Москва";
+  if (
+    raw.includes("санкт") ||
+    raw.includes("петербург") ||
+    raw === "спб" ||
+    raw.includes("питер")
+  ) {
+    return "Санкт-Петербург";
+  }
+  if (raw.includes("екатеринбург") || raw === "екб") return "Екатеринбург";
+  if (raw.includes("новосибирск")) return "Новосибирск";
+  if (raw.includes("казан")) return "Казань";
+  if (raw.includes("нижн") && raw.includes("новгород")) {
+    return "Нижний Новгород";
+  }
+  // Strip leading «г.» if present
+  return (city ?? "Москва").replace(/^г\.?\s*/i, "").trim() || "Москва";
+}
+
 type OsmElement = {
   tags?: Record<string, string>;
 };
 
 /**
- * Building year from OpenStreetMap (works from Vercel; mos.ru often does not).
- * Coverage is incomplete — only use as fallback after Moscow open data.
+ * Building year from OpenStreetMap (works from Vercel).
+ * Incomplete coverage — use as fallback after commercial/house APIs.
+ * Address suggestions stay on DaData; OSM only answers «year for this street+house».
  */
 export async function lookupBuildingYearFromOsm(input: {
   address: string;
+  city?: string | null;
   street?: string | null;
   house?: string | null;
   block?: string | null;
@@ -48,10 +71,11 @@ export async function lookupBuildingYearFromOsm(input: {
     return { address: input.address, buildingYear: null, sourceLabel: null };
   }
 
+  const areaName = osmAreaName(input.city);
   const streetPattern = escapeOverpassRegex(key.street);
   const house = escapeOverpassRegex(key.house);
   const query = `[out:json][timeout:20];
-area["name"="Москва"]["admin_level"="4"]->.a;
+area["name"="${escapeOverpassRegex(areaName)}"]["admin_level"="4"]->.a;
 (
   way["addr:street"~"${streetPattern}",i]["addr:housenumber"="${house}"]["building"](area.a);
   relation["addr:street"~"${streetPattern}",i]["addr:housenumber"="${house}"]["building"](area.a);

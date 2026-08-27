@@ -184,11 +184,15 @@ export function HouseInsightScreen({
             <p className="text-[28px] font-bold tracking-tight text-zinc-900">
               {formatBuildingYear(insight.buildingYear)}
             </p>
-            {insight.dataSource && insight.buildingYear != null && (
+            {insight.buildingYear == null ? (
+              <p className="mt-1 text-[12px] text-zinc-400">
+                В открытых источниках год для этого дома не нашли
+              </p>
+            ) : insight.dataSource ? (
               <p className="mt-1 text-[12px] text-zinc-400">
                 Источник: {insight.dataSource}
               </p>
-            )}
+            ) : null}
           </GlassCard>
 
           <GlassCard className={cn("p-5", eraTone)}>
