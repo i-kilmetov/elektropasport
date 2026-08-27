@@ -750,6 +750,22 @@ function enqueuePanelOp<T>(id: string, op: () => Promise<T>): Promise<T> {
   return next;
 }
 
+/** Deletes of other panels must finish before a new create hits the quota check. */
+let pendingPanelDeletes = Promise.resolve();
+
+function trackPanelDelete(op: Promise<void>): Promise<void> {
+  const tracked = op.then(
+    () => undefined,
+    () => undefined,
+  );
+  pendingPanelDeletes = pendingPanelDeletes.then(() => tracked);
+  return op;
+}
+
+async function waitForPanelDeletes(): Promise<void> {
+  await pendingPanelDeletes;
+}
+
 async function syncPanelPatchToServer(
   id: string,
   sanitized: ReturnType<typeof sanitizePanelPatch>,
@@ -1377,6 +1393,8 @@ export async function importHomeBackup(
 export async function persistPanel(panel: PanelObject): Promise<void> {
   return enqueuePanelOp(panel.id, async () => {
     if (isHomeItemDeleted(panel.id)) return;
+    await waitForPanelDeletes();
+    if (isHomeItemDeleted(panel.id)) return;
     const stored = readLocalItems().find(
       (item): item is PanelObject =>
         item.kind === "panel" && item.id === panel.id,
@@ -1616,22 +1634,28 @@ export async function fetchSharedPanel(token: string): Promise<{
 
 export async function persistDeletePanel(id: string): Promise<void> {
   markHomeItemDeleted(id, "panel");
-  return enqueuePanelOp(id, async () => {
-    writeLocalItems(readLocalItems().filter((item) => item.id !== id));
+  return trackPanelDelete(
+    enqueuePanelOp(id, async () => {
+      if (!isHomeItemDeleted(id)) return;
+      writeLocalItems(readLocalItems().filter((item) => item.id !== id));
 
-    if (!canUseServer()) return;
+      if (!canUseServer()) return;
 
-    const res = await fetchWithTimeout(`/api/panels/${encodeURIComponent(id)}`, {
-      method: "DELETE",
-      headers: authHeaders(),
-      keepalive: true,
-    });
+      const res = await fetchWithTimeout(
+        `/api/panels/${encodeURIComponent(id)}`,
+        {
+          method: "DELETE",
+          headers: authHeaders(),
+          keepalive: true,
+        },
+      );
 
-    if (!res.ok) {
-      if (res.status === 503 || res.status === 404) return;
-      throw new Error(await parseError(res));
-    }
-  });
+      if (!res.ok) {
+        if (res.status === 503 || res.status === 404) return;
+        throw new Error(await parseError(res));
+      }
+    }),
+  );
 }
 
 const LOCAL_CODE_COUNTERS_KEY = "elektropasport:request-code-counters";

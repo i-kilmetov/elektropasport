@@ -90,12 +90,7 @@ import {
   wireConnectsSamePair,
 } from "@/lib/panel-wires";
 import { hapticContextMenu, hapticDelete, hapticImpact, hapticNotification } from "@/lib/haptics";
-import {
-  markHomeItemDeleted,
-  persistDeletePanel,
-  persistPanel,
-  restoreDeletedHomeItem,
-} from "@/lib/user-data";
+import { persistPanel, restoreDeletedHomeItem } from "@/lib/user-data";
 import {
   analyzePanelSafety,
   computePanelSafetyScore,
@@ -141,7 +136,7 @@ import {
 } from "@/lib/panel-protection";
 import { assessDeviceLineLoadSafety, assessLineLoadSafety } from "@/lib/line-load-safety";
 import { cn } from "@/lib/utils";
-import type { Device, DeviceType, PanelWire, TerminalRef } from "@/types";
+import type { Device, DeviceType, HomeListItem, PanelWire, TerminalRef } from "@/types";
 
 const TERMINAL_HOLD_MS = 320;
 
@@ -1688,6 +1683,8 @@ export function SchemeScreen({
   onRename,
   onShare,
   onDelete,
+  onDeleted,
+  onRestoreItem,
   onAssignCircuit,
   onAssignCircuits,
   onUpdateDeviceCharacteristic,
@@ -1720,6 +1717,8 @@ export function SchemeScreen({
   onRename: (name: string) => void;
   onShare?: () => Promise<string>;
   onDelete: () => void;
+  onDeleted?: () => void;
+  onRestoreItem?: (item: HomeListItem) => void;
   onAssignCircuit?: (deviceId: number, label: string) => void;
   onAssignCircuits?: (
     updates: Array<{ deviceId: number; label: string }>,
@@ -2505,12 +2504,7 @@ export function SchemeScreen({
                     className="flex w-full items-center gap-2 px-4 py-3 text-left text-[15px] text-rose-600 hover:bg-zinc-50"
                     onClick={() => {
                       setMenuOpen(false);
-                      if (panelId) {
-                        markHomeItemDeleted(panelId, "panel");
-                        void persistDeletePanel(panelId).catch((error) => {
-                          console.error(error);
-                        });
-                      }
+                      onDelete();
                       setPendingDelete(true);
                     }}
                   >
@@ -3260,6 +3254,7 @@ export function SchemeScreen({
                 onUndo: () => {
                   if (panelId) {
                     const restored = restoreDeletedHomeItem(panelId);
+                    if (restored) onRestoreItem?.(restored);
                     if (restored?.kind === "panel") {
                       void persistPanel(restored).catch((error) => {
                         console.error(error);
@@ -3270,7 +3265,7 @@ export function SchemeScreen({
                 },
                 onCommit: () => {
                   setPendingDelete(false);
-                  onDelete();
+                  onDeleted?.();
                 },
               }
             : null

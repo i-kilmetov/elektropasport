@@ -41,7 +41,7 @@ export function panelLimitForInvites(creditedInvites: number): number {
 
 export function isAtPanelLimit(
   quota: PanelQuota | null | undefined,
-  localPanelCount = 0,
+  localPanelCount?: number,
 ): boolean {
   // No quota loaded yet / caller forgot to pass it — do not invent a limit.
   // Authenticated creates are enforced by the API; local-only callers pass
@@ -50,8 +50,26 @@ export function isAtPanelLimit(
   if (quota.unlimited || hasUnlockedPanelLimit(quota.creditedInvites)) {
     return false;
   }
-  const count = Math.max(quota.panelCount, localPanelCount);
+  // The live client list is authoritative for this session: quota.panelCount
+  // lags behind create/delete until /api/invites returns. Using Math.max with
+  // that stale count kept the limit locked after a delete until reload.
+  const count =
+    typeof localPanelCount === "number" ? localPanelCount : quota.panelCount;
   return count >= BASE_PANEL_LIMIT;
+}
+
+export function adjustPanelQuotaCount(
+  quota: PanelQuota | null | undefined,
+  delta: number,
+): PanelQuota | null {
+  if (!quota) return null;
+  if (quota.unlimited) return quota;
+  const panelCount = Math.max(0, quota.panelCount + delta);
+  return {
+    ...quota,
+    panelCount,
+    remaining: Math.max(0, quota.panelLimit - panelCount),
+  };
 }
 
 export function inviteeDisplayName(input: {

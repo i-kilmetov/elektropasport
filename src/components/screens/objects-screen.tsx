@@ -45,9 +45,6 @@ import {
   formatAppliancePower,
 } from "@/lib/home-appliances";
 import {
-  markHomeItemDeleted,
-  persistDeleteInstallRequest,
-  persistDeletePanel,
   persistInstallRequest,
   persistPanel,
   restoreDeletedHomeItem,
@@ -533,6 +530,7 @@ export function ObjectsScreen({
   onOpenPanel,
   onOpenRequest,
   onDeleteItem,
+  onRestoreItem,
   onRenameItem,
   onNoPanel,
   onHelpElectrical,
@@ -560,6 +558,7 @@ export function ObjectsScreen({
   onOpenPanel: (id: string) => void;
   onOpenRequest: (id: string) => void;
   onDeleteItem: (id: string) => void;
+  onRestoreItem?: (item: HomeListItem) => void;
   onRenameItem: (id: string, name: string) => void;
   onNoPanel?: () => void;
   onHelpElectrical: () => void;
@@ -580,7 +579,7 @@ export function ObjectsScreen({
   onPageChange?: (page: 0 | 1) => void;
 }) {
   const [page, setPage] = useState<0 | 1>(initialPage);
-  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<HomeListItem | null>(null);
   const [actionsItemId, setActionsItemId] = useState<string | null>(null);
   const [renameItemId, setRenameItemId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -603,21 +602,21 @@ export function ObjectsScreen({
     const result: PanelObject[] = [];
     for (const item of items) {
       if (item.kind !== "panel") continue;
-      if (pendingDeleteId && item.id === pendingDeleteId) continue;
+      if (pendingDelete && item.id === pendingDelete.id) continue;
       if (seen.has(item.id)) continue;
       seen.add(item.id);
       result.push(item);
     }
     return result;
-  }, [items, pendingDeleteId]);
+  }, [items, pendingDelete]);
   const requests = useMemo(
     () =>
       items.filter(
         (item): item is InstallRequest =>
           item.kind === "install_request" &&
-          !(pendingDeleteId && item.id === pendingDeleteId),
+          !(pendingDelete && item.id === pendingDelete.id),
       ),
-    [items, pendingDeleteId],
+    [items, pendingDelete],
   );
   const atPanelLimit = isAtPanelLimit(quota, panels.length);
   const panelEmptyText =
@@ -637,7 +636,6 @@ export function ObjectsScreen({
     imageAlt: "Мастер пришёл помочь с электрикой",
   };
 
-  const pendingDelete = items.find((item) => item.id === pendingDeleteId);
   const actionsItem = items.find((item) => item.id === actionsItemId);
   const renameItem = items.find((item) => item.id === renameItemId);
 
@@ -1075,23 +1073,9 @@ export function ObjectsScreen({
               setActionsItemId(null);
             }}
             onDelete={() => {
-              markHomeItemDeleted(
-                actionsItem.id,
-                actionsItem.kind === "panel" ? "panel" : "install_request",
-              );
-              if (actionsItem.kind === "panel") {
-                void persistDeletePanel(actionsItem.id).catch((error) => {
-                  console.error(error);
-                });
-              } else {
-                void persistDeleteInstallRequest(actionsItem.id).catch(
-                  (error) => {
-                    console.error(error);
-                  },
-                );
-              }
-              setPendingDeleteId(actionsItem.id);
+              setPendingDelete(actionsItem);
               setActionsItemId(null);
+              onDeleteItem(actionsItem.id);
             }}
           />
         )}
@@ -1134,9 +1118,10 @@ export function ObjectsScreen({
                     ? "Щиток будет удалён"
                     : "Заявка будет удалена",
                 onUndo: () => {
-                  const restored = restoreDeletedHomeItem(pendingDelete.id);
-                  setPendingDeleteId(null);
-                  if (!restored) return;
+                  const restored =
+                    restoreDeletedHomeItem(pendingDelete.id) ?? pendingDelete;
+                  setPendingDelete(null);
+                  onRestoreItem?.(restored);
                   if (restored.kind === "panel") {
                     void persistPanel(restored).catch((error) => {
                       console.error(error);
@@ -1148,9 +1133,7 @@ export function ObjectsScreen({
                   }
                 },
                 onCommit: () => {
-                  const id = pendingDelete.id;
-                  setPendingDeleteId(null);
-                  onDeleteItem(id);
+                  setPendingDelete(null);
                 },
               }
             : null

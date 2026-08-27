@@ -130,7 +130,12 @@ import {
 import { buildPanelHouseSnapshot } from "@/lib/house-insight-local";
 import { syncRatingFromCharacteristics } from "@/lib/device-spec-guide";
 import { deriveRailCount, isRailDevice } from "@/lib/panel-rails";
-import { isAtPanelLimit, isInviteToken, type PanelQuota } from "@/lib/invites";
+import {
+  adjustPanelQuotaCount,
+  isAtPanelLimit,
+  isInviteToken,
+  type PanelQuota,
+} from "@/lib/invites";
 import {
   DEVICE_TYPE_OPTIONS,
 } from "@/lib/manufacturer-brands";
@@ -1464,13 +1469,15 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
     setItems((prev) =>
       prev.filter((item) => !(item.kind === "panel" && item.id === id)),
     );
-    void persistDeletePanel(id).catch((error) => {
-      console.error(error);
-      setItemsError(
-        error instanceof Error ? error.message : "Не удалось удалить щиток",
-      );
-    });
-    void refreshQuota();
+    setQuota((prev) => adjustPanelQuotaCount(prev, -1));
+    void persistDeletePanel(id)
+      .then(() => refreshQuota())
+      .catch((error) => {
+        console.error(error);
+        setItemsError(
+          error instanceof Error ? error.message : "Не удалось удалить щиток",
+        );
+      });
     setActivePanelId((current) => (current === id ? null : current));
     setPhotoDataUrl(null);
     setDevices(null);
@@ -1479,14 +1486,14 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
     setAskNameOnBack(false);
   }, [refreshQuota]);
 
-  const deletePanel = useCallback(() => {
-    if (!activePanelId) {
-      setScreen("objects");
-      return;
+  const restoreHomeItem = useCallback((item: HomeListItem) => {
+    setItems((prev) =>
+      prev.some((entry) => entry.id === item.id) ? prev : [item, ...prev],
+    );
+    if (item.kind === "panel") {
+      setQuota((prev) => adjustPanelQuotaCount(prev, 1));
     }
-    deletePanelById(activePanelId);
-    setScreen("objects");
-  }, [activePanelId, deletePanelById]);
+  }, []);
 
   const assignCircuitLabels = useCallback(
     (updates: Array<{ deviceId: number; label: string }>) => {
@@ -2084,6 +2091,7 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
                 go("request-details");
               }}
               onDeleteItem={deleteHomeItem}
+              onRestoreItem={restoreHomeItem}
               onRenameItem={renameHomeItem}
               onNoPanel={() => requireTelegramAuth("no-panel")}
               onHelpElectrical={startHelpElectrical}
@@ -2396,7 +2404,11 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
                 }
                 onShare={shareActivePanel}
                 onRename={renamePanel}
-                onDelete={deletePanel}
+                onDelete={() => {
+                  if (activePanelId) deletePanelById(activePanelId);
+                }}
+                onDeleted={() => go("objects")}
+                onRestoreItem={restoreHomeItem}
                 onAssignCircuit={assignCircuitLabel}
                 onAssignCircuits={assignCircuitLabels}
                 onUpdateDeviceSticker={updateDeviceSticker}
