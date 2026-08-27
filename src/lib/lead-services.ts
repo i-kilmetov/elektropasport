@@ -1,7 +1,7 @@
 import type { Device } from "@/types";
 import { deviceModules } from "@/lib/panel-rails";
 
-export const ONLINE_CONSULTATION_PRICE_RUB = 990;
+export const ONLINE_CONSULTATION_PRICE_RUB = 499;
 export const MODULE_LABELING_PRICE_RUB = 500;
 export const MASTER_HOME_VISIT_PRICE_RUB = 2990;
 
@@ -42,6 +42,15 @@ export function countPanelModules(devices?: Device[] | null): number {
 
 export function formatRub(amount: number): string {
   return `${amount.toLocaleString("ru-RU")} ₽`;
+}
+
+/** Lowercased city name for matching masters to the user's city. */
+export function cityMatchKey(city: string): string {
+  return normalizeCityName(city)
+    .toLowerCase()
+    .replace(/ё/g, "е")
+    .replace(/^г\.?\s+/, "")
+    .replace(/^город\s+/, "");
 }
 
 export function masterLabelingPriceRub(moduleCount: number): number {
@@ -86,54 +95,31 @@ export function buildLeadServiceSetupTitle(input: {
 }
 
 export function getLeadServiceOptions(input: {
-  city: string;
-  panelModules?: number | null;
-  /** First paid order — online consultation is free. */
-  isFirstOrder?: boolean;
+  hasConnectedMaster: boolean;
 }): LeadServiceOption[] {
-  const modules =
-    typeof input.panelModules === "number" && input.panelModules > 0
-      ? input.panelModules
-      : null;
-  const firstOrder = Boolean(input.isFirstOrder);
-
-  const online: LeadServiceOption = {
-    id: "online_consultation",
-    title: "Онлайн-консультация",
-    description: firstOrder
-      ? "Разберём щиток по фото и схеме: что можно сделать самим, а где уже нужен мастер. Для первого заказа — бесплатно."
-      : `Разберём щиток по фото и схеме: что можно сделать самим, а где уже нужен мастер. Если дальше понадобится пересборка, проект или монтаж — сначала консультация. Эти ${formatRub(ONLINE_CONSULTATION_PRICE_RUB)} вычтем из общей стоимости работ.`,
-    priceLabel: firstOrder ? formatRub(0) : formatRub(ONLINE_CONSULTATION_PRICE_RUB),
-    struckPriceLabel: firstOrder
-      ? formatRub(ONLINE_CONSULTATION_PRICE_RUB)
-      : undefined,
-    priceRub: firstOrder ? 0 : ONLINE_CONSULTATION_PRICE_RUB,
-  };
-
-  const homeVisit: LeadServiceOption = {
-    id: "master_home_visit",
-    title: "Вызов мастера на дом",
-    description:
-      "Приезд мастера в течение дня, диагностика и консультация на месте.",
-    priceLabel: formatRub(MASTER_HOME_VISIT_PRICE_RUB),
-    priceRub: MASTER_HOME_VISIT_PRICE_RUB,
-  };
-
-  const options: LeadServiceOption[] = [online, homeVisit];
-
-  if (modules) {
-    options.push({
-      id: "master_labeling",
-      title: "Вызов мастера для прозвонки и маркировки",
-      description:
-        "Мастер приедет, прозвонит линии и подпишет каждый автомат — в щитке сразу станет понятно, что за что отвечает.",
-      priceLabel: formatRub(masterLabelingPriceRub(modules)),
-      priceRub: masterLabelingPriceRub(modules),
-      requiresModules: true,
-    });
+  if (input.hasConnectedMaster) {
+    return [
+      {
+        id: "master_home_visit",
+        title: "Вызов мастера на дом",
+        description:
+          "Поиск мастера занимает в среднем не больше минуты. Мастера ищем в реальном времени среди подключенных в вашем городе.",
+        priceLabel: formatRub(MASTER_HOME_VISIT_PRICE_RUB),
+        priceRub: MASTER_HOME_VISIT_PRICE_RUB,
+      },
+    ];
   }
 
-  return options;
+  return [
+    {
+      id: "online_consultation",
+      title: "Онлайн-консультация",
+      description:
+        "Разберём щиток по фото и схеме на связи: что можно сделать самим и где уже нужен специалист.",
+      priceLabel: formatRub(ONLINE_CONSULTATION_PRICE_RUB),
+      priceRub: ONLINE_CONSULTATION_PRICE_RUB,
+    },
+  ];
 }
 
 export function payableAmountRub(input: {
@@ -142,7 +128,7 @@ export function payableAmountRub(input: {
   isFirstOrder?: boolean;
 }): number | null {
   if (input.serviceType === "online_consultation") {
-    return input.isFirstOrder ? 0 : ONLINE_CONSULTATION_PRICE_RUB;
+    return ONLINE_CONSULTATION_PRICE_RUB;
   }
   if (input.serviceType === "master_home_visit") {
     return MASTER_HOME_VISIT_PRICE_RUB;
