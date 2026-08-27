@@ -2059,6 +2059,7 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
     screen === "no-panel-options" ||
     screen === "no-panel-detail" ||
     screen === "panel-advantages" ||
+    screen === "school" ||
     masterApply;
   const wideLayout =
     screen === "objects" ||

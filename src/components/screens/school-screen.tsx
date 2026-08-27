@@ -9,7 +9,6 @@ import {
   Clock,
   GraduationCap,
   Lock,
-  Sparkles,
 } from "lucide-react";
 import { LessonBlocks } from "@/components/school/lesson-blocks";
 import { QuizFlow, type QuizFinish } from "@/components/school/quiz-flow";
@@ -73,7 +72,7 @@ export function SchoolScreen({ onBack }: { onBack: () => void }) {
       initial={{ opacity: 0, x: 40 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -40 }}
-      className="flex min-h-dvh flex-col px-5 pb-8 pt-[max(1.25rem,env(safe-area-inset-top))]"
+      className="flex h-full min-h-0 flex-1 flex-col overflow-hidden px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-[max(0.75rem,env(safe-area-inset-top))]"
     >
       <AnimatePresence mode="wait">
         {view.kind === "home" ? (
@@ -180,7 +179,7 @@ function SchoolHeader({
   subtitle?: string;
 }) {
   return (
-    <header className="mb-5 flex shrink-0 items-center gap-3">
+    <header className="mb-3 flex shrink-0 items-center gap-3">
       <button
         type="button"
         onClick={onBack}
@@ -215,17 +214,21 @@ function SchoolHome({
   const finished = SCHOOL_GRADES.filter((grade) =>
     gradeCompleted(progress, grade.id),
   ).length;
+  const [expandedId, setExpandedId] = useState<GradeId>(() => {
+    const next = SCHOOL_GRADES.find((grade) => !gradeCompleted(progress, grade.id));
+    return next?.id ?? 1;
+  });
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -12 }}
-      className="flex min-h-0 flex-1 flex-col"
+      className="flex min-h-0 flex-1 flex-col overflow-hidden"
     >
       <SchoolHeader title="Школа Током" onBack={onBack} />
 
-      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pb-4">
+      <div className="flex min-h-0 flex-[1.15] items-center justify-center">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/empty-states/school.png"
@@ -233,48 +236,38 @@ function SchoolHome({
           width={921}
           height={1006}
           draggable={false}
-          className="pointer-events-none mx-auto h-[min(26dvh,168px)] w-auto max-w-full select-none object-contain"
+          className="pointer-events-none h-full max-h-[min(40dvh,280px)] w-auto max-w-full select-none object-contain lg:max-h-[min(48dvh,380px)]"
         />
+      </div>
 
-        <div>
-          <p className="text-[16px] leading-relaxed text-zinc-700">
-            Три класса — от розетки до сборки щитка. Короткие уроки, живые
-            примеры, схемы и экзамен с оценкой.
-          </p>
-          <p className="mt-2 text-[13px] text-zinc-500">
-            Закрыто классов: {finished} из 3
-          </p>
-        </div>
-
-        {finished === 3 ? (
-          <GlassCard className="bg-[#D3DA00]/25 p-4">
-            <div className="flex items-center gap-2 text-[15px] font-semibold text-zinc-900">
-              <Sparkles className="h-4 w-4" />
-              Диплом школы
-            </div>
-            <p className="mt-1 text-[14px] leading-relaxed text-zinc-700">
-              Вы прошли путь от «что такое ватт» до самостоятельной сборки
-              щитка. Это уже серьёзный уровень для дома.
-            </p>
-          </GlassCard>
-        ) : null}
-
-        <div className="space-y-3">
-          {SCHOOL_GRADES.map((grade) => (
-            <GradeCard
-              key={grade.id}
-              gradeId={grade.id}
-              progress={progress}
-              onOpen={() => onOpenGrade(grade.id)}
-              onPlacement={() => onPlacement(grade.id as 2 | 3)}
-            />
-          ))}
-        </div>
-
-        <p className="text-[12px] leading-relaxed text-zinc-400">
-          {SCHOOL_DISCLAIMER}
+      <div className="mt-2 shrink-0">
+        <p className="text-[15px] leading-snug text-zinc-700">
+          Три класса — от розетки до сборки щитка.
+        </p>
+        <p className="mt-1 text-[13px] text-zinc-500">
+          {finished === 3
+            ? "Диплом школы получен"
+            : `Закрыто классов: ${finished} из 3`}
         </p>
       </div>
+
+      <div className="mt-3 flex min-h-[200px] flex-1 gap-2">
+        {SCHOOL_GRADES.map((grade) => (
+          <GradeCard
+            key={grade.id}
+            gradeId={grade.id}
+            progress={progress}
+            expanded={expandedId === grade.id}
+            onExpand={() => setExpandedId(grade.id)}
+            onOpen={() => onOpenGrade(grade.id)}
+            onPlacement={() => onPlacement(grade.id as 2 | 3)}
+          />
+        ))}
+      </div>
+
+      <p className="mt-2 line-clamp-2 shrink-0 text-[11px] leading-snug text-zinc-400">
+        {SCHOOL_DISCLAIMER}
+      </p>
     </motion.div>
   );
 }
@@ -282,11 +275,15 @@ function SchoolHome({
 function GradeCard({
   gradeId,
   progress,
+  expanded,
+  onExpand,
   onOpen,
   onPlacement,
 }: {
   gradeId: GradeId;
   progress: SchoolProgress;
+  expanded: boolean;
+  onExpand: () => void;
   onOpen: () => void;
   onPlacement: () => void;
 }) {
@@ -301,70 +298,137 @@ function GradeCard({
     grade.topics.map((topic) => topic.id),
   );
   const topicTotal = grade.topics.length;
+  const dark = grade.id === 3;
 
   return (
-    <GlassCard className="p-4">
-      <div className="flex items-start gap-3">
-        <span
-          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[16px] text-[18px] font-bold"
-          style={{
-            background: grade.id === 3 ? "#111113" : grade.accent,
-            color: grade.id === 3 ? "#D3DA00" : "#111113",
-          }}
-        >
-          {grade.id}
-        </span>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <h2 className="text-[16px] font-semibold text-zinc-900">
-              {grade.title}
-            </h2>
-            {best && examPassed(best.grade) ? (
-              <span className="rounded-full bg-zinc-900 px-2 py-0.5 text-[11px] font-semibold text-white">
-                {best.grade}
-              </span>
-            ) : null}
+    <motion.div
+      layout
+      transition={{ type: "spring", stiffness: 380, damping: 34 }}
+      className={cn(
+        "flex min-h-0 min-w-0 flex-col overflow-hidden rounded-[24px] border",
+        dark ? "border-zinc-800 bg-[#111113] text-white" : "border-black/8 bg-white",
+      )}
+      style={{ flex: expanded ? 2 : 0.5 }}
+    >
+      {expanded ? (
+        <div className="flex min-h-0 flex-1 flex-col p-4">
+          <div className="flex items-start gap-3">
+            <span
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[16px] text-[18px] font-bold"
+              style={{
+                background: dark ? "#D3DA00" : grade.accent,
+                color: "#111113",
+              }}
+            >
+              {grade.id}
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <h2
+                  className={cn(
+                    "text-[16px] font-semibold leading-tight",
+                    dark ? "text-white" : "text-zinc-900",
+                  )}
+                >
+                  {grade.title}
+                </h2>
+                {best && examPassed(best.grade) ? (
+                  <span
+                    className={cn(
+                      "rounded-full px-2 py-0.5 text-[11px] font-semibold",
+                      dark ? "bg-[#D3DA00] text-[#111113]" : "bg-zinc-900 text-white",
+                    )}
+                  >
+                    {best.grade}
+                  </span>
+                ) : null}
+              </div>
+              <p
+                className={cn(
+                  "mt-0.5 text-[13px] leading-snug",
+                  dark ? "text-white/55" : "text-zinc-500",
+                )}
+              >
+                {grade.subtitle}
+              </p>
+            </div>
           </div>
-          <p className="mt-0.5 text-[13px] leading-snug text-zinc-500">
-            {grade.subtitle}
-          </p>
           {open ? (
-            <p className="mt-2 text-[12px] text-zinc-400">
+            <p
+              className={cn(
+                "mt-3 text-[12px]",
+                dark ? "text-white/40" : "text-zinc-400",
+              )}
+            >
               Темы {passedTopics} / {topicTotal}
               {best ? ` · экзамен ${best.grade}` : ""}
             </p>
           ) : lockUntil ? (
-            <p className="mt-2 flex items-center gap-1 text-[12px] text-amber-700">
-              <Clock className="h-3.5 w-3.5" />
-              Повтор входного теста через {daysHoursLeft(lockUntil)}
+            <p className="mt-3 flex items-center gap-1 text-[12px] text-amber-500">
+              <Clock className="h-3.5 w-3.5 shrink-0" />
+              Повтор через {daysHoursLeft(lockUntil)}
             </p>
           ) : (
-            <p className="mt-2 flex items-center gap-1 text-[12px] text-zinc-500">
-              <Lock className="h-3.5 w-3.5" />
-              Сначала тест из экзамена предыдущего класса
+            <p
+              className={cn(
+                "mt-3 flex items-center gap-1 text-[12px]",
+                dark ? "text-white/50" : "text-zinc-500",
+              )}
+            >
+              <Lock className="h-3.5 w-3.5 shrink-0" />
+              Сначала входной тест
             </p>
           )}
+          <Button
+            className={cn(
+              "mt-auto w-full",
+              dark &&
+                "border-0 !bg-[#D3DA00] text-[#111113] shadow-none hover:!bg-[#c8cf00]",
+            )}
+            size="sm"
+            variant={open || dark ? "default" : "secondary"}
+            disabled={Boolean(!open && lockUntil)}
+            onClick={() => {
+              if (open) onOpen();
+              else if (!lockUntil && needTest) onPlacement();
+            }}
+          >
+            {open
+              ? passedTopics > 0 || best
+                ? "Продолжить"
+                : "Поступить"
+              : lockUntil
+                ? "Пока закрыто"
+                : "Пройти входной тест"}
+          </Button>
         </div>
-      </div>
-      <Button
-        className="mt-4 w-full"
-        size="sm"
-        variant={open ? "default" : "secondary"}
-        disabled={Boolean(!open && lockUntil)}
-        onClick={() => {
-          if (open) onOpen();
-          else if (!lockUntil && needTest) onPlacement();
-        }}
-      >
-        {open
-          ? passedTopics > 0 || best
-            ? "Продолжить"
-            : "Поступить"
-          : lockUntil
-            ? "Пока закрыто"
-            : "Пройти входной тест"}
-      </Button>
-    </GlassCard>
+      ) : (
+        <button
+          type="button"
+          onClick={onExpand}
+          className="flex h-full min-h-0 w-full flex-col items-center justify-center gap-2 px-1 py-3"
+          aria-label={grade.title}
+        >
+          <span
+            className="flex h-11 w-11 items-center justify-center rounded-[14px] text-[18px] font-bold"
+            style={{
+              background: dark ? "#D3DA00" : grade.accent,
+              color: "#111113",
+            }}
+          >
+            {grade.id}
+          </span>
+          <span
+            className={cn(
+              "text-center text-[11px] font-semibold leading-tight",
+              dark ? "text-white/80" : "text-zinc-700",
+            )}
+          >
+            {grade.shortTitle}
+          </span>
+        </button>
+      )}
+    </motion.div>
   );
 }
 
