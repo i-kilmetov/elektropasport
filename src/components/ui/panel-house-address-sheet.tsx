@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Loader2, MapPin, Navigation, X } from "lucide-react";
 import { AddressSuggestField } from "@/components/ui/address-suggest-field";
@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Portal } from "@/components/ui/portal";
 import {
   geolocateAddress,
+  isGeolocationAbortError,
   requestUserGeolocation,
 } from "@/lib/address-suggest-client";
 import { filterCities } from "@/lib/cities";
@@ -67,18 +68,25 @@ export function PanelHouseAddressSheet({
     hasHouse(addressSelected);
   const canSubmitManual = Boolean(city && addressReady && !saving);
   const geoCity = geoAddress ? normalizeCityName(geoAddress.city) : "";
+  const locateAbortRef = useRef<AbortController | null>(null);
 
   const runLocate = useCallback(async () => {
+    locateAbortRef.current?.abort();
+    const controller = new AbortController();
+    locateAbortRef.current = controller;
     setPhase("requesting");
     setGeoError(null);
     setGeoAddress(null);
     try {
-      const coords = await requestUserGeolocation();
+      const coords = await requestUserGeolocation({ signal: controller.signal });
+      if (controller.signal.aborted) return;
       setPhase("resolving");
       const resolved = await geolocateAddress(coords.lat, coords.lon);
+      if (controller.signal.aborted) return;
       setGeoAddress(resolved);
       setPhase("confirm");
     } catch (err) {
+      if (controller.signal.aborted || isGeolocationAbortError(err)) return;
       setGeoError(
         err instanceof Error ? err.message : "Не удалось определить адрес",
       );
@@ -93,6 +101,9 @@ export function PanelHouseAddressSheet({
     setAddressQuery("");
     setAddressSelected(null);
     void runLocate();
+    return () => {
+      locateAbortRef.current?.abort();
+    };
   }, [open, saved, runLocate]);
 
   const confirmGeo = () => {
@@ -108,6 +119,7 @@ export function PanelHouseAddressSheet({
   };
 
   const goManual = (prefillFromGeo = false) => {
+    locateAbortRef.current?.abort();
     if (prefillFromGeo && geoAddress) {
       setCitySelected(geoCity);
       setCityQuery(geoCity);
@@ -115,6 +127,12 @@ export function PanelHouseAddressSheet({
       setAddressSelected(null);
     }
     setPhase("manual");
+  };
+
+  const handleClose = () => {
+    if (saving) return;
+    locateAbortRef.current?.abort();
+    onClose();
   };
 
   if (!open) return null;
@@ -155,7 +173,7 @@ export function PanelHouseAddressSheet({
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         className="fixed inset-0 z-[120] flex items-end justify-center bg-black/35 backdrop-blur-sm sm:items-center sm:p-6"
-        onClick={onClose}
+        onClick={handleClose}
       >
         <motion.div
           initial={{ y: 48, opacity: 0 }}
@@ -182,7 +200,7 @@ export function PanelHouseAddressSheet({
             </div>
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-zinc-600"
               aria-label="Закрыть"
             >
@@ -331,7 +349,7 @@ export function PanelHouseAddressSheet({
                     onClick={() => void runLocate()}
                     disabled={saving}
                   >
-                    Повторить
+                    Повторить поиск адреса
                   </Button>
                 )}
                 <Button
@@ -347,20 +365,30 @@ export function PanelHouseAddressSheet({
             )}
 
             {phase === "manual" && (
-              <div className="flex gap-3">
+              <>
                 <Button
                   type="button"
                   variant="outline"
-                  className="flex-1"
-                  onClick={onClose}
+                  className="w-full"
+                  onClick={() => void runLocate()}
                   disabled={saving}
                 >
-                  Позже
+                  Повторить поиск адреса
                 </Button>
-                <Button
-                  type="button"
-                  className="flex-1"
-                  disabled={!canSubmitManual}
+                <div className="flex gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1"
+                    onClick={handleClose}
+                    disabled={saving}
+                  >
+                    Позже
+                  </Button>
+                  <Button
+                    type="button"
+                    className="flex-1"
+                    disabled={!canSubmitManual}
                   onClick={() => {
                     if (!canSubmitManual || !city) return;
                     onConfirm({
@@ -378,12 +406,13 @@ export function PanelHouseAddressSheet({
                   {saving ? "Сохраняем…" : "Сохранить"}
                 </Button>
               </div>
+              </>
             )}
 
             {phase !== "manual" && (
               <button
                 type="button"
-                onClick={onClose}
+                onClick={handleClose}
                 disabled={saving}
                 className="w-full py-1 text-center text-[14px] font-medium text-zinc-500"
               >

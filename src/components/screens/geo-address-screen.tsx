@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
 import {
   geolocateAddress,
+  isGeolocationAbortError,
   requestUserGeolocation,
 } from "@/lib/address-suggest-client";
 import { hasHouse, type AddressSuggestion, type GeolocatedAddress } from "@/lib/dadata";
@@ -83,6 +84,7 @@ export function GeoAddressScreen({
   const [selected, setSelected] = useState<AddressSuggestion | null>(null);
   const [lookupFailed, setLookupFailed] = useState(false);
   const startedRef = useRef(false);
+  const locateAbortRef = useRef<AbortController | null>(null);
 
   const cityLabel = address ? normalizeCityName(address.city) : "";
   const useMoscow = isMoscow(cityLabel);
@@ -94,6 +96,9 @@ export function GeoAddressScreen({
     (lookupFailed && trimmed.length >= 8);
 
   const runLocate = useCallback(async () => {
+    locateAbortRef.current?.abort();
+    const controller = new AbortController();
+    locateAbortRef.current = controller;
     setPhase("requesting");
     setError(null);
     setAddress(null);
@@ -102,13 +107,16 @@ export function GeoAddressScreen({
     setSelected(null);
     setLookupFailed(false);
     try {
-      const coords = await requestUserGeolocation();
+      const coords = await requestUserGeolocation({ signal: controller.signal });
+      if (controller.signal.aborted) return;
       setPhase("resolving");
       const resolved = await geolocateAddress(coords.lat, coords.lon);
+      if (controller.signal.aborted) return;
       setAddress(resolved);
       setPhase("confirm");
       hapticImpact("light");
     } catch (err) {
+      if (controller.signal.aborted || isGeolocationAbortError(err)) return;
       const message =
         err instanceof Error ? err.message : "Не удалось определить адрес";
       setError(message);
@@ -138,9 +146,20 @@ export function GeoAddressScreen({
     void runLocate();
   }, [restoreSnapshot, runLocate]);
 
+  useEffect(() => {
+    return () => {
+      locateAbortRef.current?.abort();
+    };
+  }, []);
+
+  const goManualPage = () => {
+    locateAbortRef.current?.abort();
+    onManual();
+  };
+
   const beginManualEdit = () => {
     if (!address) {
-      onManual();
+      goManualPage();
       return;
     }
     // Prefill from geo; suggestions use moscow→DaData fallback on the server.
@@ -349,13 +368,13 @@ export function GeoAddressScreen({
               size="lg"
               onClick={() => void runLocate()}
             >
-              Повторить
+              Повторить поиск адреса
             </Button>
             <Button
               className="w-full rounded-full"
               variant="secondary"
               size="lg"
-              onClick={onManual}
+              onClick={goManualPage}
             >
               Указать вручную
             </Button>
@@ -367,7 +386,7 @@ export function GeoAddressScreen({
             className="w-full rounded-full"
             variant="secondary"
             size="lg"
-            onClick={onManual}
+            onClick={goManualPage}
           >
             Указать вручную
           </Button>

@@ -62,37 +62,102 @@ export async function suggestAddresses(
 
 export type UserGeolocation = { lat: number; lon: number };
 
-export function requestUserGeolocation(): Promise<UserGeolocation> {
+export function isGeolocationAbortError(error: unknown): boolean {
+  return (
+    (typeof DOMException !== "undefined" &&
+      error instanceof DOMException &&
+      error.name === "AbortError") ||
+    (error instanceof Error && error.name === "AbortError")
+  );
+}
+
+let activeWatchId: number | null = null;
+
+function clearActiveWatch() {
+  if (
+    activeWatchId == null ||
+    typeof navigator === "undefined" ||
+    !navigator.geolocation
+  ) {
+    activeWatchId = null;
+    return;
+  }
+  navigator.geolocation.clearWatch(activeWatchId);
+  activeWatchId = null;
+}
+
+export function requestUserGeolocation(options?: {
+  signal?: AbortSignal;
+}): Promise<UserGeolocation> {
   return new Promise((resolve, reject) => {
     if (typeof navigator === "undefined" || !navigator.geolocation) {
       reject(new Error("Геолокация недоступна в этом браузере"));
       return;
     }
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        resolve({
-          lat: position.coords.latitude,
-          lon: position.coords.longitude,
-        });
-      },
-      (error) => {
-        if (error.code === error.PERMISSION_DENIED) {
-          reject(new Error("Нужен доступ к геопозиции"));
-          return;
-        }
-        if (error.code === error.TIMEOUT) {
-          reject(new Error("Не удалось получить геопозицию вовремя"));
-          return;
-        }
-        reject(new Error("Не удалось определить геопозицию"));
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: GEO_TIMEOUT_MS,
-        maximumAge: 60_000,
-      },
-    );
+    if (options?.signal?.aborted) {
+      reject(new DOMException("Aborted", "AbortError"));
+      return;
+    }
+
+    let settled = false;
+    let timeoutId = 0;
+
+    const settle = (action: () => void) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timeoutId);
+      options?.signal?.removeEventListener("abort", onAbort);
+      clearActiveWatch();
+      action();
+    };
+
+    const onAbort = () => {
+      settle(() => reject(new DOMException("Aborted", "AbortError")));
+    };
+
+    options?.signal?.addEventListener("abort", onAbort);
+    clearActiveWatch();
+
+    try {
+      activeWatchId = navigator.geolocation.watchPosition(
+        (position) => {
+          settle(() =>
+            resolve({
+              lat: position.coords.latitude,
+              lon: position.coords.longitude,
+            }),
+          );
+        },
+        (error) => {
+          if (error.code === error.PERMISSION_DENIED) {
+            settle(() => reject(new Error("Нужен доступ к геопозиции")));
+            return;
+          }
+          if (error.code === error.TIMEOUT) {
+            settle(() =>
+              reject(new Error("Не удалось получить геопозицию вовремя")),
+            );
+            return;
+          }
+          settle(() => reject(new Error("Не удалось определить геопозицию")));
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: GEO_TIMEOUT_MS,
+          maximumAge: 0,
+        },
+      );
+    } catch {
+      settle(() => reject(new Error("Не удалось определить геопозицию")));
+      return;
+    }
+
+    timeoutId = window.setTimeout(() => {
+      settle(() =>
+        reject(new Error("Не удалось получить геопозицию вовремя")),
+      );
+    }, GEO_TIMEOUT_MS);
   });
 }
 
