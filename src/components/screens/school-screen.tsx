@@ -267,16 +267,24 @@ function SchoolHome({
       <SchoolHeader title="Школа Током" onBack={onBack} />
 
       <div className="space-y-5">
+        <p className="text-[16px] leading-relaxed text-zinc-700">
+          Мы сделали электрику еще доступнее: теперь достаточно поступить в
+          школу Током, где важные бытовые знания электрики стараемся объяснить
+          интересно и доступно каждому.
+        </p>
+
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/empty-states/school.png"
+          alt="Класс Школы Током"
+          width={921}
+          height={1006}
+          draggable={false}
+          className="pointer-events-none mx-auto h-[min(40dvh,280px)] w-auto max-w-full select-none object-contain lg:h-[min(48dvh,380px)]"
+        />
+
         <div>
-          <h2 className="text-[26px] font-bold tracking-tight text-zinc-900">
-            Мы запустили свою школу
-          </h2>
-          <p className="mt-3 text-[16px] leading-relaxed text-zinc-700">
-            Постарались интересно и доступно рассказать про электрику — без
-            скучных справочников и лишнего жаргона. Три класса: от розетки и
-            выключателя до того, как читать щиток и собирать его самому.
-          </p>
-          <p className="mt-2 text-[15px] leading-relaxed text-zinc-500">
+          <p className="text-[15px] leading-relaxed text-zinc-500">
             Короткие уроки, живые примеры, схемы и экзамен с оценкой. Идти по
             порядку: следующий класс открывается, когда сдан предыдущий.
           </p>
@@ -289,16 +297,6 @@ function SchoolHome({
           ) : null}
         </div>
 
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/empty-states/school.png"
-          alt="Класс Школы Током"
-          width={921}
-          height={1006}
-          draggable={false}
-          className="pointer-events-none mx-auto h-[min(40dvh,280px)] w-auto max-w-full select-none object-contain lg:h-[min(48dvh,380px)]"
-        />
-
         <GlassCard className="p-4">
           <h3 className="text-[16px] font-semibold text-zinc-900">
             Обучение платное
@@ -306,7 +304,7 @@ function SchoolHome({
           <ul className="mt-3 space-y-2 text-[15px] text-zinc-700">
             {SCHOOL_GRADES.map((grade) => (
               <li key={grade.id} className="flex items-center justify-between gap-3">
-                <span>{grade.title}</span>
+                <span className="tabular-nums">{grade.id}</span>
                 <span className="font-semibold tabular-nums text-zinc-900">
                   {formatRub(SCHOOL_GRADE_PRICE_RUB[grade.id])}
                 </span>
@@ -377,11 +375,11 @@ function GradeAgeMark({
   return (
     <span
       className={cn(
-        "flex shrink-0 items-center justify-center rounded-[16px] border border-black/8 bg-white text-zinc-900",
+        "flex shrink-0 items-center justify-center overflow-hidden rounded-[18px]",
         className,
       )}
     >
-      <Icon className="h-[55%] w-[55%]" />
+      <Icon className="h-full w-full" />
     </span>
   );
 }
@@ -419,12 +417,13 @@ function GradeAccordion({
         onClick={onToggle}
         className="flex w-full items-start gap-3 p-4 text-left"
         aria-expanded={expanded}
+        aria-label={`Класс ${grade.id}`}
       >
-        <GradeAgeMark gradeId={gradeId} className="h-12 w-12" />
+        <GradeAgeMark gradeId={gradeId} className="h-16 w-16" />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <h3 className="text-[16px] font-semibold text-zinc-900">
-              {grade.title}
+            <h3 className="text-[22px] font-bold tabular-nums leading-none text-zinc-900">
+              {grade.id}
             </h3>
             {isGradePaid(gradeId, paid) ? (
               <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
@@ -557,7 +556,7 @@ function GradeProgram({
         exit={{ opacity: 0, y: -12 }}
         className="flex min-h-0 flex-1 flex-col"
       >
-        <SchoolHeader title={grade.title} onBack={onBack} />
+        <SchoolHeader title={String(grade.id)} onBack={onBack} />
         <GlassCard className="p-5 text-center">
           <Lock className="mx-auto h-8 w-8 text-zinc-400" />
           <h2 className="mt-3 text-[18px] font-semibold text-zinc-900">
@@ -581,8 +580,8 @@ function GradeProgram({
       className="flex min-h-0 flex-1 flex-col"
     >
       <SchoolHeader
-        title={grade.title}
-        subtitle={grade.shortTitle}
+        title={String(grade.id)}
+        subtitle={grade.subtitle}
         onBack={onBack}
       />
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pb-4">

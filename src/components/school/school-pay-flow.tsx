@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { motion } from "framer-motion";
 import { ArrowLeft, Check, QrCode, Smartphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,9 +8,13 @@ import { GlassCard } from "@/components/ui/glass-card";
 import { Portal } from "@/components/ui/portal";
 import { formatRub } from "@/lib/lead-services";
 import { hapticImpact, hapticNotification } from "@/lib/haptics";
-import { getGrade } from "@/lib/school";
 import { SCHOOL_GRADE_PRICE_RUB } from "@/lib/school/access";
 import type { GradeId } from "@/lib/school/types";
+import { cn } from "@/lib/utils";
+
+function classCaption(gradeId: GradeId): string {
+  return String(gradeId);
+}
 
 export function SchoolPaySheet({
   gradeId,
@@ -21,8 +25,18 @@ export function SchoolPaySheet({
   onClose: () => void;
   onPay: () => void;
 }) {
-  const grade = getGrade(gradeId);
   const price = SCHOOL_GRADE_PRICE_RUB[gradeId];
+  const termsId = useId();
+  const [agreed, setAgreed] = useState(false);
+  const [needAgree, setNeedAgree] = useState(false);
+
+  const tryPay = () => {
+    if (!agreed) {
+      setNeedAgree(true);
+      return;
+    }
+    onPay();
+  };
 
   return (
     <Portal>
@@ -37,18 +51,59 @@ export function SchoolPaySheet({
           initial={{ y: 40 }}
           animate={{ y: 0 }}
           exit={{ y: 40 }}
-          className="w-full rounded-t-[28px] bg-[var(--bg)] px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-4 lg:max-w-md lg:rounded-[28px]"
+          className="max-h-[90dvh] w-full overflow-y-auto rounded-t-[28px] bg-[var(--bg)] px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-4 lg:max-w-md lg:rounded-[28px]"
           onClick={(event) => event.stopPropagation()}
         >
           <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-zinc-300 lg:hidden" />
           <h2 className="text-[22px] font-bold text-zinc-900">Дальше будет оплата</h2>
           <p className="mt-2 text-[15px] leading-relaxed text-zinc-600">
-            {grade.title} — {formatRub(price)}. После оплаты курс откроется, и
-            доступ к нему останется.
+            {classCaption(gradeId)} — {formatRub(price)}. После оплаты курс
+            откроется, и доступ к нему останется.
           </p>
-          <Button className="mt-5 w-full" size="lg" onClick={onPay}>
+          <Button className="mt-5 w-full" size="lg" onClick={tryPay}>
             Оплатить обучение
           </Button>
+          <div
+            className={cn(
+              "mt-3 flex items-start gap-3 rounded-[18px] border p-3",
+              needAgree && !agreed
+                ? "border-red-300 bg-red-50"
+                : "border-black/10 bg-white/80",
+            )}
+          >
+            <input
+              id={termsId}
+              type="checkbox"
+              checked={agreed}
+              onChange={(event) => {
+                setAgreed(event.target.checked);
+                if (event.target.checked) setNeedAgree(false);
+              }}
+              className="mt-0.5 h-4 w-4 shrink-0 rounded border-black/20 accent-zinc-800"
+            />
+            <div className="min-w-0 text-[13px] leading-relaxed text-zinc-600">
+              <label htmlFor={termsId} className="cursor-pointer">
+                Я принимаю{" "}
+              </label>
+              <a
+                href="/legal/school"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium text-zinc-800 underline-offset-2 hover:underline"
+              >
+                условия обучающего курса
+              </a>
+              <label htmlFor={termsId} className="cursor-pointer">
+                . Понимаю, что деньги не возвращаются, если я решу перестать
+                учиться.
+              </label>
+            </div>
+          </div>
+          {needAgree && !agreed ? (
+            <p className="mt-2 text-[12px] text-red-600">
+              Чтобы оплатить, подтвердите согласие с условиями.
+            </p>
+          ) : null}
           <button
             type="button"
             onClick={onClose}
@@ -115,7 +170,6 @@ export function SchoolPayScreen({
   onBack: () => void;
   onPaid: () => void;
 }) {
-  const grade = getGrade(gradeId);
   const price = SCHOOL_GRADE_PRICE_RUB[gradeId];
   const [method, setMethod] = useState<"sbp" | "qr" | null>(null);
   const [done, setDone] = useState(false);
@@ -155,7 +209,7 @@ export function SchoolPayScreen({
 
       <div className="min-h-0 flex-1 overflow-y-auto pb-4">
         <div className="mb-5 rounded-[20px] border border-black/8 bg-zinc-50 p-4 text-center">
-          <p className="text-[13px] text-zinc-500">{grade.title}</p>
+          <p className="text-[13px] text-zinc-500">{classCaption(gradeId)}</p>
           <p className="mt-1 text-[28px] font-bold tabular-nums text-zinc-900">
             {formatRub(price)}
           </p>
@@ -172,7 +226,7 @@ export function SchoolPayScreen({
             </div>
             <h2 className="text-[20px] font-bold text-zinc-900">Оплата прошла</h2>
             <p className="mt-2 text-[14px] leading-relaxed text-zinc-500">
-              {grade.title} открыт. Можно приступать к урокам.
+              {classCaption(gradeId)} открыт. Можно приступать к урокам.
             </p>
             <Button className="mt-5 w-full" size="lg" onClick={onPaid}>
               Перейти к обучению

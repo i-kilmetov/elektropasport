@@ -8,9 +8,9 @@ import {
 const STORAGE_KEY = "elektropasport:school-paid";
 
 export const SCHOOL_GRADE_PRICE_RUB: Record<GradeId, number> = {
-  1: 100,
-  2: 300,
-  3: 500,
+  1: 299,
+  2: 499,
+  3: 999,
 };
 
 function parsePaid(raw: unknown): GradeId[] {

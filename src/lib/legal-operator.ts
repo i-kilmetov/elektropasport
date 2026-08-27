@@ -37,6 +37,11 @@ export const LEGAL_DOCUMENTS = [
     description: "Условия оказания услуг, оплата и возвраты",
   },
   {
+    href: "/legal/school",
+    title: "Условия обучающего курса",
+    description: "Школа Током: доступ, оплата и отказ от возврата",
+  },
+  {
     href: "/legal/privacy",
     title: "Политика конфиденциальности",
     description: "Как обрабатываются персональные данные (152-ФЗ)",
