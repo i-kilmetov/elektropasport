@@ -483,6 +483,7 @@ export function DeviceFaceStatic({
   highlightTerminalKey = null,
   onTerminalPointerDown,
   className,
+  uncertain = false,
 }: {
   device: Device;
   modules: number;
@@ -497,11 +498,13 @@ export function DeviceFaceStatic({
     event: PointerEvent<HTMLButtonElement>,
   ) => void;
   className?: string;
+  /** Low-confidence recognition — dashed amber frame on the scheme. */
+  uncertain?: boolean;
 }) {
   const width = modules * MODULE_PX;
   const powered = true;
   const palette = devicePalette(device);
-  const accent = showDetails ? palette.accent : "#A1A1AA";
+  const accent = showDetails ? palette.accent : uncertain ? "#d97706" : "#A1A1AA";
   const body = DEVICE_BODY_COLOR;
   const border = DEVICE_BORDER_COLOR;
   const [photoFailed, setPhotoFailed] = useState(false);
@@ -516,11 +519,12 @@ export function DeviceFaceStatic({
         maxWidth: width,
         boxSizing: "border-box",
         backgroundColor: body,
-        borderColor: border,
+        borderColor: uncertain ? "#f59e0b" : border,
         color: palette.text,
       }}
       className={cn(
         "relative flex w-full min-w-0 flex-col overflow-hidden rounded-[8px] border text-left transition-colors duration-200",
+        uncertain && "border-dashed border-amber-400",
         className,
       )}
     >
@@ -643,6 +647,7 @@ export function DeviceFace({
   onContextMenu,
   brand,
   showDetails = true,
+  uncertain = false,
   interactiveTerminals = false,
   highlightTerminalKey = null,
   onTerminalPointerDown,
@@ -656,6 +661,7 @@ export function DeviceFace({
   onContextMenu?: (event: MouseEvent<HTMLButtonElement>) => void;
   brand?: ReactNode;
   showDetails?: boolean;
+  uncertain?: boolean;
   interactiveTerminals?: boolean;
   highlightTerminalKey?: string | null;
   onTerminalPointerDown?: (
@@ -677,6 +683,7 @@ export function DeviceFace({
         "relative block origin-center select-none",
         selected &&
           "rounded-[8px] ring-2 ring-zinc-900 ring-offset-2 ring-offset-white",
+        uncertain && !selected && "rounded-[8px] ring-1 ring-amber-300/90",
       )}
     >
       <button
@@ -690,7 +697,7 @@ export function DeviceFace({
           bottom: showTerminals ? TERMINAL_HEIGHT_PX : 0,
           touchAction: onPressStart ? "none" : "manipulation",
         }}
-        aria-label={device.name}
+        aria-label={uncertain ? `${device.name}, не удалось уверенно распознать` : device.name}
       />
       <DeviceFaceStatic
         device={device}
@@ -698,6 +705,7 @@ export function DeviceFace({
         showTerminals={showTerminals}
         brand={brand}
         showDetails={showDetails}
+        uncertain={uncertain}
         interactiveTerminals={interactiveTerminals}
         highlightTerminalKey={highlightTerminalKey}
         onTerminalPointerDown={onTerminalPointerDown}

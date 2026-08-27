@@ -19,6 +19,7 @@ import {
   Check,
   Building2,
   Gauge,
+  HelpCircle,
   ImageIcon,
   MoreHorizontal,
   Pencil,
@@ -237,10 +238,10 @@ function DeviceBlock({
       <span
         className={cn(
           "mb-1 line-clamp-1 min-h-[14px] text-left text-[10px] font-medium leading-tight",
-          confident ? "text-zinc-500" : "text-transparent",
+          confident ? "text-zinc-500" : "text-amber-600",
         )}
       >
-        {confident ? typeShort[device.type] : "·"}
+        {confident ? typeShort[device.type] : "Неясно"}
       </span>
       <div className={cn("relative", jiggleClass)}>
         {editing && onDelete && (
@@ -271,6 +272,7 @@ function DeviceBlock({
           interactiveTerminals={showTerminals && !editing}
           highlightTerminalKey={highlightTerminalKey}
           showDetails={confident}
+          uncertain={!confident}
           onSelect={(event) => onSelect(event.clientY)}
           onPressStart={onPressStart}
           onContextMenu={onContextMenu}
@@ -291,6 +293,14 @@ function DeviceBlock({
             title="Нагрузка не соответствует номиналу"
           >
             <AlertTriangle className="h-2.5 w-2.5" strokeWidth={2.75} />
+          </span>
+        )}
+        {!confident && !editing && !loadMismatch && (
+          <span
+            className="pointer-events-none absolute -right-1 -top-1 z-[6] flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 text-white shadow-sm"
+            title="Прибор распознан неуверенно — проверьте карточку"
+          >
+            <HelpCircle className="h-2.5 w-2.5" strokeWidth={2.75} />
           </span>
         )}
       </div>
@@ -2998,6 +3008,7 @@ export function SchemeScreen({
               modules={deviceModules(railEdit.dragging)}
               showTerminals={showTerminals && canUseTerminals}
               showDetails={isDeviceDetailsConfident(railEdit.dragging)}
+              uncertain={!isDeviceDetailsConfident(railEdit.dragging)}
               brand={
                 isDeviceDetailsConfident(railEdit.dragging) &&
                 (railEdit.dragging.manufacturer ||

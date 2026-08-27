@@ -11,12 +11,18 @@ import {
   MAX_MODULES_PER_RAIL,
   panelHasRailOverflow,
 } from "@/lib/panel-rails";
-import type { AnalyzePanelResult } from "@/types";
+import { isDeviceDetailsConfident } from "@/lib/manufacturer-brands";
+import type { AnalyzePanelResult, Device } from "@/types";
 
 function deviceWord(count: number): string {
   if (count === 1) return "прибор";
   if (count < 5) return "прибора";
   return "приборов";
+}
+
+function isRailDeviceUncertain(device: Device): boolean {
+  if (device.type === "pe_bus" || device.type === "n_bus") return false;
+  return !isDeviceDetailsConfident(device);
 }
 
 export function AnalysisScreen({
@@ -66,9 +72,7 @@ export function AnalysisScreen({
         setStepIndex(analysisSteps.length - 1);
         setFoundCount(result.devices.length);
 
-        const unknownCount = result.devices.filter(
-          (device) => device.status === "unknown",
-        ).length;
+        const unknownCount = result.devices.filter(isRailDeviceUncertain).length;
         const hasOverflow = panelHasRailOverflow(
           result.devices,
           result.railCount,
@@ -112,7 +116,7 @@ export function AnalysisScreen({
   }, [foundCount, review]);
 
   const unknownCount =
-    review?.devices.filter((device) => device.status === "unknown").length ?? 0;
+    review?.devices.filter(isRailDeviceUncertain).length ?? 0;
   const hasOverflow = review
     ? panelHasRailOverflow(review.devices, review.railCount)
     : false;
@@ -182,9 +186,9 @@ export function AnalysisScreen({
                   Не все приборы определены
                 </p>
                 <p className="mt-1 text-[13px] leading-relaxed text-amber-900/80">
-                  ИИ не смог распознать {unknownCount} {deviceWord(unknownCount)}.
-                  Сделайте новое фото при хорошем освещении — так схема получится
-                  точнее.
+                  ИИ не уверен в {unknownCount} {deviceWord(unknownCount)}.
+                  На схеме они будут помечены. Можно переснять щиток при лучшем
+                  свете или открыть схему и поправить карточки.
                 </p>
               </div>
             </GlassCard>
