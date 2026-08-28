@@ -294,15 +294,6 @@ const SPLASH_SEEN_PERSIST_KEY = "ep:splash-seen-persist";
 
 type SplashPhase = "pending" | "show" | "done";
 
-function readSplashSeen(): boolean {
-  try {
-    if (localStorage.getItem(SPLASH_SEEN_PERSIST_KEY) === "1") return true;
-    return sessionStorage.getItem(SPLASH_SEEN_KEY) === "1";
-  } catch {
-    return false;
-  }
-}
-
 function markSplashSeen(): void {
   try {
     sessionStorage.setItem(SPLASH_SEEN_KEY, "1");
@@ -327,7 +318,7 @@ export function AppShell({
   );
   const [onboardingReady, setOnboardingReady] = useState(forceResearchSurvey);
   const [splashPhase, setSplashPhase] = useState<SplashPhase>(
-    forceResearchSurvey ? "done" : "pending",
+    forceResearchSurvey ? "done" : "show",
   );
   const [showAuthIntro, setShowAuthIntro] = useState(
     () => !forceResearchSurvey,
@@ -336,6 +327,7 @@ export function AppShell({
   const [itemsLoading, setItemsLoading] = useState(
     () => getCachedHomeItems().length === 0,
   );
+  const [initialFetchDone, setInitialFetchDone] = useState(false);
   const [itemsError, setItemsError] = useState<string | null>(null);
   const [quota, setQuota] = useState<PanelQuota | null>(null);
   const [mainMenuOpen, setMainMenuOpen] = useState(false);
@@ -429,11 +421,9 @@ export function AppShell({
     setScreen(next === "house-insight" ? "lead-service" : next);
   }, []);
 
-  /** After Telegram OAuth return — home with skeletons, not boot splash. */
+  /** After Telegram OAuth return — still play the loader splash while home data loads. */
   useLayoutEffect(() => {
     if (isProdLaunchWaitlistClient(launchWaitlist) || !consumePostAuthSkipSplash()) return;
-    markSplashSeen();
-    setSplashPhase("done");
     setShowAuthIntro(false);
     setOnboardingReady(true);
     if (surveyLaunch) {
@@ -444,23 +434,10 @@ export function AppShell({
   }, []);
 
   useLayoutEffect(() => {
-    if (surveyLaunch) {
+    if (surveyLaunch || isSchoolPreviewQuery()) {
       markSplashSeen();
       setSplashPhase("done");
       setShowAuthIntro(false);
-      return;
-    }
-    if (isProdLaunchWaitlistClient(launchWaitlist)) {
-      setSplashPhase("done");
-      return;
-    }
-    if (canUseServerAuth()) {
-      markSplashSeen();
-      setSplashPhase("done");
-      return;
-    }
-    if (readSplashSeen()) {
-      setSplashPhase("done");
       return;
     }
     setSplashPhase("show");
@@ -594,7 +571,6 @@ export function AppShell({
       const cached = epochWiped ? [] : getCachedHomeItems();
       if (cached.length > 0) {
         setItems(cached);
-        setItemsLoading(false);
       } else {
         setItemsLoading(true);
       }
@@ -647,8 +623,6 @@ export function AppShell({
             setItems([]);
             setItemsError(null);
             setShowAuthIntro(true);
-            setSplashPhase("done");
-            markSplashSeen();
             return;
           }
           const msg = formatErrorMessage(
@@ -662,7 +636,10 @@ export function AppShell({
           }
         }
       } finally {
-        if (!cancelled) setItemsLoading(false);
+        if (!cancelled) {
+          setItemsLoading(false);
+          setInitialFetchDone(true);
+        }
       }
     })();
     return () => {
@@ -1928,7 +1905,14 @@ export function AppShell({
   }, []);
 
   useEffect(() => {
-    if (!onboardingReady || itemsLoading || consumedShareRef.current) return;
+    if (
+      splashPhase !== "done" ||
+      !onboardingReady ||
+      itemsLoading ||
+      consumedShareRef.current
+    ) {
+      return;
+    }
 
     const token = readPendingPanelShare();
     if (!token || !isPanelShareToken(token)) return;
@@ -1937,10 +1921,20 @@ export function AppShell({
     consumedShareRef.current = true;
     clearPendingPanelShare();
     setShowAuthIntro(false);
-    markSplashSeen();
-    setSplashPhase("done");
     void openSharedPanel(token);
-  }, [itemsLoading, onboardingReady, openSharedPanel]);
+  }, [itemsLoading, onboardingReady, openSharedPanel, splashPhase]);
+
+  if (splashPhase === "pending" || splashPhase === "show") {
+    return (
+      <BrandSplash
+        bootReady={onboardingReady && initialFetchDone && pdConsentChecked}
+        onComplete={() => {
+          markSplashSeen();
+          setSplashPhase("done");
+        }}
+      />
+    );
+  }
 
   if (isProdLaunchWaitlistClient(launchWaitlist) && !surveyLaunch && !isSchoolPreviewQuery()) {
     return (
@@ -1957,31 +1951,14 @@ export function AppShell({
   ) {
     return (
       <BrandAuthIntro
-        bootReady={onboardingReady && !itemsLoading}
+        bootReady
+        skipAnimation
         onLogin={() => {
           try {
             localStorage.setItem(ONBOARDING_SKIP_KEY, "1");
           } catch {
             // private mode
           }
-        }}
-      />
-    );
-  }
-
-  if (splashPhase === "pending") {
-    return (
-      <div className="relative h-[var(--app-height,100dvh)] w-full overflow-hidden bg-[var(--bg)]" />
-    );
-  }
-
-  if (splashPhase === "show") {
-    return (
-      <BrandSplash
-        bootReady={onboardingReady && !itemsLoading}
-        onComplete={() => {
-          markSplashSeen();
-          setSplashPhase("done");
         }}
       />
     );

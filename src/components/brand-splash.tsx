@@ -21,9 +21,6 @@ import {
   WORDMARK_REST,
 } from "@/lib/brand-wordmark";
 
-const SPLASH_MS = 4000;
-const BOOT_TAGLINE = "ПРОВЕРЬ ЩИТОК";
-/** lub-dub pulse: two quick beats, then rest (~52 bpm). */
 const HEARTBEAT_OPACITY = [0.3, 1, 0.42, 0.9, 0.3] as const;
 const HEARTBEAT_SCALE = [0.86, 1.05, 0.88, 1.02, 0.86] as const;
 const HEARTBEAT_TIMES = [0, 0.09, 0.17, 0.26, 1] as const;
@@ -40,6 +37,10 @@ const T_INVERTED_HOLD_FRACTION = 0.62;
 const WAITLIST_FLIP_DURATION_S = 0.6;
 const WAITLIST_FLIP_EASE = [0.4, 0, 0.6, 1] as const;
 const PHONE_PREFIX = "+7";
+/** Inverted T stays up at least this long so it reads as a loader. */
+const SPLASH_LOADER_MIN_MS = 900;
+/** Hold the full wordmark before the splash fades. */
+const SPLASH_WORDMARK_HOLD_MS = 850;
 
 function AnimatedT({
   pulsing,
@@ -307,31 +308,48 @@ export function BrandSplash({
   onComplete: () => void;
   bootReady?: boolean;
 }) {
-  const animation = useLogoAnimation(bootReady);
+  const [tUpright, setTUpright] = useState(false);
+  const [restRevealed, setRestRevealed] = useState(false);
   const [fadeOut, setFadeOut] = useState(false);
   const startedAtRef = useRef(Date.now());
   const completedRef = useRef(false);
 
   useEffect(() => {
-    if (!bootReady || fadeOut || completedRef.current) return;
+    if (!bootReady || tUpright) return;
+    const wait = Math.max(
+      0,
+      SPLASH_LOADER_MIN_MS - (Date.now() - startedAtRef.current),
+    );
+    const id = window.setTimeout(() => setTUpright(true), wait);
+    return () => window.clearTimeout(id);
+  }, [bootReady, tUpright]);
 
-    const tryDismiss = () => {
-      if (!bootReady || completedRef.current) return;
-      if (Date.now() - startedAtRef.current < SPLASH_MS) return;
+  useEffect(() => {
+    if (!tUpright) return;
+    const reveal = window.setTimeout(
+      () => setRestRevealed(true),
+      WAITLIST_FLIP_DURATION_S * 1000,
+    );
+    return () => window.clearTimeout(reveal);
+  }, [tUpright]);
 
+  useEffect(() => {
+    if (!restRevealed || completedRef.current) return;
+    const fade = window.setTimeout(() => setFadeOut(true), SPLASH_WORDMARK_HOLD_MS);
+    const done = window.setTimeout(() => {
+      if (completedRef.current) return;
       completedRef.current = true;
-      setFadeOut(true);
-      window.setTimeout(onComplete, 450);
+      onComplete();
+    }, SPLASH_WORDMARK_HOLD_MS + 450);
+    return () => {
+      window.clearTimeout(fade);
+      window.clearTimeout(done);
     };
-
-    tryDismiss();
-    const interval = window.setInterval(tryDismiss, 80);
-    return () => window.clearInterval(interval);
-  }, [bootReady, fadeOut, onComplete]);
+  }, [restRevealed, onComplete]);
 
   return (
     <motion.div
-      className="fixed inset-0 z-[200]"
+      className="fixed inset-0 z-[200] h-[100dvh] min-h-[100dvh]"
       style={{ backgroundColor: BRAND_YELLOW }}
       initial={{ opacity: 1 }}
       animate={{ opacity: fadeOut ? 0 : 1 }}
@@ -341,17 +359,24 @@ export function BrandSplash({
       }}
       aria-label="Током"
     >
-      <motion.div
-        className="absolute top-1/2 left-1/2"
-        style={{ x: "-50%", y: "-50%" }}
+      <div
+        className="absolute w-max"
+        style={{
+          top: "50%",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+        }}
       >
         <BrandMark
-          tagline={BOOT_TAGLINE}
-          taglineVisible={animation.taglineVisible}
-          stripesPulsing={animation.stripesPulsing}
-          restRevealed={animation.restRevealed}
+          tagline=""
+          taglineVisible={false}
+          stripesPulsing={!tUpright}
+          restRevealed={restRevealed}
+          tPlayOnMount={false}
+          tUpright={tUpright}
+          collapseRest
         />
-      </motion.div>
+      </div>
     </motion.div>
   );
 }
@@ -359,11 +384,16 @@ export function BrandSplash({
 export function BrandAuthIntro({
   onLogin,
   bootReady = true,
+  skipAnimation = false,
 }: {
   onLogin: () => void;
   bootReady?: boolean;
+  skipAnimation?: boolean;
 }) {
-  const animation = useLogoAnimation(bootReady);
+  const animation = useLogoAnimation(bootReady && !skipAnimation);
+  const restRevealed = skipAnimation || animation.restRevealed;
+  const stripesPulsing = skipAnimation ? false : animation.stripesPulsing;
+  const loginVisible = skipAnimation || animation.loginVisible;
   const [starting, setStarting] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [logoWidth, setLogoWidth] = useState(0);
@@ -401,7 +431,7 @@ export function BrandAuthIntro({
       observer.disconnect();
       window.removeEventListener("resize", measure);
     };
-  }, [animation.restRevealed]);
+  }, [restRevealed]);
 
   const handleLogin = () => {
     setLoginError(null);
@@ -430,8 +460,10 @@ export function BrandAuthIntro({
           <BrandMark
             tagline=""
             taglineVisible={false}
-            stripesPulsing={animation.stripesPulsing}
-            restRevealed={animation.restRevealed}
+            stripesPulsing={stripesPulsing}
+            restRevealed={restRevealed}
+            tPlayOnMount={!skipAnimation}
+            tUpright={skipAnimation}
           />
         </div>
       </div>
@@ -443,15 +475,15 @@ export function BrandAuthIntro({
         }}
         initial={false}
         animate={{
-          opacity: animation.loginVisible && logoWidth > 0 ? 1 : 0,
-          y: animation.loginVisible && logoWidth > 0 ? 0 : 12,
+          opacity: loginVisible && logoWidth > 0 ? 1 : 0,
+          y: loginVisible && logoWidth > 0 ? 0 : 12,
         }}
         transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
       >
         <Button
           type="button"
           className="mx-auto flex h-14 min-h-14 w-full gap-2.5 rounded-full bg-[#111113] px-6 text-[16px] text-white hover:bg-zinc-800"
-          disabled={!animation.loginVisible || starting || logoWidth <= 0}
+          disabled={!loginVisible || starting || logoWidth <= 0}
           onClick={handleLogin}
         >
           <TelegramAppIcon className="h-6 w-6 shrink-0 text-current" />
