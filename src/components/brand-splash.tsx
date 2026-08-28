@@ -37,7 +37,7 @@ const LOGIN_BUTTON_DELAY_MS = 420;
 const T_ROTATE_DURATION_S = 2;
 const T_INVERTED_HOLD_FRACTION = 0.62;
 /** Waitlist flip: tween 180→360 so the last degrees stay as smooth as the rest. */
-const WAITLIST_FLIP_DURATION_S = 0.9;
+const WAITLIST_FLIP_DURATION_S = 0.6;
 const WAITLIST_FLIP_EASE = [0.4, 0, 0.6, 1] as const;
 const PHONE_PREFIX = "+7";
 
