@@ -37,9 +37,9 @@ const LOGIN_BUTTON_DELAY_MS = 420;
 const T_ROTATE_DURATION_S = 2;
 const T_INVERTED_HOLD_FRACTION = 0.62;
 /** Waitlist flip: tween 180→360 so the last degrees stay as smooth as the rest. */
-const WAITLIST_FLIP_DURATION_S = 1.05;
+const WAITLIST_FLIP_DURATION_S = 0.9;
 const WAITLIST_FLIP_EASE = [0.4, 0, 0.6, 1] as const;
-const EMAIL_HINT = "name@email.com";
+const PHONE_PREFIX = "+7";
 
 function AnimatedT({
   pulsing,
@@ -467,22 +467,32 @@ export function BrandAuthIntro({
   );
 }
 
-function isValidEmail(value: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+function ruNationalDigits(value: string): string {
+  let digits = value.replace(/\D/g, "");
+  if (digits.startsWith("8")) digits = `7${digits.slice(1)}`;
+  if (digits.startsWith("7")) digits = digits.slice(1);
+  return digits.slice(0, 10);
 }
 
-function emailAfterHintEdit(prev: string, next: string): string {
-  if (prev !== EMAIL_HINT) return next;
-  if (next === EMAIL_HINT) return next;
-  if (next.length === EMAIL_HINT.length + 1) {
-    if (next.startsWith(EMAIL_HINT)) return next.slice(EMAIL_HINT.length);
-    if (next.endsWith(EMAIL_HINT)) return next.slice(0, 1);
-  }
-  if (next.includes(EMAIL_HINT)) return next.replace(EMAIL_HINT, "");
-  return next;
+function formatRuPhone(value: string): string {
+  const national = ruNationalDigits(value);
+  if (!national) return `${PHONE_PREFIX} `;
+  let formatted = `${PHONE_PREFIX} ${national.slice(0, 3)}`;
+  if (national.length > 3) formatted += ` ${national.slice(3, 6)}`;
+  if (national.length > 6) formatted += `-${national.slice(6, 8)}`;
+  if (national.length > 8) formatted += `-${national.slice(8, 10)}`;
+  return formatted;
 }
 
-/** Production pre-launch screen: email waitlist instead of Telegram login. */
+function isCompleteRuPhone(value: string): boolean {
+  return ruNationalDigits(value).length === 10;
+}
+
+function toRuPhoneE164(value: string): string {
+  return `${PHONE_PREFIX}${ruNationalDigits(value)}`;
+}
+
+/** Production pre-launch screen: phone waitlist instead of Telegram login. */
 export function BrandLaunchWaitlist({
   bootReady: _bootReady = true,
 }: {
@@ -490,8 +500,8 @@ export function BrandLaunchWaitlist({
 }) {
   const [tUpright, setTUpright] = useState(false);
   const [restRevealed, setRestRevealed] = useState(false);
-  const [cta, setCta] = useState<"flip" | "notify" | "email">("flip");
-  const [email, setEmail] = useState("");
+  const [cta, setCta] = useState<"flip" | "notify" | "phone">("flip");
+  const [phone, setPhone] = useState(`${PHONE_PREFIX} `);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -502,9 +512,7 @@ export function BrandLaunchWaitlist({
   const inputRef = useRef<HTMLInputElement>(null);
   const flipTimersRef = useRef<number[]>([]);
 
-  const emailReady =
-    isValidEmail(email) &&
-    email.trim().toLowerCase() !== EMAIL_HINT.toLowerCase();
+  const phoneReady = isCompleteRuPhone(phone);
 
   useEffect(() => {
     return () => {
@@ -567,11 +575,12 @@ export function BrandLaunchWaitlist({
   }, []);
 
   useLayoutEffect(() => {
-    if (cta !== "email" || done) return;
+    if (cta !== "phone" || done) return;
     const node = inputRef.current;
     if (!node) return;
     node.focus({ preventScroll: true });
-    node.setSelectionRange(0, 0);
+    const caret = node.value.length;
+    node.setSelectionRange(caret, caret);
   }, [cta, done]);
 
   const keepInPlace = () => {
@@ -594,25 +603,23 @@ export function BrandLaunchWaitlist({
     flipTimersRef.current.push(reveal);
   };
 
-  const openEmail = () => {
+  const openPhone = () => {
     if (cta !== "notify") return;
     setError(null);
-    setEmail(EMAIL_HINT);
-    setCta("email");
+    setPhone(`${PHONE_PREFIX} `);
+    setCta("phone");
   };
 
   const submit = async () => {
     setError(null);
-    const value = email.trim().toLowerCase();
-    if (!isValidEmail(value) || value === EMAIL_HINT.toLowerCase()) {
-      return;
-    }
+    if (!isCompleteRuPhone(phone)) return;
+    const value = toRuPhoneE164(phone);
     setSubmitting(true);
     try {
       const res = await fetch("/api/waitlist", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ list: "launch", email: value }),
+        body: JSON.stringify({ list: "launch", phone: value, email: value }),
       });
       const data = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) {
@@ -673,7 +680,7 @@ export function BrandLaunchWaitlist({
           <div className="mx-auto flex h-14 min-h-14 w-full items-center justify-center rounded-full bg-[#111113] px-6 text-[16px] text-white">
             Спасибо! Сообщим об открытии
           </div>
-        ) : cta === "email" ? (
+        ) : cta === "phone" ? (
           <form
             className="launch-email-field mx-auto flex h-14 min-h-14 w-full items-center gap-2 rounded-full bg-[#111113] px-2"
             onSubmit={(event) => {
@@ -683,29 +690,30 @@ export function BrandLaunchWaitlist({
           >
             <input
               ref={inputRef}
-              type="text"
-              name="email"
-              autoComplete="email"
+              type="tel"
+              name="phone"
+              autoComplete="tel"
               autoCapitalize="none"
               autoCorrect="off"
               spellCheck={false}
-              inputMode="email"
-              enterKeyHint={emailReady ? "done" : "next"}
-              value={email}
+              inputMode="tel"
+              enterKeyHint={phoneReady ? "done" : "next"}
+              value={phone}
               disabled={submitting}
               onChange={(event) => {
-                setEmail(emailAfterHintEdit(email, event.target.value));
+                setPhone(formatRuPhone(event.target.value));
                 setError(null);
               }}
               onFocus={keepInPlace}
-              onBlur={keepInPlace}
-              className={`launch-email-input h-full min-w-0 flex-1 rounded-full border-0 bg-transparent px-5 text-[16px] outline-none disabled:opacity-60 ${
-                email === EMAIL_HINT ? "is-hint" : ""
-              }`}
-              aria-label="Email для новости об открытии"
+              onBlur={(event) => {
+                setPhone(formatRuPhone(event.target.value));
+                keepInPlace();
+              }}
+              className="launch-email-input h-full min-w-0 flex-1 rounded-full border-0 bg-transparent px-5 text-[16px] outline-none disabled:opacity-60"
+              aria-label="Телефон для новости об открытии"
             />
             <AnimatePresence initial={false}>
-              {emailReady ? (
+              {phoneReady ? (
                 <motion.button
                   key="ok"
                   type="submit"
@@ -724,7 +732,7 @@ export function BrandLaunchWaitlist({
         ) : (
           <button
             type="button"
-            onClick={cta === "flip" ? flipEarth : openEmail}
+            onClick={cta === "flip" ? flipEarth : openPhone}
             className="mx-auto flex h-14 min-h-14 w-full items-center justify-center rounded-full bg-[#111113] px-6 text-[16px] font-semibold text-white hover:bg-zinc-800"
           >
             {cta === "flip" ? "Перевернуть землю" : "Сообщить об открытии"}

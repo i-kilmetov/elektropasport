@@ -16,6 +16,26 @@ function isValidEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
+function isValidRuPhone(value: string): boolean {
+  const digits = value.replace(/\D/g, "");
+  const national = digits.startsWith("8")
+    ? digits.slice(1)
+    : digits.startsWith("7")
+      ? digits.slice(1)
+      : digits;
+  return national.length === 10;
+}
+
+function toRuPhoneE164(value: string): string {
+  const digits = value.replace(/\D/g, "");
+  const withCountry = digits.startsWith("8")
+    ? `7${digits.slice(1)}`
+    : digits.startsWith("7")
+      ? digits
+      : `7${digits}`;
+  return `+${withCountry.slice(0, 11)}`;
+}
+
 const WAITLIST_KINDS = new Set(["school", "terminals", "launch"]);
 
 export async function GET(request: Request) {
@@ -43,18 +63,29 @@ export async function POST(request: Request) {
     const body = (await request.json()) as {
       list?: unknown;
       email?: unknown;
+      phone?: unknown;
     };
     const list =
       typeof body.list === "string" && WAITLIST_KINDS.has(body.list)
         ? body.list
         : null;
-    const email =
-      typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+    const phoneRaw =
+      typeof body.phone === "string" ? body.phone.trim() : "";
+    const emailRaw =
+      typeof body.email === "string" ? body.email.trim() : "";
+    const isLaunch = list === "launch";
+    const contact = isLaunch
+      ? toRuPhoneE164(phoneRaw || emailRaw)
+      : emailRaw.toLowerCase();
 
     if (!list) {
       return Response.json({ error: "Неизвестный список" }, { status: 400 });
     }
-    if (!isValidEmail(email)) {
+    if (isLaunch) {
+      if (!isValidRuPhone(phoneRaw || emailRaw)) {
+        return Response.json({ error: "Некорректный номер" }, { status: 400 });
+      }
+    } else if (!isValidEmail(contact)) {
       return Response.json({ error: "Некорректный email" }, { status: 400 });
     }
 
@@ -66,12 +97,14 @@ export async function POST(request: Request) {
       const user = requireTelegramUser(request);
       await upsertUser(user);
       telegramId = user.telegramId;
-      await sql`
-        UPDATE users
-        SET email = ${email}, updated_at = NOW()
-        WHERE telegram_id = ${telegramId}
-          AND (email IS NULL OR email = '')
-      `;
+      if (!isLaunch) {
+        await sql`
+          UPDATE users
+          SET email = ${contact}, updated_at = NOW()
+          WHERE telegram_id = ${telegramId}
+            AND (email IS NULL OR email = '')
+        `;
+      }
     } catch (error) {
       if (!(error instanceof AuthError) || error.status !== 401) {
         throw error;
@@ -81,9 +114,9 @@ export async function POST(request: Request) {
     await sql`
       INSERT INTO waitlist (id, list, email, telegram_user_id, created_at)
       VALUES (
-        ${`w_${list}_${email}`},
+        ${`w_${list}_${contact}`},
         ${list},
-        ${email},
+        ${contact},
         ${telegramId},
         NOW()
       )
@@ -95,7 +128,7 @@ export async function POST(request: Request) {
     try {
       await notifyAdminWaitlist({
         list,
-        email,
+        email: contact,
         telegramUserId: telegramId,
       });
     } catch (error) {

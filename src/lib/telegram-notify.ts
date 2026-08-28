@@ -555,7 +555,9 @@ export async function notifyAdminWaitlist(payload: {
     text: [
       titles[payload.list] ?? `📬 Waitlist: ${payload.list}`,
       "",
-      `Email: ${payload.email}`,
+      payload.email.startsWith("+")
+        ? `Телефон: ${payload.email}`
+        : `Email: ${payload.email}`,
       payload.telegramUserId
         ? `Telegram user id: ${payload.telegramUserId}`
         : "Telegram user id: нет (анонимно)",
