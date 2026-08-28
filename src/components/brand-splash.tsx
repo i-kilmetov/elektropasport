@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { motion } from "framer-motion";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { BRAND_YELLOW } from "@/components/brand-logo";
 import { TelegramAppIcon } from "@/components/icons/telegram-app-icon";
 import { Button } from "@/components/ui/button";
@@ -36,6 +36,10 @@ const LOGIN_BUTTON_DELAY_MS = 420;
 /** T stays upside-down for ~62% of the flip timeline. */
 const T_ROTATE_DURATION_S = 2;
 const T_INVERTED_HOLD_FRACTION = 0.62;
+/** Waitlist flip: tween 180→360 so the last degrees stay as smooth as the rest. */
+const WAITLIST_FLIP_DURATION_S = 1.2;
+const WAITLIST_FLIP_EASE = [0.4, 0, 0.6, 1] as const;
+const EMAIL_HINT = "name@email.com";
 
 function AnimatedT({
   pulsing,
@@ -76,16 +80,21 @@ function AnimatedT({
           ...wordmarkStyle,
           transformOrigin: "50% 100%",
         }}
+        transformTemplate={({ rotate }) => {
+          const value = rotate == null ? "180deg" : String(rotate);
+          return `rotate(${value.endsWith("deg") ? value : `${value}deg`})`;
+        }}
         initial={{ rotate: 180, opacity: 1, scale: 1 }}
         animate={
           playOnMount
             ? { rotate: [180, 180, 0], opacity: 1, scale: 1 }
-            : { rotate: upright ? 0 : 180, opacity: 1, scale: 1 }
+            : { rotate: upright ? 360 : 180, opacity: 1, scale: 1 }
         }
         transition={
           playOnMount
             ? {
                 rotate: {
+                  type: "tween",
                   duration: T_ROTATE_DURATION_S,
                   times: [0, T_INVERTED_HOLD_FRACTION, 1],
                   ease: [0.22, 1, 0.36, 1],
@@ -93,8 +102,9 @@ function AnimatedT({
               }
             : {
                 rotate: {
-                  duration: upright ? 0.85 : 0,
-                  ease: [0.22, 1, 0.36, 1],
+                  type: "tween",
+                  duration: upright ? WAITLIST_FLIP_DURATION_S : 0,
+                  ease: WAITLIST_FLIP_EASE,
                 },
               }
         }
@@ -197,52 +207,52 @@ function BrandMark({
           upright={tUpright}
         />
 
-        <motion.span
-          className={
-            collapseRest
-              ? "inline-flex overflow-hidden"
-              : "inline-flex overflow-visible"
-          }
-          initial={false}
-          animate={{
-            opacity: restRevealed ? 1 : 0,
-            ...(collapseRest
-              ? { maxWidth: restRevealed ? "12em" : 0 }
-              : {}),
-          }}
-          transition={{
-            opacity: {
-              duration: 0.45,
-              delay: restRevealed ? 0.1 : 0,
-              ease: "easeOut",
-            },
-            maxWidth: {
-              duration: 0.55,
-              delay: restRevealed ? 0.08 : 0,
-              ease: [0.22, 1, 0.36, 1],
-            },
-          }}
-        >
-          {WORDMARK_REST.split("").map((letter, index) => (
-            <motion.span
-              key={`${letter}-${index}`}
-              className="inline-block"
-              initial={{ opacity: 0, filter: "blur(8px)" }}
-              animate={
-                restRevealed
-                  ? { opacity: 1, filter: "blur(0px)" }
-                  : { opacity: 0, filter: "blur(8px)" }
-              }
-              transition={{
-                delay: restRevealed ? 0.16 + index * 0.07 : 0,
-                duration: 0.32,
-                ease: [0.22, 1, 0.36, 1],
-              }}
-            >
-              {letter}
-            </motion.span>
-          ))}
-        </motion.span>
+        {(!collapseRest || restRevealed) && (
+          <motion.span
+            className={
+              collapseRest
+                ? "inline-flex overflow-hidden"
+                : "inline-flex overflow-visible"
+            }
+            initial={collapseRest ? { opacity: 0, maxWidth: 0 } : { opacity: 0 }}
+            animate={{
+              opacity: restRevealed ? 1 : 0,
+              ...(collapseRest ? { maxWidth: restRevealed ? "12em" : 0 } : {}),
+            }}
+            transition={{
+              opacity: {
+                duration: 0.45,
+                delay: restRevealed ? 0.05 : 0,
+                ease: "easeOut",
+              },
+              maxWidth: {
+                type: "tween",
+                duration: 0.55,
+                ease: WAITLIST_FLIP_EASE,
+              },
+            }}
+          >
+            {WORDMARK_REST.split("").map((letter, index) => (
+              <motion.span
+                key={`${letter}-${index}`}
+                className="inline-block"
+                initial={{ opacity: 0, filter: "blur(8px)" }}
+                animate={
+                  restRevealed
+                    ? { opacity: 1, filter: "blur(0px)" }
+                    : { opacity: 0, filter: "blur(8px)" }
+                }
+                transition={{
+                  delay: restRevealed ? 0.08 + index * 0.07 : 0,
+                  duration: 0.32,
+                  ease: [0.22, 1, 0.36, 1],
+                }}
+              >
+                {letter}
+              </motion.span>
+            ))}
+          </motion.span>
+        )}
       </div>
     </div>
   );
@@ -457,26 +467,39 @@ function isValidEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 }
 
+function emailAfterHintEdit(prev: string, next: string): string {
+  if (prev !== EMAIL_HINT) return next;
+  if (next === EMAIL_HINT) return next;
+  if (next.length === EMAIL_HINT.length + 1) {
+    if (next.startsWith(EMAIL_HINT)) return next.slice(EMAIL_HINT.length);
+    if (next.endsWith(EMAIL_HINT)) return next.slice(0, 1);
+  }
+  if (next.includes(EMAIL_HINT)) return next.replace(EMAIL_HINT, "");
+  return next;
+}
+
 /** Production pre-launch screen: email waitlist instead of Telegram login. */
 export function BrandLaunchWaitlist({
   bootReady: _bootReady = true,
 }: {
   bootReady?: boolean;
 }) {
-  const [earthFlipped, setEarthFlipped] = useState(false);
   const [tUpright, setTUpright] = useState(false);
   const [restRevealed, setRestRevealed] = useState(false);
+  const [cta, setCta] = useState<"flip" | "notify" | "email">("flip");
   const [email, setEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [logoWidth, setLogoWidth] = useState(0);
   const [viewportHeight, setViewportHeight] = useState<number | null>(null);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
-  const measureRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const flipTimersRef = useRef<number[]>([]);
+
+  const emailReady =
+    isValidEmail(email) &&
+    email.trim().toLowerCase() !== EMAIL_HINT.toLowerCase();
 
   useEffect(() => {
     return () => {
@@ -517,15 +540,20 @@ export function BrandLaunchWaitlist({
       const vv = window.visualViewport;
       const height = vv?.height ?? window.innerHeight;
       const offsetTop = vv?.offsetTop ?? 0;
-      setViewportHeight(height);
-      const root = rootRef.current;
-      if (root) {
-        root.style.height = `${Math.round(height)}px`;
-        root.style.top = `${Math.round(offsetTop)}px`;
-      }
       const keyboard =
         window.innerHeight - height > 80 || offsetTop > 0;
       setKeyboardOpen(keyboard);
+      setViewportHeight(keyboard ? height : null);
+      const root = rootRef.current;
+      if (root) {
+        if (keyboard) {
+          root.style.height = `${Math.round(height)}px`;
+          root.style.top = `${Math.round(offsetTop)}px`;
+        } else {
+          root.style.height = "";
+          root.style.top = "";
+        }
+      }
       window.scrollTo(0, 0);
       document.documentElement.scrollTop = 0;
       document.body.scrollTop = 0;
@@ -542,19 +570,13 @@ export function BrandLaunchWaitlist({
     };
   }, []);
 
-  useEffect(() => {
-    const node = measureRef.current;
+  useLayoutEffect(() => {
+    if (cta !== "email" || done) return;
+    const node = inputRef.current;
     if (!node) return;
-    const measure = () => setLogoWidth(node.offsetWidth);
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(node);
-    window.addEventListener("resize", measure);
-    return () => {
-      observer.disconnect();
-      window.removeEventListener("resize", measure);
-    };
-  }, []);
+    node.focus({ preventScroll: true });
+    node.setSelectionRange(0, 0);
+  }, [cta, done]);
 
   const keepInPlace = () => {
     window.scrollTo(0, 0);
@@ -567,18 +589,26 @@ export function BrandLaunchWaitlist({
   };
 
   const flipEarth = () => {
-    if (earthFlipped) return;
-    setEarthFlipped(true);
+    if (cta !== "flip") return;
+    setCta("notify");
     setTUpright(true);
-    const reveal = window.setTimeout(() => setRestRevealed(true), 140);
+    const reveal = window.setTimeout(() => {
+      setRestRevealed(true);
+    }, WAITLIST_FLIP_DURATION_S * 1000);
     flipTimersRef.current.push(reveal);
+  };
+
+  const openEmail = () => {
+    if (cta !== "notify") return;
+    setError(null);
+    setEmail(EMAIL_HINT);
+    setCta("email");
   };
 
   const submit = async () => {
     setError(null);
     const value = email.trim().toLowerCase();
-    if (!isValidEmail(value)) {
-      setError("Введите корректный email");
+    if (!isValidEmail(value) || value === EMAIL_HINT.toLowerCase()) {
       return;
     }
     setSubmitting(true);
@@ -601,16 +631,13 @@ export function BrandLaunchWaitlist({
     }
   };
 
-  const columnWidth = logoWidth > 0 ? logoWidth : undefined;
-  const showEmail = earthFlipped;
-
   return (
     <div
       ref={rootRef}
       className="fixed inset-x-0 top-0 z-[200] flex touch-none flex-col items-center overflow-hidden px-5"
       style={{
         backgroundColor: BRAND_YELLOW,
-        height: viewportHeight
+        height: keyboardOpen && viewportHeight
           ? `${Math.round(viewportHeight)}px`
           : "var(--app-height, 100dvh)",
         paddingBottom: keyboardOpen
@@ -619,23 +646,19 @@ export function BrandLaunchWaitlist({
       }}
       aria-label="Током — подписка на открытие"
     >
-      <div
-        ref={measureRef}
-        aria-hidden
-        className="pointer-events-none absolute top-0 left-0 -z-10 whitespace-nowrap opacity-0"
-        style={splashWordmarkTypeStyle}
-      >
-        <span className="inline-block" style={{ paddingTop: STRIPE_PAD_TOP }}>
-          Т{WORDMARK_REST}
-        </span>
-      </div>
-
-      <div className="relative min-h-0 flex-1 w-full">
-        <div className="absolute top-1/2 left-1/2 w-max -translate-x-1/2 -translate-y-1/2">
+      <div className="relative min-h-0 w-full flex-1">
+        <div
+          className="absolute w-max"
+          style={{
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+          }}
+        >
           <BrandMark
             tagline=""
             taglineVisible={false}
-            stripesPulsing={false}
+            stripesPulsing
             restRevealed={restRevealed}
             tPlayOnMount={false}
             tUpright={tUpright}
@@ -644,15 +667,12 @@ export function BrandLaunchWaitlist({
         </div>
       </div>
 
-      <div
-        className="mx-auto w-full shrink-0"
-        style={{ maxWidth: columnWidth ?? "min(100%, 28rem)" }}
-      >
+      <div className="mx-auto w-full max-w-[min(100%,22rem)] shrink-0">
         {done ? (
           <div className="mx-auto flex h-14 min-h-14 w-full items-center justify-center rounded-full bg-[#111113] px-6 text-[16px] text-white">
             Спасибо! Сообщим об открытии
           </div>
-        ) : showEmail ? (
+        ) : cta === "email" ? (
           <form
             className="launch-email-field mx-auto flex h-14 min-h-14 w-full items-center gap-2 rounded-full bg-[#111113] px-2"
             onSubmit={(event) => {
@@ -662,35 +682,51 @@ export function BrandLaunchWaitlist({
           >
             <input
               ref={inputRef}
-              type="email"
+              type="text"
               name="email"
               autoComplete="email"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
               inputMode="email"
-              enterKeyHint="done"
-              placeholder="Email для новости об открытии"
+              enterKeyHint={emailReady ? "done" : "next"}
               value={email}
               disabled={submitting}
-              onChange={(event) => setEmail(event.target.value)}
+              onChange={(event) => {
+                setEmail(emailAfterHintEdit(email, event.target.value));
+                setError(null);
+              }}
               onFocus={keepInPlace}
               onBlur={keepInPlace}
-              className="launch-email-input h-full min-w-0 flex-1 rounded-full border-0 bg-transparent px-4 text-[15px] text-white outline-none placeholder:text-white/55 disabled:opacity-60"
+              className={`launch-email-input h-full min-w-0 flex-1 rounded-full border-0 bg-transparent px-5 text-[16px] outline-none disabled:opacity-60 ${
+                email === EMAIL_HINT ? "is-hint" : ""
+              }`}
               aria-label="Email для новости об открытии"
             />
-            <button
-              type="submit"
-              disabled={submitting}
-              className="shrink-0 rounded-full bg-white px-4 py-2 text-[14px] font-semibold text-[#111113] disabled:opacity-60"
-            >
-              {submitting ? "…" : "OK"}
-            </button>
+            <AnimatePresence initial={false}>
+              {emailReady ? (
+                <motion.button
+                  key="ok"
+                  type="submit"
+                  disabled={submitting}
+                  initial={{ opacity: 0, scale: 0.85 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.85 }}
+                  transition={{ duration: 0.18, ease: "easeOut" }}
+                  className="shrink-0 rounded-full bg-white px-4 py-2 text-[14px] font-semibold text-[#111113] disabled:opacity-60"
+                >
+                  {submitting ? "…" : "OK"}
+                </motion.button>
+              ) : null}
+            </AnimatePresence>
           </form>
         ) : (
           <button
             type="button"
-            onClick={flipEarth}
+            onClick={cta === "flip" ? flipEarth : openEmail}
             className="mx-auto flex h-14 min-h-14 w-full items-center justify-center rounded-full bg-[#111113] px-6 text-[16px] font-semibold text-white hover:bg-zinc-800"
           >
-            Перевернуть землю
+            {cta === "flip" ? "Перевернуть землю" : "Сообщить об открытии"}
           </button>
         )}
         {error && (

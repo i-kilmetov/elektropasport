@@ -161,7 +161,7 @@ import type {
 import { installStatusLabels } from "@/types";
 import { BrandAuthIntro, BrandLaunchWaitlist, BrandSplash } from "@/components/brand-splash";
 import { useHomeAppliancesEnabled } from "@/hooks/use-home-appliances-enabled";
-import { isProductionLaunchWaitlistHost } from "@/lib/app-env";
+import { isLaunchWaitlistRuntime } from "@/lib/app-env";
 import { cn } from "@/lib/utils";
 
 function isLocalDevHost(): boolean {
@@ -179,12 +179,9 @@ function isSchoolPreviewQuery(): boolean {
   }
 }
 
-function isProdLaunchWaitlistClient(): boolean {
-  return (
-    typeof window !== "undefined" &&
-    !isLocalDevHost() &&
-    isProductionLaunchWaitlistHost(window.location.hostname)
-  );
+function isProdLaunchWaitlistClient(launchWaitlist?: boolean): boolean {
+  if (typeof launchWaitlist === "boolean") return launchWaitlist;
+  return isLaunchWaitlistRuntime();
 }
 
 function panelRailCount(
@@ -315,7 +312,14 @@ function markSplashSeen(): void {
   }
 }
 
-export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?: boolean } = {}) {
+export function AppShell({
+  forceResearchSurvey = false,
+  launchWaitlist,
+}: {
+  forceResearchSurvey?: boolean;
+  /** From the server Host header so the inverted T is centered on first paint. */
+  launchWaitlist?: boolean;
+} = {}) {
   const homeAppliancesEnabled = useHomeAppliancesEnabled();
   const surveyLaunch = forceResearchSurvey || isResearchSurveyLaunch();
   const [screen, setScreen] = useState<AppScreen>(() =>
@@ -427,7 +431,7 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
 
   /** After Telegram OAuth return — home with skeletons, not boot splash. */
   useLayoutEffect(() => {
-    if (isProdLaunchWaitlistClient() || !consumePostAuthSkipSplash()) return;
+    if (isProdLaunchWaitlistClient(launchWaitlist) || !consumePostAuthSkipSplash()) return;
     markSplashSeen();
     setSplashPhase("done");
     setShowAuthIntro(false);
@@ -446,7 +450,7 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
       setShowAuthIntro(false);
       return;
     }
-    if (isProdLaunchWaitlistClient()) {
+    if (isProdLaunchWaitlistClient(launchWaitlist)) {
       setSplashPhase("done");
       return;
     }
@@ -550,7 +554,7 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
   /** App UI (home, scheme, …) only after Telegram auth. */
   useEffect(() => {
     if (!onboardingReady) return;
-    if (isProdLaunchWaitlistClient()) return;
+    if (isProdLaunchWaitlistClient(launchWaitlist)) return;
     if (canUseServerAuth() || isTelegramMiniApp()) return;
     const allowed: AppScreen[] = ["telegram-auth", "research-survey", "school"];
     if (!allowed.includes(screen)) {
@@ -1938,7 +1942,7 @@ export function AppShell({ forceResearchSurvey = false }: { forceResearchSurvey?
     void openSharedPanel(token);
   }, [itemsLoading, onboardingReady, openSharedPanel]);
 
-  if (isProdLaunchWaitlistClient() && !surveyLaunch && !isSchoolPreviewQuery()) {
+  if (isProdLaunchWaitlistClient(launchWaitlist) && !surveyLaunch && !isSchoolPreviewQuery()) {
     return (
       <BrandLaunchWaitlist bootReady={onboardingReady && !itemsLoading} />
     );

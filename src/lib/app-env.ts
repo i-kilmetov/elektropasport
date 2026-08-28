@@ -7,7 +7,10 @@ export const TEST_APP_WWW_HOST = "www.test.tokom.ru";
 export type AppEnv = "prod" | "test";
 
 export function normalizeHost(host: string | null | undefined): string {
-  return host?.split(":")[0]?.toLowerCase() ?? "";
+  if (!host) return "";
+  const trimmed = host.split(",")[0]?.trim() ?? "";
+  const withoutProtocol = trimmed.replace(/^https?:\/\//i, "");
+  return withoutProtocol.split("/")[0]?.split(":")[0]?.toLowerCase() ?? "";
 }
 
 export function isTestAppHost(host: string | null | undefined): boolean {
@@ -59,5 +62,27 @@ export function homeAppliancesEnabledForHost(
 export function isProductionLaunchWaitlistHost(
   host: string | null | undefined,
 ): boolean {
-  return !isTestAppHost(host);
+  const normalized = normalizeHost(host);
+  if (
+    !normalized ||
+    normalized === "localhost" ||
+    normalized === "127.0.0.1"
+  ) {
+    return false;
+  }
+  return !isTestAppHost(normalized);
+}
+
+/**
+ * Waitlist gate at runtime. SSR uses the production host so the inverted T
+ * is already centered on first paint instead of hydrating from the auth intro.
+ */
+export function isLaunchWaitlistRuntime(): boolean {
+  if (typeof window !== "undefined") {
+    return isProductionLaunchWaitlistHost(window.location.hostname);
+  }
+  if (process.env.VERCEL_ENV !== "production") return false;
+  return isProductionLaunchWaitlistHost(
+    process.env.VERCEL_PROJECT_PRODUCTION_URL ?? "tokom.ru",
+  );
 }

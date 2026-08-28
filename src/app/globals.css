@@ -162,6 +162,12 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   color: #fff !important;
   -webkit-text-fill-color: #fff !important;
   caret-color: #fff;
+  caret-shape: bar;
+}
+
+.launch-email-input.is-hint {
+  color: rgba(255, 255, 255, 0.5) !important;
+  -webkit-text-fill-color: rgba(255, 255, 255, 0.5) !important;
 }
 
 .launch-email-input:-webkit-autofill,

@@ -1,9 +1,21 @@
+import { headers } from "next/headers";
 import { AppShell } from "@/components/app-shell";
+import { isProductionLaunchWaitlistHost } from "@/lib/app-env";
 
-export default function Home() {
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ waitlist?: string }>;
+}) {
+  const [h, sp] = await Promise.all([headers(), searchParams]);
+  const host =
+    h.get("x-forwarded-host")?.split(",")[0]?.trim() || h.get("host");
+  const launchWaitlist =
+    isProductionLaunchWaitlistHost(host) || sp.waitlist === "1";
+
   return (
     <main className="min-h-[var(--app-height,100dvh)] w-full">
-      <AppShell />
+      <AppShell launchWaitlist={launchWaitlist} />
     </main>
   );
 }
