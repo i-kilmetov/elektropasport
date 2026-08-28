@@ -40,9 +40,14 @@ const T_INVERTED_HOLD_FRACTION = 0.62;
 function AnimatedT({
   pulsing,
   wordmarkStyle,
+  playOnMount = true,
+  upright = false,
 }: {
   pulsing: boolean;
   wordmarkStyle: typeof splashWordmarkTypeStyle;
+  /** Splash/auth: flip on mount. Launch waitlist: stay inverted until `upright`. */
+  playOnMount?: boolean;
+  upright?: boolean;
 }) {
   const pulse = pulsing
     ? {
@@ -72,18 +77,27 @@ function AnimatedT({
           transformOrigin: "50% 100%",
         }}
         initial={{ rotate: 180, opacity: 1, scale: 1 }}
-        animate={{
-          rotate: [180, 180, 0],
-          opacity: 1,
-          scale: 1,
-        }}
-        transition={{
-          rotate: {
-            duration: T_ROTATE_DURATION_S,
-            times: [0, T_INVERTED_HOLD_FRACTION, 1],
-            ease: [0.22, 1, 0.36, 1],
-          },
-        }}
+        animate={
+          playOnMount
+            ? { rotate: [180, 180, 0], opacity: 1, scale: 1 }
+            : { rotate: upright ? 0 : 180, opacity: 1, scale: 1 }
+        }
+        transition={
+          playOnMount
+            ? {
+                rotate: {
+                  duration: T_ROTATE_DURATION_S,
+                  times: [0, T_INVERTED_HOLD_FRACTION, 1],
+                  ease: [0.22, 1, 0.36, 1],
+                },
+              }
+            : {
+                rotate: {
+                  duration: upright ? 0.85 : 0,
+                  ease: [0.22, 1, 0.36, 1],
+                },
+              }
+        }
       >
       <span className="relative inline-block leading-none">
         <span
@@ -130,12 +144,19 @@ function BrandMark({
   stripesPulsing,
   restRevealed,
   variant = "splash",
+  tPlayOnMount = true,
+  tUpright = false,
+  collapseRest = false,
 }: {
   tagline: string;
   taglineVisible: boolean;
   stripesPulsing: boolean;
   restRevealed: boolean;
   variant?: "splash" | "header";
+  tPlayOnMount?: boolean;
+  tUpright?: boolean;
+  /** Keep «ОКОМ» out of layout until revealed so the inverted T sits on center. */
+  collapseRest?: boolean;
 }) {
   const wordmarkStyle =
     variant === "header" ? headerWordmarkTypeStyle : splashWordmarkTypeStyle;
@@ -169,17 +190,36 @@ function BrandMark({
       </motion.p>
 
       <div className="flex items-end whitespace-nowrap" style={wordmarkStyle}>
-        <AnimatedT pulsing={stripesPulsing} wordmarkStyle={wordmarkStyle} />
+        <AnimatedT
+          pulsing={stripesPulsing}
+          wordmarkStyle={wordmarkStyle}
+          playOnMount={tPlayOnMount}
+          upright={tUpright}
+        />
 
         <motion.span
-          className="inline-flex overflow-visible"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: restRevealed ? 1 : 0 }}
+          className={
+            collapseRest
+              ? "inline-flex overflow-hidden"
+              : "inline-flex overflow-visible"
+          }
+          initial={false}
+          animate={{
+            opacity: restRevealed ? 1 : 0,
+            ...(collapseRest
+              ? { maxWidth: restRevealed ? "12em" : 0 }
+              : {}),
+          }}
           transition={{
             opacity: {
               duration: 0.45,
               delay: restRevealed ? 0.1 : 0,
               ease: "easeOut",
+            },
+            maxWidth: {
+              duration: 0.55,
+              delay: restRevealed ? 0.08 : 0,
+              ease: [0.22, 1, 0.36, 1],
             },
           }}
         >
@@ -419,11 +459,13 @@ function isValidEmail(value: string): boolean {
 
 /** Production pre-launch screen: email waitlist instead of Telegram login. */
 export function BrandLaunchWaitlist({
-  bootReady = true,
+  bootReady: _bootReady = true,
 }: {
   bootReady?: boolean;
 }) {
-  const animation = useLogoAnimation(bootReady);
+  const [earthFlipped, setEarthFlipped] = useState(false);
+  const [tUpright, setTUpright] = useState(false);
+  const [restRevealed, setRestRevealed] = useState(false);
   const [email, setEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
@@ -432,8 +474,15 @@ export function BrandLaunchWaitlist({
   const [viewportHeight, setViewportHeight] = useState<number | null>(null);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
-  const logoRef = useRef<HTMLDivElement>(null);
+  const measureRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const flipTimersRef = useRef<number[]>([]);
+
+  useEffect(() => {
+    return () => {
+      for (const id of flipTimersRef.current) window.clearTimeout(id);
+    };
+  }, []);
 
   useEffect(() => {
     const html = document.documentElement;
@@ -494,7 +543,7 @@ export function BrandLaunchWaitlist({
   }, []);
 
   useEffect(() => {
-    const node = logoRef.current;
+    const node = measureRef.current;
     if (!node) return;
     const measure = () => setLogoWidth(node.offsetWidth);
     measure();
@@ -505,17 +554,24 @@ export function BrandLaunchWaitlist({
       observer.disconnect();
       window.removeEventListener("resize", measure);
     };
-  }, [animation.restRevealed]);
+  }, []);
 
   const keepInPlace = () => {
     window.scrollTo(0, 0);
     document.documentElement.scrollTop = 0;
     document.body.scrollTop = 0;
-    // iOS often scrolls after focus; nudge back on the next frames.
     requestAnimationFrame(() => {
       window.scrollTo(0, 0);
       requestAnimationFrame(() => window.scrollTo(0, 0));
     });
+  };
+
+  const flipEarth = () => {
+    if (earthFlipped) return;
+    setEarthFlipped(true);
+    setTUpright(true);
+    const reveal = window.setTimeout(() => setRestRevealed(true), 140);
+    flipTimersRef.current.push(reveal);
   };
 
   const submit = async () => {
@@ -546,6 +602,7 @@ export function BrandLaunchWaitlist({
   };
 
   const columnWidth = logoWidth > 0 ? logoWidth : undefined;
+  const showEmail = earthFlipped;
 
   return (
     <div
@@ -562,35 +619,40 @@ export function BrandLaunchWaitlist({
       }}
       aria-label="Током — подписка на открытие"
     >
+      <div
+        ref={measureRef}
+        aria-hidden
+        className="pointer-events-none absolute top-0 left-0 -z-10 whitespace-nowrap opacity-0"
+        style={splashWordmarkTypeStyle}
+      >
+        <span className="inline-block" style={{ paddingTop: STRIPE_PAD_TOP }}>
+          Т{WORDMARK_REST}
+        </span>
+      </div>
+
       <div className="relative min-h-0 flex-1 w-full">
-        <div
-          ref={logoRef}
-          className="absolute top-1/2 left-1/2 w-max -translate-x-1/2 -translate-y-1/2"
-        >
+        <div className="absolute top-1/2 left-1/2 w-max -translate-x-1/2 -translate-y-1/2">
           <BrandMark
             tagline=""
             taglineVisible={false}
-            stripesPulsing={animation.stripesPulsing}
-            restRevealed={animation.restRevealed}
+            stripesPulsing={false}
+            restRevealed={restRevealed}
+            tPlayOnMount={false}
+            tUpright={tUpright}
+            collapseRest
           />
         </div>
       </div>
 
-      <motion.div
+      <div
         className="mx-auto w-full shrink-0"
-        style={{ maxWidth: columnWidth }}
-        initial={false}
-        animate={{
-          opacity: animation.loginVisible && logoWidth > 0 ? 1 : 0,
-          y: animation.loginVisible && logoWidth > 0 ? 0 : 12,
-        }}
-        transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
+        style={{ maxWidth: columnWidth ?? "min(100%, 28rem)" }}
       >
         {done ? (
           <div className="mx-auto flex h-14 min-h-14 w-full items-center justify-center rounded-full bg-[#111113] px-6 text-[16px] text-white">
             Спасибо! Сообщим об открытии
           </div>
-        ) : (
+        ) : showEmail ? (
           <form
             className="launch-email-field mx-auto flex h-14 min-h-14 w-full items-center gap-2 rounded-full bg-[#111113] px-2"
             onSubmit={(event) => {
@@ -607,9 +669,7 @@ export function BrandLaunchWaitlist({
               enterKeyHint="done"
               placeholder="Email для новости об открытии"
               value={email}
-              disabled={
-                !animation.loginVisible || submitting || logoWidth <= 0
-              }
+              disabled={submitting}
               onChange={(event) => setEmail(event.target.value)}
               onFocus={keepInPlace}
               onBlur={keepInPlace}
@@ -618,19 +678,25 @@ export function BrandLaunchWaitlist({
             />
             <button
               type="submit"
-              disabled={
-                !animation.loginVisible || submitting || logoWidth <= 0
-              }
+              disabled={submitting}
               className="shrink-0 rounded-full bg-white px-4 py-2 text-[14px] font-semibold text-[#111113] disabled:opacity-60"
             >
               {submitting ? "…" : "OK"}
             </button>
           </form>
+        ) : (
+          <button
+            type="button"
+            onClick={flipEarth}
+            className="mx-auto flex h-14 min-h-14 w-full items-center justify-center rounded-full bg-[#111113] px-6 text-[16px] font-semibold text-white hover:bg-zinc-800"
+          >
+            Перевернуть землю
+          </button>
         )}
         {error && (
           <p className="mt-3 text-center text-[13px] text-red-700">{error}</p>
         )}
-      </motion.div>
+      </div>
     </div>
   );
 }
