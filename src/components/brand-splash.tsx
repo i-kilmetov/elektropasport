@@ -37,7 +37,7 @@ const LOGIN_BUTTON_DELAY_MS = 420;
 const T_ROTATE_DURATION_S = 2;
 const T_INVERTED_HOLD_FRACTION = 0.62;
 /** Waitlist flip: tween 180→360 so the last degrees stay as smooth as the rest. */
-const WAITLIST_FLIP_DURATION_S = 1.2;
+const WAITLIST_FLIP_DURATION_S = 1.05;
 const WAITLIST_FLIP_EASE = [0.4, 0, 0.6, 1] as const;
 const EMAIL_HINT = "name@email.com";
 
@@ -78,7 +78,8 @@ function AnimatedT({
         className="relative inline-block"
         style={{
           ...wordmarkStyle,
-          transformOrigin: "50% 100%",
+          // Waitlist: spin around the T center. Splash: pivot from the baseline.
+          transformOrigin: playOnMount ? "50% 100%" : "50% 50%",
         }}
         transformTemplate={({ rotate }) => {
           const value = rotate == null ? "180deg" : String(rotate);
@@ -221,13 +222,13 @@ function BrandMark({
             }}
             transition={{
               opacity: {
-                duration: 0.45,
-                delay: restRevealed ? 0.05 : 0,
+                duration: collapseRest ? 0.55 : 0.45,
+                delay: restRevealed ? (collapseRest ? 0.08 : 0.05) : 0,
                 ease: "easeOut",
               },
               maxWidth: {
                 type: "tween",
-                duration: 0.55,
+                duration: collapseRest ? 0.7 : 0.55,
                 ease: WAITLIST_FLIP_EASE,
               },
             }}
@@ -243,8 +244,11 @@ function BrandMark({
                     : { opacity: 0, filter: "blur(8px)" }
                 }
                 transition={{
-                  delay: restRevealed ? 0.08 + index * 0.07 : 0,
-                  duration: 0.32,
+                  delay: restRevealed
+                    ? (collapseRest ? 0.12 : 0.08) +
+                      index * (collapseRest ? 0.09 : 0.07)
+                    : 0,
+                  duration: collapseRest ? 0.4 : 0.32,
                   ease: [0.22, 1, 0.36, 1],
                 }}
               >
