@@ -492,6 +492,7 @@ export function BrandLaunchWaitlist({
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [viewportHeight, setViewportHeight] = useState<number | null>(null);
+  const [viewportOffsetTop, setViewportOffsetTop] = useState(0);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -544,16 +545,7 @@ export function BrandLaunchWaitlist({
         window.innerHeight - height > 80 || offsetTop > 0;
       setKeyboardOpen(keyboard);
       setViewportHeight(keyboard ? height : null);
-      const root = rootRef.current;
-      if (root) {
-        if (keyboard) {
-          root.style.height = `${Math.round(height)}px`;
-          root.style.top = `${Math.round(offsetTop)}px`;
-        } else {
-          root.style.height = "";
-          root.style.top = "";
-        }
-      }
+      setViewportOffsetTop(keyboard ? offsetTop : 0);
       window.scrollTo(0, 0);
       document.documentElement.scrollTop = 0;
       document.body.scrollTop = 0;
@@ -634,12 +626,17 @@ export function BrandLaunchWaitlist({
   return (
     <div
       ref={rootRef}
-      className="fixed inset-x-0 top-0 z-[200] flex touch-none flex-col items-center overflow-hidden px-5"
+      className="fixed inset-0 z-[200] flex h-[100dvh] min-h-[100dvh] touch-none flex-col items-center overflow-hidden px-5"
       style={{
         backgroundColor: BRAND_YELLOW,
-        height: keyboardOpen && viewportHeight
-          ? `${Math.round(viewportHeight)}px`
-          : "var(--app-height, 100dvh)",
+        ...(keyboardOpen && viewportHeight
+          ? {
+              height: `${Math.round(viewportHeight)}px`,
+              minHeight: `${Math.round(viewportHeight)}px`,
+              top: `${Math.round(viewportOffsetTop)}px`,
+              bottom: "auto",
+            }
+          : {}),
         paddingBottom: keyboardOpen
           ? "0.75rem"
           : "max(1.75rem, env(safe-area-inset-bottom))",
