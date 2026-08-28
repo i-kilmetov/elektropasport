@@ -35,16 +35,16 @@ export class SchemeErrorBoundary extends Component<Props, State> {
 
     return (
       <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 px-6 text-center">
-        <h2 className="text-[20px] font-semibold text-zinc-900">
+        <h2 className="ty-title">
           Не удалось открыть щиток
         </h2>
-        <p className="max-w-md text-[14px] leading-relaxed text-zinc-500">
+        <p className="max-w-md ty-body">
           {this.props.panelTitle
             ? `«${this.props.panelTitle}» вызвал ошибку при открытии схемы.`
             : "Схема щитка вызвала ошибку при открытии."}{" "}
           Можно вернуться к списку и открыть другой щиток.
         </p>
-        <p className="max-w-md break-all rounded-2xl bg-zinc-100 px-3 py-2 text-left text-[11px] text-zinc-500">
+        <p className="max-w-md break-all rounded-2xl bg-zinc-100 px-3 py-2 text-left ty-meta">
           {this.state.error.message}
         </p>
         <Button

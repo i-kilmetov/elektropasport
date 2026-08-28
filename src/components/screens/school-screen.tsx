@@ -207,11 +207,11 @@ function SchoolHeader({
         <ArrowLeft className="h-5 w-5" />
       </button>
       <div className="min-w-0">
-        <h1 className="text-[20px] font-semibold leading-tight text-zinc-900">
+        <h1 className="ty-title leading-tight text-zinc-900">
           {title}
         </h1>
         {subtitle ? (
-          <p className="mt-0.5 text-[13px] text-zinc-500">{subtitle}</p>
+          <p className="mt-0.5 ty-note">{subtitle}</p>
         ) : null}
       </div>
     </header>
@@ -267,7 +267,7 @@ function SchoolHome({
       <SchoolHeader title="Школа Током" onBack={onBack} />
 
       <div className="space-y-5">
-        <p className="text-[16px] leading-relaxed text-zinc-700">
+        <p className="ty-body">
           Мы сделали электрику еще доступнее: теперь достаточно поступить в
           школу Током, где важные бытовые знания электрики стараемся объяснить
           интересно и доступно каждому.
@@ -284,13 +284,13 @@ function SchoolHome({
         />
 
         <div>
-          <p className="text-[15px] leading-relaxed text-zinc-500">
+          <p className="ty-body">
             Короткие уроки, живые примеры, схемы и экзамен с оценкой. Классы
             идут по порядку: следующий открывается, когда сдан предыдущий.
             Продлёнка доступна после 1 класса.
           </p>
           {finished > 0 ? (
-            <p className="mt-2 text-[13px] text-zinc-500">
+            <p className="mt-2 ty-note">
               {finished === 4
                 ? "Все курсы пройдены"
                 : gradeCompleted(progress, 1) &&
@@ -303,7 +303,7 @@ function SchoolHome({
         </div>
 
         <GlassCard className="p-4">
-          <h3 className="text-[16px] font-semibold text-zinc-900">
+          <h3 className="ty-heading">
             Обучение платное
           </h3>
           <ul className="mt-3 space-y-2 text-[15px] text-zinc-700">
@@ -316,7 +316,7 @@ function SchoolHome({
               </li>
             ))}
           </ul>
-          <p className="mt-3 text-[13px] leading-relaxed text-zinc-500">
+          <p className="mt-3 ty-note">
             Доступ к оплаченным курсам остаётся: можно возвращаться к урокам в
             любое время.
           </p>
@@ -341,7 +341,7 @@ function SchoolHome({
           ))}
         </div>
 
-        <p className="text-[12px] leading-relaxed text-zinc-400">
+        <p className="ty-meta text-zinc-400">
           {SCHOOL_DISCLAIMER}
         </p>
       </div>
@@ -436,24 +436,24 @@ function GradeAccordion({
         <GradeAgeMark gradeId={gradeId} className="h-16 w-16" />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <h3 className="text-[18px] font-bold leading-tight text-zinc-900">
+            <h3 className="ty-title leading-tight text-zinc-900">
               {grade.title}
             </h3>
             {isGradePaid(gradeId, paid) ? (
-              <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
+              <span className="rounded-full bg-emerald-50 px-2 py-0.5 ty-badge text-emerald-800">
                 Оплачен
               </span>
             ) : null}
             {best && examPassed(best.grade) ? (
-              <span className="rounded-full bg-zinc-900 px-2 py-0.5 text-[11px] font-semibold text-white">
+              <span className="rounded-full bg-zinc-900 px-2 py-0.5 ty-badge text-white">
                 {best.grade}
               </span>
             ) : null}
           </div>
-          <p className="mt-0.5 text-[13px] leading-snug text-zinc-500">
+          <p className="mt-0.5 ty-note">
             {grade.subtitle}
           </p>
-          <p className="mt-1 text-[13px] font-medium tabular-nums text-zinc-700">
+          <p className="mt-1 ty-label tabular-nums text-zinc-700">
             {formatRub(SCHOOL_GRADE_PRICE_RUB[gradeId])}
           </p>
         </div>
@@ -474,7 +474,7 @@ function GradeAccordion({
             className="overflow-hidden"
           >
             <div className="space-y-3 border-t border-black/[0.06] px-4 pb-4 pt-3">
-              <p className="text-[13px] font-medium text-zinc-600">Программа</p>
+              <p className="ty-label text-zinc-600">Программа</p>
               <ol className="space-y-2">
                 {grade.topics.map((topic, index) => {
                   const done = Boolean(progress.grades[gradeId].topicPassed[topic.id]);
@@ -482,7 +482,7 @@ function GradeAccordion({
                     <li key={topic.id} className="flex gap-3">
                       <span
                         className={cn(
-                          "mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold",
+                          "mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full ty-badge",
                           done
                             ? "bg-[#D3DA00] text-zinc-900"
                             : "bg-zinc-100 text-zinc-500",
@@ -491,10 +491,10 @@ function GradeAccordion({
                         {done ? <Check className="h-3.5 w-3.5" /> : index + 1}
                       </span>
                       <span className="min-w-0">
-                        <span className="block text-[14px] font-medium text-zinc-900">
+                        <span className="block ty-subtitle text-zinc-900">
                           {topic.title}
                         </span>
-                        <span className="mt-0.5 block text-[12px] leading-snug text-zinc-500">
+                        <span className="mt-0.5 block ty-meta">
                           {topic.minutes} мин · {topic.teaser}
                         </span>
                       </span>
@@ -503,12 +503,12 @@ function GradeAccordion({
                 })}
               </ol>
               {studying ? (
-                <p className="text-[12px] text-zinc-400">
+                <p className="ty-meta">
                   Темы {passedTopics} / {grade.topics.length}
                   {best ? ` · экзамен ${best.grade}` : ""}
                 </p>
               ) : purchasable ? null : (
-                <p className="flex items-center gap-1 text-[12px] text-zinc-500">
+                <p className="flex items-center gap-1 ty-note">
                   <Lock className="h-3.5 w-3.5 shrink-0" />
                   Сначала окончите {prev ? getGrade(prev).title : "предыдущий класс"}
                 </p>
@@ -575,10 +575,10 @@ function GradeProgram({
         <SchoolHeader title={grade.title} onBack={onBack} />
         <GlassCard className="p-5 text-center">
           <Lock className="mx-auto h-8 w-8 text-zinc-400" />
-          <h2 className="mt-3 text-[18px] font-semibold text-zinc-900">
+          <h2 className="mt-3 ty-title">
             {needsPay ? "Сначала оплата" : "Сначала предыдущий класс"}
           </h2>
-          <p className="mt-2 text-[14px] leading-relaxed text-zinc-600">
+          <p className="mt-2 ty-body">
             {needsPay
               ? "Этот курс откроется после оплаты. Доступ к оплаченным классам сохраняется."
               : `Чтобы учиться здесь, нужно окончить ${prev ? getGrade(prev).title : "предыдущий класс"} — пройти темы и сдать экзамен.`}
@@ -601,11 +601,11 @@ function GradeProgram({
         onBack={onBack}
       />
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pb-4">
-        <p className="text-[15px] leading-relaxed text-zinc-600">
+        <p className="ty-body">
           {grade.promise}
         </p>
         <div>
-          <div className="mb-2 flex items-center justify-between text-[12px] text-zinc-500">
+          <div className="mb-2 flex items-center justify-between ty-note">
             <span>Программа</span>
             <span>
               {passedCount} / {topicIds.length} тем
@@ -627,7 +627,7 @@ function GradeProgram({
                 <GlassCard className="flex items-center gap-3 p-3.5 transition-colors hover:bg-zinc-50">
                   <span
                     className={cn(
-                      "flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] text-[13px] font-semibold",
+                      "flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] ty-label",
                       done
                         ? "bg-[#D3DA00] text-zinc-900"
                         : "bg-zinc-100 text-zinc-600",
@@ -636,10 +636,10 @@ function GradeProgram({
                     {done ? <Check className="h-4 w-4" /> : index + 1}
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block text-[15px] font-semibold text-zinc-900">
+                    <span className="block ty-heading">
                       {topic.title}
                     </span>
-                    <span className="mt-0.5 block text-[12px] text-zinc-500">
+                    <span className="mt-0.5 block ty-note">
                       {topic.minutes} мин · {topic.teaser}
                     </span>
                   </span>
@@ -651,11 +651,11 @@ function GradeProgram({
         </div>
 
         <GlassCard className="p-4">
-          <div className="flex items-center gap-2 text-[15px] font-semibold text-zinc-900">
+          <div className="flex items-center gap-2 ty-heading">
             <GraduationCap className="h-4 w-4" />
             Экзамен
           </div>
-          <p className="mt-1 text-[13px] leading-relaxed text-zinc-500">
+          <p className="mt-1 ty-note">
             20 вопросов: 16 с вариантами (иногда несколько верных) и 4
             письменных. На вариант — {CHOICE_SECONDS} с, на письменный —{" "}
             {WRITTEN_SECONDS} с. Оценка от 2 до 5. Для зачёта нужно не меньше 10
@@ -726,7 +726,7 @@ function TopicLesson({
     >
       <SchoolHeader title={topic.title} onBack={onBack} />
       <div className="min-h-0 flex-1 overflow-y-auto pb-4">
-        <p className="mb-4 text-[14px] leading-relaxed text-zinc-500">
+        <p className="mb-4 ty-body">
           {topic.teaser}
         </p>
         <LessonBlocks blocks={topic.blocks} />
@@ -778,8 +778,8 @@ function QuizGate({
       >
         <SchoolHeader title={title} onBack={onExit} />
         <GlassCard className="p-5">
-          <p className="text-[15px] leading-relaxed text-zinc-700">{intro}</p>
-          <p className="mt-3 text-[13px] text-zinc-500">
+          <p className="ty-body text-zinc-700">{intro}</p>
+          <p className="mt-3 ty-note">
             Вопросов: {questions.length}
           </p>
         </GlassCard>

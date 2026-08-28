@@ -149,7 +149,7 @@ export function WelcomeScreen({
           if (alreadyAuthed) onContinue();
           else startTelegramLogin();
         }}
-        className="absolute right-4 top-[max(1rem,env(safe-area-inset-top))] z-20 rounded-full px-3 py-1.5 text-[12px] font-medium tracking-wide text-white/40 transition-colors hover:text-white/70"
+        className="absolute right-4 top-[max(1rem,env(safe-area-inset-top))] z-20 rounded-full px-3 py-1.5 ty-badge tracking-wide text-white/40 transition-colors hover:text-white/70"
       >
         Войти
       </button>
@@ -174,7 +174,7 @@ export function WelcomeScreen({
             {card.kind === "auth" ? (
               <>
                 <header className="shrink-0 pt-2 text-center">
-                  <p className="text-[12px] font-bold uppercase tracking-[0.22em] text-zinc-950">
+                  <p className="ty-kicker text-zinc-950">
                     Проверь себя
                   </p>
                 </header>
@@ -202,7 +202,7 @@ export function WelcomeScreen({
                     <button
                       type="button"
                       onClick={goPrev}
-                      className="w-full py-2.5 text-center text-[14px] font-medium text-zinc-950/45 transition-colors hover:text-zinc-950/70"
+                      className="w-full py-2.5 text-center ty-subtitle text-zinc-950/45 transition-colors hover:text-zinc-950/70"
                     >
                       Назад
                     </button>
@@ -215,7 +215,7 @@ export function WelcomeScreen({
               <>
                 <header className="mb-4 shrink-0 text-center">
                   <p
-                    className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.22em]"
+                    className="mb-1.5 ty-kicker"
                     style={{ color: BRAND_YELLOW }}
                   >
                     {card.eyebrow}
@@ -226,10 +226,10 @@ export function WelcomeScreen({
                 <div className="relative mb-5 min-h-0 flex-1 overflow-hidden rounded-[22px] bg-black" />
 
                 <div className="shrink-0">
-                  <h1 className="mb-2.5 text-[26px] font-bold leading-[1.15] tracking-tight text-white sm:text-[28px]">
+                  <h1 className="mb-2.5 ty-display text-white ">
                     {card.title}
                   </h1>
-                  <p className="mb-6 text-[14px] leading-relaxed text-white/55 sm:text-[15px]">
+                  <p className="mb-6 ty-body text-white/55 ">
                     {card.text}
                   </p>
 
@@ -248,7 +248,7 @@ export function WelcomeScreen({
                     <button
                       type="button"
                       onClick={goPrev}
-                      className="mt-2 w-full py-2.5 text-center text-[14px] font-medium text-white/40 transition-colors hover:text-white/65"
+                      className="mt-2 w-full py-2.5 text-center ty-subtitle text-white/40 transition-colors hover:text-white/65"
                     >
                       Назад
                     </button>

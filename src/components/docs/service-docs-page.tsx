@@ -36,7 +36,7 @@ function NavLink({
   return (
     <a
       href={`#${id}`}
-      className={`block rounded-lg px-3 py-1.5 text-[13px] leading-snug transition ${
+      className={`block rounded-lg px-3 py-1.5 ty-note transition ${
         active
           ? "bg-zinc-900 font-medium text-white"
           : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
@@ -60,17 +60,17 @@ function H2({ id, children }: { id: string; children: React.ReactNode }) {
 
 function H3({ children }: { children: React.ReactNode }) {
   return (
-    <h3 className="mt-8 text-[18px] font-semibold text-zinc-900">{children}</h3>
+    <h3 className="mt-8 ty-title">{children}</h3>
   );
 }
 
 function P({ children }: { children: React.ReactNode }) {
-  return <p className="mt-3 text-[15px] leading-relaxed text-zinc-700">{children}</p>;
+  return <p className="mt-3 ty-body text-zinc-700">{children}</p>;
 }
 
 function Ul({ children }: { children: React.ReactNode }) {
   return (
-    <ul className="mt-3 list-disc space-y-1.5 pl-5 text-[15px] leading-relaxed text-zinc-700">
+    <ul className="mt-3 list-disc space-y-1.5 pl-5 ty-body text-zinc-700">
       {children}
     </ul>
   );
@@ -123,8 +123,8 @@ function Callout({
 }) {
   return (
     <div className="mt-4 rounded-2xl border border-amber-200/80 bg-amber-50/80 px-4 py-3">
-      <div className="text-[13px] font-semibold text-amber-900">{title}</div>
-      <div className="mt-1 text-[14px] leading-relaxed text-amber-950/80">
+      <div className="ty-label text-amber-900">{title}</div>
+      <div className="mt-1 ty-body text-amber-950/80">
         {children}
       </div>
     </div>
@@ -136,7 +136,7 @@ function Flow({ steps }: { steps: string[] }) {
     <div className="mt-4 flex flex-wrap items-center gap-2">
       {steps.map((step, i) => (
         <div key={step} className="flex items-center gap-2">
-          <span className="rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-[12px] font-medium text-zinc-800">
+          <span className="rounded-full border border-zinc-200 bg-white px-3 py-1.5 ty-badge text-zinc-800">
             {step}
           </span>
           {i < steps.length - 1 && (
@@ -167,7 +167,7 @@ function MermaidishBox({
 }) {
   return (
     <div className="rounded-2xl border border-zinc-200 bg-white p-4">
-      <div className="text-[13px] font-semibold text-zinc-900">{title}</div>
+      <div className="ty-label">{title}</div>
       <ul className="mt-2 space-y-1 text-[13px] text-zinc-600">
         {items.map((item) => (
           <li key={item}>• {item}</li>
@@ -208,21 +208,21 @@ export function ServiceDocsPage() {
             <p className="truncate font-[family-name:var(--font-geologica)] text-[18px] text-zinc-900">
               Током · документация сервиса
             </p>
-            <p className="truncate text-[12px] text-zinc-500">
+            <p className="truncate ty-note">
               tokom.ru · бизнес-логика, данные, API
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <button
               type="button"
-              className="rounded-full border border-zinc-300 bg-white px-3 py-1.5 text-[13px] font-medium lg:hidden"
+              className="rounded-full border border-zinc-300 bg-white px-3 py-1.5 ty-label lg:hidden"
               onClick={() => setNavOpen((v) => !v)}
             >
               Разделы
             </button>
             <Link
               href="/"
-              className="rounded-full border border-zinc-300 bg-white px-3 py-1.5 text-[13px] font-medium text-zinc-800"
+              className="rounded-full border border-zinc-300 bg-white px-3 py-1.5 ty-label text-zinc-800"
             >
               На главную
             </Link>
@@ -968,7 +968,7 @@ export function ServiceDocsPage() {
 
             <section>
               <H2 id="architecture">Архитектура</H2>
-              <div className="mt-4 space-y-3 rounded-2xl border border-zinc-200 bg-zinc-50 p-4 font-mono text-[12px] leading-relaxed text-zinc-700">
+              <div className="mt-4 space-y-3 rounded-2xl border border-zinc-200 bg-zinc-50 p-4 font-mono ty-meta text-zinc-700">
                 <div>
                   [Telegram Mini App / Browser] → AppShell (экраны)
                 </div>

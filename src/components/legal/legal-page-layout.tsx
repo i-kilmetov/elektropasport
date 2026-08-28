@@ -15,24 +15,24 @@ export function LegalPageLayout({
       <p className="mb-6 flex flex-wrap items-center gap-x-4 gap-y-1">
         <Link
           href="/legal"
-          className="text-[14px] font-medium text-zinc-600 underline-offset-2 hover:underline"
+          className="ty-subtitle text-zinc-600 underline-offset-2 hover:underline"
         >
           ← Все документы
         </Link>
         <Link
           href="/"
-          className="text-[14px] font-medium text-zinc-500 underline-offset-2 hover:underline"
+          className="ty-body underline-offset-2 hover:underline"
         >
           На главную
         </Link>
       </p>
-      <h1 className="mb-2 text-[28px] font-bold tracking-tight text-zinc-900">
+      <h1 className="mb-2 ty-display text-zinc-900">
         {title}
       </h1>
-      <p className="mb-8 text-[13px] text-zinc-500">
+      <p className="mb-8 ty-note">
         Редакция от {updatedAt}
       </p>
-      <article className="legal-prose space-y-5 text-[15px] leading-relaxed">
+      <article className="legal-prose space-y-5 ty-body">
         {children}
       </article>
     </main>
@@ -48,7 +48,7 @@ export function LegalSection({
 }) {
   return (
     <section>
-      <h2 className="mb-2 text-[18px] font-semibold text-zinc-900">{title}</h2>
+      <h2 className="mb-2 ty-title">{title}</h2>
       <div className="space-y-2 text-zinc-700">{children}</div>
     </section>
   );

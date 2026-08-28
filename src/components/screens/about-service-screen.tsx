@@ -192,13 +192,13 @@ export function AboutServiceScreen({ onBack }: { onBack: () => void }) {
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <h1 className="text-[20px] font-semibold text-zinc-900">О сервисе</h1>
+        <h1 className="ty-title">О сервисе</h1>
       </header>
 
       <div className="min-h-0 flex-1 space-y-5 overflow-y-auto pb-4">
         <div>
           <BrandLogo className="h-9" />
-          <p className="mt-4 text-[16px] leading-relaxed text-zinc-700">
+          <p className="mt-4 ty-body">
             Собирает электрику дома в одном месте: щиток, технику и помощь
             специалистов — чтобы всё было понятно и безопасно.
           </p>
@@ -219,10 +219,10 @@ export function AboutServiceScreen({ onBack }: { onBack: () => void }) {
                     <pillar.icon className="h-5 w-5" />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <h3 className="text-[16px] font-semibold text-zinc-900">
+                    <h3 className="ty-heading">
                       {pillar.title}
                     </h3>
-                    <p className="mt-0.5 text-[13px] leading-snug text-zinc-500">
+                    <p className="mt-0.5 ty-note">
                       {pillar.lead}
                     </p>
                   </div>
@@ -252,10 +252,10 @@ export function AboutServiceScreen({ onBack }: { onBack: () => void }) {
                               <point.icon className="h-4 w-4" />
                             </span>
                             <div>
-                              <div className="text-[14px] font-semibold text-zinc-900">
+                              <div className="ty-heading">
                                 {point.title}
                               </div>
-                              <p className="mt-0.5 text-[13px] leading-snug text-zinc-500">
+                              <p className="mt-0.5 ty-note">
                                 {point.text}
                               </p>
                             </div>
@@ -272,10 +272,10 @@ export function AboutServiceScreen({ onBack }: { onBack: () => void }) {
 
         <div className="space-y-3">
           <div>
-            <h3 className="text-[16px] font-semibold text-zinc-900">
+            <h3 className="ty-heading">
               Открытые данные
             </h3>
-            <p className="mt-1 text-[14px] leading-relaxed text-zinc-500">
+            <p className="mt-1 ty-body">
               Считаем и показываем, сколько людей уже пользуются Током и сколько
               щитков оцифровано:
             </p>
@@ -289,10 +289,10 @@ export function AboutServiceScreen({ onBack }: { onBack: () => void }) {
                   <span className="relative inline-flex h-2 w-2 rounded-full bg-[#D3DA00]" />
                 </span>
                 <card.icon className="mb-3 h-5 w-5 text-zinc-400" />
-                <div className="font-mono text-[30px] font-semibold leading-none tracking-tight text-[#111113] tabular-nums">
+                <div className="font-mono ty-display leading-none text-[#111113] tabular-nums">
                   <LiveCount value={card.value} />
                 </div>
-                <div className="mt-2 text-[12px] leading-snug text-zinc-500">
+                <div className="mt-2 ty-meta">
                   {card.label}
                 </div>
               </GlassCard>
@@ -300,7 +300,7 @@ export function AboutServiceScreen({ onBack }: { onBack: () => void }) {
           </div>
 
           {statsError && (
-            <p className="text-[12px] text-zinc-400">
+            <p className="ty-meta">
               Сейчас не удалось загрузить статистику. Попробуйте открыть раздел
               позже.
             </p>
@@ -310,7 +310,7 @@ export function AboutServiceScreen({ onBack }: { onBack: () => void }) {
 
       <a
         href="/legal"
-        className="mb-3 mt-2 block text-center text-[14px] font-medium text-zinc-500 underline decoration-zinc-300 underline-offset-4 hover:text-zinc-800"
+        className="mb-3 mt-2 block text-center ty-body underline decoration-zinc-300 underline-offset-4 hover:text-zinc-800"
       >
         Юридические документы и реквизиты
       </a>

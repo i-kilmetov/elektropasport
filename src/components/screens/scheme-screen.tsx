@@ -507,7 +507,7 @@ function IdentifyFlowFooter({
       <button
         type="button"
         onClick={onCancel}
-        className="text-[13px] text-zinc-400 transition-colors hover:text-zinc-600"
+        className="ty-meta transition-colors hover:text-zinc-600"
       >
         Отмена
       </button>
@@ -515,7 +515,7 @@ function IdentifyFlowFooter({
         type="button"
         onClick={onCallMaster}
         disabled={!onCallMaster}
-        className="text-[13px] font-medium text-zinc-700 transition-colors hover:text-zinc-900 disabled:opacity-40"
+        className="ty-label text-zinc-700 transition-colors hover:text-zinc-900 disabled:opacity-40"
       >
         ⚡ Помочь с электрикой
       </button>
@@ -981,22 +981,22 @@ function DeviceSheet({
               <Check className="h-8 w-8" />
             </div>
             <div>
-              <h3 className="text-[22px] font-semibold text-zinc-900">
+              <h3 className="ty-title">
                 Готово
               </h3>
-              <p className="mt-2 text-[15px] leading-relaxed text-zinc-500">
+              <p className="mt-2 ty-body">
                 {needsLineWalkthrough
                   ? "Теперь определено, за какую линию отвечает этот прибор."
                   : "Подпись для стикера сохранена."}
               </p>
               {(selectedLineLabel || protectiveDraft.trim()) && (
-                <p className="mt-3 text-[14px] font-medium text-zinc-800">
+                <p className="mt-3 ty-subtitle text-zinc-800">
                   {selectedLineLabel || protectiveDraft.trim()}
                 </p>
               )}
               {loadAlarm && (
                 <div className="mt-4 rounded-[18px] border border-rose-200 bg-rose-50 p-3 text-left">
-                  <p className="text-[14px] font-semibold text-rose-950">
+                  <p className="ty-heading text-rose-950">
                     {loadAlarm.title}
                   </p>
                   <p className="mt-1 text-[13px] leading-relaxed text-rose-900/80">
@@ -1014,15 +1014,15 @@ function DeviceSheet({
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
             <div className="mb-2 flex flex-wrap items-center gap-2">
-              <h3 className="text-[20px] font-semibold text-zinc-900">
+              <h3 className="ty-title">
                 {confident ? deviceTitle(device) : "Прибор требует уточнения"}
               </h3>
               <Badge status={device.status} />
             </div>
             {confident ? (
-              <p className="text-[14px] text-zinc-500">{device.rating}</p>
+              <p className="ty-body">{device.rating}</p>
             ) : (
-              <p className="mt-1 text-[14px] leading-relaxed text-zinc-500">
+              <p className="mt-1 ty-body">
                 Укажите производителя, тип и номинал ниже. Статус на схеме
                 меняется цветовой полоской под прибором.
               </p>
@@ -1079,7 +1079,7 @@ function DeviceSheet({
         )}
 
         {specEditable && onUpdateCharacteristic && (
-          <p className="mb-5 text-[12px] leading-relaxed text-amber-800/90">
+          <p className="mb-5 ty-meta text-amber-800/90">
             {confident
               ? manualSpecEditDisclaimer
               : "Если характеристика не определена (—), укажите её сами, если знаете. Вводной автомат подтверждается отдельной диагностикой, а не по фото."}
@@ -1122,18 +1122,18 @@ function DeviceSheet({
                   />
                 ))}
               </div>
-              <p className="text-[13px] font-medium text-zinc-500">
+              <p className="ty-label text-zinc-500">
                 Шаг {visibleStep} из {stepCount}
               </p>
               <div className="rounded-[20px] bg-zinc-50 p-4">
-                <p className="text-[15px] leading-relaxed text-zinc-900">
+                <p className="ty-body text-zinc-900">
                   Перед определением линии укажите тип объекта. Ниже можно
                   отметить помещения и технику, которые есть на объекте.
                 </p>
               </div>
 
               <div>
-                <p className="mb-2 text-[12px] font-medium text-zinc-500">
+                <p className="mb-2 ty-badge text-zinc-500">
                   Тип объекта
                 </p>
                 <div className="flex flex-wrap gap-1.5">
@@ -1170,7 +1170,7 @@ function DeviceSheet({
               {objectType && (
                 <>
                   <div>
-                    <p className="mb-2 text-[12px] font-medium text-zinc-500">
+                    <p className="mb-2 ty-badge text-zinc-500">
                       Помещения
                     </p>
                     <div className="flex flex-wrap gap-1.5">
@@ -1203,7 +1203,7 @@ function DeviceSheet({
                             onClick={() =>
                               setShowMoreCatalogRooms((prev) => !prev)
                             }
-                            className="text-[13px] text-zinc-500 underline underline-offset-4"
+                            className="ty-note underline underline-offset-4"
                           >
                             {showMoreCatalogRooms
                               ? "Скрыть"
@@ -1215,7 +1215,7 @@ function DeviceSheet({
                         onClick={() =>
                           setShowCustomCatalogRoomInput((prev) => !prev)
                         }
-                        className="text-[13px] text-zinc-500 underline underline-offset-4"
+                        className="ty-note underline underline-offset-4"
                       >
                         + Добавить
                       </button>
@@ -1242,7 +1242,7 @@ function DeviceSheet({
                               },
                             )
                           }
-                          className="h-11 rounded-[14px] border border-black/8 px-3 text-[13px] font-medium text-zinc-700 transition-colors hover:bg-zinc-50"
+                          className="h-11 rounded-[14px] border border-black/8 px-3 ty-label text-zinc-700 transition-colors hover:bg-zinc-50"
                         >
                           +
                         </button>
@@ -1251,7 +1251,7 @@ function DeviceSheet({
                   </div>
 
                   <div>
-                    <p className="mb-2 text-[12px] font-medium text-zinc-500">
+                    <p className="mb-2 ty-badge text-zinc-500">
                       Техника и оборудование
                     </p>
                     <div className="flex flex-wrap gap-1.5">
@@ -1287,7 +1287,7 @@ function DeviceSheet({
                             onClick={() =>
                               setShowMoreCatalogEquipment((prev) => !prev)
                             }
-                            className="text-[13px] text-zinc-500 underline underline-offset-4"
+                            className="ty-note underline underline-offset-4"
                           >
                             {showMoreCatalogEquipment
                               ? "Скрыть"
@@ -1299,7 +1299,7 @@ function DeviceSheet({
                         onClick={() =>
                           setShowCustomCatalogEquipmentInput((prev) => !prev)
                         }
-                        className="text-[13px] text-zinc-500 underline underline-offset-4"
+                        className="ty-note underline underline-offset-4"
                       >
                         + Добавить
                       </button>
@@ -1331,7 +1331,7 @@ function DeviceSheet({
                               },
                             )
                           }
-                          className="h-11 rounded-[14px] border border-black/8 px-3 text-[13px] font-medium text-zinc-700 transition-colors hover:bg-zinc-50"
+                          className="h-11 rounded-[14px] border border-black/8 px-3 ty-label text-zinc-700 transition-colors hover:bg-zinc-50"
                         >
                           +
                         </button>
@@ -1372,11 +1372,11 @@ function DeviceSheet({
                   />
                 ))}
               </div>
-              <p className="text-[13px] font-medium text-zinc-500">
+              <p className="ty-label text-zinc-500">
                 Шаг {visibleStep} из {stepCount}
               </p>
               <div className="rounded-[20px] bg-zinc-50 p-4">
-                <p className="text-[15px] leading-relaxed text-zinc-900">
+                <p className="ty-body text-zinc-900">
                   {identifyFlowSteps[flowStep - 2].text}
                 </p>
               </div>
@@ -1403,18 +1403,18 @@ function DeviceSheet({
                   />
                 ))}
               </div>
-              <p className="text-[13px] font-medium text-zinc-500">
+              <p className="ty-label text-zinc-500">
                 Шаг {visibleStep} из {stepCount}
               </p>
               <div className="rounded-[20px] bg-zinc-50 p-4">
-                <p className="text-[15px] leading-relaxed text-zinc-900">
+                <p className="ty-body text-zinc-900">
                   Обойдите помещения и отметьте, где пропал свет и перестала
                   работать розетка
                 </p>
               </div>
 
               <div>
-                <p className="mb-2 text-[12px] font-medium text-zinc-500">
+                <p className="mb-2 ty-badge text-zinc-500">
                   Помещения
                 </p>
                 <div className="flex flex-wrap gap-1.5">
@@ -1440,7 +1440,7 @@ function DeviceSheet({
               </div>
 
               <div>
-                <p className="mb-2 text-[12px] font-medium text-zinc-500">
+                <p className="mb-2 ty-badge text-zinc-500">
                   {activeLineRoom
                     ? `Нагрузки в помещении «${activeLineRoom}»`
                     : "Выберите помещение"}
@@ -1493,12 +1493,12 @@ function DeviceSheet({
               </div>
               {Object.keys(lineLoadsByRoom).length > 0 && (
                 <div className="space-y-2 rounded-[20px] bg-zinc-50 p-4">
-                  <p className="text-[12px] font-medium text-zinc-500">
+                  <p className="ty-badge text-zinc-500">
                     Уже отмечено
                   </p>
                   {Object.entries(lineLoadsByRoom).map(([room, loads]) => (
                     <div key={room}>
-                      <p className="mb-1 text-[13px] font-medium text-zinc-700">
+                      <p className="mb-1 ty-label text-zinc-700">
                         {room}
                       </p>
                       <div className="flex flex-wrap gap-1.5">
@@ -1520,10 +1520,10 @@ function DeviceSheet({
                   <div className="flex items-start gap-2.5">
                     <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-rose-600" />
                     <div>
-                      <p className="text-[15px] font-semibold text-rose-950">
+                      <p className="ty-heading text-rose-950">
                         {loadAlarm.title}
                       </p>
-                      <p className="mt-1 text-[14px] leading-relaxed text-rose-900/85">
+                      <p className="mt-1 ty-body text-rose-900/85">
                         {loadAlarm.summary}
                       </p>
                       <ul className="mt-3 space-y-2">
@@ -1550,12 +1550,12 @@ function DeviceSheet({
           {flowStep === 7 && (
             <div className="space-y-4">
               <div className="rounded-[20px] bg-zinc-50 p-4">
-                <p className="text-[15px] leading-relaxed text-zinc-900">
+                <p className="ty-body text-zinc-900">
                   {protectiveLabelHint(device.type)}
                 </p>
               </div>
               <div>
-                <p className="mb-2 text-[12px] font-medium text-zinc-500">
+                <p className="mb-2 ty-badge text-zinc-500">
                   Подпись на стикере
                 </p>
                 <input
@@ -1598,10 +1598,10 @@ function DeviceSheet({
           onClick={(e) => e.stopPropagation()}
           className="w-full max-w-[430px] rounded-t-[28px] border border-black/[0.06] bg-white p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-[0_20px_60px_rgba(17,17,19,0.15)] sm:rounded-[28px]"
         >
-          <h3 className="mb-2 text-[20px] font-semibold text-zinc-900">
+          <h3 className="mb-2 ty-title">
             Нагрузка уже выбрана
           </h3>
-          <p className="mb-5 text-[14px] leading-relaxed text-zinc-500">
+          <p className="mb-5 ty-body">
             «{occupiedNotice.load}» в помещении «{occupiedNotice.room}» уже
             относится к прибору «{occupiedNotice.owner}». Одну и ту же нагрузку
             в одном помещении нельзя назначить двум приборам.
@@ -1651,8 +1651,8 @@ function NameDialog({
         onClick={(e) => e.stopPropagation()}
         className="w-full rounded-t-[28px] border border-black/8 bg-white p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-2xl sm:max-w-sm sm:rounded-[28px]"
       >
-        <h3 className="mb-2 text-[20px] font-semibold text-zinc-900">{title}</h3>
-        <p className="mb-4 text-[14px] text-zinc-500">
+        <h3 className="mb-2 ty-title">{title}</h3>
+        <p className="mb-4 ty-body">
           Например: «Квартира», «Дача», «Щиток на кухне»
         </p>
         <input
@@ -2317,13 +2317,13 @@ export function SchemeScreen({
           onClick={onEditHouse}
           role={onEditHouse ? "button" : undefined}
         >
-          <div className="mb-2 flex items-center gap-1.5 text-[12px] text-zinc-500">
+          <div className="mb-2 flex items-center gap-1.5 ty-note">
             <Building2 className="h-3.5 w-3.5 text-zinc-400" />
             Дом
           </div>
           {houseSnapshot ? (
             <div className="space-y-2">
-              <p className="text-[14px] font-semibold leading-snug text-zinc-900">
+              <p className="ty-heading leading-snug text-zinc-900">
                 {houseSnapshot.address}
               </p>
               {houseSnapshot.buildingYear != null && (
@@ -2334,30 +2334,30 @@ export function SchemeScreen({
                       {formatBuildingYear(houseSnapshot.buildingYear)}
                     </span>
                   </p>
-                  <p className="text-[13px] leading-snug text-zinc-600">
+                  <p className="ty-note text-zinc-600">
                     {houseSnapshot.groundingTitle}.{" "}
                     {houseSnapshot.groundingSummary}
                   </p>
                   {houseSnapshot.dataSource && (
-                    <p className="text-[11px] text-zinc-400">
+                    <p className="ty-meta">
                       Источник: {houseSnapshot.dataSource}
                     </p>
                   )}
                 </>
               )}
               {onEditHouse && (
-                <span className="block pt-1 text-[13px] font-medium text-zinc-700">
+                <span className="block pt-1 ty-label text-zinc-700">
                   Изменить адрес
                 </span>
               )}
             </div>
           ) : (
             <div>
-              <p className="text-[13px] leading-snug text-zinc-400">
+              <p className="ty-note text-zinc-400">
                 Укажем адрес автоматически по геопозиции.
               </p>
               {onEditHouse && (
-                <span className="mt-2 block text-[13px] font-medium text-zinc-700">
+                <span className="mt-2 block ty-label text-zinc-700">
                   Определить адрес
                 </span>
               )}
@@ -2375,24 +2375,24 @@ export function SchemeScreen({
         className="min-w-0 text-left transition-transform active:scale-[0.99] lg:cursor-pointer"
       >
         <GlassCard className="flex h-full flex-col p-4 lg:p-5">
-          <div className="mb-2 text-[12px] text-zinc-500">Параметры сети</div>
+          <div className="mb-2 ty-note">Параметры сети</div>
           {networkParamsFilled ? (
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <Zap className="h-4 w-4 shrink-0 text-zinc-400" />
-                <span className="min-w-0 flex-1 text-[14px] font-semibold leading-tight text-zinc-900">
+                <span className="min-w-0 flex-1 ty-heading leading-tight text-zinc-900">
                   {phases === "3" ? "3 фазы" : "1 фаза"}
                 </span>
               </div>
               <div className="flex items-center gap-2">
                 <Gauge className="h-4 w-4 shrink-0 text-zinc-400" />
-                <span className="text-[14px] font-semibold leading-tight text-zinc-900">
+                <span className="ty-heading leading-tight text-zinc-900">
                   {powerKw?.replace(".", ",")} кВт
                 </span>
               </div>
               <div className="flex items-center gap-2">
                 <GroundSymbol className="h-4 w-4 text-zinc-400" />
-                <span className="text-[14px] font-semibold leading-tight text-zinc-900">
+                <span className="ty-heading leading-tight text-zinc-900">
                   {hasGround === true
                     ? "Есть земля"
                     : hasGround === false
@@ -2409,7 +2409,7 @@ export function SchemeScreen({
               </div>
             </div>
           ) : (
-            <p className="text-[13px] leading-snug text-zinc-400">
+            <p className="ty-note text-zinc-400">
               Нажмите, чтобы указать число фаз, мощность и наличие земли
             </p>
           )}
@@ -2422,7 +2422,7 @@ export function SchemeScreen({
         className="min-w-0 text-left transition-transform active:scale-[0.99] lg:cursor-pointer"
       >
         <GlassCard className="flex h-full flex-col p-4 lg:p-5">
-          <div className="mb-1 flex items-center gap-1.5 text-[12px] text-zinc-500">
+          <div className="mb-1 flex items-center gap-1.5 ty-note">
             <Shield className="h-3.5 w-3.5 text-zinc-400" />
             Безопасность щитка
           </div>
@@ -2432,10 +2432,10 @@ export function SchemeScreen({
             </div>
           ) : (
             <>
-              <div className="text-[16px] font-semibold text-zinc-400">
+              <div className="ty-heading text-zinc-400">
                 Не посчитан
               </div>
-              <p className="mt-1 text-[11px] leading-snug text-zinc-400">
+              <p className="mt-1 ty-meta text-zinc-400">
                 {!allLoadsIdentified
                   ? "Сначала определите нагрузки — затем появятся оценки человека, пожара и техники"
                   : networkParamsFilled
@@ -2465,7 +2465,7 @@ export function SchemeScreen({
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <h1 className="max-w-[55%] truncate text-center text-[20px] font-semibold text-zinc-900">
+        <h1 className="max-w-[55%] truncate text-center ty-title">
           {title}
         </h1>
         {sharedPreview ? (
@@ -2538,7 +2538,7 @@ export function SchemeScreen({
             type="button"
             onClick={() => setTab("scheme")}
             className={cn(
-              "rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors",
+              "rounded-full px-3 py-1.5 ty-label transition-colors",
               tab === "scheme"
                 ? "bg-zinc-100 text-zinc-900"
                 : "text-zinc-500 hover:text-zinc-700",
@@ -2550,7 +2550,7 @@ export function SchemeScreen({
             type="button"
             onClick={() => setTab("photo")}
             className={cn(
-              "rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors",
+              "rounded-full px-3 py-1.5 ty-label transition-colors",
               tab === "photo"
                 ? "bg-zinc-100 text-zinc-900"
                 : "text-zinc-500 hover:text-zinc-700",
@@ -2565,7 +2565,7 @@ export function SchemeScreen({
         >
           <span
             className={cn(
-              "text-[13px] font-medium transition-colors",
+              "ty-label transition-colors",
               showTerminals && canUseTerminals ? "text-zinc-900" : "text-zinc-500",
             )}
           >
@@ -2616,10 +2616,10 @@ export function SchemeScreen({
           {!sharedPreview && !hasInputBreaker && (
             <GlassCard className="mb-4 space-y-3 p-4">
               <div>
-                <p className="text-[15px] font-semibold text-zinc-900">
+                <p className="ty-heading">
                   Найдите вводной автомат
                 </p>
-                <p className="mt-1 text-[13px] leading-relaxed text-zinc-500">
+                <p className="mt-1 ty-note">
                   После оцифровки тип «вводной» не ставится автоматически —
                   подтвердите его диагностикой. Характеристики приборов можно
                   поправить в карточке (пустые поля — «—»).
@@ -2640,7 +2640,7 @@ export function SchemeScreen({
           )}
           {!sharedPreview && hasInputBreaker && (
             <GlassCard className="mb-4 p-4">
-              <p className="text-[13px] leading-relaxed text-zinc-600">
+              <p className="ty-note">
                 Вводной автомат подписан. Остальные линии определите в карточке
                 каждого прибора на схеме.
               </p>
@@ -2663,7 +2663,7 @@ export function SchemeScreen({
                     commitDevices(allRailDevices);
                     railEdit.exitEdit();
                   }}
-                  className="relative rounded-full bg-zinc-900 px-3.5 py-1.5 text-[13px] font-semibold text-white"
+                  className="relative rounded-full bg-zinc-900 px-3.5 py-1.5 ty-label text-white"
                 >
                   <IosHapticHit
                     onActivate={() => {
@@ -2676,11 +2676,11 @@ export function SchemeScreen({
               ) : sharedPreview ? (
                 <span />
               ) : (
-                <span className="text-[12px] text-zinc-400">
+                <span className="ty-meta">
                   Удерживайте прибор, чтобы изменить схему
                 </span>
               )}
-              <span className="text-[12px] text-zinc-400">
+              <span className="ty-meta">
                 {allRailDevices.length} приборов
               </span>
             </div>
@@ -2811,10 +2811,10 @@ export function SchemeScreen({
                   <div key={railIdx} className={railIdx > 0 ? "mt-5" : ""}>
                     {(numRails > 1 || railEdit.editing) && (
                       <div className="mb-1.5 flex items-center justify-between">
-                        <span className="text-[11px] font-medium text-zinc-400">
+                        <span className="ty-badge text-zinc-400">
                           Ряд {railIdx + 1}
                         </span>
-                        <span className="text-[11px] text-zinc-400">
+                        <span className="ty-meta">
                           {railModules} мод.
                         </span>
                       </div>
@@ -2866,7 +2866,7 @@ export function SchemeScreen({
                   <div className="mb-2 flex items-center justify-between">
                     <span
                       className={cn(
-                        "text-[12px] font-semibold",
+                        "ty-label",
                         railEdit.dropSlot?.isNewRail
                           ? "text-zinc-900"
                           : "text-zinc-500",
@@ -2876,7 +2876,7 @@ export function SchemeScreen({
                         ? "Отпустите — появится новая рейка"
                         : "Перетащите сюда, чтобы создать рейку"}
                     </span>
-                    <span className="text-[11px] text-zinc-400">
+                    <span className="ty-meta">
                       Ряд {railEdit.newRailIndex + 1}
                     </span>
                   </div>
@@ -2904,7 +2904,7 @@ export function SchemeScreen({
             type="button"
             data-scheme-tour="stickers"
             onClick={openStickers}
-            className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-[16px] border border-black/8 bg-white px-4 py-3 text-[14px] font-medium text-zinc-800 shadow-sm transition-colors hover:bg-zinc-50"
+            className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-[16px] border border-black/8 bg-white px-4 py-3 ty-subtitle text-zinc-800 shadow-sm transition-colors hover:bg-zinc-50"
           >
             <StickerBadgeIcon className="h-4 w-4 text-zinc-600" />
             Стикеры в щиток
@@ -2930,7 +2930,7 @@ export function SchemeScreen({
             ) : (
               <div className="flex aspect-[4/3] flex-col items-center justify-center gap-3 px-6 text-zinc-400">
                 <ImageIcon className="h-10 w-10" />
-                <p className="max-w-[280px] text-center text-[14px] leading-relaxed text-zinc-500">
+                <p className="max-w-[280px] text-center ty-body">
                   Фотография щитка доступна только на том устройстве, с которого
                   была сделана или загружена фотография.
                 </p>
@@ -3043,25 +3043,25 @@ export function SchemeScreen({
                 onClick={(e) => e.stopPropagation()}
                 className="w-full max-w-[430px] rounded-t-[28px] border border-black/[0.06] bg-white p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-[0_20px_60px_rgba(17,17,19,0.15)] sm:rounded-[28px]"
               >
-                <h3 className="mb-2 text-[20px] font-semibold text-zinc-900">
+                <h3 className="mb-2 ty-title">
                   Стикеры пока недоступны
                 </h3>
-                <p className="text-[14px] leading-relaxed text-zinc-500">
+                <p className="ty-body">
                   Стикеры можно распечатать после того, как у каждого прибора
                   на схеме будет подпись.
                 </p>
-                <p className="mt-3 text-[14px] leading-relaxed text-zinc-700">
+                <p className="mt-3 ty-body text-zinc-700">
                   {labeledDeviceCount === 0
                     ? `Надо заполнить информацию по ${devicesDativePhrase(allRailDevices.length)}.`
                     : `Уже заполнено ${labeledDeviceCount} из ${allRailDevices.length} ${deviceWord(allRailDevices.length)}. ${remainingDevicesPhrase(unlabeledDeviceCount)}`}
                 </p>
-                <p className="mt-3 text-[14px] leading-relaxed text-zinc-500">
+                <p className="mt-3 ty-body">
                   Автоматы и дифавтоматы: нажмите на прибор и выберите
                   «Определить линию прибора». Нужно будет отключить рычаг,
                   обойти помещения и отметить, где пропал свет или перестала
                   работать техника.
                 </p>
-                <p className="mt-3 text-[14px] leading-relaxed text-zinc-500">
+                <p className="mt-3 ty-body">
                   Ввод, реле напряжения и УЗИП получают рольную подпись. УЗО на
                   схеме и наклейке показывает, какие линии/автоматы идут через
                   него. Подпись можно поправить, нажав на прибор.
@@ -3345,10 +3345,10 @@ export function SchemeScreen({
             className="absolute inset-0 z-40 flex items-center justify-center bg-white/80 px-8 backdrop-blur-sm"
           >
             <div className="w-full max-w-sm rounded-[24px] border border-black/8 bg-white p-5 shadow-xl">
-              <div className="mb-1 text-[16px] font-semibold text-zinc-900">
+              <div className="mb-1 ty-heading">
                 Считаем уровень безопасности
               </div>
-              <p className="mb-4 text-[13px] leading-relaxed text-zinc-500">
+              <p className="mb-4 ty-note">
                 Считаем защиту человека, пожарную безопасность и защиту техники…
               </p>
               <div className="mb-2 h-2 overflow-hidden rounded-full bg-zinc-100">
@@ -3359,7 +3359,7 @@ export function SchemeScreen({
                   transition={{ ease: "linear", duration: 0.08 }}
                 />
               </div>
-              <div className="text-right text-[12px] tabular-nums text-zinc-400">
+              <div className="text-right ty-meta tabular-nums">
                 {safetyProgress}%
               </div>
             </div>

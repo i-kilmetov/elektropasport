@@ -130,14 +130,14 @@ export function PhotoScreen({
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <h1 className="text-[20px] font-semibold text-zinc-900">Новый щиток</h1>
+        <h1 className="ty-title">Новый щиток</h1>
       </header>
 
       <div className="mb-6">
-        <h2 className="mb-2 text-[28px] font-bold tracking-tight text-zinc-900">
+        <h2 className="mb-2 ty-display text-zinc-900">
           Сфотографируйте электрощиток
         </h2>
-        <p className="text-[15px] leading-relaxed text-zinc-500">
+        <p className="ty-body">
           Мы распознаем автоматы, УЗО, реле и шины, затем соберём интерактивную
           схему.
         </p>
@@ -208,7 +208,7 @@ export function PhotoScreen({
           type="button"
           onClick={() => void openGallery()}
           disabled={busy}
-          className="w-full text-center text-[15px] font-medium text-zinc-500 underline decoration-zinc-300 underline-offset-4 transition-colors hover:text-zinc-800 disabled:opacity-40"
+          className="w-full text-center ty-subtitle underline decoration-zinc-300 underline-offset-4 transition-colors hover:text-zinc-800 disabled:opacity-40"
         >
           Загрузить фотографию
         </button>

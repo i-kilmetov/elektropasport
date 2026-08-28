@@ -98,7 +98,7 @@ export function JobLandingPage() {
           </a>
           <a
             href="/"
-            className="text-[13px] font-medium text-white/45 transition-colors hover:text-white/70"
+            className="ty-label text-white/45 transition-colors hover:text-white/70"
           >
             В сервис
           </a>
@@ -109,7 +109,7 @@ export function JobLandingPage() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="mb-5 text-[12px] font-semibold uppercase tracking-[0.22em] text-[#D3DA00]"
+            className="mb-5 ty-label uppercase tracking-[0.22em] text-[#D3DA00]"
           >
             Работа в Током
           </motion.p>
@@ -142,7 +142,7 @@ export function JobLandingPage() {
               size="lg"
               disabled={starting}
               onClick={startApplication}
-              className="h-12 rounded-full px-8 text-[16px] font-semibold text-zinc-950 shadow-none hover:brightness-95"
+              className="h-12 rounded-full px-8 ty-heading text-zinc-950 shadow-none hover:brightness-95"
               style={{ backgroundColor: BRAND_YELLOW }}
             >
               {starting ? "Открываем Telegram…" : "Стать мастером"}
@@ -156,10 +156,10 @@ export function JobLandingPage() {
 
       <section className="border-t border-white/8 px-5 py-16 md:px-10 md:py-24">
         <div className="mx-auto max-w-5xl">
-          <h2 className="text-[28px] font-bold tracking-tight md:text-[36px]">
+          <h2 className="ty-display md:text-[36px]">
             Какие задачи бывают
           </h2>
-          <p className="mt-3 max-w-2xl text-[15px] leading-relaxed text-white/50">
+          <p className="mt-3 max-w-2xl ty-body text-white/50">
             Один поток заявок — разные форматы работы. Выбираете то, что
             подходит вам по городу, опыту и загрузке.
           </p>
@@ -176,10 +176,10 @@ export function JobLandingPage() {
                 <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-[#D3DA00]/15 text-[#D3DA00]">
                   <item.icon className="h-5 w-5" />
                 </div>
-                <h3 className="text-[18px] font-semibold text-white">
+                <h3 className="ty-title text-white">
                   {item.title}
                 </h3>
-                <p className="mt-2 text-[14px] leading-relaxed text-white/50">
+                <p className="mt-2 ty-body text-white/50">
                   {item.text}
                 </p>
               </motion.div>
@@ -196,10 +196,10 @@ export function JobLandingPage() {
           <div className="flex flex-col gap-8 md:flex-row md:items-start md:justify-between">
             <div className="max-w-md text-zinc-950">
               <GraduationCap className="mb-4 h-7 w-7" />
-              <h2 className="text-[28px] font-bold tracking-tight md:text-[32px]">
+              <h2 className="ty-display md:text-[32px]">
                 Обязательное условие
               </h2>
-              <p className="mt-3 text-[15px] leading-relaxed text-zinc-800">
+              <p className="mt-3 ty-body text-zinc-800">
                 Профильное образование и подтверждённая квалификация. Без этого
                 мы не подключаем мастеров к заявкам — это вопрос безопасности
                 пользователей.

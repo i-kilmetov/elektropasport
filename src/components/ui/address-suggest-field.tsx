@@ -197,7 +197,7 @@ export function AddressSuggestField({
       </label>
 
       {loading && (
-        <p className="mt-2 text-[13px] text-zinc-400">
+        <p className="mt-2 ty-meta">
           {source === "moscow"
             ? "Ищем дом в открытых данных Москвы…"
             : apartments.length > 0 || value.includes("кв")
@@ -206,21 +206,21 @@ export function AddressSuggestField({
         </p>
       )}
       {error && !loading && (
-        <p className="mt-2 text-[13px] text-rose-600">{error}</p>
+        <p className="mt-2 ty-note text-rose-600">{error}</p>
       )}
       {hint && (
-        <p className="mt-2 text-[13px] text-zinc-400">{hint}</p>
+        <p className="mt-2 ty-meta">{hint}</p>
       )}
 
       {open && list.length > 0 && (
         <GlassCard className="mt-3 overflow-hidden p-0">
           {apartments.length > 0 && (
-            <p className="border-b border-black/6 px-4 py-2 text-[12px] font-medium text-zinc-500">
+            <p className="border-b border-black/6 px-4 py-2 ty-badge text-zinc-500">
               Выберите квартиру в этом доме
             </p>
           )}
           {source === "moscow" && (
-            <p className="border-b border-black/6 px-4 py-2 text-[12px] font-medium text-zinc-500">
+            <p className="border-b border-black/6 px-4 py-2 ty-badge text-zinc-500">
               Дома Москвы — выберите свой
             </p>
           )}
@@ -232,7 +232,7 @@ export function AddressSuggestField({
                   onPointerDown={(event) => pickSuggestion(event, item)}
                   className="flex w-full flex-col items-start px-4 py-3.5 text-left transition-colors hover:bg-zinc-50"
                 >
-                  <span className="text-[15px] font-medium text-zinc-900">
+                  <span className="ty-subtitle text-zinc-900">
                     {item.value}
                   </span>
                   <span

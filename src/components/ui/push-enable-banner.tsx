@@ -76,10 +76,10 @@ export function PushEnableBanner() {
           <Bell className="h-4 w-4" />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-[14px] font-semibold text-zinc-900">
+          <p className="ty-heading">
             Включить уведомления
           </p>
-          <p className="mt-0.5 text-[12px] leading-snug text-zinc-500">
+          <p className="mt-0.5 ty-meta">
             Напишем, когда мастер примет заявку
           </p>
           {error && (
@@ -92,7 +92,7 @@ export function PushEnableBanner() {
               type="button"
               disabled={busy}
               onClick={() => void enable()}
-              className="rounded-full bg-[#111113] px-3.5 py-1.5 text-[13px] font-semibold text-white disabled:opacity-40"
+              className="rounded-full bg-[#111113] px-3.5 py-1.5 ty-label text-white disabled:opacity-40"
             >
               {busy
                 ? "Включаем…"
@@ -104,7 +104,7 @@ export function PushEnableBanner() {
               type="button"
               disabled={busy}
               onClick={dismiss}
-              className="text-[13px] font-medium text-zinc-500"
+              className="ty-label text-zinc-500"
             >
               Не сейчас
             </button>

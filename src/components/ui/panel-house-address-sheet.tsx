@@ -154,10 +154,10 @@ export function PanelHouseAddressSheet({
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-700">
               <MapPin className="h-7 w-7" />
             </div>
-            <h3 className="text-[20px] font-semibold text-zinc-900">
+            <h3 className="ty-title">
               Адрес сохранён
             </h3>
-            <p className="mt-2 text-[14px] leading-relaxed text-zinc-500">
+            <p className="mt-2 ty-body">
               Данные дома записаны. Можно продолжать работу со щитком.
             </p>
           </motion.div>
@@ -185,10 +185,10 @@ export function PanelHouseAddressSheet({
         >
           <div className="mb-4 flex items-start justify-between gap-3">
             <div>
-              <h3 className="text-[20px] font-semibold text-zinc-900">
+              <h3 className="ty-title">
                 Адрес дома
               </h3>
-              <p className="mt-1 text-[14px] leading-relaxed text-zinc-500">
+              <p className="mt-1 ty-body">
                 {phase === "confirm"
                   ? "Проверьте, верно ли определился дом по геопозиции."
                   : phase === "manual"
@@ -217,12 +217,12 @@ export function PanelHouseAddressSheet({
                   <Navigation className="h-6 w-6" />
                 )}
               </div>
-              <p className="text-[15px] font-medium text-zinc-900">
+              <p className="ty-subtitle text-zinc-900">
                 {phase === "requesting"
                   ? "Запрашиваем геопозицию…"
                   : "Ищем адрес рядом с вами…"}
               </p>
-              <p className="text-[13px] text-zinc-500">
+              <p className="ty-note">
                 Обычно это занимает несколько секунд.
               </p>
             </div>
@@ -234,11 +234,11 @@ export function PanelHouseAddressSheet({
               onClick={() => goManual(true)}
               className="w-full rounded-[20px] border border-black/8 bg-zinc-50 p-4 text-left"
             >
-              <p className="text-[13px] font-medium text-zinc-500">{geoCity}</p>
-              <p className="mt-1 text-[16px] font-semibold leading-snug text-zinc-900">
+              <p className="ty-label text-zinc-500">{geoCity}</p>
+              <p className="mt-1 ty-heading leading-snug text-zinc-900">
                 {geoAddress.value}
               </p>
-              <p className="mt-2 text-[13px] text-zinc-500">
+              <p className="mt-2 ty-note">
                 Нажмите, чтобы исправить
               </p>
             </button>
@@ -246,10 +246,10 @@ export function PanelHouseAddressSheet({
 
           {phase === "error" && (
             <div className="rounded-[20px] border border-black/8 bg-zinc-50 p-4">
-              <p className="text-[15px] font-medium text-zinc-900">
+              <p className="ty-subtitle text-zinc-900">
                 Не удалось определить адрес автоматически
               </p>
-              <p className="mt-2 text-[14px] leading-relaxed text-zinc-600">
+              <p className="mt-2 ty-body">
                 {geoError ?? "Попробуйте ещё раз или укажите адрес вручную."}
               </p>
             </div>
@@ -312,7 +312,7 @@ export function PanelHouseAddressSheet({
           )}
 
           {error && (
-            <p className="mt-4 rounded-[14px] border border-rose-200 bg-rose-50 px-3 py-2 text-[13px] text-rose-700">
+            <p className="mt-4 rounded-[14px] border border-rose-200 bg-rose-50 px-3 py-2 ty-note text-rose-700">
               {error}
             </p>
           )}
@@ -414,7 +414,7 @@ export function PanelHouseAddressSheet({
                 type="button"
                 onClick={handleClose}
                 disabled={saving}
-                className="w-full py-1 text-center text-[14px] font-medium text-zinc-500"
+                className="w-full py-1 text-center ty-body"
               >
                 Позже
               </button>

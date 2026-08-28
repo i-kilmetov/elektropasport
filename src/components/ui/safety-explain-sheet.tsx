@@ -54,16 +54,16 @@ export function SafetyExplainSheet({
         >
           <div className="mb-4 flex items-start justify-between gap-3">
             <div>
-              <div className="mb-1 flex items-center gap-1.5 text-[13px] text-zinc-500">
+              <div className="mb-1 flex items-center gap-1.5 ty-note">
                 <Shield className="h-3.5 w-3.5" />
                 Безопасность щитка
               </div>
               {scoreKnown ? (
-                <p className="text-[13px] text-zinc-500">
+                <p className="ty-note">
                   Средняя оценка {score}%
                 </p>
               ) : (
-                <h3 className="text-[20px] font-semibold text-zinc-900">
+                <h3 className="ty-title">
                   Пока не посчитан
                 </h3>
               )}
@@ -84,7 +84,7 @@ export function SafetyExplainSheet({
             </div>
           )}
 
-          <p className="mb-5 text-[13px] leading-relaxed text-zinc-500">
+          <p className="mb-5 ty-note">
             {safetyScoreDisclaimer}
           </p>
 
@@ -152,8 +152,8 @@ function AxisAdvice({
   const good = items.filter((item) => item.kind === "good");
   return (
     <div className="mb-5">
-      <h4 className="mb-1 text-[14px] font-semibold text-zinc-900">{title}</h4>
-      <p className="mb-2 text-[12px] text-zinc-500">Защита {hint}</p>
+      <h4 className="mb-1 ty-heading">{title}</h4>
+      <p className="mb-2 ty-note">Защита {hint}</p>
       {improve.length > 0 && (
         <AdviceList items={improve} kind="improve" />
       )}
@@ -178,7 +178,7 @@ function AdviceList({
   return (
     <div className={cn("mb-5", className, !title && "mb-0")}>
       {title && (
-        <h4 className="mb-2 text-[14px] font-semibold text-zinc-900">{title}</h4>
+        <h4 className="mb-2 ty-heading">{title}</h4>
       )}
       <ul className="space-y-2">
         {items.map((item, index) =>
@@ -188,14 +188,14 @@ function AdviceList({
               className="rounded-[16px] border border-amber-200/70 bg-amber-50/70 px-3 py-3"
             >
               <div className="flex gap-2.5">
-                <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-200/80 text-[11px] font-semibold text-amber-900">
+                <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-200/80 ty-badge text-amber-900">
                   {index + 1}
                 </span>
                 <div className="min-w-0">
-                  <div className="text-[14px] font-semibold leading-snug text-zinc-900">
+                  <div className="ty-heading leading-snug text-zinc-900">
                     {item.title}
                   </div>
-                  <p className="mt-1 text-[13px] leading-relaxed text-zinc-600">
+                  <p className="mt-1 ty-note">
                     {item.detail}
                   </p>
                 </div>
@@ -208,10 +208,10 @@ function AdviceList({
             >
               <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
               <div className="min-w-0">
-                <div className="text-[14px] font-semibold leading-snug text-zinc-900">
+                <div className="ty-heading leading-snug text-zinc-900">
                   {item.title}
                 </div>
-                <p className="mt-0.5 text-[13px] leading-relaxed text-zinc-600">
+                <p className="mt-0.5 ty-note">
                   {item.detail}
                 </p>
               </div>

@@ -101,10 +101,10 @@ export function InputBreakerDiagnosticsSheet({
       >
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
-            <h2 className="text-[20px] font-semibold text-zinc-900">
+            <h2 className="ty-title">
               Диагностика вводного автомата
             </h2>
-            <p className="mt-1 text-[13px] leading-relaxed text-zinc-500">
+            <p className="mt-1 ty-note">
               По фото нельзя надёжно угадать вводной — подтвердим тестом.
             </p>
           </div>
@@ -121,13 +121,13 @@ export function InputBreakerDiagnosticsSheet({
         {step === "intro" && (
           <div className="space-y-4">
             <GlassCard className="space-y-2 p-4">
-              <p className="text-[14px] leading-relaxed text-zinc-700">
+              <p className="ty-body text-zinc-700">
                 Включим свет и нагрузки в розетках по всему объекту, затем
                 отключим предполагаемый вводной. Если погасло всё — это он.
                 Если нет — проверим следующий или найдём вручную.
               </p>
               {ranked[0] && (
-                <p className="text-[13px] text-zinc-500">
+                <p className="ty-note">
                   Первым предложим:{" "}
                   <span className="font-medium text-zinc-800">
                     {describeCandidate(ranked[0])}
@@ -154,16 +154,16 @@ export function InputBreakerDiagnosticsSheet({
         {step === "test" && candidate && (
           <div className="space-y-4">
             <GlassCard className="space-y-3 p-4">
-              <p className="text-[12px] font-semibold uppercase tracking-wide text-zinc-400">
+              <p className="ty-label uppercase tracking-wide text-zinc-400">
                 Предполагаемый вводной
               </p>
-              <p className="text-[17px] font-semibold text-zinc-900">
+              <p className="ty-heading">
                 {candidate.name}
               </p>
-              <p className="text-[14px] text-zinc-600">
+              <p className="ty-body">
                 {describeCandidate(candidate)}
               </p>
-              <ol className="list-decimal space-y-2 pl-5 text-[14px] leading-relaxed text-zinc-700">
+              <ol className="list-decimal space-y-2 pl-5 ty-body text-zinc-700">
                 <li>Включите свет и нагрузки в розетках везде, где возможно.</li>
                 <li>
                   На схеме отключите только этот прибор (рычаг вниз) — остальные
@@ -191,7 +191,7 @@ export function InputBreakerDiagnosticsSheet({
         {step === "confirm" && candidate && (
           <div className="space-y-4">
             <GlassCard className="p-4">
-              <p className="text-[15px] leading-relaxed text-zinc-800">
+              <p className="ty-body text-zinc-800">
                 После отключения{" "}
                 <span className="font-semibold">{candidate.name}</span> всё
                 погасло и отключилось?
@@ -208,7 +208,7 @@ export function InputBreakerDiagnosticsSheet({
 
         {step === "manual" && (
           <div className="space-y-4">
-            <p className="text-[14px] leading-relaxed text-zinc-600">
+            <p className="ty-body">
               Выберите прибор на списке, включите нагрузки, отключите его и
               проверьте, погасло ли всё. Так же можно открыть карточку прибора на
               схеме.
@@ -230,17 +230,17 @@ export function InputBreakerDiagnosticsSheet({
                       : "border-black/8 bg-white hover:bg-zinc-50",
                   )}
                 >
-                  <p className="text-[15px] font-medium text-zinc-900">
+                  <p className="ty-subtitle text-zinc-900">
                     {device.name}
                   </p>
-                  <p className="mt-0.5 text-[12px] text-zinc-500">
+                  <p className="mt-0.5 ty-note">
                     {describeCandidate(device)}
                   </p>
                 </button>
               ))}
             </div>
             {ranked.length === 0 && (
-              <p className="text-[14px] text-zinc-500">
+              <p className="ty-body">
                 Автоматов на схеме пока нет — сначала проверьте оцифровку.
               </p>
             )}
@@ -250,10 +250,10 @@ export function InputBreakerDiagnosticsSheet({
         {step === "done" && confirmedId != null && (
           <div className="space-y-4">
             <GlassCard className="space-y-2 bg-emerald-50 p-4">
-              <p className="text-[16px] font-semibold text-emerald-950">
+              <p className="ty-heading text-emerald-950">
                 Вводной автомат найден
               </p>
-              <p className="text-[14px] leading-relaxed text-emerald-900/85">
+              <p className="ty-body text-emerald-900/85">
                 Прибор подписан как «Ввод». Чтобы подписать остальные линии,
                 откройте карточку каждого прибора на схеме и заполните данные /
                 определите линию там.

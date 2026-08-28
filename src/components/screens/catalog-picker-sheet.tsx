@@ -127,8 +127,8 @@ export function CatalogPickerSheet({
           >
             <div className="flex items-start justify-between gap-3 border-b border-black/[0.06] px-5 pb-4 pt-5">
               <div>
-                <h3 className="text-[20px] font-semibold text-zinc-900">{title}</h3>
-                <p className="mt-1 text-[13px] text-zinc-500">
+                <h3 className="ty-title">{title}</h3>
+                <p className="mt-1 ty-note">
                   Артикул, имя и фото — тот же формат, что у инфобазы IEK
                 </p>
               </div>
@@ -170,7 +170,7 @@ export function CatalogPickerSheet({
               {filtersOpen && (
                 <div className="mt-3 grid grid-cols-2 gap-2">
                   <label className="space-y-1">
-                    <span className="text-[11px] text-zinc-500">Бренд</span>
+                    <span className="ty-meta">Бренд</span>
                     <select
                       value={brand}
                       onChange={(e) => setBrand(e.target.value)}
@@ -185,7 +185,7 @@ export function CatalogPickerSheet({
                     </select>
                   </label>
                   <label className="space-y-1">
-                    <span className="text-[11px] text-zinc-500">Модули</span>
+                    <span className="ty-meta">Модули</span>
                     <select
                       value={String(modules)}
                       onChange={(e) =>
@@ -206,7 +206,7 @@ export function CatalogPickerSheet({
                     </select>
                   </label>
                   <label className="col-span-2 space-y-1">
-                    <span className="text-[11px] text-zinc-500">Полюса</span>
+                    <span className="ty-meta">Полюса</span>
                     <select
                       value={poles}
                       onChange={(e) => setPoles(e.target.value)}
@@ -224,7 +224,7 @@ export function CatalogPickerSheet({
               )}
                 </>
               ) : (
-                <p className="text-[13px] text-zinc-500">
+                <p className="ty-note">
                   Сначала выберите тип прибора
                 </p>
               )}
@@ -246,7 +246,7 @@ export function CatalogPickerSheet({
                           setSearch("");
                         }}
                         className={cn(
-                          "rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors",
+                          "rounded-full px-3 py-1.5 ty-label transition-colors",
                           active
                             ? "bg-zinc-900 text-white"
                             : "bg-zinc-100 text-zinc-600",
@@ -259,11 +259,11 @@ export function CatalogPickerSheet({
                 </div>
               )}
               {!pickedType ? (
-                <p className="py-8 text-center text-[14px] text-zinc-500">
+                <p className="py-8 text-center ty-body">
                   Выберите тип прибора
                 </p>
               ) : products.length === 0 ? (
-                <p className="py-8 text-center text-[14px] text-zinc-500">
+                <p className="py-8 text-center ty-body">
                   Ничего не найдено. Измените фильтры.
                 </p>
               ) : (
@@ -291,17 +291,17 @@ export function CatalogPickerSheet({
                           }
                         />
                         <div className="min-w-0 flex-1">
-                          <div className="text-[14px] font-semibold text-zinc-900">
+                          <div className="ty-heading">
                             {product.displayName}
                           </div>
-                          <div className="mt-0.5 text-[12px] text-zinc-500">
+                          <div className="mt-0.5 ty-note">
                             {product.article} · {product.brand}
                           </div>
                           <dl className="mt-2 space-y-1">
                             {specs.map(([key, value]) => (
                               <div
                                 key={key}
-                                className="flex gap-2 text-[11px] leading-snug"
+                                className="flex gap-2 ty-meta"
                               >
                                 <dt className="shrink-0 text-zinc-400">
                                   {key}:

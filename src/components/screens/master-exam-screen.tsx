@@ -113,10 +113,10 @@ export function MasterExamScreen({
         <div className="flex h-14 w-14 items-center justify-center rounded-[18px] bg-[#D3DA00] text-[#111113]">
           <GraduationCap className="h-7 w-7" />
         </div>
-        <h2 className="mt-4 text-[26px] font-bold tracking-tight text-white">
+        <h2 className="mt-4 ty-display text-white">
           Тест уже пройден
         </h2>
-        <p className="mt-3 text-[15px] leading-relaxed text-white/55">
+        <p className="mt-3 ty-body text-white/55">
           Практические знания уже подтверждены — оценка {best.grade} ({best.score}{" "}
           из {best.total}). Повторно проходить тест для заявки не нужно.
         </p>
@@ -143,10 +143,10 @@ export function MasterExamScreen({
         <div className="flex h-14 w-14 items-center justify-center rounded-[18px] bg-white/8 text-white/70">
           <Lock className="h-7 w-7" />
         </div>
-        <h2 className="mt-4 text-[26px] font-bold tracking-tight text-white">
+        <h2 className="mt-4 ty-display text-white">
           Пока рано
         </h2>
-        <p className="mt-3 text-[15px] leading-relaxed text-white/55">
+        <p className="mt-3 ty-body text-white/55">
           {lockedByAbandon
             ? `Вы вышли, не завершив тест. Следующая попытка — через ${daysHoursLeft(lockUntil)}.`
             : `Тест не сдан. Следующая попытка — через ${daysHoursLeft(lockUntil)}.`}
@@ -173,13 +173,13 @@ export function MasterExamScreen({
         <div className="flex h-14 w-14 items-center justify-center rounded-[18px] bg-[#D3DA00]/15 text-[#D3DA00]">
           <Clock className="h-7 w-7" />
         </div>
-        <h2 className="mt-4 text-[26px] font-bold tracking-tight text-white">
+        <h2 className="mt-4 ty-display text-white">
           Проверка знаний
         </h2>
-        <p className="mt-3 text-[15px] leading-relaxed text-white/55">
+        <p className="mt-3 ty-body text-white/55">
           Дальше будет тест — так мы убедимся в ваших практических знаниях.
         </p>
-        <ul className="mt-4 space-y-2 text-[14px] leading-relaxed text-white/50">
+        <ul className="mt-4 space-y-2 ty-body text-white/50">
           <li>• На вопрос с вариантами — не больше {CHOICE_SECONDS} секунд</li>
           <li>• На письменный ответ — не больше {WRITTEN_SECONDS} секунд</li>
           <li>• Если время вышло, ответ не засчитывается</li>

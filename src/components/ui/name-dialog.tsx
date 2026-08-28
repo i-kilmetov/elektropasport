@@ -45,11 +45,11 @@ export function NameDialog({
           onClick={(e) => e.stopPropagation()}
           className="w-full rounded-t-[28px] border border-black/8 bg-white p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-2xl sm:max-w-sm sm:rounded-[28px]"
         >
-          <h3 className="mb-2 text-[20px] font-semibold text-zinc-900">
+          <h3 className="mb-2 ty-title">
             {title}
           </h3>
           {description && (
-            <p className="mb-4 text-[14px] text-zinc-500">{description}</p>
+            <p className="mb-4 ty-body">{description}</p>
           )}
           <input
             autoFocus

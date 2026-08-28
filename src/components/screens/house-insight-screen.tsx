@@ -106,19 +106,19 @@ export function HouseInsightScreen({
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <h1 className="text-[20px] font-semibold text-zinc-900">Ваш дом</h1>
+        <h1 className="ty-title">Ваш дом</h1>
       </header>
 
-      <h2 className="mb-2 text-[26px] font-bold tracking-tight text-zinc-900">
+      <h2 className="mb-2 ty-display text-zinc-900">
         Что известно по адресу
       </h2>
-      <p className="mb-5 text-[15px] leading-relaxed text-zinc-600">
+      <p className="mb-5 ty-body">
         {address}
       </p>
 
       {loading && (
         <GlassCard className="mb-4 p-5">
-          <p className="text-[15px] text-zinc-600">
+          <p className="ty-body">
             Смотрим год постройки дома…
           </p>
         </GlassCard>
@@ -126,7 +126,7 @@ export function HouseInsightScreen({
 
       {!loading && error && (
         <GlassCard className="mb-4 border border-amber-200/80 bg-amber-50 p-5">
-          <p className="text-[15px] leading-relaxed text-amber-950">{error}</p>
+          <p className="ty-body text-amber-950">{error}</p>
           <p className="mt-2 text-[13px] leading-relaxed text-amber-900/80">
             Всё равно можно вызвать мастера Током — он разберётся на месте.
           </p>
@@ -138,19 +138,19 @@ export function HouseInsightScreen({
           <GlassCard className="p-5">
             <div className="mb-2 flex items-center gap-2 text-zinc-500">
               <Building2 className="h-4 w-4" />
-              <span className="text-[13px] font-medium uppercase tracking-wide">
+              <span className="ty-label uppercase tracking-wide">
                 Год постройки
               </span>
             </div>
-            <p className="text-[28px] font-bold tracking-tight text-zinc-900">
+            <p className="ty-display text-zinc-900">
               {formatBuildingYear(insight.buildingYear)}
             </p>
             {insight.buildingYear == null ? (
-              <p className="mt-1 text-[12px] text-zinc-400">
+              <p className="mt-1 ty-meta">
                 В открытых источниках год для этого дома не нашли
               </p>
             ) : insight.dataSource ? (
-              <p className="mt-1 text-[12px] text-zinc-400">
+              <p className="mt-1 ty-meta">
                 Источник: {insight.dataSource}
               </p>
             ) : null}
@@ -159,14 +159,14 @@ export function HouseInsightScreen({
           <GlassCard className={cn("p-5", eraTone)}>
             <div className="mb-2 flex items-center gap-2 opacity-70">
               <Cable className="h-4 w-4" />
-              <span className="text-[13px] font-medium uppercase tracking-wide">
+              <span className="ty-label uppercase tracking-wide">
                 Электрика
               </span>
             </div>
-            <p className="text-[18px] font-semibold leading-snug">
+            <p className="ty-title leading-snug">
               {insight.electrical.title}
             </p>
-            <p className="mt-2 text-[14px] leading-relaxed opacity-90">
+            <p className="mt-2 ty-body opacity-90">
               {insight.electrical.description}
             </p>
           </GlassCard>
@@ -174,14 +174,14 @@ export function HouseInsightScreen({
           <GlassCard className={cn("p-5", groundingTone)}>
             <div className="mb-2 flex items-center gap-2 opacity-70">
               <Shield className="h-4 w-4" />
-              <span className="text-[13px] font-medium uppercase tracking-wide">
+              <span className="ty-label uppercase tracking-wide">
                 Заземление
               </span>
             </div>
-            <p className="text-[18px] font-semibold leading-snug">
+            <p className="ty-title leading-snug">
               {insight.grounding.title}
             </p>
-            <p className="mt-2 text-[14px] leading-relaxed opacity-90">
+            <p className="mt-2 ty-body opacity-90">
               {insight.grounding.summary}
             </p>
           </GlassCard>

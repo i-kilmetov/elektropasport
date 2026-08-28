@@ -104,16 +104,16 @@ export function FakeSbpPayScreen({
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <h1 className="text-[20px] font-semibold text-zinc-900">{heading}</h1>
+        <h1 className="ty-title">{heading}</h1>
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto pb-4">
         <div className="mb-5 rounded-[20px] border border-black/8 bg-zinc-50 p-4 text-center">
-          <p className="text-[13px] text-zinc-500">{serviceTitle}</p>
+          <p className="ty-note">{serviceTitle}</p>
           <p className="mt-1 text-[28px] font-bold tabular-nums text-zinc-900">
             {formatRub(amountRub)}
           </p>
-          <p className="mt-2 text-[13px] leading-relaxed text-zinc-500">{note}</p>
+          <p className="mt-2 ty-note">{note}</p>
         </div>
 
         {done ? (
@@ -121,8 +121,8 @@ export function FakeSbpPayScreen({
             <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500 text-white">
               <Check className="h-7 w-7" strokeWidth={2.5} />
             </div>
-            <h2 className="text-[20px] font-bold text-zinc-900">Оплата прошла</h2>
-            <p className="mt-2 text-[14px] leading-relaxed text-zinc-500">
+            <h2 className="ty-title text-zinc-900">Оплата прошла</h2>
+            <p className="mt-2 ty-body">
               {successText}
             </p>
             <Button className="mt-5 w-full" size="lg" onClick={onPaid}>
@@ -131,7 +131,7 @@ export function FakeSbpPayScreen({
           </GlassCard>
         ) : !method ? (
           <div className="space-y-2">
-            <p className="mb-2 text-[14px] font-medium text-zinc-600">
+            <p className="mb-2 ty-subtitle text-zinc-600">
               Выберите способ
             </p>
             <button
@@ -143,10 +143,10 @@ export function FakeSbpPayScreen({
                 <Smartphone className="h-5 w-5" />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block text-[16px] font-semibold text-zinc-900">
+                <span className="block ty-heading">
                   СБП
                 </span>
-                <span className="mt-0.5 block text-[13px] text-zinc-500">
+                <span className="mt-0.5 block ty-note">
                   Оплата через приложение банка
                 </span>
               </span>
@@ -160,10 +160,10 @@ export function FakeSbpPayScreen({
                 <QrCode className="h-5 w-5" />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block text-[16px] font-semibold text-zinc-900">
+                <span className="block ty-heading">
                   QR-код
                 </span>
-                <span className="mt-0.5 block text-[13px] text-zinc-500">
+                <span className="mt-0.5 block ty-note">
                   Сканируйте камерой банка
                 </span>
               </span>
@@ -182,7 +182,7 @@ export function FakeSbpPayScreen({
                 ? "Отсканируйте QR в приложении банка"
                 : "Подтвердите платёж в приложении банка"}
             </p>
-            <p className="mt-1 text-[13px] text-zinc-500">Ждём оплату…</p>
+            <p className="mt-1 ty-note">Ждём оплату…</p>
           </div>
         )}
       </div>

@@ -84,13 +84,13 @@ export function LeadAddressScreen({
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <h1 className="text-[20px] font-semibold text-zinc-900">{title}</h1>
+        <h1 className="ty-title">{title}</h1>
       </header>
 
-      <h2 className="mb-2 text-[26px] font-bold tracking-tight text-zinc-900">
+      <h2 className="mb-2 ty-display text-zinc-900">
         {heading ?? `Адрес в ${cityLabel}`}
       </h2>
-      <p className="mb-5 text-[15px] leading-relaxed text-zinc-600">
+      <p className="mb-5 ty-body">
         {description ??
           (useMoscow
             ? "Укажите улицу и дом. Год постройки подтянем из открытых источников и оценим заземление."

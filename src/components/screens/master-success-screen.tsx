@@ -48,7 +48,7 @@ export function MasterSuccessScreen({
         className="flex min-h-0 flex-1 flex-col items-center justify-center px-6"
       >
         <div className="w-full max-w-sm rounded-[24px] border border-black/8 bg-white p-6 shadow-xl">
-          <h3 className="mb-4 text-center text-[18px] font-bold text-zinc-900">
+          <h3 className="mb-4 text-center ty-title text-zinc-900">
             {reached === null
               ? "Мастер дозвонился до вас?"
               : reached
@@ -127,10 +127,10 @@ export function MasterSuccessScreen({
           <div className="flex h-16 w-16 items-center justify-center rounded-full bg-amber-50 text-amber-600">
             <Phone className="h-7 w-7" />
           </div>
-          <h2 className="text-[20px] font-bold text-zinc-900">
+          <h2 className="ty-title text-zinc-900">
             Свяжемся с вами в течение дня
           </h2>
-          <p className="max-w-[280px] text-[15px] leading-relaxed text-zinc-500">
+          <p className="max-w-[280px] ty-body">
             Не нашли свободных мастеров прямо сейчас, но обязательно перезвоним.
           </p>
           <Button onClick={onClose}>Понятно</Button>
@@ -150,7 +150,7 @@ export function MasterSuccessScreen({
           <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
             <Check className="h-7 w-7" />
           </div>
-          <h2 className="text-[18px] font-bold text-zinc-900">Спасибо за оценку!</h2>
+          <h2 className="ty-title text-zinc-900">Спасибо за оценку!</h2>
           <Button onClick={onClose}>На главную</Button>
         </div>
       </motion.section>
@@ -175,10 +175,10 @@ export function MasterSuccessScreen({
         </motion.div>
 
         <div>
-          <h2 className="mb-1 text-[22px] font-bold text-zinc-900">
+          <h2 className="mb-1 ty-title">
             Мастер найден!
           </h2>
-          <p className="text-[15px] text-zinc-500">
+          <p className="ty-body">
             Свяжется с вами в течение 5 минут
           </p>
         </div>
@@ -189,11 +189,11 @@ export function MasterSuccessScreen({
               <User className="h-5 w-5" />
             </div>
             <div className="min-w-0 text-left">
-              <div className="text-[15px] font-semibold text-zinc-900">
+              <div className="ty-heading">
                 {master.firstName || "Мастер"}
               </div>
               {master.phone && (
-                <div className="text-[13px] text-zinc-500">{master.phone}</div>
+                <div className="ty-note">{master.phone}</div>
               )}
             </div>
           </div>
@@ -202,7 +202,7 @@ export function MasterSuccessScreen({
               href={`https://t.me/${master.username}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="block rounded-[12px] bg-sky-50 px-3 py-2 text-center text-[14px] font-medium text-sky-600"
+              className="block rounded-[12px] bg-sky-50 px-3 py-2 text-center ty-subtitle text-sky-600"
             >
               Написать в Telegram
             </a>

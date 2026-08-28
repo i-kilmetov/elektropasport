@@ -117,28 +117,28 @@ export function PushNotificationsCard() {
           )}
         </span>
         <div className="min-w-0 flex-1">
-          <div className="text-[15px] font-semibold text-zinc-900">
+          <div className="ty-heading">
             Уведомления
           </div>
           {state === "needs-standalone" && (
-            <p className="mt-1 text-[13px] leading-relaxed text-zinc-500">
+            <p className="mt-1 ty-note">
               На iPhone пуши приходят только если Током открыт иконкой с экрана
               Домой — той, которую вы добавили из Safari.
             </p>
           )}
           {state === "needs-login" && (
-            <p className="mt-1 text-[13px] leading-relaxed text-zinc-500">
+            <p className="mt-1 ty-note">
               Войдите через Telegram, затем включите уведомления.
             </p>
           )}
           {state === "denied" && (
-            <p className="mt-1 text-[13px] leading-relaxed text-zinc-500">
+            <p className="mt-1 ty-note">
               Уведомления запрещены в настройках iPhone. Откройте Настройки →
               Уведомления → Током и разрешите их.
             </p>
           )}
           {(state === "off" || state === "on") && (
-            <p className="mt-1 text-[13px] leading-relaxed text-zinc-500">
+            <p className="mt-1 ty-note">
               Сообщим, когда мастер примет заявку или изменится её статус.
             </p>
           )}
@@ -148,7 +148,7 @@ export function PushNotificationsCard() {
       {state === "off" && (
         <>
           {hasNotificationPermission() && (
-            <p className="mt-3 text-[13px] leading-relaxed text-zinc-500">
+            <p className="mt-3 ty-note">
               В настройках iPhone разрешение уже есть. Нажмите ещё раз — нужно
               закончить подписку после системного окна.
             </p>
@@ -191,7 +191,7 @@ export function PushNotificationsCard() {
         </div>
       )}
       {state === "needs-standalone" && (
-        <p className="mt-3 text-[12px] leading-relaxed text-zinc-400">
+        <p className="mt-3 ty-meta text-zinc-400">
           Закройте вкладку Safari и откройте Током с рабочего стола.
         </p>
       )}

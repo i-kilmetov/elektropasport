@@ -37,7 +37,7 @@ export function LessonBlocks({ blocks }: { blocks: LessonBlock[] }) {
 function LessonBlockView({ block }: { block: LessonBlock }) {
   if (block.type === "text") {
     return (
-      <p className="text-[15px] leading-relaxed text-zinc-700">{block.text}</p>
+      <p className="ty-body text-zinc-700">{block.text}</p>
     );
   }
 
@@ -55,10 +55,10 @@ function LessonBlockView({ block }: { block: LessonBlock }) {
           <Icon className="h-4 w-4" />
         </span>
         <div>
-          <div className="text-[14px] font-semibold text-zinc-900">
+          <div className="ty-heading">
             {block.title}
           </div>
-          <p className="mt-1 text-[14px] leading-relaxed text-zinc-600">
+          <p className="mt-1 ty-body">
             {block.text}
           </p>
         </div>
@@ -70,7 +70,7 @@ function LessonBlockView({ block }: { block: LessonBlock }) {
     return (
       <figure>
         <SchoolDiagram id={block.id} />
-        <figcaption className="mt-2 text-center text-[13px] leading-snug text-zinc-500">
+        <figcaption className="mt-2 text-center ty-note">
           {block.caption}
         </figcaption>
       </figure>
@@ -80,13 +80,13 @@ function LessonBlockView({ block }: { block: LessonBlock }) {
   if (block.type === "example") {
     return (
       <GlassCard className="p-4">
-        <div className="text-[12px] font-semibold uppercase tracking-wide text-zinc-400">
+        <div className="ty-label uppercase tracking-wide text-zinc-400">
           Пример из жизни
         </div>
-        <div className="mt-1 text-[15px] font-semibold text-zinc-900">
+        <div className="mt-1 ty-heading">
           {block.title}
         </div>
-        <p className="mt-1.5 text-[14px] leading-relaxed text-zinc-600">
+        <p className="mt-1.5 ty-body">
           {block.text}
         </p>
       </GlassCard>
@@ -97,17 +97,17 @@ function LessonBlockView({ block }: { block: LessonBlock }) {
     return (
       <GlassCard className="p-4">
         {block.title ? (
-          <div className="mb-3 text-[15px] font-semibold text-zinc-900">
+          <div className="mb-3 ty-heading">
             {block.title}
           </div>
         ) : null}
         <ol className="space-y-2.5">
           {block.items.map((item, index) => (
             <li key={item} className="flex gap-3">
-              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-zinc-900 text-[11px] font-semibold text-white">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-zinc-900 ty-badge text-white">
                 {index + 1}
               </span>
-              <span className="text-[14px] leading-relaxed text-zinc-700">
+              <span className="ty-body text-zinc-700">
                 {item}
               </span>
             </li>
@@ -120,10 +120,10 @@ function LessonBlockView({ block }: { block: LessonBlock }) {
   if (block.type === "formula") {
     return (
       <GlassCard className="p-4 text-center">
-        <div className="font-mono text-[22px] font-semibold tracking-tight text-zinc-900">
+        <div className="font-mono ty-title tracking-tight text-zinc-900">
           {block.formula}
         </div>
-        <p className="mt-2 text-[14px] leading-relaxed text-zinc-600">
+        <p className="mt-2 ty-body">
           {block.explain}
         </p>
       </GlassCard>
@@ -133,16 +133,16 @@ function LessonBlockView({ block }: { block: LessonBlock }) {
   return (
     <GlassCard className="divide-y divide-black/[0.06]">
       {block.title ? (
-        <div className="px-4 py-3 text-[15px] font-semibold text-zinc-900">
+        <div className="px-4 py-3 ty-heading">
           {block.title}
         </div>
       ) : null}
       {block.items.map((item) => (
         <div key={item.label} className="flex gap-3 px-4 py-3">
-          <div className="w-[40%] shrink-0 text-[13px] font-semibold text-zinc-900">
+          <div className="w-[40%] shrink-0 ty-label">
             {item.label}
           </div>
-          <div className="text-[13px] leading-snug text-zinc-600">
+          <div className="ty-note text-zinc-600">
             {item.value}
           </div>
         </div>

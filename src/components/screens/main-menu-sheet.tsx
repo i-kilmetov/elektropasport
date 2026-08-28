@@ -130,10 +130,10 @@ export function MainMenuSheet({
                   <item.icon className="h-5 w-5" />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block text-[16px] font-semibold text-zinc-900">
+                  <span className="block ty-heading">
                     {item.title}
                   </span>
-                  <span className="mt-0.5 block text-[13px] text-zinc-500">
+                  <span className="mt-0.5 block ty-note">
                     {item.description}
                   </span>
                 </span>
@@ -154,10 +154,10 @@ export function MainMenuSheet({
                   <Wrench className="h-5 w-5" />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block text-[16px] font-semibold text-emerald-900">
+                  <span className="block ty-heading text-emerald-900">
                     Режим мастера
                   </span>
-                  <span className="mt-0.5 block text-[13px] text-emerald-700/80">
+                  <span className="mt-0.5 block ty-note text-emerald-700/80">
                     Заявки и заказы клиентов
                   </span>
                 </span>
@@ -166,7 +166,7 @@ export function MainMenuSheet({
             )}
           </div>
 
-          <p className="mt-5 text-center text-[12px] tabular-nums text-zinc-400">
+          <p className="mt-5 text-center ty-meta tabular-nums">
             {APP_VERSION}
           </p>
         </motion.div>

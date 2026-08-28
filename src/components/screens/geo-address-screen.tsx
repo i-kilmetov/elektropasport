@@ -219,17 +219,17 @@ export function GeoAddressScreen({
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <h1 className="text-[20px] font-semibold text-zinc-900">Адрес</h1>
+        <h1 className="ty-title">Адрес</h1>
       </header>
 
-      <h2 className="mb-2 text-[26px] font-bold tracking-tight text-zinc-900">
+      <h2 className="mb-2 ty-display text-zinc-900">
         {phase === "confirm"
           ? editing
             ? "Уточните адрес"
             : "Это ваш адрес?"
           : "Определяем адрес"}
       </h2>
-      <p className="mb-5 text-[15px] leading-relaxed text-zinc-600">
+      <p className="mb-5 ty-body">
         {phase === "confirm"
           ? editing
             ? "Исправьте адрес, если геопозиция определилась неточно."
@@ -246,12 +246,12 @@ export function GeoAddressScreen({
               <Navigation className="h-6 w-6" />
             )}
           </div>
-          <p className="text-[15px] font-medium text-zinc-900">
+          <p className="ty-subtitle text-zinc-900">
             {phase === "requesting"
               ? "Запрашиваем геопозицию…"
               : "Ищем адрес рядом с вами…"}
           </p>
-          <p className="text-[13px] text-zinc-500">
+          <p className="ty-note">
             Обычно это занимает несколько секунд.
           </p>
         </GlassCard>
@@ -270,13 +270,13 @@ export function GeoAddressScreen({
                 <MapPin className="h-5 w-5" />
               </span>
               <div className="min-w-0">
-                <p className="text-[13px] font-medium text-zinc-500">
+                <p className="ty-label text-zinc-500">
                   {cityLabel}
                 </p>
-                <p className="mt-1 text-[17px] font-semibold leading-snug text-zinc-900">
+                <p className="mt-1 ty-heading leading-snug text-zinc-900">
                   {address.value}
                 </p>
-                <p className="mt-2 text-[13px] text-zinc-500">
+                <p className="mt-2 ty-note">
                   Нажмите, чтобы исправить
                 </p>
               </div>
@@ -310,10 +310,10 @@ export function GeoAddressScreen({
 
       {phase === "error" && (
         <GlassCard className="space-y-3 p-5">
-          <p className="text-[15px] font-medium text-zinc-900">
+          <p className="ty-subtitle text-zinc-900">
             Не удалось определить адрес автоматически
           </p>
-          <p className="text-[14px] leading-relaxed text-zinc-600">
+          <p className="ty-body">
             {error ?? "Попробуйте ещё раз или укажите адрес вручную."}
           </p>
         </GlassCard>

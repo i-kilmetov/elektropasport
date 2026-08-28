@@ -59,15 +59,15 @@ export function TestLoginForm({
           <BrandLogo className="h-10" />
         </div>
         <div className="rounded-[28px] border border-black/8 bg-white p-6 shadow-sm">
-          <h1 className="mb-1 text-center text-[20px] font-semibold text-zinc-900">
+          <h1 className="mb-1 text-center ty-title">
             {title}
           </h1>
-          <p className="mb-6 text-center text-[14px] leading-relaxed text-zinc-500">
+          <p className="mb-6 text-center ty-body">
             {description}
           </p>
           <form onSubmit={onSubmit} className="space-y-4">
             <label className="block">
-              <span className="mb-2 block text-[13px] font-medium text-zinc-700">
+              <span className="mb-2 block ty-label text-zinc-700">
                 Пароль администратора
               </span>
               <input
@@ -81,7 +81,7 @@ export function TestLoginForm({
               />
             </label>
             {error && (
-              <p className="rounded-[14px] border border-rose-200 bg-rose-50 px-3 py-2 text-[13px] text-rose-700">
+              <p className="rounded-[14px] border border-rose-200 bg-rose-50 px-3 py-2 ty-note text-rose-700">
                 {error}
               </p>
             )}

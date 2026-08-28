@@ -58,7 +58,7 @@ export function ShareSheet({
           <div className="mb-4 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <IosShareIcon className="h-5 w-5 text-zinc-700" />
-              <h2 className="text-[18px] font-semibold text-zinc-900">
+              <h2 className="ty-title">
                 {title}
               </h2>
             </div>
@@ -88,10 +88,10 @@ export function ShareSheet({
                   <MoreHorizontal className="h-5 w-5" />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block text-[16px] font-semibold text-zinc-900">
+                  <span className="block ty-heading">
                     Другие приложения
                   </span>
-                  <span className="mt-0.5 block text-[13px] text-zinc-500">
+                  <span className="mt-0.5 block ty-note">
                     Сообщения, почта, файлы и всё остальное
                   </span>
                 </span>
@@ -112,10 +112,10 @@ export function ShareSheet({
                 <Send className="h-5 w-5" />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block text-[16px] font-semibold text-zinc-900">
+                <span className="block ty-heading">
                   Telegram
                 </span>
-                <span className="mt-0.5 block text-[13px] text-zinc-500">
+                <span className="mt-0.5 block ty-note">
                   Отправить ссылку в чат
                 </span>
               </span>
@@ -141,10 +141,10 @@ export function ShareSheet({
                 )}
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block text-[16px] font-semibold text-zinc-900">
+                <span className="block ty-heading">
                   {copied ? "Ссылка скопирована" : "Скопировать ссылку"}
                 </span>
-                <span className="mt-0.5 block truncate text-[13px] text-zinc-500">
+                <span className="mt-0.5 block truncate ty-note">
                   {url}
                 </span>
               </span>

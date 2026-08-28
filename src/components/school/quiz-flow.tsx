@@ -207,7 +207,7 @@ export function QuizFlow({
         {question.kind === "multi" ? (
           <div
             className={cn(
-              "mb-2 text-[12px] font-medium",
+              "mb-2 ty-badge",
               dark ? "text-[#D3DA00]" : "text-violet-600",
             )}
           >
@@ -216,7 +216,7 @@ export function QuizFlow({
         ) : null}
         <p
           className={cn(
-            "text-[17px] font-semibold leading-snug",
+            "ty-heading leading-snug",
             dark ? "text-white" : "text-zinc-900",
           )}
         >
@@ -296,7 +296,7 @@ export function QuizFlow({
               >
                 <span
                   className={cn(
-                    "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[11px] font-semibold",
+                    "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ty-badge",
                     on
                       ? dark
                         ? "border-[#111113]/30 bg-[#111113] text-[#D3DA00]"
@@ -325,7 +325,7 @@ export function QuizFlow({
         >
           <div
             className={cn(
-              "flex items-center gap-2 text-[14px] font-semibold",
+              "flex items-center gap-2 ty-heading",
               dark ? "text-white" : "text-zinc-900",
             )}
           >
@@ -338,7 +338,7 @@ export function QuizFlow({
           </div>
           <p
             className={cn(
-              "mt-1.5 text-[14px] leading-relaxed",
+              "mt-1.5 ty-body",
               dark ? "text-white/60" : "text-zinc-600",
             )}
           >
@@ -471,7 +471,7 @@ function QuizResult({
         )}
         <h2
           className={cn(
-            "text-[22px] font-bold",
+            "ty-title",
             dark ? "text-white" : "text-zinc-900",
           )}
         >
@@ -487,7 +487,7 @@ function QuizResult({
         </p>
         <p
           className={cn(
-            "mt-3 text-[14px] leading-relaxed",
+            "mt-3 ty-body",
             dark ? "text-white/60" : "text-zinc-600",
           )}
         >
@@ -509,7 +509,7 @@ function QuizResult({
               <div className="flex items-start gap-2">
                 <span
                   className={cn(
-                    "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold",
+                    "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full ty-badge",
                     ok
                       ? "bg-emerald-100 text-emerald-800"
                       : "bg-rose-100 text-rose-800",
@@ -520,7 +520,7 @@ function QuizResult({
                 <div className="min-w-0">
                   <p
                     className={cn(
-                      "text-[13px] font-medium leading-snug",
+                      "ty-label leading-snug",
                       dark ? "text-white/90" : "text-zinc-800",
                     )}
                   >

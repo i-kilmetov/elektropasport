@@ -62,7 +62,7 @@ function PanelMiniature({
     return (
       <div
         className={cn(
-          "rounded-[20px] border border-dashed border-black/12 bg-zinc-50 px-4 py-6 text-center text-[13px] text-zinc-500",
+          "rounded-[20px] border border-dashed border-black/12 bg-zinc-50 px-4 py-6 text-center ty-note",
           className,
         )}
       >
@@ -386,10 +386,10 @@ export function PanelGameScreen({
           <ArrowLeft className="h-5 w-5" />
         </button>
         <div className="min-w-0 flex-1">
-          <h1 className="truncate text-[20px] font-semibold text-zinc-900">
+          <h1 className="truncate ty-title">
             {title}
           </h1>
-          <p className="text-[13px] text-zinc-500">
+          <p className="ty-note">
             {phase === "play"
               ? `Собрано ${collectedCount} из ${totalModules}`
               : "Собери приборы щитка"}
@@ -399,7 +399,7 @@ export function PanelGameScreen({
           <button
             type="button"
             onClick={restart}
-            className="rounded-full px-3 py-2 text-[13px] font-semibold text-zinc-600"
+            className="rounded-full px-3 py-2 ty-label text-zinc-600"
           >
             Заново
           </button>
@@ -411,10 +411,10 @@ export function PanelGameScreen({
           <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[#D3DA00]/35">
             <Zap className="h-7 w-7 text-zinc-900" />
           </div>
-          <h2 className="text-[22px] font-bold text-zinc-900">
+          <h2 className="ty-title">
             Сначала добавьте щиток
           </h2>
-          <p className="mt-3 max-w-sm text-[15px] leading-relaxed text-zinc-600">
+          <p className="mt-3 max-w-sm ty-body">
             Игра открывается после добавления хотя бы одного щитка. Змейка
             собирает приборы именно с вашего щитка.
           </p>
@@ -432,15 +432,15 @@ export function PanelGameScreen({
 
       {phase === "pick" && (
         <div className="flex flex-1 flex-col gap-3">
-          <p className="text-[14px] leading-relaxed text-zinc-500">
+          <p className="ty-body">
             Выберите щиток — змейка будет собирать его приборы на поле.
           </p>
           {playable.length === 0 ? (
             <div className="rounded-[24px] border border-black/8 bg-white px-4 py-6 text-center">
-              <p className="text-[15px] font-semibold text-zinc-900">
+              <p className="ty-heading">
                 В щитках нет приборов
               </p>
-              <p className="mt-2 text-[14px] text-zinc-500">
+              <p className="mt-2 ty-body">
                 Добавьте хотя бы один прибор на схему щитка, чтобы начать игру.
               </p>
               <Button className="mt-5 w-full" onClick={onBack}>
@@ -463,10 +463,10 @@ export function PanelGameScreen({
                     <Zap className="h-5 w-5 text-zinc-700" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-[16px] font-semibold text-zinc-900">
+                    <div className="truncate ty-heading">
                       {item.title}
                     </div>
-                    <div className="mt-0.5 text-[13px] text-zinc-500">
+                    <div className="mt-0.5 ty-note">
                       {count}{" "}
                       {count === 1
                         ? "прибор"
@@ -491,7 +491,7 @@ export function PanelGameScreen({
             railCount={panel.railCount}
             collectedIds={new Set()}
           />
-          <p className="mt-4 text-[14px] leading-relaxed text-zinc-500">
+          <p className="mt-4 ty-body">
             Сверху — ваш щиток с погасшими приборами. На поле каждый прибор
             займёт столько клеток, сколько у него модулей в щитке. Соберите все
             клетки змейкой, чтобы «включить» щиток.
@@ -541,10 +541,10 @@ export function PanelGameScreen({
                     <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[#D3DA00]">
                       <Check className="h-6 w-6 text-zinc-900" />
                     </div>
-                    <h2 className="text-[22px] font-bold text-zinc-900">
+                    <h2 className="ty-title">
                       Щиток собран
                     </h2>
-                    <p className="mt-3 text-[15px] leading-relaxed text-zinc-600">
+                    <p className="mt-3 ty-body">
                       Все приборы с «{panel.title}» собраны — щиток снова
                       горит.
                     </p>
@@ -566,10 +566,10 @@ export function PanelGameScreen({
                   </div>
                 ) : (
                   <div>
-                    <h2 className="text-[22px] font-bold text-zinc-900">
+                    <h2 className="ty-title">
                       Удар о стену
                     </h2>
-                    <p className="mt-3 text-[15px] leading-relaxed text-zinc-600">
+                    <p className="mt-3 ty-body">
                       Змейка врезалась. Можно начать заново или восстановить
                       жизнь, пригласив человека в Током.
                     </p>
@@ -604,7 +604,7 @@ export function PanelGameScreen({
             )}
           </div>
 
-          <p className="mx-auto mt-4 max-w-[420px] text-[13px] leading-relaxed text-zinc-500">
+          <p className="mx-auto mt-4 max-w-[420px] ty-note">
             Смахивайте или стрелками. Клетка прибора равна одному модулю в
             щитке
             {state.targets[0]

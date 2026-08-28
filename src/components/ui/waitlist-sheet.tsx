@@ -206,7 +206,7 @@ export function WaitlistSheet({
                   <Cable className="h-5 w-5" />
                 )}
               </span>
-              <h2 className="text-[18px] font-semibold text-zinc-900">
+              <h2 className="ty-title">
                 {copy.title}
               </h2>
             </div>
@@ -236,7 +236,7 @@ export function WaitlistSheet({
             {copy.body.map((paragraph) => (
               <p
                 key={paragraph}
-                className="text-[15px] leading-relaxed text-zinc-600"
+                className="ty-body"
               >
                 {paragraph}
               </p>
@@ -248,7 +248,7 @@ export function WaitlistSheet({
               <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#D3DA00] text-[#111113]">
                 <Check className="h-3 w-3" strokeWidth={3} />
               </span>
-              <p className="text-[14px] leading-snug text-zinc-700">
+              <p className="ty-body text-zinc-700">
                 Вы подписались
                 {email.trim() ? (
                   <>
@@ -265,7 +265,7 @@ export function WaitlistSheet({
           ) : (
             <>
               <label className="mt-5 block">
-                <span className="mb-1.5 block text-[13px] text-zinc-500">
+                <span className="mb-1.5 block ty-note">
                   {copy.emailHint}
                 </span>
                 <input
@@ -280,7 +280,7 @@ export function WaitlistSheet({
               </label>
 
               {error && (
-                <p className="mt-2 text-[13px] text-rose-600">{error}</p>
+                <p className="mt-2 ty-note text-rose-600">{error}</p>
               )}
 
               <Button

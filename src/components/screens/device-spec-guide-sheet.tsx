@@ -41,10 +41,10 @@ export function DeviceSpecGuideSheet({
           >
             <div className="flex items-start justify-between gap-3 border-b border-black/[0.06] px-5 pb-4 pt-5">
               <div>
-                <h3 className="text-[20px] font-semibold text-zinc-900">
+                <h3 className="ty-title">
                   Как подобрать: {guide.title}
                 </h3>
-                <p className="mt-1 text-[13px] leading-relaxed text-zinc-500">
+                <p className="mt-1 ty-note">
                   {guide.intro}
                 </p>
               </div>
@@ -62,10 +62,10 @@ export function DeviceSpecGuideSheet({
               {guide.fields.map((field) => (
                 <GlassCard key={field.key} className="space-y-3 p-4">
                   <div>
-                    <h4 className="text-[15px] font-semibold text-zinc-900">
+                    <h4 className="ty-heading">
                       {field.key}
                     </h4>
-                    <p className="mt-1 text-[12px] leading-relaxed text-zinc-500">
+                    <p className="mt-1 ty-meta text-zinc-500">
                       {getSpecFieldHint(field.key)}
                     </p>
                   </div>
@@ -77,14 +77,14 @@ export function DeviceSpecGuideSheet({
                   </p>
                   {field.options.length > 0 && (
                     <div>
-                      <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-zinc-400">
+                      <p className="mb-2 ty-badge uppercase tracking-wide text-zinc-400">
                         Частые значения
                       </p>
                       <div className="flex flex-wrap gap-1.5">
                         {field.options.map((option) => (
                           <span
                             key={option}
-                            className="rounded-full border border-black/8 bg-zinc-50 px-2.5 py-1 text-[12px] font-medium text-zinc-700"
+                            className="rounded-full border border-black/8 bg-zinc-50 px-2.5 py-1 ty-badge text-zinc-700"
                           >
                             {option}
                           </span>
@@ -95,7 +95,7 @@ export function DeviceSpecGuideSheet({
                 </GlassCard>
               ))}
 
-              <p className="rounded-[14px] border border-amber-200 bg-amber-50 px-3.5 py-3 text-[12px] leading-relaxed text-amber-900/80">
+              <p className="rounded-[14px] border border-amber-200 bg-amber-50 px-3.5 py-3 ty-meta text-amber-900/80">
                 {guide.footnote}
               </p>
             </div>

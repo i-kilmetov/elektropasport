@@ -32,10 +32,10 @@ export function InfoDialog({
           onClick={(e) => e.stopPropagation()}
           className="w-full max-w-[430px] rounded-t-[28px] border border-black/[0.06] bg-white p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-[0_20px_60px_rgba(17,17,19,0.15)] sm:rounded-[28px]"
         >
-          <h3 className="mb-2 text-[20px] font-semibold text-zinc-900">
+          <h3 className="mb-2 ty-title">
             {title}
           </h3>
-          <p className="mb-5 whitespace-pre-line text-[14px] leading-relaxed text-zinc-500">
+          <p className="mb-5 whitespace-pre-line ty-body">
             {description}
           </p>
           <Button className="w-full" onClick={onClose}>

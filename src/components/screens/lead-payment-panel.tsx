@@ -38,7 +38,7 @@ function QrFrame({ image, payload }: { image: string | null; payload: string | n
   }
   if (payload && !payload.startsWith("http")) {
     return (
-      <p className="break-all rounded-[16px] bg-zinc-50 px-3 py-2 text-center text-[12px] text-zinc-500">
+      <p className="break-all rounded-[16px] bg-zinc-50 px-3 py-2 text-center ty-note">
         {payload}
       </p>
     );
@@ -120,11 +120,11 @@ export function LeadPaymentPanel({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="mb-5 rounded-[20px] border border-black/8 bg-zinc-50 p-4 text-center">
-        <p className="text-[13px] text-zinc-500">{serviceTitle}</p>
-        <p className="mt-1 text-[28px] font-bold tabular-nums text-zinc-900">
+        <p className="ty-note">{serviceTitle}</p>
+        <p className="mt-1 ty-display tabular-nums text-zinc-900">
           {formatRub(amountRub)}
         </p>
-        <p className="mt-2 text-[13px] leading-relaxed text-zinc-500">
+        <p className="mt-2 ty-note">
           Оплата по СБП через ЮKassa. Откроется страница с выбором банка —
           деньги придут на счёт самозанятого.
         </p>
@@ -138,7 +138,7 @@ export function LeadPaymentPanel({
       )}
 
       {error && !loading && (
-        <p className="mb-4 text-center text-[14px] leading-relaxed text-rose-600">
+        <p className="mb-4 text-center ty-body text-rose-600">
           {error}
         </p>
       )}

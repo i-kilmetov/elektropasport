@@ -290,7 +290,7 @@ export function AddApplianceSheet({
         >
           <div className="flex shrink-0 items-center justify-between gap-3 px-5 pt-5">
             <div className="w-10" />
-            <h2 className="text-[17px] font-semibold text-zinc-900">
+            <h2 className="ty-heading">
               {editing ? "Изменить технику" : "Добавить технику"}
             </h2>
             <button
@@ -305,7 +305,7 @@ export function AddApplianceSheet({
 
           {panels.length > 1 && (
             <label className="mx-5 mt-4 block shrink-0">
-              <span className="mb-1.5 block text-[13px] text-zinc-500">
+              <span className="mb-1.5 block ty-note">
                 Щиток / объект
               </span>
               <select
@@ -323,7 +323,7 @@ export function AddApplianceSheet({
           )}
 
           <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
-            <p className="mb-3 text-[13px] font-medium text-zinc-500">
+            <p className="mb-3 ty-label text-zinc-500">
               Тип техники
             </p>
 
@@ -332,7 +332,7 @@ export function AddApplianceSheet({
                 <button
                   type="button"
                   onClick={() => setOtherKindsOpen(false)}
-                  className="inline-flex items-center gap-1.5 text-[13px] font-medium text-zinc-600 hover:text-zinc-900"
+                  className="inline-flex items-center gap-1.5 ty-label text-zinc-600 hover:text-zinc-900"
                 >
                   <ArrowLeft className="h-4 w-4" />
                   К основным типам
@@ -363,7 +363,7 @@ export function AddApplianceSheet({
                         >
                           <Icon className="h-5 w-5" />
                         </span>
-                        <span className="text-[13px] font-semibold leading-snug">
+                        <span className="ty-label leading-snug">
                           {item.title}
                         </span>
                       </button>
@@ -398,7 +398,7 @@ export function AddApplianceSheet({
                       >
                         <Icon className="h-5 w-5" />
                       </span>
-                      <span className="text-[13px] font-semibold leading-snug">
+                      <span className="ty-label leading-snug">
                         {item.title}
                       </span>
                     </button>
@@ -432,7 +432,7 @@ export function AddApplianceSheet({
                       return <Icon className="h-5 w-5" />;
                     })()}
                   </span>
-                  <span className="text-[13px] font-semibold leading-snug">
+                  <span className="ty-label leading-snug">
                     {otherKindSelected && kind
                       ? catalogKindTitle(kind)
                       : "Другое"}
@@ -462,7 +462,7 @@ export function AddApplianceSheet({
                   )}
 
                   <label className="block">
-                    <span className="mb-1.5 block text-[13px] font-medium text-zinc-500">
+                    <span className="mb-1.5 block ty-label text-zinc-500">
                       Производитель
                     </span>
                     <select
@@ -499,7 +499,7 @@ export function AddApplianceSheet({
                         className="overflow-hidden"
                       >
                         <label className="block">
-                          <span className="mb-1.5 block text-[13px] font-medium text-zinc-500">
+                          <span className="mb-1.5 block ty-label text-zinc-500">
                             Модель
                           </span>
                           <select
@@ -533,7 +533,7 @@ export function AddApplianceSheet({
 
           <div className="shrink-0 border-t border-black/[0.06] px-5 py-4 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
             {selectedModel && (
-              <div className="mb-3 space-y-1 text-center text-[13px] text-zinc-500">
+              <div className="mb-3 space-y-1 text-center ty-note">
                 <p>
                   {selectedModel.brand}{" "}
                   {selectedModel.modelName || selectedModel.productCode}
@@ -553,7 +553,7 @@ export function AddApplianceSheet({
               </div>
             )}
             {error && (
-              <p className="mb-2 text-center text-[13px] text-rose-600">
+              <p className="mb-2 text-center ty-note text-rose-600">
                 {error}
               </p>
             )}

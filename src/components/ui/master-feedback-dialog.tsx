@@ -69,7 +69,7 @@ export function MasterFeedbackDialog({
                     <X className="h-4 w-4" />
                   </button>
                 </div>
-                <p className="mb-5 text-[14px] text-zinc-500">
+                <p className="mb-5 ty-body">
                   Это важно для рейтинга — учитывается подтверждение с обеих сторон.
                 </p>
                 <div className="flex gap-3">

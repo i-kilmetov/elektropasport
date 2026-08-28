@@ -58,11 +58,11 @@ export function EditableSpecCard({
       >
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
-            <div className="text-[12px] text-zinc-500">{label}</div>
+            <div className="ty-note">{label}</div>
             <div className="mt-1 text-[15px] font-medium leading-snug text-zinc-900">
               {value}
             </div>
-            <p className="mt-1.5 text-[10px] text-zinc-400">
+            <p className="mt-1.5 ty-meta">
               Нажмите, чтобы изменить
             </p>
           </div>
@@ -97,10 +97,10 @@ export function EditableSpecCard({
               onClick={(e) => e.stopPropagation()}
               className="w-full rounded-t-[24px] border border-black/8 bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl"
             >
-              <h4 className="mb-1 text-[16px] font-semibold text-zinc-900">
+              <h4 className="mb-1 ty-heading">
                 {label}
               </h4>
-              <p className="mb-3 text-[12px] text-zinc-500">
+              <p className="mb-3 ty-note">
                 Выберите значение из списка
               </p>
               <div className="max-h-[40dvh] space-y-1.5 overflow-y-auto">

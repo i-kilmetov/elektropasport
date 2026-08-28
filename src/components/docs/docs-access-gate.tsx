@@ -50,7 +50,7 @@ export function DocsAccessGate({ children }: { children: ReactNode }) {
   if (state.phase === "loading") {
     return (
       <main className="flex min-h-dvh items-center justify-center bg-[#f4f4f5]">
-        <p className="text-[14px] text-zinc-500">Проверяем доступ…</p>
+        <p className="ty-body">Проверяем доступ…</p>
       </main>
     );
   }
@@ -69,7 +69,7 @@ export function DocsAccessGate({ children }: { children: ReactNode }) {
   if (state.phase === "misconfigured") {
     return (
       <main className="flex min-h-dvh items-center justify-center bg-[#f4f4f5] px-6">
-        <p className="max-w-sm text-center text-[14px] leading-relaxed text-zinc-600">
+        <p className="max-w-sm text-center ty-body">
           Пароль доступа к документации не настроен на сервере
           (TEST_SITE_PASSWORD).
         </p>

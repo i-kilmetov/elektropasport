@@ -47,6 +47,92 @@ body {
     BlinkMacSystemFont,
     "Segoe UI",
     sans-serif;
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 1.55;
+  letter-spacing: 0;
+}
+
+@layer components {
+  .ty-display {
+    font-size: 1.5rem;
+    font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: -0.025em;
+    color: var(--foreground);
+  }
+
+  .ty-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    line-height: 1.25;
+    letter-spacing: -0.02em;
+    color: var(--foreground);
+  }
+
+  .ty-heading {
+    font-size: 1.0625rem;
+    font-weight: 600;
+    line-height: 1.3;
+    letter-spacing: -0.015em;
+    color: var(--foreground);
+  }
+
+  .ty-subtitle {
+    font-size: 0.9375rem;
+    font-weight: 500;
+    line-height: 1.4;
+    color: #3f3f46;
+  }
+
+  .ty-body {
+    font-size: 0.9375rem;
+    font-weight: 400;
+    line-height: 1.55;
+    color: #52525b;
+  }
+
+  .ty-note {
+    font-size: 0.8125rem;
+    font-weight: 400;
+    line-height: 1.45;
+    color: #71717a;
+  }
+
+  .ty-meta {
+    font-size: 0.75rem;
+    font-weight: 400;
+    line-height: 1.4;
+    color: #a1a1aa;
+  }
+
+  .ty-label {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    line-height: 1.3;
+    color: var(--foreground);
+  }
+
+  .ty-badge {
+    font-size: 0.75rem;
+    font-weight: 500;
+    line-height: 1.2;
+  }
+
+  .ty-kicker {
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.3;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #71717a;
+  }
+
+  .ty-button {
+    font-size: 1.0625rem;
+    font-weight: 600;
+    line-height: 1.2;
+  }
 }
 
 @keyframes live-ring {

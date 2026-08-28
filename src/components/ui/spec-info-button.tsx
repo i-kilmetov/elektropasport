@@ -44,17 +44,17 @@ function CharacteristicExplainBody({
 }) {
   return (
     <div className="mt-2.5 space-y-3 border-t border-black/[0.06] pt-2.5">
-      <p className="text-[12px] leading-relaxed text-zinc-600">
+      <p className="ty-meta text-zinc-600">
         {explain.aboutValue}
       </p>
       {explain.otherValues.length > 0 && (
         <div>
-          <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
+          <p className="mb-1.5 ty-badge uppercase tracking-wide text-zinc-400">
             Какие ещё бывают значения
           </p>
           <ul className="space-y-2">
             {explain.otherValues.map((item) => (
-              <li key={item.value} className="text-[12px] leading-relaxed">
+              <li key={item.value} className="ty-meta">
                 <span className="font-semibold text-zinc-800">{item.value}</span>
                 <span className="text-zinc-500"> — {item.meaning}</span>
               </li>
@@ -82,7 +82,7 @@ export function SpecCharacteristicCard({
     <GlassCard className="p-3">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          <div className="text-[12px] text-zinc-500">{label}</div>
+          <div className="ty-note">{label}</div>
           <div className="mt-1 text-[15px] font-medium leading-snug text-zinc-900">
             {value}
           </div>

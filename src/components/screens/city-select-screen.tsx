@@ -82,7 +82,7 @@ export function CitySelectScreen({
           </button>
           <h1
             className={cn(
-              "text-[20px] font-semibold",
+              "ty-title",
               dark ? "text-white" : "text-zinc-900",
             )}
           >
@@ -92,7 +92,7 @@ export function CitySelectScreen({
 
         <h2
           className={cn(
-            "mb-2 text-[26px] font-bold tracking-tight",
+            "mb-2 ty-display",
             dark ? "text-white" : "text-zinc-900",
           )}
         >
@@ -191,7 +191,7 @@ export function CitySelectScreen({
         {chosen && isMoscow(chosen) && moscowHint && (
           <p
             className={cn(
-              "mb-4 text-[15px] leading-relaxed",
+              "mb-4 ty-body",
               dark ? "text-white/60" : "text-zinc-600",
             )}
           >

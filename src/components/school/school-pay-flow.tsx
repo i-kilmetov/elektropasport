@@ -54,8 +54,8 @@ export function SchoolPaySheet({
           onClick={(event) => event.stopPropagation()}
         >
           <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-zinc-300 lg:hidden" />
-          <h2 className="text-[22px] font-bold text-zinc-900">Дальше будет оплата</h2>
-          <p className="mt-2 text-[15px] leading-relaxed text-zinc-600">
+          <h2 className="ty-title">Дальше будет оплата</h2>
+          <p className="mt-2 ty-body">
             {classCaption(gradeId)} — {formatRub(price)}. После оплаты курс
             откроется, и доступ к нему останется.
           </p>
@@ -80,7 +80,7 @@ export function SchoolPaySheet({
               }}
               className="mt-0.5 h-4 w-4 shrink-0 rounded border-black/20 accent-zinc-800"
             />
-            <div className="min-w-0 text-[13px] leading-relaxed text-zinc-600">
+            <div className="min-w-0 ty-note">
               <label htmlFor={termsId} className="cursor-pointer">
                 Я принимаю{" "}
               </label>
@@ -106,7 +106,7 @@ export function SchoolPaySheet({
           <button
             type="button"
             onClick={onClose}
-            className="mt-3 w-full py-2 text-center text-[15px] font-medium text-zinc-500"
+            className="mt-3 w-full py-2 text-center ty-subtitle"
           >
             Не сейчас
           </button>

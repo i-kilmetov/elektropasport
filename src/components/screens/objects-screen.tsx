@@ -190,24 +190,24 @@ function HomeListCard({
           </div>
           <div className="min-w-0 flex-1">
             <div className="mb-0.5 flex items-center justify-between gap-2">
-              <h2 className="truncate text-[17px] font-semibold text-zinc-900">
+              <h2 className="truncate ty-heading">
                 {isRequest && item.publicCode ? item.publicCode : item.title}
               </h2>
               {isRequest ? (
                 <span
                   className={cn(
-                    "shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium",
+                    "shrink-0 rounded-full px-2 py-0.5 ty-badge",
                     installStatusTone(item.status).badge,
                   )}
                 >
                   {item.statusLabel}
                 </span>
               ) : panel?.noPanelSetupId ? (
-                <span className="shrink-0 rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] font-medium text-zinc-600">
+                <span className="shrink-0 rounded-full bg-zinc-100 px-2 py-0.5 ty-badge text-zinc-600">
                   нет щитка
                 </span>
               ) : (
-                <span className="shrink-0 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
+                <span className="shrink-0 rounded-full bg-emerald-500/15 px-2 py-0.5 ty-badge text-emerald-700">
                   {panel?.phases &&
                   panel.powerKw?.trim() &&
                   typeof panel.safety === "number"
@@ -216,10 +216,10 @@ function HomeListCard({
                 </span>
               )}
             </div>
-            <p className="truncate text-[13px] text-zinc-500">
+            <p className="truncate ty-note">
               {isRequest ? item.subtitle : item.address}
             </p>
-            <p className="mt-1 text-[12px] text-zinc-400">
+            <p className="mt-1 ty-meta">
               {panel
                 ? formatPanelListMeta(panel)
                 : isRequest
@@ -264,20 +264,20 @@ function RequestListCard({
         </div>
         <div className="min-w-0 flex-1">
           <div className="mb-0.5 flex items-center justify-between gap-2">
-            <h2 className="truncate text-[17px] font-semibold text-zinc-900">
+            <h2 className="truncate ty-heading">
               {item.publicCode ? item.publicCode : item.title}
             </h2>
             <span
               className={cn(
-                "shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium",
+                "shrink-0 rounded-full px-2 py-0.5 ty-badge",
                 installStatusTone(item.status).badge,
               )}
             >
               {item.statusLabel}
             </span>
           </div>
-          <p className="truncate text-[13px] text-zinc-500">{item.subtitle}</p>
-          <p className="mt-1 text-[12px] text-zinc-400">{item.createdAt}</p>
+          <p className="truncate ty-note">{item.subtitle}</p>
+          <p className="mt-1 ty-meta">{item.createdAt}</p>
         </div>
       </button>
     </GlassCard>
@@ -339,11 +339,11 @@ function ExpandableHomeCard({
             <PanelListIcon panel={panel} />
           </div>
           <div className="min-w-0 flex-1">
-            <h2 className="truncate text-[17px] font-semibold text-zinc-900">
+            <h2 className="truncate ty-heading">
               {panel.title}
             </h2>
-            <p className="truncate text-[13px] text-zinc-500">{panel.address}</p>
-            <p className="mt-1 text-[12px] text-zinc-400">
+            <p className="truncate ty-note">{panel.address}</p>
+            <p className="mt-1 ty-meta">
               {formatPanelListMeta(panel)}
             </p>
           </div>
@@ -351,7 +351,7 @@ function ExpandableHomeCard({
 
         <div className="flex shrink-0 flex-col items-center justify-center gap-1.5 py-3 pr-3 lg:pr-4">
           {panel.noPanelSetupId ? (
-            <span className="flex min-h-8 max-w-[3.4rem] items-center justify-center rounded-full bg-zinc-100 px-1.5 py-0.5 text-center text-[9px] font-semibold leading-tight text-zinc-500">
+            <span className="flex min-h-8 max-w-[3.4rem] items-center justify-center rounded-full bg-zinc-100 px-1.5 py-0.5 text-center ty-badge leading-tight text-zinc-500">
               нет щитка
             </span>
           ) : (
@@ -361,7 +361,7 @@ function ExpandableHomeCard({
                 e.stopPropagation();
                 setSafetyInfoOpen(true);
               }}
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/15 text-[11px] font-semibold tabular-nums text-emerald-700 transition-colors hover:bg-emerald-500/25"
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/15 ty-badge tabular-nums text-emerald-700 transition-colors hover:bg-emerald-500/25"
               aria-label="Что значит оценка безопасности"
             >
               {hasSafetyScore ? `${panel.safety}%` : "—"}
@@ -413,19 +413,19 @@ function ExpandableHomeCard({
                       <Icon className="h-4 w-4" />
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[13px] font-semibold text-zinc-900">
+                      <span className="block truncate ty-label">
                         <span className="font-medium text-zinc-500">
                           {kindLabel}
                         </span>{" "}
                         {brand}
                       </span>
                       {model && (
-                        <span className="block truncate text-[11px] text-zinc-500">
+                        <span className="block truncate ty-meta">
                           {model}
                         </span>
                       )}
                     </span>
-                    <span className="shrink-0 text-[12px] font-semibold tabular-nums text-zinc-700">
+                    <span className="shrink-0 ty-label tabular-nums text-zinc-700">
                       {formatAppliancePower(appliance.powerW)}
                     </span>
                   </button>
@@ -435,7 +435,7 @@ function ExpandableHomeCard({
               <button
                 type="button"
                 onClick={onAddAppliance}
-                className="w-full rounded-none px-4 py-2.5 text-center text-[13px] font-medium text-zinc-500 transition-colors hover:bg-zinc-50 hover:text-zinc-800"
+                className="w-full rounded-none px-4 py-2.5 text-center ty-label text-zinc-500 transition-colors hover:bg-zinc-50 hover:text-zinc-800"
               >
                 + Добавить технику
               </button>
@@ -549,7 +549,7 @@ function EmptyCartoon({
             )}
           />
         </div>
-        <p className="mt-4 min-h-[6.25rem] text-center text-[15px] leading-relaxed text-zinc-600">
+        <p className="mt-4 min-h-[6.25rem] text-center ty-body">
           {page === 0 ? panelEmpty.text : requestEmpty.text}
         </p>
       </div>
@@ -585,7 +585,7 @@ function EmptyState({
               className={EMPTY_ILLUSTRATION_CLASS}
             />
           ) : null}
-          <p className="mt-4 min-h-[6.25rem] text-center text-[15px] leading-relaxed text-zinc-600">
+          <p className="mt-4 min-h-[6.25rem] text-center ty-body">
             {text}
           </p>
         </div>
@@ -598,7 +598,7 @@ function EmptyState({
       <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-[24px] border border-black/8 bg-zinc-100 text-zinc-500">
         {icon}
       </div>
-      <p className="max-w-[300px] text-[15px] leading-relaxed text-zinc-500">
+      <p className="max-w-[300px] ty-body">
         {text}
       </p>
     </div>
@@ -916,10 +916,10 @@ export function ObjectsScreen({
                 <item.icon className="h-4 w-4" />
               </span>
               <span className="min-w-0">
-                <span className="block text-[14px] font-semibold text-zinc-900">
+                <span className="block ty-heading">
                   {item.title}
                 </span>
-                <span className="block text-[12px] text-zinc-500">
+                <span className="block ty-note">
                   {item.description}
                 </span>
               </span>
@@ -935,17 +935,17 @@ export function ObjectsScreen({
                 <Wrench className="h-4 w-4" />
               </span>
               <span className="min-w-0">
-                <span className="block text-[14px] font-semibold text-emerald-900">
+                <span className="block ty-heading text-emerald-900">
                   Режим мастера
                 </span>
-                <span className="block text-[12px] text-emerald-700/80">
+                <span className="block ty-note text-emerald-700/80">
                   Заявки и заказы клиентов
                 </span>
               </span>
             </button>
           )}
         </nav>
-        <p className="mt-4 px-3 text-[11px] tabular-nums text-zinc-400">
+        <p className="mt-4 px-3 ty-meta tabular-nums">
           {APP_VERSION}
         </p>
       </aside>
@@ -977,12 +977,12 @@ export function ObjectsScreen({
               type="button"
               onClick={() => settlePage(0)}
               className={cn(
-                "relative z-10 rounded-full px-3 py-1.5 text-[13px] font-semibold transition-colors duration-300",
+                "relative z-10 rounded-full px-3 py-1.5 ty-label transition-colors duration-300",
                 page === 0 ? "text-zinc-900" : "text-zinc-500",
               )}
             >
               Щитки
-              <span className="ml-1 text-[11px] font-medium text-zinc-400">
+              <span className="ml-1 ty-badge text-zinc-400">
                 {loading ? "…" : panels.length}
               </span>
             </button>
@@ -991,12 +991,12 @@ export function ObjectsScreen({
               type="button"
               onClick={() => settlePage(1)}
               className={cn(
-                "relative z-10 rounded-full px-3 py-1.5 text-[13px] font-semibold transition-colors duration-300",
+                "relative z-10 rounded-full px-3 py-1.5 ty-label transition-colors duration-300",
                 page === 1 ? "text-zinc-900" : "text-zinc-500",
               )}
             >
               Заявки
-              <span className="ml-1 text-[11px] font-medium text-zinc-400">
+              <span className="ml-1 ty-badge text-zinc-400">
                 {loading ? "…" : requests.length}
               </span>
             </button>
@@ -1008,7 +1008,7 @@ export function ObjectsScreen({
                   <button
                     type="button"
                     onClick={onNoPanel}
-                    className="text-[14px] font-medium text-zinc-500 underline decoration-zinc-300 underline-offset-4 transition-colors hover:text-zinc-800"
+                    className="ty-body underline decoration-zinc-300 underline-offset-4 transition-colors hover:text-zinc-800"
                   >
                     У меня нет щитка
                   </button>
@@ -1024,7 +1024,7 @@ export function ObjectsScreen({
                   <button
                     type="button"
                     onClick={onBecomeMaster}
-                    className="text-[14px] font-medium text-zinc-500 underline decoration-zinc-300 underline-offset-4 transition-colors hover:text-zinc-800"
+                    className="ty-body underline decoration-zinc-300 underline-offset-4 transition-colors hover:text-zinc-800"
                   >
                     Я электрик
                   </button>
@@ -1042,7 +1042,7 @@ export function ObjectsScreen({
       <PushEnableBanner />
 
       {error && (
-        <p className="mx-5 mb-3 shrink-0 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-[13px] text-rose-700 lg:mx-10">
+        <p className="mx-5 mb-3 shrink-0 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 ty-note text-rose-700 lg:mx-10">
           {error}
         </p>
       )}
@@ -1107,7 +1107,7 @@ export function ObjectsScreen({
               <button
                 type="button"
                 onClick={onNoPanel}
-                className="w-full text-center text-[15px] font-medium text-zinc-500 underline decoration-zinc-300 underline-offset-4 transition-colors hover:text-zinc-800"
+                className="w-full text-center ty-subtitle underline decoration-zinc-300 underline-offset-4 transition-colors hover:text-zinc-800"
               >
                 У меня нет щитка
               </button>
@@ -1123,7 +1123,7 @@ export function ObjectsScreen({
               <button
                 type="button"
                 onClick={onBecomeMaster}
-                className="w-full text-center text-[15px] font-medium text-zinc-500 underline decoration-zinc-300 underline-offset-4 transition-colors hover:text-zinc-800"
+                className="w-full text-center ty-subtitle underline decoration-zinc-300 underline-offset-4 transition-colors hover:text-zinc-800"
               >
                 Я электрик
               </button>

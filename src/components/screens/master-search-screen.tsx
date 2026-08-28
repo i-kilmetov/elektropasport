@@ -89,10 +89,10 @@ export function MasterSearchScreen({
         </div>
 
         <div>
-          <h2 className="mb-2 text-[22px] font-bold text-zinc-900">
+          <h2 className="mb-2 ty-title">
             Ищем мастера{dots}
           </h2>
-          <p className="max-w-[300px] text-[15px] leading-relaxed text-zinc-500">
+          <p className="max-w-[300px] ty-body">
             Отправили вашу заявку всем доступным мастерам. Обычно кто-то откликается за минуту.
           </p>
         </div>

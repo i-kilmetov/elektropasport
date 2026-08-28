@@ -79,13 +79,13 @@ export function UndoSnackbar({
         className="pointer-events-none fixed inset-x-0 bottom-0 z-[140] flex justify-center px-4 pb-[max(1rem,env(safe-area-inset-bottom))]"
       >
         <div className="pointer-events-auto flex w-full max-w-md items-center gap-3 rounded-[20px] border border-white/10 bg-zinc-900 px-3 py-3 shadow-[0_16px_48px_rgba(0,0,0,0.35)]">
-          <p className="min-w-0 flex-1 text-[14px] font-medium leading-snug text-white">
+          <p className="min-w-0 flex-1 ty-subtitle leading-snug text-white">
             {message}
           </p>
           <button
             type="button"
             onClick={undo}
-            className="relative h-10 shrink-0 overflow-hidden rounded-full bg-rose-500 px-4 text-[13px] font-semibold text-white"
+            className="relative h-10 shrink-0 overflow-hidden rounded-full bg-rose-500 px-4 ty-label text-white"
             aria-label={undoLabel}
           >
             <span className="relative z-10">{undoLabel}</span>

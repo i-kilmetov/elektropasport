@@ -23,44 +23,44 @@ export default function LegalIndexPage() {
       <p className="mb-8">
         <Link
           href="/"
-          className="text-[14px] font-medium text-zinc-600 underline-offset-2 hover:underline"
+          className="ty-subtitle text-zinc-600 underline-offset-2 hover:underline"
         >
           ← На главную
         </Link>
       </p>
 
       <BrandLogo className="h-8" />
-      <h1 className="mt-5 text-[28px] font-bold tracking-tight text-zinc-900">
+      <h1 className="mt-5 ty-display text-zinc-900">
         Юридическая информация
       </h1>
-      <p className="mt-2 text-[15px] leading-relaxed text-zinc-500">
+      <p className="mt-2 ty-body">
         Документы сервиса «{LEGAL_OPERATOR.serviceName}» и реквизиты исполнителя.
       </p>
 
       <section className="mt-8">
-        <h2 className="mb-3 text-[13px] font-semibold uppercase tracking-[0.14em] text-zinc-400">
+        <h2 className="mb-3 ty-label uppercase tracking-[0.14em] text-zinc-400">
           Реквизиты
         </h2>
         <div className="rounded-[20px] border border-black/[0.06] bg-white p-5 shadow-[0_1px_1px_rgba(17,17,19,0.04),0_2px_6px_rgba(17,17,19,0.04)]">
           <dl className="space-y-3 text-[15px]">
             <div>
-              <dt className="text-[12px] text-zinc-400">ФИО</dt>
+              <dt className="ty-meta">ФИО</dt>
               <dd className="mt-0.5 font-medium text-zinc-900">
                 {LEGAL_OPERATOR.fullName}
               </dd>
             </div>
             <div>
-              <dt className="text-[12px] text-zinc-400">Статус</dt>
+              <dt className="ty-meta">Статус</dt>
               <dd className="mt-0.5 text-zinc-800">{LEGAL_OPERATOR.status}</dd>
             </div>
             <div>
-              <dt className="text-[12px] text-zinc-400">ИНН</dt>
-              <dd className="mt-0.5 font-mono text-[16px] font-semibold tabular-nums text-zinc-900">
+              <dt className="ty-meta">ИНН</dt>
+              <dd className="mt-0.5 font-mono ty-heading tabular-nums text-zinc-900">
                 {inn || "—"}
               </dd>
             </div>
             <div>
-              <dt className="text-[12px] text-zinc-400">Email</dt>
+              <dt className="ty-meta">Email</dt>
               <dd className="mt-0.5">
                 <a
                   href={`mailto:${email}`}
@@ -71,7 +71,7 @@ export default function LegalIndexPage() {
               </dd>
             </div>
             <div>
-              <dt className="text-[12px] text-zinc-400">Сайт</dt>
+              <dt className="ty-meta">Сайт</dt>
               <dd className="mt-0.5 text-zinc-800">{LEGAL_OPERATOR.siteUrl}</dd>
             </div>
           </dl>
@@ -79,7 +79,7 @@ export default function LegalIndexPage() {
       </section>
 
       <section className="mt-8">
-        <h2 className="mb-3 text-[13px] font-semibold uppercase tracking-[0.14em] text-zinc-400">
+        <h2 className="mb-3 ty-label uppercase tracking-[0.14em] text-zinc-400">
           Документы
         </h2>
         <ul className="space-y-3">
@@ -89,10 +89,10 @@ export default function LegalIndexPage() {
                 href={doc.href}
                 className="block rounded-[20px] border border-black/[0.06] bg-white p-4 shadow-[0_1px_1px_rgba(17,17,19,0.04),0_2px_6px_rgba(17,17,19,0.04)] transition-colors hover:bg-zinc-50"
               >
-                <div className="text-[16px] font-semibold text-zinc-900">
+                <div className="ty-heading">
                   {doc.title}
                 </div>
-                <p className="mt-1 text-[13px] leading-snug text-zinc-500">
+                <p className="mt-1 ty-note">
                   {doc.description}
                 </p>
               </Link>

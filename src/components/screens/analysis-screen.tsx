@@ -128,7 +128,7 @@ export function AnalysisScreen({
         animate={{ opacity: 1 }}
         className="mx-auto flex min-h-dvh w-full max-w-xl flex-col items-center justify-center gap-4 px-5"
       >
-        <p className="text-center text-[15px] text-zinc-500">
+        <p className="text-center ty-body">
           Нет фото для анализа.
         </p>
         {onRetryPhoto && (
@@ -147,7 +147,7 @@ export function AnalysisScreen({
       exit={{ opacity: 0 }}
       className="mx-auto flex min-h-dvh w-full max-w-xl flex-col items-center px-5 pb-10 pt-[max(2rem,env(safe-area-inset-top))] lg:max-w-2xl lg:justify-center"
     >
-      <h1 className="mb-6 text-center text-[22px] font-semibold text-zinc-900">
+      <h1 className="mb-6 text-center ty-title">
         {error
           ? "Не удалось разобрать фото"
           : review
@@ -167,7 +167,7 @@ export function AnalysisScreen({
       {error ? (
         <div className="w-full max-w-sm space-y-4">
           <GlassCard className="border border-rose-200 bg-rose-50 p-4">
-            <p className="text-[14px] leading-relaxed text-rose-800">{error}</p>
+            <p className="ty-body text-rose-800">{error}</p>
           </GlassCard>
           {onRetryPhoto && (
             <Button type="button" className="w-full" onClick={() => onRetryPhoto()}>
@@ -182,7 +182,7 @@ export function AnalysisScreen({
             <GlassCard className="flex gap-3 border border-amber-200/80 bg-amber-50/90 p-4">
               <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
               <div className="min-w-0 flex-1">
-                <p className="text-[14px] font-semibold text-amber-950">
+                <p className="ty-heading text-amber-950">
                   Не все приборы определены
                 </p>
                 <p className="mt-1 text-[13px] leading-relaxed text-amber-900/80">
@@ -198,7 +198,7 @@ export function AnalysisScreen({
             <GlassCard className="flex gap-3 border border-amber-200/80 bg-amber-50/90 p-4">
               <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
               <div className="min-w-0 flex-1">
-                <p className="text-[14px] font-semibold text-amber-950">
+                <p className="ty-heading text-amber-950">
                   На рейке больше {MAX_MODULES_PER_RAIL} модулей
                 </p>
                 <p className="mt-1 text-[13px] leading-relaxed text-amber-900/80">
@@ -260,7 +260,7 @@ export function AnalysisScreen({
               <div className="text-[40px] font-bold tabular-nums text-zinc-900">
                 {progress}%
               </div>
-              <div className="text-[13px] text-zinc-500">завершено</div>
+              <div className="ty-note">завершено</div>
             </div>
           </div>
 
@@ -325,7 +325,7 @@ export function AnalysisScreen({
             </ul>
           </GlassCard>
 
-          <p className="mt-8 text-center text-[13px] text-zinc-400">
+          <p className="mt-8 text-center ty-meta">
             Не закрывайте приложение во время анализа
           </p>
         </>

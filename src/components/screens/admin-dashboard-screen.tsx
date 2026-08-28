@@ -178,13 +178,13 @@ export function AdminDashboardScreen({ onBack }: { onBack: () => void }) {
               </button>
               <div>
                 <BrandLogo className="h-7" onDark />
-                <h1 className="mt-2 text-[20px] font-semibold">Админка</h1>
+                <h1 className="mt-2 ty-title">Админка</h1>
               </div>
             </div>
             <button
               type="button"
               onClick={onBack}
-              className="mt-8 hidden items-center gap-2 text-[13px] text-white/55 hover:text-white lg:flex"
+              className="mt-8 hidden items-center gap-2 ty-note text-white/55 hover:text-white lg:flex"
             >
               <ArrowLeft className="h-4 w-4" />
               На главную
@@ -197,7 +197,7 @@ export function AdminDashboardScreen({ onBack }: { onBack: () => void }) {
                 type="button"
                 onClick={() => setSection(item.id)}
                 className={cn(
-                  "flex shrink-0 items-center gap-2.5 rounded-full px-3.5 py-2 text-[13px] font-medium lg:rounded-[14px] lg:px-3 lg:py-2.5",
+                  "flex shrink-0 items-center gap-2.5 rounded-full px-3.5 py-2 ty-label lg:rounded-[14px] lg:px-3 lg:py-2.5",
                   section === item.id
                     ? "bg-white text-zinc-950"
                     : "text-white/70 hover:bg-white/8 hover:text-white",
@@ -216,11 +216,11 @@ export function AdminDashboardScreen({ onBack }: { onBack: () => void }) {
               <Loader2 className="h-7 w-7 animate-spin text-zinc-300" />
             </div>
           ) : !data ? (
-            <p className="text-[15px] text-zinc-500">{error ?? "Нет данных"}</p>
+            <p className="ty-body">{error ?? "Нет данных"}</p>
           ) : (
             <>
               {error && (
-                <div className="mb-4 rounded-[16px] border border-rose-200 bg-rose-50 px-4 py-3 text-[14px] text-rose-700">
+                <div className="mb-4 rounded-[16px] border border-rose-200 bg-rose-50 px-4 py-3 ty-body text-rose-700">
                   {error}
                 </div>
               )}
@@ -361,10 +361,10 @@ function Overview({
   return (
     <div className="mx-auto w-full max-w-[1200px] space-y-6">
       <div>
-        <h2 className="text-[28px] font-semibold tracking-tight text-zinc-950">
+        <h2 className="ty-display text-zinc-950">
           Панель управления
         </h2>
-        <p className="mt-1 text-[15px] text-zinc-500">
+        <p className="mt-1 ty-body">
           Сводка по сервису, заявкам и мастерам.
         </p>
       </div>
@@ -380,17 +380,17 @@ function Overview({
               <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-[14px] bg-zinc-100 text-zinc-700">
                 <item.icon className="h-5 w-5" />
               </div>
-              <div className="text-[32px] font-semibold tabular-nums leading-none text-zinc-950">
+              <div className="ty-display tabular-nums leading-none text-zinc-950">
                 {item.value}
               </div>
-              <div className="mt-2 text-[13px] text-zinc-500">{item.label}</div>
+              <div className="mt-2 ty-note">{item.label}</div>
             </GlassCard>
           </button>
         ))}
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
         <GlassCard className="p-5">
-          <h3 className="mb-4 text-[16px] font-semibold text-zinc-900">
+          <h3 className="mb-4 ty-heading">
             Статусы заявок
           </h3>
           <div className="grid grid-cols-2 gap-3">
@@ -408,16 +408,16 @@ function Overview({
                 onClick={() => onOpen("requests")}
                 className="rounded-[16px] bg-zinc-50 px-4 py-3 text-left"
               >
-                <div className="text-[22px] font-semibold tabular-nums">
+                <div className="ty-title tabular-nums">
                   {data.stats.byStatus[id] ?? 0}
                 </div>
-                <div className="text-[13px] text-zinc-500">{label}</div>
+                <div className="ty-note">{label}</div>
               </button>
             ))}
           </div>
         </GlassCard>
         <GlassCard className="p-5">
-          <h3 className="mb-4 text-[16px] font-semibold text-zinc-900">
+          <h3 className="mb-4 ty-heading">
             Заявки по городам
           </h3>
           <div className="space-y-3">
@@ -436,17 +436,17 @@ function Overview({
               </div>
             ))}
             {data.stats.requestsByCity.length === 0 && (
-              <p className="text-[13px] text-zinc-400">Пока нет заявок</p>
+              <p className="ty-meta">Пока нет заявок</p>
             )}
           </div>
         </GlassCard>
       </div>
       <GlassCard className="p-5">
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-[16px] font-semibold text-zinc-900">
+          <h3 className="ty-heading">
             Заявки на мастера
           </h3>
-          <span className="text-[13px] text-zinc-500">
+          <span className="ty-note">
             {data.stats.applicationsCount}
           </span>
         </div>
@@ -496,10 +496,10 @@ function UsersSection({
     <div className="mx-auto w-full max-w-[1200px] space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="text-[28px] font-semibold tracking-tight text-zinc-950">
+          <h2 className="ty-display text-zinc-950">
             Пользователи
           </h2>
-          <p className="mt-1 text-[15px] text-zinc-500">
+          <p className="mt-1 ty-body">
             {users.length} из {total} · последние 200 регистраций
           </p>
         </div>
@@ -527,7 +527,7 @@ function UsersSection({
                   <div className="font-medium text-zinc-900">
                     {displayName(item.firstName, item.lastName, "Без имени")}
                     {item.isAdmin && (
-                      <span className="ml-2 rounded-full bg-zinc-900 px-2 py-0.5 text-[11px] font-medium text-white">
+                      <span className="ml-2 rounded-full bg-zinc-900 px-2 py-0.5 ty-badge text-white">
                         Админ
                       </span>
                     )}
@@ -547,7 +547,7 @@ function UsersSection({
           </tbody>
         </table>
         {users.length === 0 && (
-          <p className="px-4 py-8 text-center text-[14px] text-zinc-400">
+          <p className="px-4 py-8 text-center ty-meta">
             Никого не найдено
           </p>
         )}
@@ -583,10 +583,10 @@ function RequestsSection({
     <div className="mx-auto w-full max-w-[1200px] space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="text-[28px] font-semibold tracking-tight text-zinc-950">
+          <h2 className="ty-display text-zinc-950">
             Заявки
           </h2>
-          <p className="mt-1 text-[15px] text-zinc-500">
+          <p className="mt-1 ty-body">
             {rows.length} из {data.requests.length}
           </p>
         </div>
@@ -635,7 +635,7 @@ function RequestsSection({
               <tr key={item.id} className="border-t border-black/6 align-top">
                 <td className="px-4 py-3 font-semibold text-zinc-900">
                   {item.publicCode || "—"}
-                  <div className="mt-0.5 text-[12px] font-normal text-zinc-400">
+                  <div className="mt-0.5 ty-meta">
                     {item.createdAt}
                   </div>
                 </td>
@@ -688,7 +688,7 @@ function RequestsSection({
                         onDelete(item.id);
                       }
                     }}
-                    className="inline-flex h-9 items-center gap-1.5 rounded-[10px] border border-rose-200 bg-rose-50 px-2.5 text-[12px] font-medium text-rose-700 hover:bg-rose-100"
+                    className="inline-flex h-9 items-center gap-1.5 rounded-[10px] border border-rose-200 bg-rose-50 px-2.5 ty-badge text-rose-700 hover:bg-rose-100"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                     Удалить
@@ -699,7 +699,7 @@ function RequestsSection({
           </tbody>
         </table>
         {rows.length === 0 && (
-          <p className="px-4 py-8 text-center text-[14px] text-zinc-400">
+          <p className="px-4 py-8 text-center ty-meta">
             Нет заявок по фильтру
           </p>
         )}
@@ -722,10 +722,10 @@ function PanelsSection({
   return (
     <div className="mx-auto w-full max-w-[1200px] space-y-4">
       <div>
-        <h2 className="text-[28px] font-semibold tracking-tight text-zinc-950">
+        <h2 className="ty-display text-zinc-950">
           Щитки
         </h2>
-        <p className="mt-1 text-[15px] text-zinc-500">
+        <p className="mt-1 ty-body">
           {panels.length} последних · откройте схему любого пользователя
         </p>
       </div>
@@ -777,7 +777,7 @@ function PanelsSection({
           </tbody>
         </table>
         {panels.length === 0 && (
-          <p className="px-4 py-8 text-center text-[14px] text-zinc-400">
+          <p className="px-4 py-8 text-center ty-meta">
             Щитков пока нет
           </p>
         )}
@@ -790,20 +790,20 @@ function InvitesSection({ data }: { data: AdminDashboardData }) {
   return (
     <div className="mx-auto w-full max-w-[1200px] space-y-6">
       <div>
-        <h2 className="text-[28px] font-semibold tracking-tight text-zinc-950">
+        <h2 className="ty-display text-zinc-950">
           Приглашения
         </h2>
-        <p className="mt-1 text-[15px] text-zinc-500">
+        <p className="mt-1 ty-body">
           Кто кого привёл · {data.stats.creditedInvites} засчитанных ·{" "}
           {data.stats.pendingInviteOpens} открыли ссылку, но ещё не вошли
         </p>
       </div>
 
       <GlassCard className="p-5">
-        <h3 className="mb-3 text-[16px] font-semibold text-zinc-900">
+        <h3 className="mb-3 ty-heading">
           Открыли ссылку, но не авторизовались
         </h3>
-        <p className="mb-4 text-[13px] text-zinc-500">
+        <p className="mb-4 ty-note">
           Фиксируется при открытии invite-ссылки до входа в сервис.
         </p>
         <div className="overflow-x-auto">
@@ -838,7 +838,7 @@ function InvitesSection({ data }: { data: AdminDashboardData }) {
             </tbody>
           </table>
           {data.invitePending.length === 0 && (
-            <p className="py-4 text-[13px] text-zinc-400">
+            <p className="py-4 ty-meta">
               Пока нет незавершённых переходов по ссылкам
             </p>
           )}
@@ -847,7 +847,7 @@ function InvitesSection({ data }: { data: AdminDashboardData }) {
 
       <GlassCard className="overflow-x-auto p-0">
         <div className="border-b border-black/6 px-5 py-4">
-          <h3 className="text-[16px] font-semibold text-zinc-900">
+          <h3 className="ty-heading">
             Зарегистрированные приглашения
           </h3>
         </div>
@@ -886,11 +886,11 @@ function InvitesSection({ data }: { data: AdminDashboardData }) {
                 </td>
                 <td className="px-4 py-3">
                   {row.outcome === "credited" ? (
-                    <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[12px] font-medium text-emerald-700">
+                    <span className="rounded-full bg-emerald-50 px-2 py-0.5 ty-badge text-emerald-700">
                       Новый пользователь
                     </span>
                   ) : (
-                    <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[12px] font-medium text-zinc-600">
+                    <span className="rounded-full bg-zinc-100 px-2 py-0.5 ty-badge text-zinc-600">
                       Уже был в сервисе
                     </span>
                   )}
@@ -903,7 +903,7 @@ function InvitesSection({ data }: { data: AdminDashboardData }) {
           </tbody>
         </table>
         {data.inviteEdges.length === 0 && (
-          <p className="px-4 py-8 text-center text-[14px] text-zinc-400">
+          <p className="px-4 py-8 text-center ty-meta">
             Пока никто никого не пригласил
           </p>
         )}
@@ -933,10 +933,10 @@ function MastersSection({
     <div className="mx-auto w-full max-w-[1200px] space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="text-[28px] font-semibold tracking-tight text-zinc-950">
+          <h2 className="ty-display text-zinc-950">
             Мастера
           </h2>
-          <p className="mt-1 text-[15px] text-zinc-500">
+          <p className="mt-1 ty-body">
             Выдать или забрать роль, заявки по городам.
           </p>
         </div>
@@ -956,8 +956,8 @@ function MastersSection({
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {data.stats.mastersByCity.map((row) => (
           <GlassCard key={row.city} className="p-4">
-            <div className="text-[13px] text-zinc-500">{row.city}</div>
-            <div className="mt-1 text-[22px] font-semibold tabular-nums">
+            <div className="ty-note">{row.city}</div>
+            <div className="mt-1 ty-title tabular-nums">
               {row.count}
             </div>
           </GlassCard>
@@ -1007,7 +1007,7 @@ function MastersSection({
         </table>
       </GlassCard>
       <div>
-        <h3 className="mb-3 text-[18px] font-semibold text-zinc-900">
+        <h3 className="mb-3 ty-title">
           Заявки «Стать мастером»
         </h3>
         <div className="grid gap-3 lg:grid-cols-2">
@@ -1016,7 +1016,7 @@ function MastersSection({
               <div className="mb-2 flex items-start justify-between gap-3">
                 <div>
                   <div className="font-semibold text-zinc-900">{item.name}</div>
-                  <div className="text-[13px] text-zinc-500">
+                  <div className="ty-note">
                     {item.city} · {item.telegramId}
                   </div>
                 </div>
@@ -1032,7 +1032,7 @@ function MastersSection({
                 </Button>
               </div>
               {item.about && (
-                <p className="text-[13px] leading-relaxed text-zinc-600">
+                <p className="ty-note">
                   {item.about}
                 </p>
               )}
@@ -1062,16 +1062,16 @@ function AdminsSection({
   return (
     <div className="mx-auto w-full max-w-[880px] space-y-6">
       <div>
-        <h2 className="text-[28px] font-semibold tracking-tight text-zinc-950">
+        <h2 className="ty-display text-zinc-950">
           Администраторы
         </h2>
-        <p className="mt-1 text-[15px] text-zinc-500">
+        <p className="mt-1 ty-body">
           Автор бота всегда админ и не может быть удалён. Других можно добавить
           по Telegram ID — человек должен хотя бы раз открыть приложение.
         </p>
       </div>
       <GlassCard className="p-5">
-        <div className="mb-2 text-[13px] font-medium text-zinc-600">
+        <div className="mb-2 ty-label text-zinc-600">
           Добавить администратора
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
@@ -1105,12 +1105,12 @@ function AdminsSection({
               <div className="font-semibold text-zinc-900">
                 {displayName(admin.firstName, admin.lastName, "Администратор")}
                 {admin.isOwner && (
-                  <span className="ml-2 rounded-full bg-zinc-900 px-2 py-0.5 text-[11px] font-medium text-white">
+                  <span className="ml-2 rounded-full bg-zinc-900 px-2 py-0.5 ty-badge text-white">
                     Автор бота
                   </span>
                 )}
               </div>
-              <div className="text-[13px] text-zinc-500">
+              <div className="ty-note">
                 ID {admin.telegramId}
                 {admin.username ? ` · @${admin.username}` : ""}
               </div>
@@ -1204,10 +1204,10 @@ function PushSection() {
   return (
     <div className="mx-auto w-full max-w-[720px] space-y-5">
       <div>
-        <h2 className="text-[28px] font-semibold tracking-tight text-zinc-950">
+        <h2 className="ty-display text-zinc-950">
           Пуш-уведомления
         </h2>
-        <p className="mt-1 text-[15px] text-zinc-500">
+        <p className="mt-1 ty-body">
           Приходят только тем, кто установил Током на Домой и включил
           уведомления. Заявки (мастер принял, смена статуса) уходят сами.
         </p>
@@ -1215,16 +1215,16 @@ function PushSection() {
 
       <div className="grid grid-cols-2 gap-3">
         <GlassCard className="p-4">
-          <div className="text-[28px] font-semibold tabular-nums text-zinc-950">
+          <div className="ty-display tabular-nums text-zinc-950">
             {audience?.userCount ?? 0}
           </div>
-          <div className="mt-1 text-[13px] text-zinc-500">Подписчиков</div>
+          <div className="mt-1 ty-note">Подписчиков</div>
         </GlassCard>
         <GlassCard className="p-4">
-          <div className="text-[28px] font-semibold tabular-nums text-zinc-950">
+          <div className="ty-display tabular-nums text-zinc-950">
             {audience?.deviceCount ?? 0}
           </div>
-          <div className="mt-1 text-[13px] text-zinc-500">Устройств</div>
+          <div className="mt-1 ty-note">Устройств</div>
         </GlassCard>
       </div>
 
@@ -1234,7 +1234,7 @@ function PushSection() {
             type="button"
             onClick={() => setScope("all")}
             className={cn(
-              "rounded-full px-3 py-1.5 text-[13px] font-semibold",
+              "rounded-full px-3 py-1.5 ty-label",
               scope === "all"
                 ? "bg-zinc-900 text-white"
                 : "bg-zinc-100 text-zinc-600",
@@ -1246,7 +1246,7 @@ function PushSection() {
             type="button"
             onClick={() => setScope("one")}
             className={cn(
-              "rounded-full px-3 py-1.5 text-[13px] font-semibold",
+              "rounded-full px-3 py-1.5 ty-label",
               scope === "one"
                 ? "bg-zinc-900 text-white"
                 : "bg-zinc-100 text-zinc-600",
@@ -1257,7 +1257,7 @@ function PushSection() {
         </div>
         {scope === "one" && (
           <label className="block">
-            <span className="mb-1.5 block text-[13px] text-zinc-500">
+            <span className="mb-1.5 block ty-note">
               Telegram ID
             </span>
             <input
@@ -1269,7 +1269,7 @@ function PushSection() {
           </label>
         )}
         <label className="block">
-          <span className="mb-1.5 block text-[13px] text-zinc-500">
+          <span className="mb-1.5 block ty-note">
             Заголовок
           </span>
           <input
@@ -1279,7 +1279,7 @@ function PushSection() {
           />
         </label>
         <label className="block">
-          <span className="mb-1.5 block text-[13px] text-zinc-500">Текст</span>
+          <span className="mb-1.5 block ty-note">Текст</span>
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value.slice(0, 200))}
@@ -1287,15 +1287,15 @@ function PushSection() {
             placeholder="Коротко, что случилось"
             className="w-full resize-none rounded-[16px] border border-black/8 bg-zinc-50 px-4 py-3 text-[15px] outline-none focus:border-zinc-300"
           />
-          <span className="mt-1 block text-right text-[12px] text-zinc-400">
+          <span className="mt-1 block text-right ty-meta">
             {text.length}/200
           </span>
         </label>
         {error && (
-          <p className="text-[13px] text-rose-600">{error}</p>
+          <p className="ty-note text-rose-600">{error}</p>
         )}
         {result && (
-          <p className="text-[13px] text-emerald-700">{result}</p>
+          <p className="ty-note text-emerald-700">{result}</p>
         )}
         <Button
           className="w-full"
@@ -1307,11 +1307,11 @@ function PushSection() {
       </GlassCard>
 
       <GlassCard className="overflow-hidden p-0">
-        <div className="border-b border-black/6 px-4 py-3 text-[14px] font-semibold text-zinc-900">
+        <div className="border-b border-black/6 px-4 py-3 ty-heading">
           Кто подписан
         </div>
         {(audience?.subscribers.length ?? 0) === 0 ? (
-          <p className="px-4 py-8 text-center text-[14px] text-zinc-400">
+          <p className="px-4 py-8 text-center ty-meta">
             Пока никто не включил пуши
           </p>
         ) : (
@@ -1322,11 +1322,11 @@ function PushSection() {
                 className="flex items-center justify-between gap-3 border-t border-black/6 px-4 py-3 first:border-t-0"
               >
                 <div className="min-w-0">
-                  <div className="truncate text-[14px] font-medium text-zinc-900">
+                  <div className="truncate ty-subtitle text-zinc-900">
                     {displayName(item.firstName, item.lastName, "Без имени")}
                     {item.username ? ` · @${item.username}` : ""}
                   </div>
-                  <div className="text-[12px] tabular-nums text-zinc-400">
+                  <div className="ty-meta tabular-nums">
                     {item.telegramId} · устройств: {item.devices}
                   </div>
                 </div>
@@ -1336,7 +1336,7 @@ function PushSection() {
                     setScope("one");
                     setTelegramId(String(item.telegramId));
                   }}
-                  className="shrink-0 text-[13px] font-medium text-zinc-500 underline-offset-2 hover:underline"
+                  className="shrink-0 ty-label text-zinc-500 underline-offset-2 hover:underline"
                 >
                   Этому
                 </button>

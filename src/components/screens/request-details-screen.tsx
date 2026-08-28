@@ -63,8 +63,8 @@ function NameDialog({
         onClick={(e) => e.stopPropagation()}
         className="w-full rounded-t-[28px] border border-black/8 bg-white p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-2xl sm:max-w-sm sm:rounded-[28px]"
       >
-        <h3 className="mb-2 text-[20px] font-semibold text-zinc-900">{title}</h3>
-        <p className="mb-4 text-[14px] text-zinc-500">
+        <h3 className="mb-2 ty-title">{title}</h3>
+        <p className="mb-4 ty-body">
           Например: «Установка на даче», «Щиток в квартире»
         </p>
         <input
@@ -103,10 +103,10 @@ function StatusProgress({ status }: { status: InstallRequestStatus }) {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-3">
-        <div className="text-[13px] font-medium text-zinc-500">Статус</div>
+        <div className="ty-label text-zinc-500">Статус</div>
         <span
           className={cn(
-            "rounded-full px-2.5 py-1 text-[12px] font-semibold",
+            "rounded-full px-2.5 py-1 ty-label",
             tone.badge,
           )}
         >
@@ -160,8 +160,8 @@ function DetailItem({
 }) {
   return (
     <div className={cn(wide && "col-span-2")}>
-      <div className="text-[11px] text-zinc-400">{label}</div>
-      <div className="mt-0.5 text-[14px] font-medium leading-snug text-zinc-900">
+      <div className="ty-meta">{label}</div>
+      <div className="mt-0.5 ty-subtitle leading-snug text-zinc-900">
         {value}
       </div>
     </div>
@@ -257,7 +257,7 @@ export function RequestDetailsScreen({
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <h1 className="flex-1 truncate text-center text-[20px] font-semibold text-zinc-900">
+        <h1 className="flex-1 truncate text-center ty-title">
           {request.publicCode ?? "Детали заявки"}
         </h1>
         {readOnly ? (
@@ -309,7 +309,7 @@ export function RequestDetailsScreen({
         )}
       </header>
 
-      <p className="mb-4 text-center text-[13px] leading-relaxed text-zinc-500">
+      <p className="mb-4 text-center ty-note">
         {request.subtitle}
         {request.createdAt ? ` · ${request.createdAt}` : ""}
       </p>
@@ -338,10 +338,10 @@ export function RequestDetailsScreen({
             <div className="flex items-start gap-2">
               <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-zinc-400" />
               <div>
-                <div className="text-[15px] font-semibold text-zinc-900">
+                <div className="ty-heading">
                   Точный адрес
                 </div>
-                <p className="mt-0.5 text-[13px] leading-relaxed text-zinc-500">
+                <p className="mt-0.5 ty-note">
                   Поможет быстрее подобрать мастера.
                 </p>
               </div>
@@ -381,7 +381,7 @@ export function RequestDetailsScreen({
 
         {objectFields.length > 0 && (
           <GlassCard className="p-4">
-            <div className="mb-3 flex items-center gap-2 text-[13px] font-semibold text-zinc-900">
+            <div className="mb-3 flex items-center gap-2 ty-label">
               <Building2 className="h-4 w-4 text-zinc-400" />
               Объект
             </div>
@@ -409,17 +409,17 @@ export function RequestDetailsScreen({
                 <BreakerIcon className="h-6 w-6" />
               </div>
               <div className="min-w-0 flex-1">
-                <div className="text-[15px] font-semibold text-zinc-900">
+                <div className="ty-heading">
                   Щиток клиента
                 </div>
-                <p className="text-[13px] text-zinc-500">Открыть схему щитка</p>
+                <p className="ty-note">Открыть схему щитка</p>
               </div>
             </GlassCard>
           </button>
         )}
 
         <GlassCard className="p-4">
-          <div className="mb-3 flex items-center gap-2 text-[13px] font-semibold text-zinc-900">
+          <div className="mb-3 flex items-center gap-2 ty-label">
             {request.contactMethod === "telegram" ? (
               <MessageCircle className="h-4 w-4 text-zinc-400" />
             ) : (

@@ -202,13 +202,13 @@ export function SchemeOnboardingTour({
             style={{ top: tooltipPos.top, left: tooltipPos.left }}
             onClick={(e) => e.stopPropagation()}
           >
-            <p className="mb-1 text-[12px] font-medium text-zinc-500">
+            <p className="mb-1 ty-badge text-zinc-500">
               {stepIndex + 1} из {stepCount}
             </p>
-            <h3 className="text-[18px] font-semibold text-zinc-900">
+            <h3 className="ty-title">
               {step.title}
             </h3>
-            <p className="mt-2 text-[14px] leading-relaxed text-zinc-600">
+            <p className="mt-2 ty-body">
               {step.body}
             </p>
             <div className="mt-4 flex items-center gap-2">

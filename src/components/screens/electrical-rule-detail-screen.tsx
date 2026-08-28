@@ -46,22 +46,22 @@ export function ElectricalRuleDetailScreen({
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <h1 className="line-clamp-2 text-[18px] font-semibold text-zinc-900">
+        <h1 className="line-clamp-2 ty-title">
           {rule.title}
         </h1>
       </header>
 
-      <p className="mb-5 text-[15px] leading-relaxed text-zinc-500">
+      <p className="mb-5 ty-body">
         {rule.summary}
       </p>
 
       <div className="flex-1 space-y-3 overflow-y-auto pb-4">
         {rule.points.map((point, index) => (
           <GlassCard key={point} className="flex gap-3 p-4">
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-[12px] font-semibold text-zinc-600">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-zinc-100 ty-label text-zinc-600">
               {index + 1}
             </span>
-            <p className="text-[14px] leading-relaxed text-zinc-700">{point}</p>
+            <p className="ty-body text-zinc-700">{point}</p>
           </GlassCard>
         ))}
       </div>

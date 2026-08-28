@@ -61,7 +61,7 @@ export function TelegramAuthScreen({
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
-          <h1 className="text-[20px] font-semibold text-zinc-900">Вход</h1>
+          <h1 className="ty-title">Вход</h1>
         </header>
       )}
 
@@ -75,10 +75,10 @@ export function TelegramAuthScreen({
         <GlassCard className="w-full max-w-sm space-y-5 p-6 text-center">
           <BrandLogo className="mx-auto h-10" />
           <div>
-            <h2 className="text-[22px] font-bold tracking-tight text-zinc-900">
+            <h2 className="ty-title text-zinc-900">
               Войдите через Telegram
             </h2>
-            <p className="mt-2 text-[14px] leading-relaxed text-zinc-500">
+            <p className="mt-2 ty-body">
               Подтвердите вход в своём аккаунте Telegram — так мы сохраним ваши
               щитки, заявки и данные профиля.
             </p>

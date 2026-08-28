@@ -33,10 +33,10 @@ export function NoPanelOptionsScreen({
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <h1 className="text-[20px] font-semibold text-zinc-900">Нет щитка</h1>
+        <h1 className="ty-title">Нет щитка</h1>
       </header>
 
-      <h2 className="mb-3 shrink-0 text-[20px] font-bold tracking-tight text-zinc-900 sm:text-[22px]">
+      <h2 className="ty-title mb-3 shrink-0">
         Как у вас устроена электрика?
       </h2>
 
@@ -70,12 +70,12 @@ export function NoPanelOptionsScreen({
                 </span>
               </div>
               <div className="mt-1 px-0.5 pb-0.5">
-                <div className="text-[14px] font-bold leading-snug tracking-tight sm:text-[15px]">
+                <div className="ty-heading">
                   {NO_PANEL_CARD_TITLES[setup.id]}
                 </div>
                 <p
                   className={cn(
-                    "mt-0.5 line-clamp-2 text-[11px] font-medium leading-snug sm:text-[12px]",
+                    "ty-note mt-1 line-clamp-3",
                     style.body,
                   )}
                 >
@@ -87,7 +87,7 @@ export function NoPanelOptionsScreen({
         })}
       </div>
 
-      <p className="mt-3 shrink-0 text-[13px] leading-snug text-zinc-500">
+      <p className="ty-note mt-3 shrink-0">
         Выберите похожий вариант — покажем риски и что лучше сделать.
       </p>
     </motion.section>

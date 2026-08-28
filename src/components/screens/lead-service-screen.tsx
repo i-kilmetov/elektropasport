@@ -103,13 +103,13 @@ export function LeadServiceScreen({
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <h1 className="text-[20px] font-semibold text-zinc-900">Услуга</h1>
+        <h1 className="ty-title">Услуга</h1>
       </header>
 
-      <h2 className="mb-2 text-[26px] font-bold tracking-tight text-zinc-900">
+      <h2 className="mb-2 ty-display text-zinc-900">
         Как вам помочь?
       </h2>
-      <p className="mb-5 text-[15px] leading-relaxed text-zinc-500">
+      <p className="mb-5 ty-body">
         Город:{" "}
         <span className="font-medium text-zinc-800">{normalizedCity}</span>
       </p>
@@ -133,10 +133,10 @@ export function LeadServiceScreen({
                 <GeminiSparkIcon className="h-7 w-7" />
               </div>
             </div>
-            <div className="text-[20px] font-bold leading-snug tracking-tight">
+            <div className="ty-title">
               ИИ-консультация
             </div>
-            <p className="mt-2 text-[14px] leading-relaxed text-zinc-500">
+            <p className="mt-2 ty-body">
               Разберём щиток с искусственным интеллектом: быстро, без очереди к
               человеку.
             </p>
@@ -144,7 +144,7 @@ export function LeadServiceScreen({
         </motion.button>
 
         {hasMaster == null ? (
-          <div className="rounded-[28px] border border-black/8 bg-white p-5 text-[14px] text-zinc-500">
+          <div className="rounded-[28px] border border-black/8 bg-white p-5 ty-body">
             Смотрим, кто из мастеров на связи в городе…
           </div>
         ) : (
@@ -192,10 +192,10 @@ export function LeadServiceScreen({
                       <span>{option.priceLabel}</span>
                     </div>
                   </div>
-                  <div className="text-[20px] font-bold leading-snug tracking-tight">
+                  <div className="ty-title">
                     {option.title}
                   </div>
-                  <p className={cn("mt-2 text-[14px] leading-relaxed", style.body)}>
+                  <p className={cn("mt-2 ty-body", style.body)}>
                     {option.description}
                   </p>
                 </div>
@@ -208,10 +208,10 @@ export function LeadServiceScreen({
       <AnimatePresence>
         {aiOpen ? (
           <BottomSheet onClose={() => setAiOpen(false)}>
-            <h2 className="text-[22px] font-bold text-zinc-900">
+            <h2 className="ty-title">
               Консультант появится в ближайшее время
             </h2>
-            <p className="mt-2 text-[15px] leading-relaxed text-zinc-600">
+            <p className="mt-2 ty-body">
               ИИ-консультация ещё настраивается. Пока можно вызвать мастера или
               взять онлайн-консультацию — в зависимости от города.
             </p>
@@ -226,10 +226,10 @@ export function LeadServiceScreen({
         ) : null}
         {payOption && !paying ? (
           <BottomSheet onClose={() => setPayOption(null)}>
-            <h2 className="text-[22px] font-bold text-zinc-900">
+            <h2 className="ty-title">
               Подтверждение
             </h2>
-            <p className="mt-2 text-[15px] leading-relaxed text-zinc-600">
+            <p className="mt-2 ty-body">
               {payOption.title}
               {payOption.priceRub != null
                 ? ` — ${payOption.priceLabel}`
@@ -246,7 +246,7 @@ export function LeadServiceScreen({
             <button
               type="button"
               onClick={() => setPayOption(null)}
-              className="mt-3 w-full py-2 text-center text-[15px] font-medium text-zinc-500"
+              className="mt-3 w-full py-2 text-center ty-subtitle"
             >
               Не сейчас
             </button>

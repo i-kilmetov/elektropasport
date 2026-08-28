@@ -6,7 +6,7 @@ export default function TestLoginPage() {
     <Suspense
       fallback={
         <main className="flex min-h-dvh items-center justify-center bg-[var(--bg)]">
-          <p className="text-[14px] text-zinc-500">Загрузка…</p>
+          <p className="ty-body">Загрузка…</p>
         </main>
       }
     >

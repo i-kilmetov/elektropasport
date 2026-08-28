@@ -164,10 +164,10 @@ export function ResearchSurveyScreen() {
           <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-600">
             <Check className="h-8 w-8" />
           </div>
-          <h1 className="text-[26px] font-bold tracking-tight text-zinc-900">
+          <h1 className="ty-display text-zinc-900">
             Спасибо
           </h1>
-          <p className="mt-3 max-w-sm text-[15px] leading-relaxed text-zinc-500">
+          <p className="mt-3 max-w-sm ty-body">
             Ответы записаны. Если есть и квартира, и дом — откройте ту же ссылку
             ещё раз и пройдите опрос про второй объект.
           </p>
@@ -200,7 +200,7 @@ export function ResearchSurveyScreen() {
             <div className="h-11 w-11" />
           )}
           <div className="min-w-0 flex-1">
-            <div className="text-[13px] font-medium text-zinc-400">
+            <div className="ty-label text-zinc-400">
               {question.topic
                 ? SURVEY_TOPIC_LABEL[question.topic]
                 : "Исследование"}{" "}
@@ -221,16 +221,16 @@ export function ResearchSurveyScreen() {
           className="flex min-h-0 flex-1 flex-col"
         >
           {question.concept && (
-            <GlassCard className="mb-4 p-4 text-[14px] leading-relaxed text-zinc-600">
+            <GlassCard className="mb-4 p-4 ty-body">
               {question.concept}
             </GlassCard>
           )}
 
-          <h1 className="text-[24px] font-bold tracking-tight text-zinc-900">
+          <h1 className="ty-display tracking-tight text-zinc-900">
             {question.title}
           </h1>
           {question.hint && (
-            <p className="mt-2 text-[14px] leading-relaxed text-zinc-500">
+            <p className="mt-2 ty-body">
               {question.hint}
             </p>
           )}
@@ -269,7 +269,7 @@ export function ResearchSurveyScreen() {
                     >
                       {selected && <Check className="h-3 w-3" />}
                     </span>
-                    <span className="text-[16px] font-medium leading-snug">
+                    <span className="ty-subtitle leading-snug">
                       {option.label}
                     </span>
                   </button>

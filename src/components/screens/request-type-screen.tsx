@@ -67,13 +67,13 @@ export function RequestTypeScreen({
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <h1 className="text-[20px] font-semibold text-zinc-900">Новая заявка</h1>
+        <h1 className="ty-title">Новая заявка</h1>
       </header>
 
-      <h2 className="mb-2 text-[26px] font-bold tracking-tight text-zinc-900">
+      <h2 className="mb-2 ty-display text-zinc-900">
         Что вам нужно?
       </h2>
-      <p className="mb-6 text-[15px] leading-relaxed text-zinc-500">
+      <p className="mb-6 ty-body">
         Выберите задачу — после этого оставите телефон, и мы свяжемся.
       </p>
 
@@ -95,10 +95,10 @@ export function RequestTypeScreen({
                   <Icon className="h-5 w-5" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="text-[16px] font-semibold text-zinc-900">
+                  <div className="ty-heading">
                     {option.title}
                   </div>
-                  <div className="mt-1 text-[13px] leading-snug text-zinc-500">
+                  <div className="mt-1 ty-note">
                     {option.description}
                   </div>
                 </div>

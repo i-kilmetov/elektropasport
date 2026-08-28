@@ -54,7 +54,7 @@ export function SafetyAxisMeters({
                   {axis.title}
                 </span>
                 {!compact && (
-                  <span className="truncate text-[11px] text-zinc-400">
+                  <span className="truncate ty-meta">
                     {axis.hint}
                   </span>
                 )}

@@ -21,10 +21,10 @@ export function MasterNotFoundScreen({
           <Phone className="h-8 w-8" />
         </div>
         <div>
-          <h2 className="mb-2 text-[22px] font-bold text-zinc-900">
+          <h2 className="mb-2 ty-title">
             Не нашли свободных мастеров
           </h2>
-          <p className="max-w-[300px] text-[15px] leading-relaxed text-zinc-500">
+          <p className="max-w-[300px] ty-body">
             Все мастера сейчас заняты, но мы обязательно свяжемся с вами в течение дня.
           </p>
         </div>

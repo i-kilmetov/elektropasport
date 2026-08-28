@@ -53,10 +53,10 @@ export function PdConsentGate({ onAccepted }: { onAccepted: () => void }) {
     <div className="fixed inset-0 z-[250] flex items-end justify-center bg-black/40 p-4 backdrop-blur-sm sm:items-center">
       <div className="w-full max-w-md rounded-[28px] border border-black/[0.06] bg-white p-6 shadow-xl">
         <BrandLogo className="mx-auto mb-4 h-9" />
-        <h2 className="mb-2 text-center text-[20px] font-semibold text-zinc-900">
+        <h2 className="mb-2 text-center ty-title">
           Согласие на данные и cookie
         </h2>
-        <p className="mb-4 text-center text-[14px] leading-relaxed text-zinc-500">
+        <p className="mb-4 text-center ty-body">
           Чтобы сохранять щитки, заявки и сессию входа, подтвердите документы
           сервиса и использование cookie.
         </p>

@@ -82,18 +82,18 @@ export function BecomeMasterScreen({
 
       <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-none pb-4">
         <div className="pt-2">
-          <h1 className="text-[28px] font-bold tracking-tight text-white sm:text-[32px]">
+          <h1 className="ty-display text-white ">
             Переходи на сторону
           </h1>
           <BrandLogo className="mt-4 h-12 sm:h-14" onDark />
-          <p className="mt-5 max-w-[34ch] text-[15px] leading-relaxed text-white/55">
+          <p className="mt-5 max-w-[34ch] ty-body text-white/55">
             Мы ищем сильных специалистов, которые аккуратно работают с
             электрикой, умеют объяснять простым языком и отвечают за результат.
           </p>
         </div>
 
         <div>
-          <h2 className="mb-3 text-[15px] font-semibold text-white">
+          <h2 className="mb-3 ty-heading text-white">
             Какие задачи бывают
           </h2>
           <div className="space-y-2.5">
@@ -109,10 +109,10 @@ export function BecomeMasterScreen({
                   <item.icon className="h-5 w-5" />
                 </span>
                 <div>
-                  <div className="text-[15px] font-semibold text-white">
+                  <div className="ty-heading text-white">
                     {item.title}
                   </div>
-                  <p className="mt-1 text-[13px] leading-relaxed text-white/45">
+                  <p className="mt-1 ty-note text-white/45">
                     {item.text}
                   </p>
                 </div>
@@ -126,10 +126,10 @@ export function BecomeMasterScreen({
             <GraduationCap className="h-5 w-5" />
           </span>
           <div>
-            <div className="mb-1 text-[15px] font-semibold text-white">
+            <div className="mb-1 ty-heading text-white">
               Обязательное условие
             </div>
-            <p className="text-[13px] leading-relaxed text-white/45">
+            <p className="ty-note text-white/45">
               Профильное образование и подтверждённая квалификация. Без этого мы
               не подключаем мастеров к заявкам сервиса — это вопрос безопасности
               пользователей.
@@ -138,16 +138,16 @@ export function BecomeMasterScreen({
         </div>
 
         <div className="space-y-3 rounded-[20px] border border-white/8 bg-white/[0.04] p-4">
-          <h2 className="text-[15px] font-semibold text-white">
+          <h2 className="ty-heading text-white">
             Как подать заявку
           </h2>
           <ol className="space-y-2.5">
             {steps.map((step, i) => (
               <li
                 key={step}
-                className="flex gap-3 text-[14px] leading-relaxed text-white/55"
+                className="flex gap-3 ty-body text-white/55"
               >
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#D3DA00] text-[12px] font-semibold text-[#111113]">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#D3DA00] ty-label text-[#111113]">
                   {i + 1}
                 </span>
                 <span className="pt-0.5">{step}</span>

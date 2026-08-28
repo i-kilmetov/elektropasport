@@ -66,7 +66,7 @@ export default function ConsentPage() {
           Согласие может быть отозвано путём направления обращения оператору.
           Отзыв не затрагивает законность обработки до момента отзыва.
         </p>
-        <p className="text-[13px] text-zinc-500">
+        <p className="ty-note">
           Версия документа: {PD_CONSENT_VERSION}
         </p>
       </LegalSection>

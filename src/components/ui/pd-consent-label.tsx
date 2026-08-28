@@ -2,7 +2,7 @@ import Link from "next/link";
 
 export function PdConsentLabel({ id }: { id?: string }) {
   return (
-    <span id={id} className="text-[13px] leading-relaxed text-zinc-600">
+    <span id={id} className="ty-note">
       Я даю{" "}
       <Link
         href="/legal/consent"

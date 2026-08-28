@@ -39,7 +39,7 @@ export function MasterApplyFrame({
             <ArrowLeft className="h-5 w-5" />
           </button>
           {title ? (
-            <h1 className="text-[20px] font-semibold text-white">{title}</h1>
+            <h1 className="ty-title text-white">{title}</h1>
           ) : null}
         </header>
         <div

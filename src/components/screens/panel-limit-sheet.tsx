@@ -84,14 +84,14 @@ export function PanelLimitSheet({
         >
           <div className="mb-4 flex items-start justify-between gap-3">
             <div>
-              <h2 className="text-[20px] font-semibold text-zinc-900">
+              <h2 className="ty-title">
                 {isLife
                   ? "Восстановить жизнь"
                   : showUnlocked
                     ? "Лимит щитков снят"
                     : "Пригласите человека"}
               </h2>
-              <p className="mt-1 text-[13px] text-zinc-500">
+              <p className="mt-1 ty-note">
                 {isLife
                   ? "Пригласите хотя бы одного нового человека в Током"
                   : showUnlocked
@@ -116,7 +116,7 @@ export function PanelLimitSheet({
                   <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] bg-zinc-100 text-zinc-700">
                     <point.icon className="h-4 w-4" />
                   </span>
-                  <p className="pt-1 text-[15px] leading-relaxed text-zinc-600">
+                  <p className="pt-1 ty-body">
                     {point.text}
                   </p>
                 </li>
@@ -135,11 +135,11 @@ export function PanelLimitSheet({
           )}
 
           <div className={showUnlocked ? "mt-5" : "mt-6"}>
-            <h3 className="mb-2 text-[14px] font-medium text-zinc-600">
+            <h3 className="mb-2 ty-subtitle text-zinc-600">
               Приглашённые
             </h3>
             {quota.events.length === 0 ? (
-              <p className="text-[13px] leading-relaxed text-zinc-400">
+              <p className="ty-note">
                 Пока никто не открыл вашу ссылку. Когда новый человек зайдёт в
                 приложение по вашей ссылке,{" "}
                 {isLife
@@ -152,11 +152,11 @@ export function PanelLimitSheet({
                   <li key={`${event.createdAt}-${index}`} className="px-4 py-3">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="truncate text-[15px] font-medium text-zinc-900">
+                        <p className="truncate ty-subtitle text-zinc-900">
                           {event.name}
                         </p>
                         {event.username && (
-                          <p className="mt-0.5 truncate text-[12px] text-zinc-400">
+                          <p className="mt-0.5 truncate ty-meta">
                             @{event.username}
                           </p>
                         )}
@@ -177,7 +177,7 @@ export function PanelLimitSheet({
                               : "Уже был в сервисе — лимит не снят"}
                         </p>
                       </div>
-                      <span className="shrink-0 text-[12px] text-zinc-400">
+                      <span className="shrink-0 ty-meta">
                         {formatEventDate(event.createdAt)}
                       </span>
                     </div>

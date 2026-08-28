@@ -237,7 +237,7 @@ export function ProfileScreen({
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <h1 className="min-w-0 flex-1 text-[20px] font-semibold text-zinc-900">
+        <h1 className="min-w-0 flex-1 ty-title">
           Личный кабинет
         </h1>
       </header>
@@ -245,13 +245,13 @@ export function ProfileScreen({
       <div className="min-w-0 flex-1 space-y-5 overflow-x-hidden overflow-y-auto pb-4">
         <div className="flex flex-col items-center gap-3">
           <div
-            className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-[#6B8AFD] text-[26px] font-semibold tracking-wide text-white"
+            className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-[#6B8AFD] ty-display tracking-wide text-white"
             aria-hidden
           >
             {initials || "?"}
           </div>
           {telegram.username && (
-            <p className="truncate text-[14px] text-zinc-500">
+            <p className="truncate ty-body">
               @{telegram.username}
             </p>
           )}
@@ -259,7 +259,7 @@ export function ProfileScreen({
             firstName: draft.firstName,
             lastName: draft.lastName,
           }) && (
-            <p className="text-[13px] text-zinc-400">Укажите имя и фамилию</p>
+            <p className="ty-meta">Укажите имя и фамилию</p>
           )}
         </div>
 
@@ -276,12 +276,12 @@ export function ProfileScreen({
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <div className="min-w-0 flex-1 text-[15px] font-semibold text-zinc-900">
+                    <div className="min-w-0 flex-1 ty-heading">
                       Безлимит на щитки
                     </div>
                     <ChevronRight className="h-4 w-4 shrink-0 text-zinc-400" />
                   </div>
-                  <p className="mt-1 text-[13px] leading-relaxed text-zinc-500">
+                  <p className="mt-1 ty-note">
                     {inviteCount > 0
                       ? `Ограничение снято. Приглашено: ${inviteCount}`
                       : "Можно добавлять любое количество щитков — ограничение снято."}
@@ -295,10 +295,10 @@ export function ProfileScreen({
                 <Infinity className="h-5 w-5" />
               </span>
               <div>
-                <div className="text-[15px] font-semibold text-zinc-900">
+                <div className="ty-heading">
                   Безлимит на щитки
                 </div>
-                <p className="mt-1 text-[13px] leading-relaxed text-zinc-500">
+                <p className="mt-1 ty-note">
                   Можно добавлять любое количество щитков — ограничение снято.
                 </p>
               </div>
@@ -308,8 +308,8 @@ export function ProfileScreen({
 
         <div>
           <div className="mb-2 flex items-end justify-between gap-3">
-            <h3 className="text-[14px] font-medium text-zinc-600">Ачивки</h3>
-            <span className="text-[12px] tabular-nums text-zinc-400">
+            <h3 className="ty-subtitle text-zinc-600">Ачивки</h3>
+            <span className="ty-meta tabular-nums">
               {unlockedCount} из {achievements.length}
             </span>
           </div>
@@ -338,7 +338,7 @@ export function ProfileScreen({
                   </span>
                   <div
                     className={cn(
-                      "mt-2 text-[12px] font-semibold leading-tight",
+                      "mt-2 ty-label leading-tight",
                       item.unlocked ? "text-zinc-900" : "text-zinc-400",
                     )}
                   >
@@ -346,7 +346,7 @@ export function ProfileScreen({
                   </div>
                   <div
                     className={cn(
-                      "mt-0.5 text-[10px] leading-snug",
+                      "mt-0.5 ty-meta",
                       item.unlocked ? "text-zinc-500" : "text-zinc-400",
                     )}
                   >
@@ -391,12 +391,12 @@ export function ProfileScreen({
         </GlassCard>
 
         <div className="min-w-0">
-          <h3 className="mb-2 text-[14px] font-medium text-zinc-600">
+          <h3 className="mb-2 ty-subtitle text-zinc-600">
             Дополнительно
           </h3>
           <GlassCard className="space-y-4 overflow-hidden p-4">
             <label className="block min-w-0">
-              <span className="mb-1.5 block text-[13px] text-zinc-500">
+              <span className="mb-1.5 block ty-note">
                 Номер телефона
               </span>
               <span className="flex h-12 min-w-0 items-center gap-2 rounded-[16px] border border-black/8 bg-zinc-50 px-3 focus-within:border-zinc-300">
@@ -415,14 +415,14 @@ export function ProfileScreen({
                   className="h-full min-w-0 flex-1 bg-transparent text-[15px] text-zinc-900 outline-none placeholder:text-zinc-400"
                 />
               </span>
-              <span className="mt-1.5 block text-[12px] leading-relaxed text-zinc-400">
+              <span className="mt-1.5 block ty-meta text-zinc-400">
                 Номер может понадобиться при запросе консультации или оформлении
                 заявок.
               </span>
             </label>
 
             <div className="block min-w-0">
-              <span className="mb-1.5 block text-[13px] text-zinc-500">
+              <span className="mb-1.5 block ty-note">
                 Электронная почта
               </span>
               <span className="flex h-12 min-w-0 items-center gap-2 rounded-[16px] border border-black/8 bg-zinc-50 px-3 focus-within:border-zinc-300">
@@ -442,7 +442,7 @@ export function ProfileScreen({
                   className="h-full min-w-0 flex-1 bg-transparent text-[15px] text-zinc-900 outline-none placeholder:text-zinc-400"
                 />
               </span>
-              <span className="mt-2 block text-[13px] leading-snug text-zinc-500">
+              <span className="mt-2 block ty-note">
                 Сообщать о новых функциях и изменениях
               </span>
             </div>
@@ -478,10 +478,10 @@ export function ProfileScreen({
               <Shield className="h-5 w-5" />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block text-[16px] font-semibold text-zinc-900">
+              <span className="block ty-heading">
                 Админка
               </span>
-              <span className="mt-0.5 block text-[13px] text-zinc-500">
+              <span className="mt-0.5 block ty-note">
                 Пользователи, заявки, роли
               </span>
             </span>
@@ -574,7 +574,7 @@ export function ProfileScreen({
                 <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500 text-white">
                   <Check className="h-7 w-7" strokeWidth={2.5} />
                 </div>
-                <p className="text-[18px] font-semibold text-zinc-900">
+                <p className="ty-title">
                   Данные сохранены
                 </p>
               </motion.div>

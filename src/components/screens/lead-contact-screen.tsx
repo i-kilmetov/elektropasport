@@ -273,7 +273,7 @@ export function LeadContactScreen({
           )}
           <h1
             className={cn(
-              "mb-2 text-[24px] font-bold",
+              "mb-2 ty-display",
               dark ? "text-white" : "text-zinc-900",
             )}
           >
@@ -281,7 +281,7 @@ export function LeadContactScreen({
           </h1>
           <p
             className={cn(
-              "max-w-sm text-[15px] leading-relaxed",
+              "max-w-sm ty-body",
               dark ? "text-white/55" : "text-zinc-500",
             )}
           >
@@ -294,17 +294,17 @@ export function LeadContactScreen({
         {variant === "install" && (
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pb-4">
             <div>
-              <h2 className="text-[16px] font-semibold text-zinc-900">
+              <h2 className="ty-heading">
                 Уточните детали
               </h2>
-              <p className="mt-1 text-[13px] leading-relaxed text-zinc-500">
+              <p className="mt-1 ty-note">
                 Эти данные помогут нам быстрее и точнее вам помочь. Можно не
                 заполнять.
               </p>
             </div>
 
             <div>
-              <div className="mb-2 text-[13px] font-medium text-zinc-600">
+              <div className="mb-2 ty-label text-zinc-600">
                 Объект
               </div>
               <div className="grid grid-cols-2 gap-2">
@@ -322,7 +322,7 @@ export function LeadContactScreen({
                   )}
                 >
                   <Building2 className="h-4 w-4 text-rose-400" />
-                  <span className="text-[14px] font-semibold text-zinc-900">
+                  <span className="ty-heading">
                     Квартира
                   </span>
                 </button>
@@ -340,7 +340,7 @@ export function LeadContactScreen({
                   )}
                 >
                   <Home className="h-4 w-4 text-rose-400" />
-                  <span className="text-[14px] font-semibold text-zinc-900">
+                  <span className="ty-heading">
                     Дом
                   </span>
                 </button>
@@ -348,7 +348,7 @@ export function LeadContactScreen({
             </div>
 
             <div>
-              <div className="mb-2 text-[13px] font-medium text-zinc-600">
+              <div className="mb-2 ty-label text-zinc-600">
                 Количество фаз
               </div>
               <div className="grid grid-cols-2 gap-2">
@@ -366,7 +366,7 @@ export function LeadContactScreen({
                       syncPending({ phases: value });
                     }}
                     className={cn(
-                      "rounded-[18px] border px-3 py-3 text-[14px] font-semibold transition-colors",
+                      "rounded-[18px] border px-3 py-3 ty-heading transition-colors",
                       phases === value
                         ? "border-rose-200 bg-rose-50 text-zinc-900"
                         : "border-black/8 bg-zinc-50 text-zinc-700",
@@ -379,7 +379,7 @@ export function LeadContactScreen({
             </div>
 
             <div>
-              <div className="mb-2 text-[13px] font-medium text-zinc-600">
+              <div className="mb-2 ty-label text-zinc-600">
                 Выделенная мощность, кВт
               </div>
               <input
@@ -440,7 +440,7 @@ export function LeadContactScreen({
         </button>
         <h1
           className={cn(
-            "text-[20px] font-semibold",
+            "ty-title",
             dark ? "text-white" : "text-zinc-900",
           )}
         >
@@ -449,7 +449,7 @@ export function LeadContactScreen({
       </header>
 
       {dark && city ? (
-        <p className="mb-5 text-[14px] text-white/50">
+        <p className="mb-5 ty-body text-white/50">
           Город: <span className="font-medium text-white">{city}</span>
         </p>
       ) : null}
@@ -457,28 +457,28 @@ export function LeadContactScreen({
       {variant === "install" && (city || serviceType) && (
         <div className="mb-5 rounded-[20px] border border-black/8 bg-zinc-50 p-4">
           {city && (
-            <p className="text-[13px] text-zinc-500">
+            <p className="ty-note">
               Город:{" "}
               <span className="font-medium text-zinc-800">{city}</span>
             </p>
           )}
           {exactAddress && (
-            <p className="mt-1 text-[13px] leading-relaxed text-zinc-600">
+            <p className="mt-1 ty-note">
               {exactAddress}
             </p>
           )}
           {serviceType && (
-            <p className="mt-1 text-[15px] font-semibold text-zinc-900">
+            <p className="mt-1 ty-heading">
               {getLeadServiceLabel(serviceType)}
             </p>
           )}
           {estimatedPriceRub != null && (
-            <p className="mt-1 text-[14px] font-medium tabular-nums text-zinc-700">
+            <p className="mt-1 ty-subtitle tabular-nums text-zinc-700">
               {formatRub(estimatedPriceRub)}
             </p>
           )}
           {serviceType === "other" && (
-            <p className="mt-1 text-[13px] leading-relaxed text-zinc-500">
+            <p className="mt-1 ty-note">
               Стоимость определим после разговора по телефону.
             </p>
           )}
@@ -502,7 +502,7 @@ export function LeadContactScreen({
           <Clock3 className="h-4 w-4 shrink-0" />
           <h2
             className={cn(
-              "text-[15px] font-semibold",
+              "ty-heading",
               dark ? "text-white" : "text-zinc-900",
             )}
           >
@@ -511,7 +511,7 @@ export function LeadContactScreen({
         </div>
         <p
           className={cn(
-            "text-[14px] leading-relaxed",
+            "ty-body",
             dark ? "text-white/55" : "text-sky-900/75",
           )}
         >
@@ -527,7 +527,7 @@ export function LeadContactScreen({
 
       <div
         className={cn(
-          "mb-3 text-[14px] font-medium",
+          "mb-3 ty-subtitle",
           dark ? "text-white/50" : "text-zinc-600",
         )}
       >
@@ -550,7 +550,7 @@ export function LeadContactScreen({
           />
           <span
             className={cn(
-              "text-[16px] font-medium",
+              "ty-subtitle",
               dark ? "text-white/80" : "text-zinc-700",
             )}
           >
@@ -608,7 +608,7 @@ export function LeadContactScreen({
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="mb-3 overflow-hidden text-[13px] leading-relaxed text-zinc-500"
+            className="mb-3 overflow-hidden ty-note"
           >
             {preferTelegram
               ? "Консультация в Telegram. Если аккаунт закрыт для сообщений — позвоним."
@@ -621,7 +621,7 @@ export function LeadContactScreen({
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="mb-3 overflow-hidden text-[13px] leading-relaxed text-zinc-500"
+            className="mb-3 overflow-hidden ty-note"
           >
             Напишем в Telegram, если у вас открыт доступ к сообщениям от всех.
             Если доступ закрыт — побеспокоим звонком.

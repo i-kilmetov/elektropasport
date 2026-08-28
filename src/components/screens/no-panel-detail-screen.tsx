@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import { ArrowLeft, MapPin, ShieldAlert, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ExpandableSection } from "@/components/ui/expandable-section";
 import { GlassCard } from "@/components/ui/glass-card";
 import { formatBuildingYear } from "@/lib/house-insight";
 import {
@@ -46,7 +47,7 @@ export function NoPanelDetailScreen({
       initial={{ opacity: 0, x: 40 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -40 }}
-      className="flex h-full min-h-0 flex-1 flex-col overflow-hidden px-5 pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+      className="flex h-full min-h-0 flex-1 flex-col px-5 pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))]"
     >
       <header className="mb-3 flex shrink-0 items-center gap-3">
         <button
@@ -57,9 +58,7 @@ export function NoPanelDetailScreen({
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <h1 className="truncate text-[18px] font-semibold text-zinc-900 sm:text-[20px]">
-          {setup.title}
-        </h1>
+        <h1 className="ty-title truncate">{setup.title}</h1>
       </header>
 
       <div
@@ -72,48 +71,22 @@ export function NoPanelDetailScreen({
         ) : (
           <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-[#111113]" />
         )}
-        <p className="text-[13px] leading-snug text-zinc-800">{setup.banner}</p>
+        <p className="ty-note text-zinc-800">{setup.banner}</p>
       </div>
 
-      <div
-        className={
-          saved
-            ? "min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-none"
-            : "flex min-h-0 flex-1 flex-col gap-2"
-        }
-      >
-        {setup.risks.map((risk) => {
+      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-none">
+        {setup.risks.map((risk, index) => {
           const meta = riskCategoryMeta[risk.category];
           const Icon = meta.icon;
           return (
-            <GlassCard
+            <ExpandableSection
               key={risk.title}
-              className={
-                saved
-                  ? "p-3"
-                  : "flex min-h-0 flex-1 flex-col overflow-hidden p-3"
-              }
+              title={risk.title}
+              defaultOpen={index === 0}
+              icon={<Icon className="h-4 w-4" />}
             >
-              <div className="mb-1 flex items-center gap-2.5">
-                <span
-                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${meta.className}`}
-                >
-                  <Icon className="h-3.5 w-3.5" />
-                </span>
-                <h3 className="text-[14px] font-semibold text-zinc-900">
-                  {risk.title}
-                </h3>
-              </div>
-              <p
-                className={
-                  saved
-                    ? "text-[13px] leading-snug text-zinc-500"
-                    : "min-h-0 flex-1 overflow-hidden text-[12px] leading-snug text-zinc-500 sm:text-[13px]"
-                }
-              >
-                {risk.text}
-              </p>
-            </GlassCard>
+              {risk.text}
+            </ExpandableSection>
           );
         })}
 
@@ -123,46 +96,42 @@ export function NoPanelDetailScreen({
             onClick={onEditAddress}
             role={onEditAddress ? "button" : undefined}
           >
-            <div className="mb-2 flex items-center gap-1.5 text-[12px] text-zinc-500">
+            <div className="mb-2 flex items-center gap-1.5 ty-note">
               <MapPin className="h-3.5 w-3.5 text-zinc-400" />
               Адрес
             </div>
             {houseSnapshot || addressLabel ? (
               <div className="space-y-2">
-                <p className="text-[14px] font-semibold leading-snug text-zinc-900">
+                <p className="ty-heading leading-snug text-zinc-900">
                   {addressLabel || houseSnapshot?.address}
                 </p>
-                {houseSnapshot && (
+                {houseSnapshot && houseSnapshot.buildingYear != null && (
                   <>
-                    {houseSnapshot.buildingYear != null && (
-                      <>
-                        <p className="text-[13px] text-zinc-600">
-                          Год постройки:{" "}
-                          <span className="font-medium text-zinc-800">
-                            {formatBuildingYear(houseSnapshot.buildingYear)}
-                          </span>
-                        </p>
-                        <p className="text-[13px] leading-snug text-zinc-600">
-                          {houseSnapshot.groundingTitle}.{" "}
-                          {houseSnapshot.groundingSummary}
-                        </p>
-                      </>
-                    )}
+                    <p className="ty-note">
+                      Год постройки:{" "}
+                      <span className="font-medium text-zinc-800">
+                        {formatBuildingYear(houseSnapshot.buildingYear)}
+                      </span>
+                    </p>
+                    <p className="ty-note">
+                      {houseSnapshot.groundingTitle}.{" "}
+                      {houseSnapshot.groundingSummary}
+                    </p>
                   </>
                 )}
                 {onEditAddress && (
-                  <span className="block pt-1 text-[13px] font-medium text-zinc-700">
+                  <span className="ty-label block pt-1 text-zinc-700">
                     Изменить адрес
                   </span>
                 )}
               </div>
             ) : (
               <div>
-                <p className="text-[13px] leading-snug text-zinc-400">
+                <p className="ty-note text-zinc-400">
                   Укажем адрес автоматически по геопозиции.
                 </p>
                 {onEditAddress && (
-                  <span className="mt-2 block text-[13px] font-medium text-zinc-700">
+                  <span className="ty-label mt-2 block text-zinc-700">
                     Определить адрес
                   </span>
                 )}

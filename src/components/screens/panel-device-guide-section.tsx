@@ -40,7 +40,7 @@ function PreviewWithCount({
         }
       />
       {count > 1 && (
-        <span className="mt-0.5 text-[11px] font-semibold tabular-nums text-zinc-500">
+        <span className="mt-0.5 ty-badge tabular-nums text-zinc-500">
           ×{count}
         </span>
       )}
@@ -76,10 +76,10 @@ function GuideRow({
       <div className="flex items-start gap-3">
         <PreviewWithCount device={sample} count={count} />
         <div className="min-w-0 flex-1 pt-0.5">
-          <span className="block text-[15px] font-semibold text-zinc-900">
+          <span className="block ty-heading">
             {title}
           </span>
-          <p className="mt-1.5 text-[13px] leading-relaxed text-zinc-500">
+          <p className="mt-1.5 ty-note">
             {body}
           </p>
         </div>
@@ -115,10 +115,10 @@ export function PanelDeviceGuideSection({
           aria-expanded={open}
         >
           <div>
-            <h3 className="text-[16px] font-semibold text-zinc-900">
+            <h3 className="ty-heading">
               Что в этом щитке
             </h3>
-            <p className="mt-1 text-[13px] text-zinc-500">
+            <p className="mt-1 ty-note">
               {present.length > 0
                 ? `${present.length} типов на схеме`
                 : "Пока ничего не распознано"}
@@ -165,10 +165,10 @@ export function PanelDeviceGuideSection({
                 {missing.length > 0 && (
                   <>
                     <div className="border-t border-black/[0.06] pt-3">
-                      <h4 className="text-[15px] font-semibold text-zinc-900">
+                      <h4 className="ty-heading">
                         Что ещё бывает и чем полезно
                       </h4>
-                      <p className="mt-1 text-[13px] leading-relaxed text-zinc-500">
+                      <p className="mt-1 ty-note">
                         Этих приборов на схеме нет — узнайте, какие параметры
                         бывают и как их подобрать.
                       </p>
@@ -186,7 +186,7 @@ export function PanelDeviceGuideSection({
                             <button
                               type="button"
                               onClick={() => setPickerType(type)}
-                              className="rounded-full border border-black/10 bg-zinc-100 px-2.5 py-1 text-[11px] font-semibold text-zinc-700 transition-colors hover:bg-zinc-200"
+                              className="rounded-full border border-black/10 bg-zinc-100 px-2.5 py-1 ty-badge text-zinc-700 transition-colors hover:bg-zinc-200"
                             >
                               Как подобрать
                             </button>
@@ -198,14 +198,14 @@ export function PanelDeviceGuideSection({
                 )}
 
                 <div className="rounded-[14px] border border-amber-200 bg-amber-50 px-3.5 py-3">
-                  <p className="text-[12px] leading-relaxed text-amber-900/75">
+                  <p className="ty-meta text-amber-900/75">
                     {panelGuideDisclaimer}
                   </p>
                   {onCallMaster && (
                     <button
                       type="button"
                       onClick={onCallMaster}
-                      className="mt-2.5 block text-[13px] font-semibold text-amber-950 underline decoration-amber-800/40 underline-offset-2"
+                      className="mt-2.5 block ty-label text-amber-950 underline decoration-amber-800/40 underline-offset-2"
                     >
                       ⚡ Помочь с электрикой
                     </button>

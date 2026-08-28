@@ -109,10 +109,10 @@ export function MasterDocsScreen({
         </>
       }
     >
-      <h2 className="mb-2 text-[26px] font-bold tracking-tight text-white">
+      <h2 className="mb-2 ty-display text-white">
         Образование в электрике
       </h2>
-      <p className="mb-5 text-[15px] leading-relaxed text-white/55">
+      <p className="mb-5 ty-body text-white/55">
         Приложите фото диплома, свидетельства или удостоверения, подтверждающего
         вашу квалификацию в электрике. Нужен хотя бы один снимок, максимум три.
       </p>

@@ -119,10 +119,10 @@ export function FeedbackScreen({ onBack }: { onBack: () => void }) {
           <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-600">
             <Check className="h-8 w-8" />
           </div>
-          <h1 className="mb-2 text-[24px] font-bold text-zinc-900">
+          <h1 className="mb-2 ty-display text-zinc-900">
             Спасибо за отзыв
           </h1>
-          <p className="mb-8 max-w-sm text-[15px] leading-relaxed text-zinc-500">
+          <p className="mb-8 max-w-sm ty-body">
             Сообщение отправлено. Мы читаем каждую обратную связь и учитываем её
             в развитии сервиса.
           </p>
@@ -150,7 +150,7 @@ export function FeedbackScreen({ onBack }: { onBack: () => void }) {
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <h1 className="text-[20px] font-semibold text-zinc-900">
+        <h1 className="ty-title">
           Обратная связь
         </h1>
       </header>
@@ -161,10 +161,10 @@ export function FeedbackScreen({ onBack }: { onBack: () => void }) {
         </div>
 
         <div>
-          <h2 className="mb-3 text-[26px] font-bold tracking-tight text-zinc-900">
+          <h2 className="mb-3 ty-display text-zinc-900">
             Помогите сделать сервис лучше
           </h2>
-          <p className="text-[15px] leading-relaxed text-zinc-500">
+          <p className="ty-body">
             <strong className="font-semibold text-zinc-800">Током</strong> только
             развивается — будем рады любой обратной связи:
             баги, советы и поддержка. Напишите, что заметили или что хотели бы
@@ -173,7 +173,7 @@ export function FeedbackScreen({ onBack }: { onBack: () => void }) {
         </div>
 
         <div>
-          <div className="mb-2 text-[13px] font-medium text-zinc-600">Тема</div>
+          <div className="mb-2 ty-label text-zinc-600">Тема</div>
           <div className="relative">
             <select
               value={topic ?? ""}
@@ -201,7 +201,7 @@ export function FeedbackScreen({ onBack }: { onBack: () => void }) {
         </div>
 
         <GlassCard className="p-4">
-          <label className="mb-2 block text-[13px] font-medium text-zinc-600">
+          <label className="mb-2 block ty-label text-zinc-600">
             Ваше сообщение
           </label>
           <textarea
@@ -232,10 +232,10 @@ export function FeedbackScreen({ onBack }: { onBack: () => void }) {
                 <Paperclip className="h-4 w-4" />
               </button>
               {attachBusy && (
-                <span className="text-[12px] text-zinc-400">Добавляем…</span>
+                <span className="ty-meta">Добавляем…</span>
               )}
             </div>
-            <div className="text-[12px] text-zinc-400">
+            <div className="ty-meta">
               {message.length}/{MAX_MESSAGE_LENGTH}
             </div>
           </div>

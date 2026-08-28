@@ -43,13 +43,13 @@ export function WireSpecSheet({
         onClick={(e) => e.stopPropagation()}
         className="w-full max-w-md rounded-t-[24px] border border-black/8 bg-white p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl sm:rounded-[24px]"
       >
-        <h3 className="text-[18px] font-semibold text-zinc-900">Кабель</h3>
-        <p className="mt-1 text-[13px] text-zinc-500">
+        <h3 className="ty-title">Кабель</h3>
+        <p className="mt-1 ty-note">
           Укажите цвет изоляции и сечение — так кабель отобразится на схеме.
         </p>
 
         <div className="mt-4">
-          <div className="mb-2 text-[12px] font-medium text-zinc-500">Цвет</div>
+          <div className="mb-2 ty-badge text-zinc-500">Цвет</div>
           <div className="grid grid-cols-4 gap-2">
             {WIRE_COLOR_OPTIONS.map((option) => {
               const active = option.color === color;
@@ -84,7 +84,7 @@ export function WireSpecSheet({
         </div>
 
         <div className="mt-4">
-          <div className="mb-2 text-[12px] font-medium text-zinc-500">
+          <div className="mb-2 ty-badge text-zinc-500">
             Сечение, мм²
           </div>
           <div className="flex flex-wrap gap-2">
@@ -96,7 +96,7 @@ export function WireSpecSheet({
                   type="button"
                   onClick={() => setThicknessMm(mm)}
                   className={cn(
-                    "rounded-full px-3 py-1.5 text-[13px] font-semibold transition-colors",
+                    "rounded-full px-3 py-1.5 ty-label transition-colors",
                     active
                       ? "bg-zinc-900 text-white"
                       : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200",
@@ -154,7 +154,7 @@ export function WireSpecSheet({
           <button
             type="button"
             onClick={onDelete}
-            className="mt-3 w-full py-2 text-center text-[14px] font-medium text-rose-600"
+            className="mt-3 w-full py-2 text-center ty-subtitle text-rose-600"
           >
             Удалить кабель
           </button>

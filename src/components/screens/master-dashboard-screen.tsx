@@ -85,7 +85,7 @@ export function MasterDashboardScreen({
     >
       <header className="mb-4 flex items-center justify-between gap-3 px-5">
         <div className="min-w-0">
-          <h1 className="text-[22px] font-bold text-white">Режим мастера</h1>
+          <h1 className="ty-title text-white">Режим мастера</h1>
           <p className="mt-0.5 text-[13px] text-[#D3DA00]">
             Сейчас включён кабинет мастера
           </p>
@@ -93,7 +93,7 @@ export function MasterDashboardScreen({
         <button
           type="button"
           onClick={onSwitchToUser}
-          className="flex shrink-0 items-center gap-1.5 rounded-full border border-white/12 bg-white/5 px-3 py-1.5 text-[13px] font-medium text-white"
+          className="flex shrink-0 items-center gap-1.5 rounded-full border border-white/12 bg-white/5 px-3 py-1.5 ty-label text-white"
         >
           <ArrowLeftRight className="h-3.5 w-3.5" />
           Пользователь
@@ -106,7 +106,7 @@ export function MasterDashboardScreen({
             <Star className="h-3.5 w-3.5 text-amber-300" />
             Рейтинг
           </div>
-          <div className="text-[24px] font-bold text-white">
+          <div className="ty-display text-white">
             {loading ? "…" : ratingDisplay}
           </div>
         </GlassCard>
@@ -115,14 +115,14 @@ export function MasterDashboardScreen({
             <Zap className="h-3.5 w-3.5 text-[#D3DA00]" />
             Заказы
           </div>
-          <div className="text-[24px] font-bold text-white">
+          <div className="ty-display text-white">
             {loading ? "…" : ordersDisplay}
           </div>
         </GlassCard>
       </div>
 
       <div className="mb-3 px-5">
-        <h2 className="text-[17px] font-semibold text-white">
+        <h2 className="ty-heading text-white">
           Заявки клиентов
         </h2>
       </div>
@@ -169,19 +169,19 @@ export function MasterDashboardScreen({
                   className="min-w-0 flex-1 py-1 text-left"
                 >
                   <div className="mb-0.5 flex items-center justify-between gap-2">
-                    <span className="truncate text-[15px] font-semibold text-white">
+                    <span className="truncate ty-heading text-white">
                       {req.publicCode ?? req.title}
                     </span>
                     <span
                       className={cn(
-                        "shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium",
+                        "shrink-0 rounded-full px-2 py-0.5 ty-badge",
                         installStatusTone(req.status).badge,
                       )}
                     >
                       {req.statusLabel}
                     </span>
                   </div>
-                  <p className="truncate text-[13px] text-white/50">
+                  <p className="truncate ty-note text-white/50">
                     {req.exactAddress ?? req.city ?? "—"}
                   </p>
                 </button>

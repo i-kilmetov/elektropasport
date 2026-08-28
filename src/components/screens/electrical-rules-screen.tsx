@@ -28,12 +28,12 @@ export function ElectricalRulesScreen({
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <h1 className="text-[20px] font-semibold text-zinc-900">
+        <h1 className="ty-title">
           Важное об электрике
         </h1>
       </header>
 
-      <p className="mb-5 text-[15px] leading-relaxed text-zinc-500">
+      <p className="mb-5 ty-body">
         Краткие правила по мотивам ПУЭ и практики безопасной эксплуатации.
         Это памятка, а не замена нормам и работе специалиста.
       </p>
@@ -51,10 +51,10 @@ export function ElectricalRulesScreen({
                 <BookOpen className="h-5 w-5" />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block text-[16px] font-semibold text-zinc-900">
+                <span className="block ty-heading">
                   {rule.title}
                 </span>
-                <span className="mt-0.5 block text-[13px] text-zinc-500">
+                <span className="mt-0.5 block ty-note">
                   {rule.summary}
                 </span>
               </span>
