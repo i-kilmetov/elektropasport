@@ -522,8 +522,6 @@ export function ProfileScreen({
         )}
       </AnimatePresence>
 
-      </AnimatePresence>
-
       <UndoSnackbarHost
         action={
           deleteArmed
