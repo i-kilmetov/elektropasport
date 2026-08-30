@@ -21,9 +21,9 @@ import {
   Menu,
   Plus,
   Wrench,
-  Zap,
 } from "lucide-react";
 import { BreakerIcon } from "@/components/icons/breaker-icon";
+import { GeminiSparkle } from "@/components/icons/gemini-sparkle";
 import { AddApplianceSheet } from "@/components/screens/add-appliance-sheet";
 import {
   MainMenuSheet,
@@ -1030,7 +1030,7 @@ export function ObjectsScreen({
                   </button>
                 )}
                 <Button className="h-11 rounded-full px-5" onClick={onHelpElectrical}>
-                  <Zap className="h-5 w-5" />
+                  <GeminiSparkle className="h-5 w-5" />
                   Помочь с электрикой
                 </Button>
               </div>
@@ -1116,7 +1116,7 @@ export function ObjectsScreen({
         ) : (
           <div className="space-y-3">
             <Button className="w-full rounded-full" onClick={onHelpElectrical}>
-              <Zap className="h-5 w-5" />
+              <GeminiSparkle className="h-5 w-5" />
               Помочь с электрикой
             </Button>
             {onBecomeMaster && (

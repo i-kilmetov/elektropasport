@@ -12,6 +12,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { AddApplianceSheet } from "@/components/screens/add-appliance-sheet";
+import { AppliancePassportCard } from "@/components/screens/appliance-passport-card";
 import { GlassCard } from "@/components/ui/glass-card";
 import { InfoDialog } from "@/components/ui/info-dialog";
 import { UndoSnackbarHost } from "@/components/ui/undo-snackbar";
@@ -211,6 +212,12 @@ export function ApplianceDetailScreen({
               ))}
             </div>
           </GlassCard>
+
+          <AppliancePassportCard
+            panel={panel}
+            appliance={appliance}
+            onReplace={onReplace}
+          />
         </div>
 
         <div className="mt-auto grid grid-cols-2 gap-3 pt-6">

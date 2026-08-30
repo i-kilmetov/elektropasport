@@ -6,6 +6,7 @@ import { Check, ChevronDown } from "lucide-react";
 import { DeviceFaceIdentityMark } from "@/components/icons/brand-mark";
 import { DeviceMiniPreview } from "@/components/icons/device-face";
 import { GlassCard } from "@/components/ui/glass-card";
+import { GeminiSparkle } from "@/components/icons/gemini-sparkle";
 import { DeviceSpecGuideSheet } from "@/components/screens/device-spec-guide-sheet";
 import {
   panelGuideDisclaimer,
@@ -205,9 +206,10 @@ export function PanelDeviceGuideSection({
                     <button
                       type="button"
                       onClick={onCallMaster}
-                      className="mt-2.5 block ty-label text-amber-950 underline decoration-amber-800/40 underline-offset-2"
+                      className="mt-2.5 flex items-center gap-1.5 ty-label text-amber-950 underline decoration-amber-800/40 underline-offset-2"
                     >
-                      ⚡ Помочь с электрикой
+                      <GeminiSparkle className="h-3.5 w-3.5" />
+                      Помочь с электрикой
                     </button>
                   )}
                 </div>

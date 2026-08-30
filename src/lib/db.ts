@@ -17,9 +17,10 @@ import {
 import type { PanelHouseSnapshot } from "@/lib/house-insight";
 import { countPanelDevices } from "@/lib/panel-rails";
 import { isNoPanelSetupId } from "@/lib/no-panel-setups";
+import type { AppliancePassportPhotoMeta } from "@/lib/appliance-passport";
 import { DbError, dbErrorResponse } from "@/lib/db-error";
 export { DbError, dbErrorResponse } from "@/lib/db-error";
-import { getSql, jsonbParam } from "@/lib/sql-client";
+import { byteaParam, bytesFromBytea, getSql, jsonbParam } from "@/lib/sql-client";
 export {
   getSql,
   isRussianDatabaseConfigured,
@@ -41,7 +42,7 @@ import { ensureConnectedMoscowMaster } from "@/lib/ensure-moscow-master";
 let schemaReady: Promise<void> | null = null;
 
 /** Bump when DDL below changes so cold starts re-run migrations once. */
-const SCHEMA_VERSION = "2026-08-27-master-exam-docs";
+const SCHEMA_VERSION = "2026-08-30-appliance-passport";
 /** One-shot data wipe flag — never re-run after it is written. */
 const FRESH_START_KEY = "fresh_start_2026_08_25_b";
 /** Bumped on each factory wipe so clients drop localStorage orphans. */
@@ -530,6 +531,21 @@ export async function ensureSchema(): Promise<void> {
       await sql`
         CREATE INDEX IF NOT EXISTS panel_catalog_article_idx
         ON panel_catalog_products (article)
+      `;
+      await sql`
+        CREATE TABLE IF NOT EXISTS appliance_passport_photos (
+          id TEXT PRIMARY KEY,
+          owner_telegram_id BIGINT NOT NULL REFERENCES users(telegram_id) ON DELETE CASCADE,
+          panel_id TEXT NOT NULL REFERENCES panels(id) ON DELETE CASCADE,
+          appliance_id TEXT NOT NULL,
+          mime TEXT NOT NULL,
+          bytes BYTEA NOT NULL,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+      `;
+      await sql`
+        CREATE INDEX IF NOT EXISTS appliance_passport_photos_appliance_idx
+        ON appliance_passport_photos (owner_telegram_id, panel_id, appliance_id)
       `;
 
       // One-time factory reset requested for clean testing.
@@ -1319,7 +1335,19 @@ export async function updatePanel(
       devices, lines_count, photo_data_url, named, phases, power_kw,
       has_ground, house_snapshot, rail_count, wires, appliances, appliances_updated_at, source_share_token, no_panel_setup_id, created_at
   `) as PanelRow[];
-  return rows[0] ? rowToPanel(rows[0]) : null;
+  const updated = rows[0] ? rowToPanel(rows[0]) : null;
+  if (updated && writingAppliances) {
+    try {
+      await pruneOrphanAppliancePassportPhotos(
+        telegramUserId,
+        id,
+        (nextAppliances ?? []).map((item) => item.id).filter(Boolean),
+      );
+    } catch (error) {
+      console.error("pruneOrphanAppliancePassportPhotos", error);
+    }
+  }
+  return updated;
 }
 
 export async function getPanelByOwner(
@@ -2434,4 +2462,134 @@ export async function listDistinctPushUserIds(): Promise<number[]> {
     FROM push_subscriptions
   `) as Array<{ telegram_user_id: string | number }>;
   return rows.map((row) => Number(row.telegram_user_id));
+}
+
+export type AppliancePassportPhoto = AppliancePassportPhotoMeta & {
+  mime: string;
+  bytes: Buffer;
+};
+
+async function pruneOrphanAppliancePassportPhotos(
+  telegramUserId: number,
+  panelId: string,
+  keepApplianceIds: string[],
+): Promise<void> {
+  const sql = getSql();
+  if (keepApplianceIds.length === 0) {
+    await sql`
+      DELETE FROM appliance_passport_photos
+      WHERE owner_telegram_id = ${telegramUserId}
+        AND panel_id = ${panelId}
+    `;
+    return;
+  }
+  await sql`
+    DELETE FROM appliance_passport_photos
+    WHERE owner_telegram_id = ${telegramUserId}
+      AND panel_id = ${panelId}
+      AND NOT (appliance_id = ANY(${keepApplianceIds}))
+  `;
+}
+
+export async function listAppliancePassportPhotos(
+  telegramUserId: number,
+  panelId: string,
+  applianceId: string,
+): Promise<AppliancePassportPhotoMeta[]> {
+  const sql = getSql();
+  await ensureSchema();
+  const rows = (await sql`
+    SELECT id, created_at
+    FROM appliance_passport_photos
+    WHERE owner_telegram_id = ${telegramUserId}
+      AND panel_id = ${panelId}
+      AND appliance_id = ${applianceId}
+    ORDER BY created_at ASC
+  `) as Array<{ id: string; created_at: string | Date }>;
+  return rows.map((row) => ({
+    id: row.id,
+    createdAt: new Date(row.created_at).toISOString(),
+  }));
+}
+
+export async function countAppliancePassportPhotos(
+  telegramUserId: number,
+  panelId: string,
+  applianceId: string,
+): Promise<number> {
+  const sql = getSql();
+  const [row] = (await sql`
+    SELECT COUNT(*)::int AS n
+    FROM appliance_passport_photos
+    WHERE owner_telegram_id = ${telegramUserId}
+      AND panel_id = ${panelId}
+      AND appliance_id = ${applianceId}
+  `) as Array<{ n: number }>;
+  return row?.n ?? 0;
+}
+
+export async function insertAppliancePassportPhoto(input: {
+  ownerTelegramId: number;
+  panelId: string;
+  applianceId: string;
+  mime: string;
+  bytes: Uint8Array;
+}): Promise<AppliancePassportPhotoMeta> {
+  const sql = getSql();
+  await ensureSchema();
+  const id = `appp_${crypto.randomUUID().replace(/-/g, "").slice(0, 20)}`;
+  await sql`
+    INSERT INTO appliance_passport_photos (
+      id, owner_telegram_id, panel_id, appliance_id, mime, bytes
+    )
+    VALUES (
+      ${id},
+      ${input.ownerTelegramId},
+      ${input.panelId},
+      ${input.applianceId},
+      ${input.mime},
+      ${byteaParam(input.bytes)}::bytea
+    )
+  `;
+  return { id, createdAt: new Date().toISOString() };
+}
+
+export async function getAppliancePassportPhoto(
+  telegramUserId: number,
+  id: string,
+): Promise<AppliancePassportPhoto | null> {
+  const sql = getSql();
+  await ensureSchema();
+  const [row] = (await sql`
+    SELECT id, mime, bytes, created_at
+    FROM appliance_passport_photos
+    WHERE id = ${id} AND owner_telegram_id = ${telegramUserId}
+    LIMIT 1
+  `) as Array<{
+    id: string;
+    mime: string;
+    bytes: unknown;
+    created_at: string | Date;
+  }>;
+  if (!row) return null;
+  return {
+    id: row.id,
+    mime: row.mime || "image/jpeg",
+    bytes: bytesFromBytea(row.bytes),
+    createdAt: new Date(row.created_at).toISOString(),
+  };
+}
+
+export async function deleteAppliancePassportPhoto(
+  telegramUserId: number,
+  id: string,
+): Promise<boolean> {
+  const sql = getSql();
+  await ensureSchema();
+  const rows = await sql`
+    DELETE FROM appliance_passport_photos
+    WHERE id = ${id} AND owner_telegram_id = ${telegramUserId}
+    RETURNING id
+  `;
+  return rows.length > 0;
 }

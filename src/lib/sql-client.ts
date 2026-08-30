@@ -44,6 +44,33 @@ export function jsonbParam(
   return JSON.stringify(sanitized);
 }
 
+/** Bind BYTEA for postgres.js (Buffer) and Neon HTTP (hex text + ::bytea). */
+export function byteaParam(bytes: Uint8Array): Buffer | string {
+  const buf = Buffer.from(bytes);
+  if (sqlDriver === "postgres") return buf;
+  return `\\x${buf.toString("hex")}`;
+}
+
+export function bytesFromBytea(value: unknown): Buffer {
+  if (Buffer.isBuffer(value)) return value;
+  if (value instanceof Uint8Array) return Buffer.from(value);
+  if (value && typeof value === "object" && "data" in value) {
+    const rec = value as { type?: unknown; data?: unknown };
+    if (rec.type === "Buffer" && Array.isArray(rec.data)) {
+      return Buffer.from(rec.data as number[]);
+    }
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    const hex = trimmed.replace(/^\\+x/i, "");
+    if (/^[0-9a-fA-F]+$/.test(hex) && hex.length % 2 === 0) {
+      return Buffer.from(hex, "hex");
+    }
+    return Buffer.from(trimmed, "base64");
+  }
+  throw new Error("Некорректные данные фото");
+}
+
 export function getSql(): SqlClient {
   const url = resolveDatabaseUrl();
 

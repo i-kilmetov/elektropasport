@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import { Check, Shield, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { GeminiSparkle } from "@/components/icons/gemini-sparkle";
 import { Portal } from "@/components/ui/portal";
 import { SafetyAxisMeters } from "@/components/ui/safety-axis-meters";
 import {
@@ -122,7 +123,8 @@ export function SafetyExplainSheet({
                 variant={scoreKnown ? "default" : "secondary"}
                 onClick={onCallMaster}
               >
-                ⚡ Помочь с электрикой
+                <GeminiSparkle className="h-5 w-5" />
+                Помочь с электрикой
               </Button>
             )}
             <Button className="w-full" variant="secondary" onClick={onClose}>

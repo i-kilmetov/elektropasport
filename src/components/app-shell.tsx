@@ -1326,6 +1326,10 @@ export function AppShell({
       named: true,
       sourceShareToken: sharedPreview.token,
       photoDataUrl: undefined,
+      appliances: source.appliances?.map((item) => ({
+        ...item,
+        passportPhotoIds: undefined,
+      })),
     };
     setItems((prev) => [copy, ...prev]);
     setItemsError(null);

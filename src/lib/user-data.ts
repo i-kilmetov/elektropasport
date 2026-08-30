@@ -392,6 +392,12 @@ export function mergeAppliancesUnion(
             ...prev,
             ...item,
             photoDataUrl: item.photoDataUrl || prev.photoDataUrl,
+            passportPhotoIds: [
+              ...new Set([
+                ...(prev.passportPhotoIds ?? []),
+                ...(item.passportPhotoIds ?? []),
+              ]),
+            ],
           }
         : item,
     );

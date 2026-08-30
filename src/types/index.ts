@@ -127,6 +127,8 @@ export interface HomeAppliance {
   /** Catalog entry id when picked from the appliance database */
   catalogId?: string;
   photoDataUrl?: string;
+  /** BYTEA rows in appliance_passport_photos (Amvera). Not image payloads. */
+  passportPhotoIds?: string[];
   /** Spec rows (power, capacity, …) — snapshot from catalog at save time */
   specs?: ApplianceSpec[];
   manuals?: ApplianceManual[];

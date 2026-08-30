@@ -13,6 +13,7 @@ import {
   type SetStateAction,
 } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { GeminiSparkle } from "@/components/icons/gemini-sparkle";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -515,9 +516,10 @@ function IdentifyFlowFooter({
         type="button"
         onClick={onCallMaster}
         disabled={!onCallMaster}
-        className="ty-label text-zinc-700 transition-colors hover:text-zinc-900 disabled:opacity-40"
+        className="inline-flex items-center gap-1.5 ty-label text-zinc-700 transition-colors hover:text-zinc-900 disabled:opacity-40"
       >
-        ⚡ Помочь с электрикой
+        <GeminiSparkle className="h-4 w-4" />
+        Помочь с электрикой
       </button>
     </div>
   );
