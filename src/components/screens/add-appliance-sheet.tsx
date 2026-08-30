@@ -98,7 +98,9 @@ export function AddApplianceSheet({
     initialIsCustom ? (initialAppliance?.model ?? "") : "",
   );
   const [otherKindsOpen, setOtherKindsOpen] = useState(
-    initialKind != null && !isPrimaryCatalogApplianceKind(initialKind),
+    initialIsCustom
+      ? false
+      : initialKind != null && !isPrimaryCatalogApplianceKind(initialKind),
   );
   const [brand, setBrand] = useState<string | null>(
     initialIsCustom
@@ -131,10 +133,14 @@ export function AddApplianceSheet({
   const otherKindSelected =
     kind != null && !isPrimaryCatalogApplianceKind(kind);
   const typeSelected = customKindMode || kind != null;
-  const resolvedBrand =
-    brand === CUSTOM_BRAND ? customBrandName.trim() : (brand?.trim() ?? "");
-  const resolvedModel =
-    modelId === CUSTOM_MODEL
+  const resolvedBrand = customKindMode
+    ? customBrandName.trim()
+    : brand === CUSTOM_BRAND
+      ? customBrandName.trim()
+      : (brand?.trim() ?? "");
+  const resolvedModel = customKindMode
+    ? customModelName.trim()
+    : modelId === CUSTOM_MODEL
       ? customModelName.trim()
       : (selectedModel?.modelName || selectedModel?.productCode || "").trim();
   const usingCatalogModel =
@@ -155,6 +161,17 @@ export function AddApplianceSheet({
     }
   };
 
+  const exitCustomKindMode = () => {
+    setCustomKindMode(false);
+    setCustomKindName("");
+    setCustomBrandName("");
+    setCustomModelName("");
+    setBrand(null);
+    setModelId(null);
+    setOtherKindsOpen(true);
+    setError(null);
+  };
+
   const selectCustomKind = () => {
     setCustomKindMode(true);
     setKind(null);
@@ -162,6 +179,7 @@ export function AddApplianceSheet({
     setModelId(null);
     setModels([]);
     setDetails(null);
+    setCustomKindName("");
     setCustomBrandName("");
     setCustomModelName("");
     setError(null);
@@ -420,11 +438,69 @@ export function AddApplianceSheet({
           )}
 
           <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
-            <p className="mb-3 ty-label text-zinc-500">
-              Тип техники
-            </p>
+            {customKindMode ? (
+              <div className="space-y-4">
+                <button
+                  type="button"
+                  onClick={exitCustomKindMode}
+                  className="inline-flex items-center gap-1.5 ty-label text-zinc-600 hover:text-zinc-900"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  К выбору типа
+                </button>
+                <label className="block">
+                  <span className="mb-1.5 block ty-label text-zinc-500">
+                    Тип
+                  </span>
+                  <input
+                    type="text"
+                    value={customKindName}
+                    onChange={(e) => {
+                      setCustomKindName(e.target.value);
+                      setError(null);
+                    }}
+                    placeholder="Например, морозильник"
+                    className={selectClassName}
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-1.5 block ty-label text-zinc-500">
+                    Производитель
+                  </span>
+                  <input
+                    type="text"
+                    value={customBrandName}
+                    onChange={(e) => {
+                      setCustomBrandName(e.target.value);
+                      setError(null);
+                    }}
+                    placeholder="Название производителя"
+                    className={selectClassName}
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-1.5 block ty-label text-zinc-500">
+                    Модель
+                  </span>
+                  <input
+                    type="text"
+                    value={customModelName}
+                    onChange={(e) => {
+                      setCustomModelName(e.target.value);
+                      setError(null);
+                    }}
+                    placeholder="Модель или артикул"
+                    className={selectClassName}
+                  />
+                </label>
+              </div>
+            ) : (
+              <>
+                <p className="mb-3 ty-label text-zinc-500">
+                  Тип техники
+                </p>
 
-            {otherKindsOpen ? (
+                {otherKindsOpen ? (
               <div className="space-y-3">
                 <button
                   type="button"
@@ -514,26 +590,11 @@ export function AddApplianceSheet({
                       : "Другое"}
                   </span>
                 </button>
-                <button
-                  type="button"
-                  onClick={selectCustomKind}
-                  className={kindCardClass(customKindMode)}
-                >
-                  <span className={kindIconWrapClass(customKindMode)}>
-                    {(() => {
-                      const Icon = applianceKindIcon("other-picker");
-                      return <Icon className="h-5 w-5" />;
-                    })()}
-                  </span>
-                  <span className="text-[0.8125rem] font-semibold leading-snug text-zinc-900">
-                    Свой вариант
-                  </span>
-                </button>
               </div>
             )}
 
             <AnimatePresence initial={false}>
-              {typeSelected && (
+              {!customKindMode && typeSelected && (
                 <motion.div
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: "auto" }}
@@ -541,30 +602,12 @@ export function AddApplianceSheet({
                   transition={{ duration: 0.22 }}
                   className="space-y-4 overflow-hidden pt-5"
                 >
-                  {customKindMode && (
-                    <label className="block">
-                      <span className="mb-1.5 block ty-label text-zinc-500">
-                        Название типа
-                      </span>
-                      <input
-                        type="text"
-                        value={customKindName}
-                        onChange={(e) => {
-                          setCustomKindName(e.target.value);
-                          setError(null);
-                        }}
-                        placeholder="Например, морозильник"
-                        className={selectClassName}
-                      />
-                    </label>
-                  )}
-
-                  {!customKindMode && !catalogReady && (
+                  {!catalogReady && (
                     <p className="rounded-[16px] bg-amber-50 px-3 py-2 text-[13px] text-amber-900">
                       Каталог производителей ещё не загружен. Попробуйте позже.
                     </p>
                   )}
-                  {!customKindMode && catalogReady && !brandsLoading && brands.length === 0 && (
+                  {catalogReady && !brandsLoading && brands.length === 0 && (
                     <p className="rounded-[16px] bg-zinc-50 px-3 py-2 text-[13px] text-zinc-600">
                       Для этого типа техники пока нет производителей в каталоге.
                     </p>
@@ -576,7 +619,7 @@ export function AddApplianceSheet({
                     </span>
                     <select
                       value={brand ?? ""}
-                      disabled={!customKindMode && brandsLoading}
+                      disabled={brandsLoading}
                       onChange={(e) => {
                         const value = e.target.value || null;
                         setBrand(value);
@@ -685,6 +728,8 @@ export function AddApplianceSheet({
                 </motion.div>
               )}
             </AnimatePresence>
+              </>
+            )}
           </div>
 
           <div className="shrink-0 border-t border-black/[0.06] px-5 py-4 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
@@ -708,13 +753,23 @@ export function AddApplianceSheet({
                 )}
               </div>
             )}
-            {!usingCatalogModel && resolvedBrand && resolvedModel && (
+            {!usingCatalogModel && !customKindMode && resolvedBrand && resolvedModel && (
               <div className="mb-3 text-center ty-note">
                 <p>
                   {resolvedBrand} {resolvedModel}
                 </p>
               </div>
             )}
+            {customKindMode &&
+              customKindName.trim() &&
+              resolvedBrand &&
+              resolvedModel && (
+                <div className="mb-3 text-center ty-note">
+                  <p>
+                    {customKindName.trim()} · {resolvedBrand} {resolvedModel}
+                  </p>
+                </div>
+              )}
             {error && (
               <p className="mb-2 text-center ty-note text-rose-600">
                 {error}
