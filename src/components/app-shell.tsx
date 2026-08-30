@@ -160,6 +160,8 @@ import type {
 } from "@/types";
 import { installStatusLabels } from "@/types";
 import { BrandAuthIntro, BrandLaunchWaitlist, BrandSplash } from "@/components/brand-splash";
+import { useAppStatusBarTheme } from "@/hooks/use-status-bar-theme";
+import { applyAppStatusBarTheme } from "@/lib/status-bar-theme";
 import { useHomeAppliancesEnabled } from "@/hooks/use-home-appliances-enabled";
 import { isLaunchWaitlistRuntime } from "@/lib/app-env";
 import { cn } from "@/lib/utils";
@@ -294,6 +296,27 @@ const SPLASH_SEEN_PERSIST_KEY = "ep:splash-seen-persist";
 
 type SplashPhase = "pending" | "show" | "done";
 
+function hasSeenSplashBefore(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return (
+      sessionStorage.getItem(SPLASH_SEEN_KEY) === "1" ||
+      localStorage.getItem(SPLASH_SEEN_PERSIST_KEY) === "1"
+    );
+  } catch {
+    return false;
+  }
+}
+
+function initialSplashPhase(
+  forceResearchSurvey: boolean,
+  launchWaitlist?: boolean,
+): SplashPhase {
+  if (forceResearchSurvey || launchWaitlist) return "done";
+  if (hasSeenSplashBefore()) return "done";
+  return "show";
+}
+
 function markSplashSeen(): void {
   try {
     sessionStorage.setItem(SPLASH_SEEN_KEY, "1");
@@ -317,8 +340,8 @@ export function AppShell({
     forceResearchSurvey ? "research-survey" : "telegram-auth",
   );
   const [onboardingReady, setOnboardingReady] = useState(forceResearchSurvey);
-  const [splashPhase, setSplashPhase] = useState<SplashPhase>(
-    forceResearchSurvey || launchWaitlist ? "done" : "show",
+  const [splashPhase, setSplashPhase] = useState<SplashPhase>(() =>
+    initialSplashPhase(forceResearchSurvey, launchWaitlist),
   );
   const [showAuthIntro, setShowAuthIntro] = useState(
     () => !forceResearchSurvey,
@@ -442,6 +465,10 @@ export function AppShell({
       markSplashSeen();
       setSplashPhase("done");
       setShowAuthIntro(false);
+      return;
+    }
+    if (hasSeenSplashBefore()) {
+      setSplashPhase("done");
       return;
     }
     setSplashPhase("show");
@@ -1928,6 +1955,28 @@ export function AppShell({
     void openSharedPanel(token);
   }, [itemsLoading, onboardingReady, openSharedPanel, splashPhase]);
 
+  const masterApplyEarly =
+    screen === "become-master" ||
+    screen === "master-docs" ||
+    screen === "master-exam" ||
+    screen === "master-about" ||
+    (screen === "city-select" && leadFlow === "master") ||
+    (screen === "lead-contact" && leadFlow === "master");
+  const darkShellActive =
+    masterApplyEarly || (masterMode && screen === "objects");
+
+  const authIntroVisible =
+    showAuthIntro &&
+    !canUseServerAuth() &&
+    !isTelegramMiniApp() &&
+    !surveyLaunch &&
+    !isSchoolPreviewQuery();
+
+  useAppStatusBarTheme(
+    splashPhase === "done" && onboardingReady && !authIntroVisible,
+    darkShellActive,
+  );
+
   if (isProdLaunchWaitlistClient(launchWaitlist) && !surveyLaunch && !isSchoolPreviewQuery()) {
     return (
       <BrandLaunchWaitlist bootReady={onboardingReady && !itemsLoading} />
@@ -1940,6 +1989,7 @@ export function AppShell({
         bootReady={onboardingReady && initialFetchDone && pdConsentChecked}
         onComplete={() => {
           markSplashSeen();
+          applyAppStatusBarTheme(false);
           setSplashPhase("done");
         }}
       />
@@ -2165,7 +2215,7 @@ export function AppShell({
                 if (id === "profile") go("profile");
                 if (id === "game") go("panel-game");
                 if (id === "school") {
-                  window.location.assign("/school");
+                  go("school");
                   return;
                 }
                 if (id === "about") go("about-service");

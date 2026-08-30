@@ -3,6 +3,10 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { BRAND_YELLOW } from "@/components/brand-logo";
+import {
+  applyAppStatusBarTheme,
+  applySplashStatusBarTheme,
+} from "@/lib/status-bar-theme";
 import { TelegramAppIcon } from "@/components/icons/telegram-app-icon";
 import { Button } from "@/components/ui/button";
 import { beginTelegramLogin } from "@/lib/pd-consent-client";
@@ -328,6 +332,14 @@ export function BrandSplash({
   const completedRef = useRef(false);
 
   useEffect(() => {
+    applySplashStatusBarTheme();
+  }, []);
+
+  useEffect(() => {
+    if (fadeOut) applyAppStatusBarTheme(false);
+  }, [fadeOut]);
+
+  useEffect(() => {
     if (!bootReady || tUpright) return;
     const wait = Math.max(
       0,
@@ -411,6 +423,10 @@ export function BrandAuthIntro({
   const [loginError, setLoginError] = useState<string | null>(null);
   const [logoWidth, setLogoWidth] = useState(0);
   const logoRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    applySplashStatusBarTheme();
+  }, []);
 
   useEffect(() => {
     const html = document.documentElement;

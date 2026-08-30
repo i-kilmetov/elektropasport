@@ -39,8 +39,6 @@ export function initTelegramMock(): TelegramMock {
   if (webApp) {
     webApp.ready();
     webApp.expand?.();
-    webApp.setHeaderColor?.("#0B0B0F");
-    webApp.setBackgroundColor?.("#0B0B0F");
     return webApp as TelegramMock;
   }
 
