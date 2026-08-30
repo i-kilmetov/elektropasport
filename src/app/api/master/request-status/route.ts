@@ -41,7 +41,12 @@ export async function GET(request: Request) {
             username: master.username,
             rating: master.rating,
           }
-        : null,
+        : {
+            firstName: "Мастер",
+            phone: "",
+            username: "",
+            rating: 100,
+          },
     });
   } catch (error) {
     return dbErrorResponse(error) ?? authErrorResponse(error);

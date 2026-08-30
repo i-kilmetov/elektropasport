@@ -51,6 +51,11 @@ export function toTelegramChatId(storageOrRealId: number): number {
   return Math.abs(storageOrRealId);
 }
 
+/** Absolute Telegram user id — webhook callbacks always use positive ids. */
+export function absTelegramId(telegramId: number): number {
+  return Math.abs(telegramId);
+}
+
 /** Home appliances UI — enabled by default on every host. */
 export function homeAppliancesEnabledForHost(
   _host?: string | null,

@@ -2,6 +2,7 @@ import type { InstallRequest, InstallRequestStatus } from "@/types";
 import { installStatusLabels } from "@/types";
 import { PRODUCTION_APP_URL } from "@/lib/app-url";
 import { getBotToken } from "@/lib/telegram-auth";
+import { toTelegramChatId } from "@/lib/app-env";
 import { listAdminTelegramIds, ownerAdminTelegramId } from "@/lib/admin";
 
 type InlineKeyboard = {
@@ -370,14 +371,16 @@ export async function dispatchRequestToMasters(
     masterTelegramId: number;
   }> = [];
 
-  for (const chatId of masterChatIds) {
+  for (const storageId of masterChatIds) {
+    const chatId = toTelegramChatId(storageId);
+    const callbackToken = request.publicCode ?? request.id;
     const result = await telegramApi<{ message_id: number }>("sendMessage", {
       chat_id: chatId,
       text,
       reply_markup: {
         inline_keyboard: [[{
           text: "✅ Принять заявку",
-          callback_data: `accept_request:${request.id}`.slice(0, 64),
+          callback_data: buildAcceptRequestCallbackData(callbackToken),
         }]],
       },
       disable_web_page_preview: true,
@@ -386,7 +389,13 @@ export async function dispatchRequestToMasters(
       results.push({
         chatId,
         messageId: result.data.message_id,
-        masterTelegramId: chatId,
+        masterTelegramId: storageId,
+      });
+    } else {
+      console.error("dispatchRequestToMasters sendMessage failed", {
+        chatId,
+        storageId,
+        error: result.error,
       });
     }
   }
@@ -440,14 +449,24 @@ export function parseApproveMasterCallback(
   return { telegramUserId: id };
 }
 
-/** Parse accept_request callback. */
+/** Build inline callback token for master accept (max 64 bytes). */
+export function buildAcceptRequestCallbackData(token: string): string {
+  return `ar:${token}`.slice(0, 64);
+}
+
+/** Parse master accept callback (supports legacy accept_request: prefix). */
 export function parseAcceptRequestCallback(
   data: string,
 ): { requestId: string } | null {
-  if (!data.startsWith("accept_request:")) return null;
-  const requestId = data.slice("accept_request:".length);
-  if (!requestId) return null;
-  return { requestId };
+  if (data.startsWith("accept_request:")) {
+    const requestId = data.slice("accept_request:".length).trim();
+    if (requestId) return { requestId };
+  }
+  if (data.startsWith("ar:")) {
+    const requestId = data.slice(3).trim();
+    if (requestId) return { requestId };
+  }
+  return null;
 }
 
 const FEEDBACK_TOPIC_LABELS: Record<string, string> = {

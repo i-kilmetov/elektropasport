@@ -5,8 +5,11 @@ import {
   setUserRole,
   acceptInstallRequest,
   getDispatchMessages,
+  resolveInstallRequestId,
+  upsertUser,
 } from "@/lib/db";
 import { isPlatformAdmin } from "@/lib/admin";
+import { toTelegramChatId } from "@/lib/app-env";
 import {
   answerCallbackQuery,
   editMessageText,
@@ -32,7 +35,12 @@ type TelegramUpdate = {
   };
   callback_query?: {
     id: string;
-    from?: { id: number };
+    from?: {
+      id: number;
+      first_name?: string;
+      last_name?: string;
+      username?: string;
+    };
     data?: string;
     message?: {
       message_id: number;
@@ -59,9 +67,22 @@ async function dismissCallback(callbackQueryId: string): Promise<boolean> {
   }
 }
 
+async function notifyChat(
+  chatId: number | undefined,
+  text: string,
+): Promise<void> {
+  if (!chatId) return;
+  try {
+    await sendTelegramMessage(chatId, text);
+  } catch (error) {
+    console.error("notifyChat failed", { chatId, text, error });
+  }
+}
+
 export async function POST(request: Request) {
   let callbackQueryId: string | undefined;
   let callbackAnswered = false;
+  let callbackChatId: number | undefined;
 
   try {
     if (!verifySecret(request)) {
@@ -91,21 +112,27 @@ export async function POST(request: Request) {
     }
 
     callbackQueryId = callback.id;
+    callbackChatId =
+      callback.message?.chat.id ?? callback.from?.id;
     callbackAnswered = await dismissCallback(callback.id);
 
     await ensureSchema();
     const data = callback.data ?? "";
 
+    if (callback.from?.id) {
+      await upsertUser({
+        telegramId: callback.from.id,
+        firstName: callback.from.first_name,
+        lastName: callback.from.last_name,
+        username: callback.from.username,
+      });
+    }
+
     // ── Admin: approve master ──
     const approveMaster = parseApproveMasterCallback(data);
     if (approveMaster) {
       if (!(await isPlatformAdmin(callback.from?.id ?? 0))) {
-        if (callback.message) {
-          await sendTelegramMessage(
-            callback.message.chat.id,
-            "Недостаточно прав",
-          );
-        }
+        await notifyChat(callbackChatId, "Недостаточно прав");
         return Response.json({ ok: true });
       }
       await setUserRole(approveMaster.telegramUserId, "master");
@@ -125,41 +152,52 @@ export async function POST(request: Request) {
     // ── Master: accept request ──
     const acceptRequest = parseAcceptRequestCallback(data);
     if (acceptRequest) {
-      const masterTelegramId = callback.from?.id;
-      const chatId = callback.message?.chat.id;
+      const realMasterId = callback.from?.id;
+      const chatId = callbackChatId;
 
-      if (!masterTelegramId || !chatId) {
+      if (!realMasterId || !chatId) {
+        console.error("accept callback missing from/chat", { data, callback });
         return Response.json({ ok: true });
       }
 
+      console.info("telegram accept callback", {
+        token: acceptRequest.requestId,
+        masterId: realMasterId,
+      });
+
       const result = await acceptInstallRequest(
         acceptRequest.requestId,
-        masterTelegramId,
+        realMasterId,
       );
 
       if (result === "not_master") {
-        await sendTelegramMessage(
+        await notifyChat(
           chatId,
-          "Нет доступа: вы не зарегистрированы как мастер.",
+          "Нет доступа: вы не зарегистрированы как мастер. Напишите администратору.",
         );
         return Response.json({ ok: true });
       }
 
       if (result === "not_found") {
-        await sendTelegramMessage(chatId, "Заявка не найдена.");
+        await notifyChat(
+          chatId,
+          "Заявка не найдена или устарела. Дождитесь новое сообщение с кнопкой «Принять».",
+        );
         return Response.json({ ok: true });
       }
 
       if (result === "already_taken") {
         if (callback.message) {
           await notifyMasterRequestTaken(chatId, callback.message.message_id);
+        } else {
+          await notifyChat(chatId, "Заявку уже принял другой мастер.");
         }
-        await sendTelegramMessage(
-          chatId,
-          "Заявку уже принял другой мастер.",
-        );
         return Response.json({ ok: true });
       }
+
+      const resolvedRequestId =
+        (await resolveInstallRequestId(acceptRequest.requestId)) ??
+        acceptRequest.requestId;
 
       if (callback.message) {
         const baseText = callback.message.text ?? "Новая заявка";
@@ -168,7 +206,7 @@ export async function POST(request: Request) {
             chatId,
             messageId: callback.message.message_id,
             text: `${baseText}\n\n✅ Вы приняли эту заявку`,
-            requestId: acceptRequest.requestId,
+            requestId: resolvedRequestId,
             withStatusKeyboard: false,
           });
         } catch (error) {
@@ -177,10 +215,10 @@ export async function POST(request: Request) {
       }
 
       try {
-        const existing = await getInstallRequestById(acceptRequest.requestId);
+        const existing = await getInstallRequestById(resolvedRequestId);
         if (existing) {
           await notifyMasterRequestAccepted(
-            masterTelegramId,
+            toTelegramChatId(realMasterId),
             existing,
             existing.name,
           );
@@ -191,9 +229,11 @@ export async function POST(request: Request) {
           });
         }
 
-        const dispatched = await getDispatchMessages(acceptRequest.requestId);
+        const dispatched = await getDispatchMessages(resolvedRequestId);
         for (const msg of dispatched) {
-          if (msg.masterTelegramId === masterTelegramId) continue;
+          if (Math.abs(msg.masterTelegramId) === Math.abs(realMasterId)) {
+            continue;
+          }
           try {
             await notifyMasterRequestTaken(msg.chatId, msg.messageId);
           } catch {
@@ -202,6 +242,10 @@ export async function POST(request: Request) {
         }
       } catch (error) {
         console.error("accept request follow-up notify error", error);
+        await notifyChat(
+          chatId,
+          "Заявка принята, но не удалось отправить детали. Обновите список заявок в приложении.",
+        );
       }
 
       return Response.json({ ok: true });
@@ -213,31 +257,19 @@ export async function POST(request: Request) {
         data,
         userId: callback.from?.id,
       });
-      if (callback.message) {
-        await sendTelegramMessage(
-          callback.message.chat.id,
-          "Недостаточно прав",
-        );
-      }
+      await notifyChat(callbackChatId, "Недостаточно прав");
       return Response.json({ ok: true });
     }
 
     const parsed = parseStatusCallback(data);
     if (!parsed) {
-      if (callback.message) {
-        await sendTelegramMessage(
-          callback.message.chat.id,
-          "Неизвестная команда",
-        );
-      }
+      await notifyChat(callbackChatId, "Неизвестная команда");
       return Response.json({ ok: true });
     }
 
     const existing = await getInstallRequestById(parsed.requestId);
     if (!existing) {
-      if (callback.message) {
-        await sendTelegramMessage(callback.message.chat.id, "Заявка не найдена");
-      }
+      await notifyChat(callbackChatId, "Заявка не найдена");
       return Response.json({ ok: true });
     }
 
@@ -247,12 +279,7 @@ export async function POST(request: Request) {
     });
 
     if (!updated) {
-      if (callback.message) {
-        await sendTelegramMessage(
-          callback.message.chat.id,
-          "Не удалось обновить",
-        );
-      }
+      await notifyChat(callbackChatId, "Не удалось обновить");
       return Response.json({ ok: true });
     }
 
@@ -287,6 +314,10 @@ export async function POST(request: Request) {
     if (callbackQueryId && !callbackAnswered) {
       await dismissCallback(callbackQueryId);
     }
+    await notifyChat(
+      callbackChatId,
+      "Ошибка сервера при обработке кнопки. Попробуйте ещё раз через минуту.",
+    );
     return Response.json({ ok: true });
   }
 }

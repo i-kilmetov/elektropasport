@@ -26,6 +26,7 @@ export {
   isRussianDatabaseConfigured,
   resolveDatabaseUrl,
 } from "@/lib/sql-client";
+import { absTelegramId } from "@/lib/app-env";
 import {
   inviteeDisplayName,
   isAtPanelLimit,
@@ -2108,9 +2109,11 @@ export async function getMasterProfile(
 } | null> {
   const sql = getSql();
   await ensureSchema();
+  const absId = absTelegramId(telegramUserId);
   const [user] = (await sql`
-    SELECT first_name, last_name, username, phone_digits
-    FROM users WHERE telegram_id = ${telegramUserId} AND role = 'master'
+    SELECT first_name, last_name, username, phone_digits, telegram_id
+    FROM users WHERE role = 'master' AND ABS(telegram_id) = ${absId}
+    LIMIT 1
   `) as Array<{
     first_name: string | null;
     last_name: string | null;
@@ -2122,14 +2125,14 @@ export async function getMasterProfile(
   const [ordersRow] = (await sql`
     SELECT COUNT(*)::int AS count
     FROM install_requests
-    WHERE master_telegram_id = ${telegramUserId}
+    WHERE ABS(master_telegram_id) = ${absId}
       AND status IN ('in_progress', 'done')
   `) as Array<{ count: number }>;
 
   const feedbackRows = (await sql`
     SELECT user_reached, master_reached, user_score
     FROM master_feedback
-    WHERE master_telegram_id = ${telegramUserId}
+    WHERE ABS(master_telegram_id) = ${absId}
   `) as Array<{
     user_reached: boolean | null;
     master_reached: boolean | null;
@@ -2163,28 +2166,69 @@ export async function getMasterProfile(
   };
 }
 
+export async function resolveInstallRequestId(
+  token: string,
+): Promise<string | null> {
+  const sql = getSql();
+  await ensureSchema();
+  const trimmed = token.trim();
+  if (!trimmed) return null;
+
+  const [byId] = (await sql`
+    SELECT id FROM install_requests WHERE id = ${trimmed} LIMIT 1
+  `) as Array<{ id: string }>;
+  if (byId) return byId.id;
+
+  const [byCode] = (await sql`
+    SELECT id FROM install_requests WHERE public_code = ${trimmed} LIMIT 1
+  `) as Array<{ id: string }>;
+  return byCode?.id ?? null;
+}
+
+export async function resolveMasterStorageId(
+  realTelegramId: number,
+): Promise<number | null> {
+  const sql = getSql();
+  await ensureSchema();
+  const absId = absTelegramId(realTelegramId);
+  const [row] = (await sql`
+    SELECT telegram_id FROM users
+    WHERE role = 'master' AND ABS(telegram_id) = ${absId}
+    LIMIT 1
+  `) as Array<{ telegram_id: string | number }>;
+  return row ? Number(row.telegram_id) : null;
+}
+
 export async function acceptInstallRequest(
-  requestId: string,
-  masterTelegramId: number,
+  requestToken: string,
+  realMasterTelegramId: number,
 ): Promise<"accepted" | "already_taken" | "not_found" | "not_master"> {
   const sql = getSql();
   await ensureSchema();
 
+  const requestId = await resolveInstallRequestId(requestToken);
+  if (!requestId) return "not_found";
+
+  const absMasterId = absTelegramId(realMasterTelegramId);
+
   const [authorized] = (await sql`
     SELECT 1 AS ok FROM users
-    WHERE telegram_id = ${masterTelegramId} AND role = 'master'
+    WHERE role = 'master' AND ABS(telegram_id) = ${absMasterId}
     UNION ALL
     SELECT 1 FROM master_dispatch_messages
     WHERE request_id = ${requestId}
-      AND master_telegram_id = ${masterTelegramId}
+      AND ABS(master_telegram_id) = ${absMasterId}
     LIMIT 1
   `) as Array<{ ok: number }>;
   if (!authorized) return "not_master";
 
+  const storageMasterId =
+    (await resolveMasterStorageId(realMasterTelegramId)) ?? realMasterTelegramId;
+
   const rows = (await sql`
     UPDATE install_requests
     SET
-      master_telegram_id = ${masterTelegramId},
+      master_telegram_id = ${storageMasterId},
       master_accepted_at = NOW(),
       dispatched_at = COALESCE(dispatched_at, NOW()),
       status = 'in_progress',
@@ -2222,7 +2266,10 @@ export async function saveDispatchMessage(
   await sql`
     INSERT INTO master_dispatch_messages (request_id, master_telegram_id, chat_id, message_id)
     VALUES (${requestId}, ${masterTelegramId}, ${chatId}, ${messageId})
-    ON CONFLICT DO NOTHING
+    ON CONFLICT (request_id, master_telegram_id) DO UPDATE SET
+      chat_id = EXCLUDED.chat_id,
+      message_id = EXCLUDED.message_id,
+      created_at = NOW()
   `;
 }
 
