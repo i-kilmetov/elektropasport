@@ -1,14 +1,50 @@
 /** Canonical production site URL (custom domain). */
 export const PRODUCTION_APP_URL = "https://tokom.ru";
 
+/** Production host that serves the app without redirect (Vercel apex → www). */
+export const PRODUCTION_WEBHOOK_ORIGIN = "https://www.tokom.ru";
+
 /** Staging subdomain — same deployment, password gate + new features. */
 export const TEST_APP_URL = "https://test.tokom.ru";
 
 /** Old production host — same Vercel project / same DB as tokom.ru. */
 export const LEGACY_VERCEL_HOST = "elektropasport.vercel.app";
 
-export function productionAppHost(): string {
-  return "tokom.ru";
+/**
+ * Origin for Telegram setWebhook — must not 308 to another host or
+ * X-Telegram-Bot-Api-Secret-Token is dropped on redirect.
+ */
+export function productionWebhookOrigin(request?: Request): string {
+  const fromEnv =
+    process.env.TELEGRAM_WEBHOOK_ORIGIN?.trim() ||
+    process.env.NEXT_PUBLIC_APP_URL?.trim() ||
+    process.env.APP_URL?.trim();
+  if (fromEnv) {
+    try {
+      const host = new URL(fromEnv.replace(/\/$/, "")).host.toLowerCase();
+      if (host === "tokom.ru") {
+        return PRODUCTION_WEBHOOK_ORIGIN;
+      }
+    } catch {
+      // fall through
+    }
+    return fromEnv.replace(/\/$/, "");
+  }
+
+  if (request) {
+    const origin = resolveRequestOrigin(request);
+    try {
+      const host = new URL(origin).host.toLowerCase();
+      if (host === "tokom.ru" || host === "www.tokom.ru") {
+        return PRODUCTION_WEBHOOK_ORIGIN;
+      }
+    } catch {
+      // fall through
+    }
+    return origin;
+  }
+
+  return PRODUCTION_WEBHOOK_ORIGIN;
 }
 
 /**

@@ -53,8 +53,10 @@ type TelegramUpdate = {
 function verifySecret(request: Request): boolean {
   const expected = process.env.TELEGRAM_WEBHOOK_SECRET?.trim();
   if (!expected) return true;
-  const got = request.headers.get("x-telegram-bot-api-secret-token");
-  return got === expected;
+  const fromHeader = request.headers.get("x-telegram-bot-api-secret-token");
+  if (fromHeader === expected) return true;
+  const fromQuery = new URL(request.url).searchParams.get("token");
+  return fromQuery === expected;
 }
 
 async function dismissCallback(callbackQueryId: string): Promise<boolean> {

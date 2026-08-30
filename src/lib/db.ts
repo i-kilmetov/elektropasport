@@ -26,7 +26,7 @@ export {
   isRussianDatabaseConfigured,
   resolveDatabaseUrl,
 } from "@/lib/sql-client";
-import { absTelegramId } from "@/lib/app-env";
+import { absTelegramId, dedupeMasterStorageIds } from "@/lib/app-env";
 import {
   inviteeDisplayName,
   isAtPanelLimit,
@@ -2095,6 +2095,10 @@ export async function listMasterTelegramIds(): Promise<number[]> {
     SELECT telegram_id FROM users WHERE role = 'master'
   `) as Array<{ telegram_id: string | number }>;
   return rows.map((r) => Number(r.telegram_id));
+}
+
+export async function listMasterTelegramIdsForDispatch(): Promise<number[]> {
+  return dedupeMasterStorageIds(await listMasterTelegramIds());
 }
 
 export async function getMasterProfile(

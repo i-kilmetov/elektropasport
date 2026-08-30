@@ -2,7 +2,7 @@ import type { InstallRequest, InstallRequestStatus } from "@/types";
 import { installStatusLabels } from "@/types";
 import { PRODUCTION_APP_URL } from "@/lib/app-url";
 import { getBotToken } from "@/lib/telegram-auth";
-import { toTelegramChatId } from "@/lib/app-env";
+import { dedupeMasterStorageIds, toTelegramChatId } from "@/lib/app-env";
 import { listAdminTelegramIds, ownerAdminTelegramId } from "@/lib/admin";
 
 type InlineKeyboard = {
@@ -371,7 +371,8 @@ export async function dispatchRequestToMasters(
     masterTelegramId: number;
   }> = [];
 
-  for (const storageId of masterChatIds) {
+  const uniqueStorageIds = dedupeMasterStorageIds(masterChatIds);
+  for (const storageId of uniqueStorageIds) {
     const chatId = toTelegramChatId(storageId);
     const callbackToken = request.publicCode ?? request.id;
     const result = await telegramApi<{ message_id: number }>("sendMessage", {

@@ -56,6 +56,23 @@ export function absTelegramId(telegramId: number): number {
   return Math.abs(telegramId);
 }
 
+/** One Telegram chat per master — skip duplicate prod/test signed ids. */
+export function dedupeMasterStorageIds(storageIds: number[]): number[] {
+  const byChat = new Map<number, number>();
+  for (const storageId of storageIds) {
+    const chatId = toTelegramChatId(storageId);
+    const prev = byChat.get(chatId);
+    if (prev == null) {
+      byChat.set(chatId, storageId);
+      continue;
+    }
+    if (storageId > 0 && prev < 0) {
+      byChat.set(chatId, storageId);
+    }
+  }
+  return [...byChat.values()];
+}
+
 /** Home appliances UI — enabled by default on every host. */
 export function homeAppliancesEnabledForHost(
   _host?: string | null,

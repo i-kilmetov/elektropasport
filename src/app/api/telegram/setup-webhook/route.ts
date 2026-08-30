@@ -1,8 +1,16 @@
-import { resolveAppOrigin } from "@/lib/app-url";
+import { productionWebhookOrigin } from "@/lib/app-url";
 import {
   getTelegramWebhookInfo,
   setTelegramWebhook,
 } from "@/lib/telegram-notify";
+
+function buildWebhookUrl(secret?: string): string {
+  const base = `${productionWebhookOrigin()}/api/telegram/webhook`;
+  if (!secret) return base;
+  const url = new URL(base);
+  url.searchParams.set("token", secret);
+  return url.toString();
+}
 
 /**
  * One-time setup: open this URL after deploy (with secret) to register the webhook.
@@ -34,8 +42,7 @@ export async function GET(request: Request) {
     );
   }
 
-  const origin = resolveAppOrigin(request);
-  const webhookUrl = `${origin}/api/telegram/webhook`;
+  const webhookUrl = buildWebhookUrl(process.env.TELEGRAM_WEBHOOK_SECRET?.trim());
   const secret = process.env.TELEGRAM_WEBHOOK_SECRET?.trim();
 
   const result = await setTelegramWebhook(webhookUrl, secret);
@@ -57,7 +64,7 @@ export async function GET(request: Request) {
     secretConfigured: Boolean(secret),
     webhookInfo: info,
     hint: secret
-      ? "Если кнопки в боте не отвечают, убедитесь что webhook перерегистрирован после смены TELEGRAM_WEBHOOK_SECRET."
+      ? "Webhook зарегистрирован на www.tokom.ru (без редиректа). Если кнопки не отвечали — перерегистрация должна помочь."
       : undefined,
   });
 }

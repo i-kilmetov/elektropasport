@@ -6,7 +6,7 @@ import {
   dbErrorResponse,
   ensureSchema,
   getInstallRequestById,
-  listMasterTelegramIds,
+  listMasterTelegramIdsForDispatch,
   markRequestDispatched,
   saveDispatchMessage,
   upsertUser,
@@ -33,7 +33,7 @@ export async function POST(request: Request) {
       return Response.json({ ok: true, alreadyDispatched: true });
     }
 
-    const masterIds = await listMasterTelegramIds();
+    const masterIds = await listMasterTelegramIdsForDispatch();
     if (masterIds.length === 0) {
       return Response.json({ ok: true, mastersCount: 0 });
     }
