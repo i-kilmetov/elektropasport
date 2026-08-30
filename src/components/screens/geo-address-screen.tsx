@@ -72,6 +72,8 @@ export function GeoAddressScreen({
     house?: string;
     block?: string;
     buildingYear?: number;
+    lat?: number;
+    lon?: number;
   }) => void;
   onManual: () => void;
   restoreSnapshot?: GeoAddressRestore;
@@ -83,6 +85,9 @@ export function GeoAddressScreen({
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<AddressSuggestion | null>(null);
   const [lookupFailed, setLookupFailed] = useState(false);
+  const [geoCoords, setGeoCoords] = useState<{ lat: number; lon: number } | null>(
+    null,
+  );
   const startedRef = useRef(false);
   const locateAbortRef = useRef<AbortController | null>(null);
 
@@ -109,6 +114,7 @@ export function GeoAddressScreen({
     try {
       const coords = await requestUserGeolocation({ signal: controller.signal });
       if (controller.signal.aborted) return;
+      setGeoCoords({ lat: coords.lat, lon: coords.lon });
       setPhase("resolving");
       const resolved = await geolocateAddress(coords.lat, coords.lon);
       if (controller.signal.aborted) return;
@@ -186,6 +192,8 @@ export function GeoAddressScreen({
       house: selected?.house ?? address.house,
       block: selected?.block ?? address.block,
       buildingYear: selected?.buildingYear,
+      lat: geoCoords?.lat,
+      lon: geoCoords?.lon,
     });
   };
 
@@ -200,6 +208,8 @@ export function GeoAddressScreen({
       street: address.street,
       house: address.house,
       block: address.block,
+      lat: geoCoords?.lat,
+      lon: geoCoords?.lon,
     });
   };
 

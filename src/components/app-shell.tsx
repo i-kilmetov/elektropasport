@@ -397,6 +397,10 @@ export function AppShell({
   const [selectedStreet, setSelectedStreet] = useState<string | null>(null);
   const [selectedHouse, setSelectedHouse] = useState<string | null>(null);
   const [selectedBlock, setSelectedBlock] = useState<string | null>(null);
+  const [selectedCoords, setSelectedCoords] = useState<{
+    lat: number;
+    lon: number;
+  } | null>(null);
   const [addressEntrySource, setAddressEntrySource] = useState<
     "geo" | "manual" | null
   >(null);
@@ -2633,6 +2637,7 @@ export function AppShell({
                 setSelectedStreet(null);
                 setSelectedHouse(null);
                 setSelectedBlock(null);
+                setSelectedCoords(null);
                 setAddressEntrySource(null);
                 go("city-select");
               }}
@@ -2645,6 +2650,8 @@ export function AppShell({
                 house,
                 block,
                 buildingYear,
+                lat,
+                lon,
               }) => {
                 setSelectedCity(city);
                 setSelectedAddress(address);
@@ -2653,6 +2660,9 @@ export function AppShell({
                 setSelectedHouse(house ?? null);
                 setSelectedBlock(block ?? null);
                 setSelectedBuildingYear(buildingYear ?? null);
+                setSelectedCoords(
+                  lat != null && lon != null ? { lat, lon } : null,
+                );
                 setAddressEntrySource("geo");
                 go("lead-service");
               }}
@@ -2932,6 +2942,10 @@ export function AppShell({
             <MasterSearchScreen
               key={`search-${searchRequestId}`}
               requestId={searchRequestId}
+              city={selectedCity ?? activeRequest?.city}
+              address={selectedAddress ?? activeRequest?.exactAddress}
+              lat={selectedCoords?.lat}
+              lon={selectedCoords?.lon}
               onMasterFound={(master) => {
                 setFoundMaster(master);
                 go("master-success");
