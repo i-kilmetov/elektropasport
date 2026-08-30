@@ -42,9 +42,6 @@ const WAITLIST_OKOM_LETTER_STAGGER_S = 0.09;
 const WAITLIST_OKOM_LETTER_DURATION_S = 0.4;
 /** Brief hold after the last letter so the wordmark reads before the CTA. */
 const WAITLIST_NOTIFY_AFTER_LOGO_MS = 180;
-/** Black pill → full-screen invert: fast enough to read as a flash, not a zoom. */
-const WAITLIST_INVERT_DURATION_S = 0.1;
-const WAITLIST_INVERT_EASE = [0.2, 0, 1, 1] as const;
 const PHONE_PREFIX = "+7";
 /** Inverted T stays up at least this long so it reads as a loader. */
 const SPLASH_LOADER_MIN_MS = 900;
@@ -63,7 +60,6 @@ function AnimatedT({
   playOnMount?: boolean;
   upright?: boolean;
 }) {
-  const ink = wordmarkStyle.color;
   const pulse = pulsing
     ? {
         opacity: [...HEARTBEAT_OPACITY],
@@ -136,7 +132,7 @@ function AnimatedT({
             style={{
               width: STRIPE_TOP_WIDTH,
               height: STRIPE_HEIGHT,
-              backgroundColor: ink,
+              backgroundColor: LOGO_INK,
               transformOrigin: "center",
             }}
             animate={pulse}
@@ -146,7 +142,7 @@ function AnimatedT({
             className="block h-[0.08em] min-h-[3px] max-w-[46px]"
             style={{
               width: STRIPE_BOTTOM_WIDTH,
-              backgroundColor: ink,
+              backgroundColor: LOGO_INK,
               transformOrigin: "center",
             }}
             animate={pulse}
@@ -169,7 +165,6 @@ function BrandMark({
   tPlayOnMount = true,
   tUpright = false,
   collapseRest = false,
-  ink = LOGO_INK,
 }: {
   tagline: string;
   taglineVisible: boolean;
@@ -180,12 +175,9 @@ function BrandMark({
   tUpright?: boolean;
   /** Keep «ОКОМ» out of layout until revealed so the inverted T sits on center. */
   collapseRest?: boolean;
-  ink?: string;
 }) {
-  const wordmarkStyle = {
-    ...(variant === "header" ? headerWordmarkTypeStyle : splashWordmarkTypeStyle),
-    color: ink,
-  };
+  const wordmarkStyle =
+    variant === "header" ? headerWordmarkTypeStyle : splashWordmarkTypeStyle;
   const taglineFontSize =
     variant === "header"
       ? "clamp(0.65rem, min(2.8vw, 4vh), 0.85rem)"
@@ -203,7 +195,7 @@ function BrandMark({
           fontWeight: LOGO_FONT_WEIGHT,
           fontSize: taglineFontSize,
           letterSpacing: "0.14em",
-          color: ink,
+          color: LOGO_INK,
         }}
         initial={{ opacity: 0, y: 6 }}
         animate={taglineVisible ? { opacity: 1, y: 0 } : { opacity: 0, y: 6 }}
@@ -545,28 +537,6 @@ function toRuPhoneE164(value: string): string {
   return `${PHONE_PREFIX}${ruNationalDigits(value)}`;
 }
 
-function waitlistCoverScale(rect: DOMRectReadOnly): {
-  top: number;
-  left: number;
-  width: number;
-  height: number;
-  scale: number;
-} {
-  const cx = rect.left + rect.width / 2;
-  const cy = rect.top + rect.height / 2;
-  const vw = window.innerWidth;
-  const vh = window.innerHeight;
-  const scaleX = (Math.max(cx, vw - cx) * 2) / Math.max(rect.width, 1);
-  const scaleY = (Math.max(cy, vh - cy) * 2) / Math.max(rect.height, 1);
-  return {
-    top: rect.top,
-    left: rect.left,
-    width: rect.width,
-    height: rect.height,
-    scale: Math.max(scaleX, scaleY) * 1.2,
-  };
-}
-
 /** Production pre-launch screen: phone waitlist instead of Telegram login. */
 export function BrandLaunchWaitlist({
   bootReady: _bootReady = true,
@@ -580,15 +550,10 @@ export function BrandLaunchWaitlist({
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [invertBurst, setInvertBurst] = useState<ReturnType<
-    typeof waitlistCoverScale
-  > | null>(null);
-  const [inverted, setInverted] = useState(false);
   const [viewportHeight, setViewportHeight] = useState<number | null>(null);
   const [viewportOffsetTop, setViewportOffsetTop] = useState(0);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
-  const fieldRef = useRef<HTMLFormElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const flipTimersRef = useRef<number[]>([]);
 
@@ -655,36 +620,13 @@ export function BrandLaunchWaitlist({
   }, []);
 
   useLayoutEffect(() => {
-    if (cta !== "phone" || done || invertBurst || inverted) return;
+    if (cta !== "phone" || done) return;
     const node = inputRef.current;
     if (!node) return;
     node.focus({ preventScroll: true });
     const caret = node.value.length;
     node.setSelectionRange(caret, caret);
-  }, [cta, done, invertBurst, inverted]);
-
-  useEffect(() => {
-    if (!invertBurst || inverted) return;
-    const id = window.setTimeout(
-      () => setInverted(true),
-      WAITLIST_INVERT_DURATION_S * 1000 + 40,
-    );
-    return () => window.clearTimeout(id);
-  }, [invertBurst, inverted]);
-
-  useEffect(() => {
-    if (!inverted) return;
-    const html = document.documentElement;
-    const body = document.body;
-    const prevHtmlBg = html.style.backgroundColor;
-    const prevBodyBg = body.style.backgroundColor;
-    html.style.backgroundColor = LOGO_INK;
-    body.style.backgroundColor = LOGO_INK;
-    return () => {
-      html.style.backgroundColor = prevHtmlBg;
-      body.style.backgroundColor = prevBodyBg;
-    };
-  }, [inverted]);
+  }, [cta, done]);
 
   const keepInPlace = () => {
     window.scrollTo(0, 0);
@@ -722,17 +664,9 @@ export function BrandLaunchWaitlist({
 
   const submit = async () => {
     setError(null);
-    if (!isCompleteRuPhone(phone) || submitting || done) return;
+    if (!isCompleteRuPhone(phone)) return;
     const value = toRuPhoneE164(phone);
-    const pill = fieldRef.current;
-    const rect = pill?.getBoundingClientRect();
     setSubmitting(true);
-    inputRef.current?.blur();
-    if (rect && rect.width > 0 && rect.height > 0) {
-      setInvertBurst(waitlistCoverScale(rect));
-    } else {
-      setInverted(true);
-    }
     try {
       const res = await fetch("/api/waitlist", {
         method: "POST",
@@ -744,9 +678,8 @@ export function BrandLaunchWaitlist({
         throw new Error(data.error || "Не удалось отправить");
       }
       setDone(true);
+      inputRef.current?.blur();
     } catch (err) {
-      setInvertBurst(null);
-      setInverted(false);
       setError(err instanceof Error ? err.message : "Не удалось отправить");
     } finally {
       setSubmitting(false);
@@ -773,7 +706,7 @@ export function BrandLaunchWaitlist({
         cta === "flip" && !tUpright ? " cursor-pointer" : ""
       }`}
       style={{
-        backgroundColor: inverted ? LOGO_INK : BRAND_YELLOW,
+        backgroundColor: BRAND_YELLOW,
         ...(keyboardOpen && viewportHeight
           ? {
               height: `${Math.round(viewportHeight)}px`,
@@ -792,29 +725,7 @@ export function BrandLaunchWaitlist({
           : "Током — подписка на открытие"
       }
     >
-      {invertBurst && !inverted ? (
-        <motion.div
-          aria-hidden
-          className="pointer-events-none fixed z-[15] rounded-full"
-          style={{
-            top: invertBurst.top,
-            left: invertBurst.left,
-            width: invertBurst.width,
-            height: invertBurst.height,
-            backgroundColor: LOGO_INK,
-            transformOrigin: "center center",
-            willChange: "transform",
-          }}
-          initial={{ scale: 1 }}
-          animate={{ scale: invertBurst.scale }}
-          transition={{
-            duration: WAITLIST_INVERT_DURATION_S,
-            ease: WAITLIST_INVERT_EASE,
-          }}
-        />
-      ) : null}
-
-      <div className="relative z-20 min-h-0 w-full flex-1">
+      <div className="relative min-h-0 w-full flex-1">
         <div
           className="absolute w-max"
           style={{
@@ -831,27 +742,19 @@ export function BrandLaunchWaitlist({
             tPlayOnMount={false}
             tUpright={tUpright}
             collapseRest
-            ink={invertBurst || inverted ? BRAND_YELLOW : LOGO_INK}
           />
         </div>
       </div>
 
-      <div className="relative z-20 mx-auto w-full max-w-[min(100%,22rem)] shrink-0">
-        {done && inverted ? (
-          <motion.div
-            role="status"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.35, ease: "easeOut" }}
-            className="mx-auto flex h-14 min-h-14 w-full items-center justify-center px-6 text-[16px] text-white"
-          >
+      <div className="mx-auto w-full max-w-[min(100%,22rem)] shrink-0">
+        {done ? (
+          <div className="mx-auto flex h-14 min-h-14 w-full items-center justify-center rounded-full bg-[#111113] px-6 text-[16px] text-white">
             Спасибо! Сообщим об открытии
-          </motion.div>
-        ) : invertBurst || inverted || cta === "flip" ? (
+          </div>
+        ) : cta === "flip" ? (
           <div className="h-14 min-h-14 w-full" aria-hidden />
         ) : cta === "phone" ? (
           <form
-            ref={fieldRef}
             className="launch-email-field mx-auto flex h-14 min-h-14 w-full items-center gap-2 rounded-full bg-[#111113] px-2"
             onSubmit={(event) => {
               event.preventDefault();
@@ -918,9 +821,9 @@ export function BrandLaunchWaitlist({
             Сообщить об открытии
           </motion.button>
         )}
-        {error && !invertBurst && !inverted ? (
+        {error && (
           <p className="mt-3 text-center text-[13px] text-red-700">{error}</p>
-        ) : null}
+        )}
       </div>
     </div>
   );
