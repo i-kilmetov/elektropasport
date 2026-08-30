@@ -1,5 +1,8 @@
 import { resolveAppOrigin } from "@/lib/app-url";
-import { setTelegramWebhook } from "@/lib/telegram-notify";
+import {
+  getTelegramWebhookInfo,
+  setTelegramWebhook,
+} from "@/lib/telegram-notify";
 
 /**
  * One-time setup: open this URL after deploy (with secret) to register the webhook.
@@ -36,11 +39,13 @@ export async function GET(request: Request) {
   const secret = process.env.TELEGRAM_WEBHOOK_SECRET?.trim();
 
   const result = await setTelegramWebhook(webhookUrl, secret);
+  const info = await getTelegramWebhookInfo();
   if (!result.ok) {
     return Response.json(
       {
         error: "Не удалось вызвать setWebhook — проверьте BOT_TOKEN",
         details: result.error,
+        webhookInfo: info,
       },
       { status: 500 },
     );
@@ -50,5 +55,9 @@ export async function GET(request: Request) {
     ok: true,
     webhookUrl,
     secretConfigured: Boolean(secret),
+    webhookInfo: info,
+    hint: secret
+      ? "Если кнопки в боте не отвечают, убедитесь что webhook перерегистрирован после смены TELEGRAM_WEBHOOK_SECRET."
+      : undefined,
   });
 }

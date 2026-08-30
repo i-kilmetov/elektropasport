@@ -16,6 +16,7 @@ import {
   notifyMasterRequestAccepted,
   notifyMasterRequestTaken,
   sendResearchSurveyInvite,
+  sendTelegramMessage,
 } from "@/lib/telegram-notify";
 import {
   isResearchSurveyStartParam,
@@ -48,9 +49,25 @@ function verifySecret(request: Request): boolean {
   return got === expected;
 }
 
+async function dismissCallback(callbackQueryId: string): Promise<boolean> {
+  try {
+    await answerCallbackQuery(callbackQueryId);
+    return true;
+  } catch (error) {
+    console.error("answerCallbackQuery failed", error);
+    return false;
+  }
+}
+
 export async function POST(request: Request) {
+  let callbackQueryId: string | undefined;
+  let callbackAnswered = false;
+
   try {
     if (!verifySecret(request)) {
+      console.error(
+        "telegram webhook: unauthorized — check TELEGRAM_WEBHOOK_SECRET and re-run /api/telegram/setup-webhook",
+      );
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -73,6 +90,9 @@ export async function POST(request: Request) {
       return Response.json({ ok: true });
     }
 
+    callbackQueryId = callback.id;
+    callbackAnswered = await dismissCallback(callback.id);
+
     await ensureSchema();
     const data = callback.data ?? "";
 
@@ -80,11 +100,15 @@ export async function POST(request: Request) {
     const approveMaster = parseApproveMasterCallback(data);
     if (approveMaster) {
       if (!(await isPlatformAdmin(callback.from?.id ?? 0))) {
-        await answerCallbackQuery(callback.id, "Недостаточно прав");
+        if (callback.message) {
+          await sendTelegramMessage(
+            callback.message.chat.id,
+            "Недостаточно прав",
+          );
+        }
         return Response.json({ ok: true });
       }
       await setUserRole(approveMaster.telegramUserId, "master");
-      await answerCallbackQuery(callback.id, "Пользователь стал мастером ✅");
       if (callback.message) {
         const baseText = callback.message.text ?? "";
         await editMessageText({
@@ -102,70 +126,54 @@ export async function POST(request: Request) {
     const acceptRequest = parseAcceptRequestCallback(data);
     if (acceptRequest) {
       const masterTelegramId = callback.from?.id;
-      if (!masterTelegramId) {
-        await answerCallbackQuery(callback.id, "Ошибка авторизации", true);
+      const chatId = callback.message?.chat.id;
+
+      if (!masterTelegramId || !chatId) {
         return Response.json({ ok: true });
       }
 
-      try {
-        const result = await acceptInstallRequest(
-          acceptRequest.requestId,
-          masterTelegramId,
+      const result = await acceptInstallRequest(
+        acceptRequest.requestId,
+        masterTelegramId,
+      );
+
+      if (result === "not_master") {
+        await sendTelegramMessage(
+          chatId,
+          "Нет доступа: вы не зарегистрированы как мастер.",
         );
+        return Response.json({ ok: true });
+      }
 
-        if (result === "not_master") {
-          await answerCallbackQuery(
-            callback.id,
-            "Нет доступа: вы не зарегистрированы как мастер",
-            true,
-          );
-          return Response.json({ ok: true });
-        }
+      if (result === "not_found") {
+        await sendTelegramMessage(chatId, "Заявка не найдена.");
+        return Response.json({ ok: true });
+      }
 
-        if (result === "not_found") {
-          await answerCallbackQuery(callback.id, "Заявка не найдена", true);
-          return Response.json({ ok: true });
-        }
-
-        if (result === "already_taken") {
-          await answerCallbackQuery(
-            callback.id,
-            "Заявку уже принял другой мастер",
-            true,
-          );
-          if (callback.message) {
-            await notifyMasterRequestTaken(
-              callback.message.chat.id,
-              callback.message.message_id,
-            );
-          }
-          return Response.json({ ok: true });
-        }
-
-        await answerCallbackQuery(callback.id, "Вы приняли заявку! ✅");
-
+      if (result === "already_taken") {
         if (callback.message) {
-          const baseText = callback.message.text ?? "Новая заявка";
+          await notifyMasterRequestTaken(chatId, callback.message.message_id);
+        }
+        await sendTelegramMessage(
+          chatId,
+          "Заявку уже принял другой мастер.",
+        );
+        return Response.json({ ok: true });
+      }
+
+      if (callback.message) {
+        const baseText = callback.message.text ?? "Новая заявка";
+        try {
           await editMessageText({
-            chatId: callback.message.chat.id,
+            chatId,
             messageId: callback.message.message_id,
             text: `${baseText}\n\n✅ Вы приняли эту заявку`,
             requestId: acceptRequest.requestId,
             withStatusKeyboard: false,
           });
+        } catch (error) {
+          console.error("edit accepted request message failed", error);
         }
-      } catch (error) {
-        console.error("accept request callback error", error);
-        try {
-          await answerCallbackQuery(
-            callback.id,
-            "Не удалось принять заявку. Попробуйте ещё раз",
-            true,
-          );
-        } catch (answerError) {
-          console.error("answerCallbackQuery failed", answerError);
-        }
-        return Response.json({ ok: true });
       }
 
       try {
@@ -201,19 +209,35 @@ export async function POST(request: Request) {
 
     // ── Admin: status change ──
     if (!(await isPlatformAdmin(callback.from?.id ?? 0))) {
-      await answerCallbackQuery(callback.id, "Недостаточно прав");
+      console.warn("telegram callback ignored for non-admin", {
+        data,
+        userId: callback.from?.id,
+      });
+      if (callback.message) {
+        await sendTelegramMessage(
+          callback.message.chat.id,
+          "Недостаточно прав",
+        );
+      }
       return Response.json({ ok: true });
     }
 
     const parsed = parseStatusCallback(data);
     if (!parsed) {
-      await answerCallbackQuery(callback.id, "Неизвестная команда");
+      if (callback.message) {
+        await sendTelegramMessage(
+          callback.message.chat.id,
+          "Неизвестная команда",
+        );
+      }
       return Response.json({ ok: true });
     }
 
     const existing = await getInstallRequestById(parsed.requestId);
     if (!existing) {
-      await answerCallbackQuery(callback.id, "Заявка не найдена");
+      if (callback.message) {
+        await sendTelegramMessage(callback.message.chat.id, "Заявка не найдена");
+      }
       return Response.json({ ok: true });
     }
 
@@ -223,7 +247,12 @@ export async function POST(request: Request) {
     });
 
     if (!updated) {
-      await answerCallbackQuery(callback.id, "Не удалось обновить");
+      if (callback.message) {
+        await sendTelegramMessage(
+          callback.message.chat.id,
+          "Не удалось обновить",
+        );
+      }
       return Response.json({ ok: true });
     }
 
@@ -232,11 +261,6 @@ export async function POST(request: Request) {
       body: `Статус заявки: ${installStatusLabels[parsed.status]}`,
       url: "/",
     });
-
-    await answerCallbackQuery(
-      callback.id,
-      `Статус: ${installStatusLabels[parsed.status]}`,
-    );
 
     if (callback.message) {
       const baseText = callback.message.text ?? "";
@@ -260,6 +284,9 @@ export async function POST(request: Request) {
     return Response.json({ ok: true });
   } catch (error) {
     console.error("telegram webhook error", error);
+    if (callbackQueryId && !callbackAnswered) {
+      await dismissCallback(callbackQueryId);
+    }
     return Response.json({ ok: true });
   }
 }

@@ -368,7 +368,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 }
 
 .master-search-map .leaflet-tile-pane {
-  filter: grayscale(1) contrast(1.06) brightness(1.03);
+  filter: grayscale(1) contrast(1.08) brightness(1.06);
 }
 
 .master-search-map--loading {

@@ -2170,12 +2170,16 @@ export async function acceptInstallRequest(
   const sql = getSql();
   await ensureSchema();
 
-  const [masterRow] = (await sql`
-    SELECT telegram_id FROM users
+  const [authorized] = (await sql`
+    SELECT 1 AS ok FROM users
     WHERE telegram_id = ${masterTelegramId} AND role = 'master'
+    UNION ALL
+    SELECT 1 FROM master_dispatch_messages
+    WHERE request_id = ${requestId}
+      AND master_telegram_id = ${masterTelegramId}
     LIMIT 1
-  `) as Array<{ telegram_id: string | number }>;
-  if (!masterRow) return "not_master";
+  `) as Array<{ ok: number }>;
+  if (!authorized) return "not_master";
 
   const rows = (await sql`
     UPDATE install_requests

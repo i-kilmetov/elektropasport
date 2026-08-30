@@ -612,13 +612,68 @@ export async function notifyAdminFeedbackAttachment(payload: {
 
 export async function answerCallbackQuery(
   callbackQueryId: string,
-  text: string,
+  text?: string,
   showAlert = false,
 ): Promise<void> {
-  const result = await telegramApi("answerCallbackQuery", {
+  const body: Record<string, unknown> = {
     callback_query_id: callbackQueryId,
+  };
+  if (text) {
+    body.text = text;
+    body.show_alert = showAlert;
+  }
+
+  const result = await telegramApi("answerCallbackQuery", body);
+  if (!result.ok) {
+    throw new Error(result.error);
+  }
+}
+
+export async function getTelegramWebhookInfo(): Promise<{
+  ok: boolean;
+  url?: string;
+  hasCustomCertificate?: boolean;
+  pendingUpdateCount?: number;
+  lastErrorDate?: number;
+  lastErrorMessage?: string;
+  maxConnections?: number;
+  allowedUpdates?: string[];
+  error?: string;
+}> {
+  const result = await telegramApi<{
+    url?: string;
+    has_custom_certificate?: boolean;
+    pending_update_count?: number;
+    last_error_date?: number;
+    last_error_message?: string;
+    max_connections?: number;
+    allowed_updates?: string[];
+  }>("getWebhookInfo", {});
+
+  if (!result.ok) {
+    return { ok: false, error: result.error };
+  }
+
+  return {
+    ok: true,
+    url: result.data.url,
+    hasCustomCertificate: result.data.has_custom_certificate,
+    pendingUpdateCount: result.data.pending_update_count,
+    lastErrorDate: result.data.last_error_date,
+    lastErrorMessage: result.data.last_error_message,
+    maxConnections: result.data.max_connections,
+    allowedUpdates: result.data.allowed_updates,
+  };
+}
+
+export async function sendTelegramMessage(
+  chatId: number,
+  text: string,
+): Promise<void> {
+  const result = await telegramApi("sendMessage", {
+    chat_id: chatId,
     text,
-    show_alert: showAlert,
+    disable_web_page_preview: true,
   });
   if (!result.ok) {
     throw new Error(result.error);
