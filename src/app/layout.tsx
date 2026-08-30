@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geologica, Manrope } from "next/font/google";
+import { GoogleAnalytics } from "@/components/google-analytics";
 import { PushProvider } from "@/components/push-provider";
 import { TelegramProvider } from "@/components/telegram-provider";
 import { YandexMetrika } from "@/components/yandex-metrika";
@@ -63,6 +64,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       </head>
       <body className="min-h-[var(--app-height,100dvh)] w-full bg-[#f7f7f8] font-sans text-[var(--foreground)]">
         <YandexMetrika />
+        <GoogleAnalytics />
         <TelegramProvider>
           <PushProvider>{children}</PushProvider>
         </TelegramProvider>
