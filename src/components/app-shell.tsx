@@ -292,35 +292,22 @@ function pickLivePanelFields(
 }
 
 const SPLASH_SEEN_KEY = "ep:splash-seen";
-const SPLASH_SEEN_PERSIST_KEY = "ep:splash-seen-persist";
 
 type SplashPhase = "pending" | "show" | "done";
 
-function hasSeenSplashBefore(): boolean {
+/** Skip splash only when AppShell remounts in the same browser tab (e.g. /school → home). */
+function hasSeenSplashThisSession(): boolean {
   if (typeof window === "undefined") return false;
   try {
-    return (
-      sessionStorage.getItem(SPLASH_SEEN_KEY) === "1" ||
-      localStorage.getItem(SPLASH_SEEN_PERSIST_KEY) === "1"
-    );
+    return sessionStorage.getItem(SPLASH_SEEN_KEY) === "1";
   } catch {
     return false;
   }
 }
 
-function initialSplashPhase(
-  forceResearchSurvey: boolean,
-  launchWaitlist?: boolean,
-): SplashPhase {
-  if (forceResearchSurvey || launchWaitlist) return "done";
-  if (hasSeenSplashBefore()) return "done";
-  return "show";
-}
-
 function markSplashSeen(): void {
   try {
     sessionStorage.setItem(SPLASH_SEEN_KEY, "1");
-    localStorage.setItem(SPLASH_SEEN_PERSIST_KEY, "1");
   } catch {
     // private mode
   }
@@ -341,7 +328,7 @@ export function AppShell({
   );
   const [onboardingReady, setOnboardingReady] = useState(forceResearchSurvey);
   const [splashPhase, setSplashPhase] = useState<SplashPhase>(() =>
-    initialSplashPhase(forceResearchSurvey, launchWaitlist),
+    forceResearchSurvey || launchWaitlist ? "done" : "pending",
   );
   const [showAuthIntro, setShowAuthIntro] = useState(
     () => !forceResearchSurvey,
@@ -467,7 +454,7 @@ export function AppShell({
       setShowAuthIntro(false);
       return;
     }
-    if (hasSeenSplashBefore()) {
+    if (hasSeenSplashThisSession()) {
       setSplashPhase("done");
       return;
     }
@@ -1983,7 +1970,13 @@ export function AppShell({
     );
   }
 
-  if (splashPhase === "pending" || splashPhase === "show") {
+  if (splashPhase === "pending") {
+    return (
+      <div className="relative h-[var(--app-height,100dvh)] w-full overflow-hidden bg-[var(--bg)]" />
+    );
+  }
+
+  if (splashPhase === "show") {
     return (
       <BrandSplash
         bootReady={onboardingReady && initialFetchDone && pdConsentChecked}
