@@ -14,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { GlassCard } from "@/components/ui/glass-card";
+import { InfoDialog } from "@/components/ui/info-dialog";
 import { Portal } from "@/components/ui/portal";
 import { UndoSnackbarHost } from "@/components/ui/undo-snackbar";
 import { PushNotificationsCard } from "@/components/ui/push-notifications-card";
@@ -22,8 +23,8 @@ import {
   clearLocalAppData,
   isTelegramMiniApp,
 } from "@/lib/client-auth";
-import { listAchievements } from "@/lib/achievements";
-import { hapticNotification } from "@/lib/haptics";
+import { listAchievements, type Achievement } from "@/lib/achievements";
+import { hapticImpact, hapticNotification } from "@/lib/haptics";
 import { getTelegramProfileInfo } from "@/lib/telegram-user";
 import {
   formatPhoneDigits,
@@ -176,7 +177,9 @@ export function ProfileScreen({
     () => listAchievements({ panelCount, applianceCount, inviteCount }),
     [panelCount, applianceCount, inviteCount],
   );
-  const unlockedCount = achievements.filter((item) => item.unlocked).length;
+  const [openAchievement, setOpenAchievement] = useState<Achievement | null>(
+    null,
+  );
 
   const logout = () => {
     clearLocalAppData();
@@ -306,55 +309,20 @@ export function ProfileScreen({
           )
         ) : null}
 
-        <div>
-          <div className="mb-2 flex items-end justify-between gap-3">
-            <h3 className="ty-subtitle text-zinc-600">Ачивки</h3>
-            <span className="ty-meta tabular-nums">
-              {unlockedCount} из {achievements.length}
-            </span>
-          </div>
-          <div className="grid grid-cols-3 gap-2">
-            {achievements.map((item) => {
-              const Icon = item.icon;
-              return (
-                <div
-                  key={item.id}
-                  className={cn(
-                    "flex flex-col items-center rounded-[20px] border px-2 py-3 text-center",
-                    item.unlocked
-                      ? "border-[#D3DA00]/45 bg-[#D3DA00]/14 shadow-[0_8px_20px_rgba(211,218,0,0.12)]"
-                      : "border-black/6 bg-zinc-50",
-                  )}
-                >
-                  <span
-                    className={cn(
-                      "flex h-11 w-11 items-center justify-center rounded-full",
-                      item.unlocked
-                        ? "bg-[#D3DA00] text-[#111113]"
-                        : "bg-zinc-200/80 text-zinc-400",
-                    )}
-                  >
-                    <Icon className="h-5 w-5" strokeWidth={2.2} />
-                  </span>
-                  <div
-                    className={cn(
-                      "mt-2 ty-label leading-tight",
-                      item.unlocked ? "text-zinc-900" : "text-zinc-400",
-                    )}
-                  >
-                    {item.title}
-                  </div>
-                  <div
-                    className={cn(
-                      "mt-0.5 ty-meta",
-                      item.unlocked ? "text-zinc-500" : "text-zinc-400",
-                    )}
-                  >
-                    {item.hint}
-                  </div>
-                </div>
-              );
-            })}
+        <div className="flex justify-center py-3">
+          <div className="flex items-center">
+            {achievements.map((item, index) => (
+              <AchievementMedal
+                key={item.id}
+                item={item}
+                index={index}
+                raised={openAchievement?.id === item.id}
+                onOpen={() => {
+                  hapticImpact("light");
+                  setOpenAchievement(item);
+                }}
+              />
+            ))}
           </div>
         </div>
 
@@ -541,6 +509,16 @@ export function ProfileScreen({
         )}
       </AnimatePresence>
 
+      <AnimatePresence>
+        {openAchievement && (
+          <InfoDialog
+            title={openAchievement.title}
+            description={openAchievement.hint}
+            onClose={() => setOpenAchievement(null)}
+          />
+        )}
+      </AnimatePresence>
+
       <UndoSnackbarHost
         action={
           deleteArmed
@@ -583,5 +561,130 @@ export function ProfileScreen({
         )}
       </AnimatePresence>
     </motion.section>
+  );
+}
+
+const MEDAL_FACE: Record<
+  "locked" | "bronze" | "silver" | "gold",
+  { fill: string; icon: string; rim: string }
+> = {
+  locked: {
+    fill: "radial-gradient(circle at 32% 26%, #f4f4f6 0%, #c9c9ce 42%, #9a9aa1 76%, #7a7a82 100%)",
+    icon: "#6b6b73",
+    rim: "linear-gradient(160deg, #ececee 0%, #8d8d94 48%, #b8b8be 100%)",
+  },
+  bronze: {
+    fill: "radial-gradient(circle at 32% 26%, #ffd9b4 0%, #d08948 40%, #a05622 72%, #6c3212 100%)",
+    icon: "#3a1c0b",
+    rim: "linear-gradient(160deg, #f3c49a 0%, #8a4a1e 48%, #c07838 100%)",
+  },
+  silver: {
+    fill: "radial-gradient(circle at 32% 26%, #ffffff 0%, #d8dee8 38%, #9aa4b4 70%, #5f6774 100%)",
+    icon: "#3a414c",
+    rim: "linear-gradient(160deg, #f7f9fc 0%, #7b8492 48%, #c5ccd6 100%)",
+  },
+  gold: {
+    fill: "radial-gradient(circle at 32% 26%, #fff8c8 0%, #e6c43c 38%, #c9a21c 68%, #8a6a0c 100%)",
+    icon: "#3d2e06",
+    rim: "linear-gradient(160deg, #fff3a8 0%, #a07d12 48%, #e0c04a 100%)",
+  },
+};
+
+function medalTone(
+  item: Achievement,
+): keyof typeof MEDAL_FACE {
+  if (item.maxLevel) {
+    const level = item.level ?? 0;
+    if (level >= 3) return "gold";
+    if (level === 2) return "silver";
+    if (level === 1) return "bronze";
+    return "locked";
+  }
+  return item.unlocked ? "gold" : "locked";
+}
+
+function AchievementMedal({
+  item,
+  index,
+  raised,
+  onOpen,
+}: {
+  item: Achievement;
+  index: number;
+  raised: boolean;
+  onOpen: () => void;
+}) {
+  const Icon = item.icon;
+  const tone = medalTone(item);
+  const face = MEDAL_FACE[tone];
+  const pips = item.maxLevel ?? 0;
+
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      aria-label={item.title}
+      className={cn(
+        "relative shrink-0 rounded-full transition-transform duration-200",
+        index > 0 && "-ml-4",
+        raised && "z-30 scale-110",
+      )}
+      style={{ zIndex: raised ? 30 : index + 1 }}
+    >
+      <span
+        className="relative flex h-14 w-14 items-center justify-center rounded-full"
+        style={{
+          background: face.rim,
+          boxShadow:
+            "0 1px 0 rgba(255,255,255,0.55), 0 8px 14px rgba(17,17,19,0.22), 0 2px 3px rgba(17,17,19,0.18)",
+        }}
+      >
+        <span
+          className="relative flex h-11 w-11 items-center justify-center rounded-full"
+          style={{
+            background: face.fill,
+            boxShadow:
+              "inset 0 3px 4px rgba(255,255,255,0.72), inset 0 -5px 7px rgba(0,0,0,0.28)",
+          }}
+        >
+          <span
+            aria-hidden
+            className="pointer-events-none absolute inset-x-[18%] top-[10%] h-[38%] rounded-full opacity-70"
+            style={{
+              background:
+                "linear-gradient(180deg, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0) 100%)",
+            }}
+          />
+          <Icon
+            className={cn(
+              "relative h-[1.15rem] w-[1.15rem]",
+              pips > 0 && "-translate-y-0.5",
+            )}
+            strokeWidth={2.35}
+            color={face.icon}
+          />
+          {pips > 0 ? (
+            <span className="absolute bottom-1.5 flex gap-[3px]">
+              {Array.from({ length: pips }, (_, pip) => (
+                <span
+                  key={pip}
+                  className="h-[5px] w-[5px] rounded-full"
+                  style={{
+                    background:
+                      pip < (item.level ?? 0)
+                        ? face.icon
+                        : "rgba(17,17,19,0.18)",
+                    boxShadow:
+                      pip < (item.level ?? 0)
+                        ? "0 0 0 0.5px rgba(255,255,255,0.35)"
+                        : undefined,
+                  }}
+                />
+              ))}
+            </span>
+          ) : null}
+        </span>
+      </span>
+    </button>
   );
 }

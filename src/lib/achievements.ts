@@ -1,11 +1,8 @@
 import {
-  BookOpen,
   GraduationCap,
   HousePlug,
-  Medal,
-  ScrollText,
+  UserPlus,
   Users,
-  Wrench,
   Zap,
   type LucideIcon,
 } from "lucide-react";
@@ -23,6 +20,9 @@ export type Achievement = {
   hint: string;
   unlocked: boolean;
   icon: LucideIcon;
+  /** Filled steps for multi-level medals (literacy). */
+  level?: number;
+  maxLevel?: number;
 };
 
 export function readMasterApplied(): boolean {
@@ -42,84 +42,79 @@ export function markMasterApplied(): void {
   }
 }
 
+function literacyLevel(school: SchoolProgress | undefined): number {
+  if (!school) return 0;
+  if (gradeCompleted(school, 3)) return 3;
+  if (gradeCompleted(school, 2)) return 2;
+  if (gradeCompleted(school, 1)) return 1;
+  return 0;
+}
+
+function literacyHint(level: number): string {
+  if (level >= 3) return "Все три класса школы пройдены.";
+  if (level === 2) return "2 из 3 классов. Остался выпускной.";
+  if (level === 1) return "1 из 3 классов школы электрики.";
+  return "Окончить три класса школы электрики.";
+}
+
 export function listAchievements(input: {
   panelCount: number;
   applianceCount: number;
   inviteCount: number;
   school?: SchoolProgress;
-  masterApplied?: boolean;
 }): Achievement[] {
   const school = input.school ?? (typeof window === "undefined"
     ? undefined
     : readSchoolProgress());
-  const g1 = school ? gradeCompleted(school, 1) : false;
-  const g2 = school ? gradeCompleted(school, 2) : false;
-  const g3 = school ? gradeCompleted(school, 3) : false;
-  const masterApplied = input.masterApplied ?? readMasterApplied();
+  const literacy = literacyLevel(school);
 
   return [
     {
       id: "first-panel",
-      title: "Первый щиток",
-      hint: "Добавили щиток в паспорт",
+      title: "Щиток",
+      hint: input.panelCount >= 1
+        ? "Щиток добавлен в паспорт."
+        : "Добавить щиток в паспорт.",
       unlocked: input.panelCount >= 1,
       icon: Zap,
     },
     {
       id: "first-appliance",
-      title: "Техника дома",
-      hint: "Привязали прибор к щитку",
+      title: "Техника",
+      hint: input.applianceCount >= 1
+        ? "Техника привязана к щитку."
+        : "Добавить технику к щитку.",
       unlocked: input.applianceCount >= 1,
       icon: HousePlug,
     },
     {
       id: "invite-1",
-      title: "Друг в Токоме",
-      hint: "Пригласили одного пользователя",
+      title: "Новый боец",
+      hint: input.inviteCount >= 1
+        ? "В Токоме появился новый боец."
+        : "Пригласить одного пользователя в Током.",
       unlocked: input.inviteCount >= 1,
-      icon: Users,
+      icon: UserPlus,
     },
     {
       id: "invite-3",
-      title: "Команда",
-      hint: "Трое приглашённых",
+      title: "Целая рота",
+      hint: input.inviteCount >= 3
+        ? "В Токоме целая рота — трое приглашённых."
+        : input.inviteCount > 0
+          ? `Сейчас ${input.inviteCount} из 3. Нужна целая рота.`
+          : "Собрать роту: минимум трое приглашённых.",
       unlocked: input.inviteCount >= 3,
-      icon: Medal,
+      icon: Users,
     },
     {
-      id: "grade-1",
-      title: "1 класс",
-      hint: "Окончили первый класс школы",
-      unlocked: g1,
-      icon: BookOpen,
-    },
-    {
-      id: "grade-2",
-      title: "2 класс",
-      hint: "Окончили второй класс школы",
-      unlocked: g2,
-      icon: BookOpen,
-    },
-    {
-      id: "grade-3",
-      title: "3 класс",
-      hint: "Окончили третий класс школы",
-      unlocked: g3,
+      id: "literacy",
+      title: "Победа над неграмотностью",
+      hint: literacyHint(literacy),
+      unlocked: literacy >= 1,
       icon: GraduationCap,
-    },
-    {
-      id: "diploma",
-      title: "Диплом Током",
-      hint: "Все три класса школы",
-      unlocked: g1 && g2 && g3,
-      icon: ScrollText,
-    },
-    {
-      id: "master-apply",
-      title: "Стать мастером",
-      hint: "Отправили заявку специалисту",
-      unlocked: masterApplied,
-      icon: Wrench,
+      level: literacy,
+      maxLevel: 3,
     },
   ];
 }

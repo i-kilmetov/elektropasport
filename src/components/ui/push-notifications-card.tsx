@@ -1,25 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Bell, BellOff, BellRing } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
-import { hapticNotification } from "@/lib/haptics";
+import { hapticNotification, hapticSelection } from "@/lib/haptics";
+import { cn } from "@/lib/utils";
 import {
   disableWebPush,
   enableWebPush,
   friendlyPushError,
   getCurrentPushSubscription,
-  hasNotificationPermission,
   readPushUiState,
-  sendTestWebPush,
   type PushUiState,
 } from "@/lib/web-push-client";
 
 export function PushNotificationsCard() {
   const [state, setState] = useState<PushUiState>("loading");
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -46,15 +42,9 @@ export function PushNotificationsCard() {
     if (busy) return;
     setBusy(true);
     setError(null);
-    setMessage(null);
     try {
-      const result = await enableWebPush();
+      await enableWebPush();
       setState("on");
-      setMessage(
-        result.tested
-          ? "Тестовое уведомление отправлено. Если его не видно, сверните приложение — на iPhone пуш часто не показывается, пока Током открыт."
-          : "Уведомления включены. Тест мог не дойти сразу — нажмите «Отправить тест» ещё раз.",
-      );
       hapticNotification("success");
     } catch (err) {
       hapticNotification("error");
@@ -68,7 +58,6 @@ export function PushNotificationsCard() {
     if (busy) return;
     setBusy(true);
     setError(null);
-    setMessage(null);
     try {
       await disableWebPush();
       setState("off");
@@ -83,123 +72,57 @@ export function PushNotificationsCard() {
     }
   };
 
-  const sendTest = async () => {
-    if (busy) return;
-    setBusy(true);
-    setError(null);
-    setMessage(null);
-    try {
-      await sendTestWebPush();
-      setMessage(
-        "Тест отправлен. Сверните Током — на iPhone уведомление часто видно только когда приложение закрыто.",
-      );
-      hapticNotification("success");
-    } catch (err) {
-      hapticNotification("error");
-      setError(err instanceof Error ? err.message : "Не удалось отправить тест");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  if (state === "loading" || state === "unsupported") {
+  if (state === "unsupported") {
     return null;
   }
 
+  const on = state === "on";
+  const canToggle = state === "on" || state === "off" || state === "loading";
+  const toggleDisabled = busy || state === "loading" || !canToggle;
+
+  const note =
+    state === "needs-standalone"
+      ? "На iPhone пуши приходят только если Током открыт иконкой с экрана Домой."
+      : state === "needs-login"
+        ? "Войдите через Telegram, затем включите уведомления."
+        : state === "denied"
+          ? "Уведомления запрещены в настройках iPhone. Откройте Настройки → Уведомления → Током."
+          : "Сообщим, когда мастер примет заявку или изменится её статус.";
+
+  const toggle = () => {
+    if (toggleDisabled) return;
+    hapticSelection();
+    if (on) void disable();
+    else void enable();
+  };
+
   return (
     <GlassCard className="p-4">
-      <div className="flex gap-3">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-zinc-100 text-zinc-700">
-          {state === "on" ? (
-            <BellRing className="h-5 w-5" />
-          ) : (
-            <Bell className="h-5 w-5" />
-          )}
-        </span>
+      <div className="flex items-center gap-3">
         <div className="min-w-0 flex-1">
-          <div className="ty-heading">
-            Уведомления
-          </div>
-          {state === "needs-standalone" && (
-            <p className="mt-1 ty-note">
-              На iPhone пуши приходят только если Током открыт иконкой с экрана
-              Домой — той, которую вы добавили из Safari.
-            </p>
-          )}
-          {state === "needs-login" && (
-            <p className="mt-1 ty-note">
-              Войдите через Telegram, затем включите уведомления.
-            </p>
-          )}
-          {state === "denied" && (
-            <p className="mt-1 ty-note">
-              Уведомления запрещены в настройках iPhone. Откройте Настройки →
-              Уведомления → Током и разрешите их.
-            </p>
-          )}
-          {(state === "off" || state === "on") && (
-            <p className="mt-1 ty-note">
-              Сообщим, когда мастер примет заявку или изменится её статус.
-            </p>
-          )}
+          <div className="ty-heading">Уведомления</div>
+          <p className="mt-1 ty-note">{note}</p>
         </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={on}
+          aria-label={on ? "Выключить уведомления" : "Включить уведомления"}
+          disabled={toggleDisabled}
+          onClick={toggle}
+          className={cn(
+            "relative h-[31px] w-[51px] shrink-0 rounded-full transition-colors duration-200 disabled:opacity-45",
+            on ? "bg-[#34C759]" : "bg-zinc-300",
+          )}
+        >
+          <span
+            className={cn(
+              "absolute top-[2px] left-[2px] block h-[27px] w-[27px] rounded-full bg-white shadow-[0_1px_2px_rgba(0,0,0,0.28),0_3px_8px_rgba(0,0,0,0.12)] transition-transform duration-200",
+              on && "translate-x-[20px]",
+            )}
+          />
+        </button>
       </div>
-
-      {state === "off" && (
-        <>
-          {hasNotificationPermission() && (
-            <p className="mt-3 ty-note">
-              В настройках iPhone разрешение уже есть. Нажмите ещё раз — нужно
-              закончить подписку после системного окна.
-            </p>
-          )}
-          <Button
-            className="mt-4 w-full"
-            size="sm"
-            disabled={busy}
-            onClick={() => void enable()}
-          >
-            {busy
-              ? "Включаем…"
-              : hasNotificationPermission()
-                ? "Завершить включение"
-                : "Включить уведомления"}
-          </Button>
-        </>
-      )}
-      {state === "on" && (
-        <div className="mt-4 space-y-2">
-          <Button
-            className="w-full"
-            size="sm"
-            variant="secondary"
-            disabled={busy}
-            onClick={() => void sendTest()}
-          >
-            Отправить тест
-          </Button>
-          <Button
-            className="w-full"
-            size="sm"
-            variant="ghost"
-            disabled={busy}
-            onClick={() => void disable()}
-          >
-            <BellOff className="h-4 w-4" />
-            {busy ? "Выключаем…" : "Выключить на этом устройстве"}
-          </Button>
-        </div>
-      )}
-      {state === "needs-standalone" && (
-        <p className="mt-3 ty-meta text-zinc-400">
-          Закройте вкладку Safari и откройте Током с рабочего стола.
-        </p>
-      )}
-      {message && (
-        <p className="mt-3 text-[13px] leading-relaxed text-emerald-700">
-          {message}
-        </p>
-      )}
       {error && (
         <p className="mt-3 text-[13px] leading-relaxed text-rose-600">{error}</p>
       )}
