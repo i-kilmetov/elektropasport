@@ -2942,10 +2942,6 @@ export function AppShell({
             <MasterSearchScreen
               key={`search-${searchRequestId}`}
               requestId={searchRequestId}
-              city={selectedCity ?? activeRequest?.city}
-              address={selectedAddress ?? activeRequest?.exactAddress}
-              lat={selectedCoords?.lat}
-              lon={selectedCoords?.lon}
               onMasterFound={(master) => {
                 setFoundMaster(master);
                 go("master-success");
@@ -2960,6 +2956,10 @@ export function AppShell({
               key={`success-${searchRequestId}`}
               requestId={searchRequestId}
               master={foundMaster}
+              city={selectedCity ?? activeRequest?.city}
+              address={selectedAddress ?? activeRequest?.exactAddress}
+              lat={selectedCoords?.lat}
+              lon={selectedCoords?.lon}
               onClose={() => {
                 setSearchRequestId(null);
                 setFoundMaster(null);
@@ -2970,6 +2970,10 @@ export function AppShell({
           {screen === "master-not-found" && (
             <MasterNotFoundScreen
               key="master-not-found"
+              city={selectedCity ?? activeRequest?.city}
+              address={selectedAddress ?? activeRequest?.exactAddress}
+              lat={selectedCoords?.lat}
+              lon={selectedCoords?.lon}
               onClose={() => {
                 setSearchRequestId(null);
                 go("objects");

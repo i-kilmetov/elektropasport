@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Check, Phone, Star, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { OpenNearbyElectricalStoresButton } from "@/components/screens/open-nearby-electrical-stores-button";
 import { submitMasterFeedback } from "@/lib/user-data";
 import { cn } from "@/lib/utils";
 
@@ -12,10 +13,18 @@ const FEEDBACK_DELAY_MS = 5 * 60 * 1000;
 export function MasterSuccessScreen({
   requestId,
   master,
+  city,
+  address,
+  lat,
+  lon,
   onClose,
 }: {
   requestId: string;
   master: { firstName: string; phone: string; username: string };
+  city?: string | null;
+  address?: string | null;
+  lat?: number | null;
+  lon?: number | null;
   onClose: () => void;
 }) {
   const [showFeedback, setShowFeedback] = useState(false);
@@ -208,6 +217,14 @@ export function MasterSuccessScreen({
             </a>
           )}
         </div>
+
+        <OpenNearbyElectricalStoresButton
+          city={city}
+          address={address}
+          lat={lat}
+          lon={lon}
+          className="w-full max-w-xs"
+        />
 
         <Button className="mt-2" variant="secondary" onClick={onClose}>
           На главную

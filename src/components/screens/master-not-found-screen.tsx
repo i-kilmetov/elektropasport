@@ -3,10 +3,19 @@
 import { motion } from "framer-motion";
 import { Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { OpenNearbyElectricalStoresButton } from "@/components/screens/open-nearby-electrical-stores-button";
 
 export function MasterNotFoundScreen({
+  city,
+  address,
+  lat,
+  lon,
   onClose,
 }: {
+  city?: string | null;
+  address?: string | null;
+  lat?: number | null;
+  lon?: number | null;
   onClose: () => void;
 }) {
   return (
@@ -28,6 +37,13 @@ export function MasterNotFoundScreen({
             Все мастера сейчас заняты, но мы обязательно свяжемся с вами в течение дня.
           </p>
         </div>
+        <OpenNearbyElectricalStoresButton
+          city={city}
+          address={address}
+          lat={lat}
+          lon={lon}
+          className="w-full max-w-xs"
+        />
         <Button onClick={onClose}>Понятно</Button>
       </div>
     </motion.section>

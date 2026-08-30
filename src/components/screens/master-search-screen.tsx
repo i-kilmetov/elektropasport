@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Loader2, Search } from "lucide-react";
-import { NearbyElectricalStoresPanel } from "@/components/screens/nearby-electrical-stores-panel";
 import { dispatchToMasters, pollRequestStatus } from "@/lib/user-data";
 
 const POLL_INTERVAL_MS = 3000;
@@ -11,18 +10,10 @@ const TIMEOUT_MS = 60_000;
 
 export function MasterSearchScreen({
   requestId,
-  city,
-  address,
-  lat,
-  lon,
   onMasterFound,
   onTimeout,
 }: {
   requestId: string;
-  city?: string | null;
-  address?: string | null;
-  lat?: number | null;
-  lon?: number | null;
   onMasterFound: (master: {
     firstName: string;
     phone: string;
@@ -82,10 +73,9 @@ export function MasterSearchScreen({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="flex min-h-0 flex-1 flex-col"
+      className="flex min-h-0 flex-1 flex-col items-center justify-center px-6"
     >
-      <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-6">
-        <div className="flex flex-col items-center gap-6 text-center">
+      <div className="flex flex-col items-center gap-6 text-center">
           <div className="relative flex h-20 w-20 items-center justify-center">
             <motion.div
               className="absolute inset-0 rounded-full border-2 border-emerald-500/30"
@@ -118,15 +108,7 @@ export function MasterSearchScreen({
           </div>
 
           <Loader2 className="h-5 w-5 animate-spin text-zinc-300" />
-        </div>
       </div>
-
-      <NearbyElectricalStoresPanel
-        city={city}
-        address={address}
-        lat={lat}
-        lon={lon}
-      />
     </motion.section>
   );
 }
