@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Loader2, Send, Sparkles, X } from "lucide-react";
 import type { ParsedAiLead } from "@/lib/ai-lead-ready";
+import type { AiChatMessage } from "@/lib/yandex-ai-studio";
 import { authHeaders, canUseServerAuth } from "@/lib/client-auth";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -29,6 +30,7 @@ export function AiConsultSheet({
   onLeadReady: (lead: ParsedAiLead) => void | Promise<void>;
 }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [apiHistory, setApiHistory] = useState<AiChatMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,6 +40,7 @@ export function AiConsultSheet({
   const leadLockRef = useRef(false);
 
   useEffect(() => {
+    setApiHistory([]);
     setMessages([
       {
         id: nextMessageId(),
@@ -78,10 +81,6 @@ export function AiConsultSheet({
     };
     setMessages((prev) => [...prev, userMessage]);
 
-    const history = [...messages, userMessage]
-      .filter((item) => item.role === "user" || item.role === "assistant")
-      .map((item) => ({ role: item.role, content: item.content }));
-
     try {
       const res = await fetch("/api/ai/consult", {
         method: "POST",
@@ -91,7 +90,7 @@ export function AiConsultSheet({
         },
         body: JSON.stringify({
           message: text,
-          history: history.slice(0, -1),
+          history: apiHistory,
           city,
         }),
       });
@@ -115,6 +114,11 @@ export function AiConsultSheet({
             role: "assistant",
             content: reply,
           },
+        ]);
+        setApiHistory((prev) => [
+          ...prev,
+          { role: "user", content: text },
+          { role: "assistant", content: reply },
         ]);
       }
 

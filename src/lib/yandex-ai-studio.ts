@@ -34,6 +34,10 @@ function extractOutputText(data: unknown): string {
     const block = item as Record<string, unknown>;
     if (block.type !== "message" || !Array.isArray(block.content)) continue;
     for (const chunk of block.content) {
+      if (typeof chunk === "string" && chunk.trim()) {
+        parts.push(chunk);
+        continue;
+      }
       if (typeof chunk !== "object" || chunk === null) continue;
       const piece = chunk as Record<string, unknown>;
       if (piece.type === "output_text" && typeof piece.text === "string") {
@@ -43,6 +47,26 @@ function extractOutputText(data: unknown): string {
   }
 
   return parts.join("").trim();
+}
+
+function formatYandexError(status: number, raw: string): string {
+  if (!raw.trim()) {
+    return `Yandex AI вернул ошибку ${status}`;
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as {
+      error?: { message?: string; code?: number | string };
+      message?: string;
+    };
+    const message =
+      parsed.error?.message?.trim() ||
+      parsed.message?.trim() ||
+      raw.trim().slice(0, 240);
+    return `Yandex AI: ${message}`;
+  } catch {
+    return `Yandex AI: ${raw.trim().slice(0, 240)}`;
+  }
 }
 
 export async function callYandexAiAgent(input: {
@@ -58,14 +82,30 @@ export async function callYandexAiAgent(input: {
     throw new Error("Yandex AI не настроен на сервере");
   }
 
-  const conversation: AiChatMessage[] = [
-    ...input.history,
-    { role: "user", content: input.message },
-  ];
-
-  const variables: Record<string, string> = {};
+  const prompt: { id: string; variables?: Record<string, string> } = {
+    id: agentId,
+  };
   const city = input.city?.trim();
-  if (city) variables.city = city;
+  if (city) {
+    prompt.variables = { city };
+  }
+
+  const history = input.history.filter(
+    (item) => item.content.trim().length > 0,
+  );
+  const payload: Record<string, unknown> = { prompt };
+
+  if (history.length === 0) {
+    payload.input = input.message;
+  } else {
+    payload.input = [
+      ...history.map((item) => ({
+        role: item.role,
+        content: item.content,
+      })),
+      { role: "user", content: input.message },
+    ];
+  }
 
   const res = await fetch(YANDEX_RESPONSES_URL, {
     method: "POST",
@@ -74,26 +114,22 @@ export async function callYandexAiAgent(input: {
       "x-folder-id": folderId,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      prompt: {
-        id: agentId,
-        variables,
-      },
-      input: conversation,
-    }),
+    body: JSON.stringify(payload),
   });
 
   if (!res.ok) {
     const errText = await res.text().catch(() => "");
-    throw new Error(
-      `Yandex AI: ${res.status}${errText ? ` — ${errText.slice(0, 240)}` : ""}`,
-    );
+    throw new Error(formatYandexError(res.status, errText));
   }
 
-  const data = (await res.json()) as { id?: string };
+  const data = (await res.json()) as { id?: string; status?: string };
   const text = extractOutputText(data);
   if (!text) {
-    throw new Error("Yandex AI вернул пустой ответ");
+    throw new Error(
+      data.status === "failed"
+        ? "Yandex AI не смог сформировать ответ"
+        : "Yandex AI вернул пустой ответ",
+    );
   }
 
   return {

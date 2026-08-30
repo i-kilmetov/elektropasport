@@ -1,4 +1,5 @@
 import {
+  AuthError,
   authErrorResponse,
   requireTelegramUser,
 } from "@/lib/telegram-auth";
@@ -67,17 +68,18 @@ export async function POST(request: Request) {
       responseId: result.responseId,
     });
   } catch (error) {
-    return (
-      authErrorResponse(error) ??
-      Response.json(
-        {
-          error:
-            error instanceof Error
-              ? error.message
-              : "Не удалось получить ответ консультанта",
-        },
-        { status: 502 },
-      )
+    if (error instanceof AuthError) {
+      return authErrorResponse(error);
+    }
+    console.error("AI consult error:", error);
+    return Response.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Не удалось получить ответ консультанта",
+      },
+      { status: 502 },
     );
   }
 }
