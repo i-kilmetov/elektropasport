@@ -5,17 +5,55 @@ import L from "leaflet";
 import { MapContainer, Marker, TileLayer, useMap } from "react-leaflet";
 import { authHeaders, canUseServerAuth } from "@/lib/client-auth";
 import { cn } from "@/lib/utils";
-import "leaflet/dist/leaflet.css";
 
 const DEFAULT_ZOOM = 16;
 const FALLBACK_CENTER = { lat: 55.7558, lon: 37.6173 };
 
-function MapViewport({ center, zoom }: { center: L.LatLngExpression; zoom: number }) {
+function MapViewport({
+  center,
+  zoom,
+}: {
+  center: L.LatLngExpression;
+  zoom: number;
+}) {
   const map = useMap();
 
   useEffect(() => {
     map.setView(center, zoom, { animate: false });
   }, [center, map, zoom]);
+
+  return null;
+}
+
+function MapInvalidateSize() {
+  const map = useMap();
+
+  useEffect(() => {
+    const invalidate = () => {
+      map.invalidateSize({ animate: false });
+    };
+
+    invalidate();
+    const timers = [
+      window.setTimeout(invalidate, 0),
+      window.setTimeout(invalidate, 120),
+      window.setTimeout(invalidate, 400),
+    ];
+
+    const container = map.getContainer();
+    const observer =
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(invalidate)
+        : null;
+    observer?.observe(container);
+
+    window.addEventListener("resize", invalidate);
+    return () => {
+      timers.forEach((timer) => window.clearTimeout(timer));
+      observer?.disconnect();
+      window.removeEventListener("resize", invalidate);
+    };
+  }, [map]);
 
   return null;
 }
@@ -52,7 +90,9 @@ async function resolveMapCenter(input: {
     return { lat: input.lat as number, lon: input.lon as number };
   }
 
-  const query = [input.city?.trim(), input.address?.trim()].filter(Boolean).join(", ");
+  const query = [input.city?.trim(), input.address?.trim()]
+    .filter(Boolean)
+    .join(", ");
   if (query && canUseServerAuth()) {
     try {
       const res = await fetch("/api/geocode-address", {
@@ -124,16 +164,19 @@ export function MasterSearchMap({
   address?: string | null;
   className?: string;
 }) {
-  const [center, setCenter] = useState<{ lat: number; lon: number } | null>(
-    () => {
-      const hasCoords =
-        typeof lat === "number" &&
-        typeof lon === "number" &&
-        Number.isFinite(lat) &&
-        Number.isFinite(lon);
-      return hasCoords ? { lat, lon } : null;
-    },
-  );
+  const [mounted, setMounted] = useState(false);
+  const [center, setCenter] = useState<{ lat: number; lon: number }>(() => {
+    const hasCoords =
+      typeof lat === "number" &&
+      typeof lon === "number" &&
+      Number.isFinite(lat) &&
+      Number.isFinite(lon);
+    return hasCoords ? { lat, lon } : FALLBACK_CENTER;
+  });
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -146,14 +189,17 @@ export function MasterSearchMap({
   }, [lat, lon, city, address]);
 
   const radarIcon = useMemo(() => createRadarIcon(), []);
-  const mapCenter = center ?? FALLBACK_CENTER;
+
+  if (!mounted) {
+    return <div className={cn("master-search-map master-search-map--loading", className)} />;
+  }
 
   return (
     <div className={cn("master-search-map", className)}>
       <MapContainer
-        center={[mapCenter.lat, mapCenter.lon]}
+        center={[center.lat, center.lon]}
         zoom={DEFAULT_ZOOM}
-        className="h-full w-full"
+        style={{ height: "100%", width: "100%" }}
         zoomControl={false}
         attributionControl={false}
         dragging={false}
@@ -168,10 +214,9 @@ export function MasterSearchMap({
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           maxZoom={19}
         />
-        <MapViewport center={[mapCenter.lat, mapCenter.lon]} zoom={DEFAULT_ZOOM} />
-        {center ? (
-          <Marker position={[center.lat, center.lon]} icon={radarIcon} />
-        ) : null}
+        <MapViewport center={[center.lat, center.lon]} zoom={DEFAULT_ZOOM} />
+        <MapInvalidateSize />
+        <Marker position={[center.lat, center.lon]} icon={radarIcon} />
       </MapContainer>
       <div className="master-search-map__shade" aria-hidden="true" />
     </div>

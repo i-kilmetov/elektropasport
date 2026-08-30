@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "leaflet/dist/leaflet.css";
 
 :root {
   --bg: #ffffff;
@@ -355,6 +356,15 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 .master-search-map {
   position: relative;
   overflow: hidden;
+  background: #e4e4e7;
+  height: 100%;
+  width: 100%;
+  min-height: 240px;
+}
+
+.master-search-map .leaflet-container {
+  height: 100% !important;
+  width: 100% !important;
   background: #e4e4e7;
 }
 

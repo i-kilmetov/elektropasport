@@ -14,7 +14,7 @@ const MasterSearchMap = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="master-search-map master-search-map--loading" />
+      <div className="master-search-map master-search-map--loading h-full w-full" />
     ),
   },
 );
@@ -96,18 +96,20 @@ export function MasterSearchScreen({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="relative flex min-h-0 flex-1 flex-col overflow-hidden"
+      className="flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden"
     >
-      <MasterSearchMap
-        lat={lat}
-        lon={lon}
-        city={city}
-        address={address}
-        className="absolute inset-0"
-      />
+      <div className="relative min-h-0 flex-1">
+        <MasterSearchMap
+          lat={lat}
+          lon={lon}
+          city={city}
+          address={address}
+          className="absolute inset-0 h-full w-full"
+        />
+      </div>
 
-      <div className="pointer-events-none relative z-10 flex min-h-0 flex-1 flex-col justify-end px-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
-        <div className="pointer-events-auto mx-auto w-full max-w-sm rounded-[28px] border border-black/8 bg-white/95 p-5 text-center shadow-[0_16px_40px_rgba(17,17,19,0.12)] backdrop-blur-md">
+      <div className="relative z-10 shrink-0 px-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-3">
+        <div className="mx-auto w-full max-w-sm rounded-[28px] border border-black/8 bg-white/95 p-5 text-center shadow-[0_16px_40px_rgba(17,17,19,0.12)] backdrop-blur-md">
           <h2 className="mb-2 ty-title">
             Ищем мастера{dots}
           </h2>

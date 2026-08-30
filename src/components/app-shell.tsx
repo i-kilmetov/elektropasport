@@ -2988,21 +2988,23 @@ export function AppShell({
             />
           )}
           {screen === "master-search" && searchRequestId && (
-            <MasterSearchScreen
-              key={`search-${searchRequestId}`}
-              requestId={searchRequestId}
-              city={selectedCity ?? activeRequest?.city}
-              address={selectedAddress ?? activeRequest?.exactAddress}
-              lat={selectedCoords?.lat}
-              lon={selectedCoords?.lon}
-              onMasterFound={(master) => {
-                setFoundMaster(master);
-                go("master-success");
-              }}
-              onTimeout={() => {
-                go("master-not-found");
-              }}
-            />
+            <div className="flex min-h-0 flex-1 flex-col">
+              <MasterSearchScreen
+                key={`search-${searchRequestId}`}
+                requestId={searchRequestId}
+                city={selectedCity ?? activeRequest?.city}
+                address={selectedAddress ?? activeRequest?.exactAddress}
+                lat={selectedCoords?.lat}
+                lon={selectedCoords?.lon}
+                onMasterFound={(master) => {
+                  setFoundMaster(master);
+                  go("master-success");
+                }}
+                onTimeout={() => {
+                  go("master-not-found");
+                }}
+              />
+            </div>
           )}
           {screen === "master-success" && searchRequestId && foundMaster && (
             <MasterSuccessScreen
