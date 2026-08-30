@@ -58,6 +58,7 @@ import { cn } from "@/lib/utils";
 
 type View =
   | { kind: "home" }
+  | { kind: "program" }
   | { kind: "grade"; gradeId: GradeId }
   | { kind: "lesson"; gradeId: GradeId; topicId: string }
   | { kind: "quiz"; gradeId: GradeId; topicId: string }
@@ -78,6 +79,7 @@ export function SchoolScreen({ onBack }: { onBack: () => void }) {
   };
 
   const goHome = () => setView({ kind: "home" });
+  const goProgram = () => setView({ kind: "program" });
   const goGrade = (gradeId: GradeId) => {
     if (!canStudyGrade(progress, gradeId, paid)) return;
     setView({ kind: "grade", gradeId });
@@ -90,7 +92,7 @@ export function SchoolScreen({ onBack }: { onBack: () => void }) {
       exit={{ opacity: 0, x: -40 }}
       className={cn(
         "flex min-h-0 flex-1 flex-col px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-[max(0.75rem,env(safe-area-inset-top))]",
-        view.kind === "home"
+        view.kind === "home" || view.kind === "program"
           ? "overflow-y-auto"
           : "h-full overflow-hidden",
       )}
@@ -100,8 +102,16 @@ export function SchoolScreen({ onBack }: { onBack: () => void }) {
           <SchoolHome
             key="home"
             progress={progress}
-            paid={paid}
             onBack={onBack}
+            onOpenProgram={goProgram}
+          />
+        ) : null}
+        {view.kind === "program" ? (
+          <SchoolProgram
+            key="program"
+            progress={progress}
+            paid={paid}
+            onBack={goHome}
             onOpenGrade={goGrade}
             onStartPay={(gradeId) => setView({ kind: "pay", gradeId })}
           />
@@ -112,7 +122,7 @@ export function SchoolScreen({ onBack }: { onBack: () => void }) {
             gradeId={view.gradeId}
             progress={progress}
             paid={paid}
-            onBack={goHome}
+            onBack={goProgram}
             onOpenTopic={(topicId) =>
               setView({ kind: "lesson", gradeId: view.gradeId, topicId })
             }
@@ -174,7 +184,7 @@ export function SchoolScreen({ onBack }: { onBack: () => void }) {
           <SchoolPayScreen
             key={`pay-${view.gradeId}`}
             gradeId={view.gradeId}
-            onBack={goHome}
+            onBack={goProgram}
             onPaid={() => {
               const next = markGradePaid(view.gradeId);
               setPaid(next);
@@ -220,42 +230,16 @@ function SchoolHeader({
 
 function SchoolHome({
   progress,
-  paid,
   onBack,
-  onOpenGrade,
-  onStartPay,
+  onOpenProgram,
 }: {
   progress: SchoolProgress;
-  paid: GradeId[];
   onBack: () => void;
-  onOpenGrade: (gradeId: GradeId) => void;
-  onStartPay: (gradeId: GradeId) => void;
+  onOpenProgram: () => void;
 }) {
   const finished = SCHOOL_GRADES.filter((grade) =>
     gradeCompleted(progress, grade.id),
   ).length;
-  const [expanded, setExpanded] = useState<Partial<Record<GradeId, boolean>>>(
-    () => {
-      const next =
-        SCHOOL_GRADES.find(
-          (grade) =>
-            canStudyGrade(progress, grade.id, paid) ||
-            canPurchaseGrade(progress, grade.id, paid),
-        )?.id ?? 1;
-      return { [next]: true };
-    },
-  );
-  const [paySheetGrade, setPaySheetGrade] = useState<GradeId | null>(null);
-
-  const selectGrade = (gradeId: GradeId) => {
-    if (canStudyGrade(progress, gradeId, paid)) {
-      onOpenGrade(gradeId);
-      return;
-    }
-    if (canPurchaseGrade(progress, gradeId, paid)) {
-      setPaySheetGrade(gradeId);
-    }
-  };
 
   return (
     <motion.div
@@ -285,9 +269,11 @@ function SchoolHome({
 
         <div>
           <p className="ty-body">
-            Короткие уроки, живые примеры, схемы и экзамен с оценкой. Классы
-            идут по порядку: следующий открывается, когда сдан предыдущий.
-            Продлёнка доступна после 1 класса.
+            Короткие уроки, живые примеры, схемы и экзамен с оценкой. Программа
+            обучения с индивидуальным подходом: учитывает вашу схему электрики,
+            приборы и технику, которая добавлена в Током. Классы идут по
+            порядку: следующий открывается, когда сдан предыдущий. Продлёнка
+            доступна после 1 класса.
           </p>
           {finished > 0 ? (
             <p className="mt-2 ty-note">
@@ -322,29 +308,85 @@ function SchoolHome({
           </p>
         </GlassCard>
 
-        <div className="space-y-3">
-          {SCHOOL_GRADES.map((grade) => (
-            <GradeAccordion
-              key={grade.id}
-              gradeId={grade.id}
-              progress={progress}
-              paid={paid}
-              expanded={Boolean(expanded[grade.id])}
-              onToggle={() =>
-                setExpanded((current) => ({
-                  ...current,
-                  [grade.id]: !current[grade.id],
-                }))
-              }
-              onSelect={() => selectGrade(grade.id)}
-            />
-          ))}
-        </div>
+        <Button className="w-full" size="lg" onClick={onOpenProgram}>
+          Пойти в школу
+        </Button>
 
         <p className="ty-meta text-zinc-400">
           {SCHOOL_DISCLAIMER}
         </p>
       </div>
+    </motion.div>
+  );
+}
+
+function SchoolProgram({
+  progress,
+  paid,
+  onBack,
+  onOpenGrade,
+  onStartPay,
+}: {
+  progress: SchoolProgress;
+  paid: GradeId[];
+  onBack: () => void;
+  onOpenGrade: (gradeId: GradeId) => void;
+  onStartPay: (gradeId: GradeId) => void;
+}) {
+  const [expanded, setExpanded] = useState<Partial<Record<GradeId, boolean>>>(
+    () => {
+      const next =
+        SCHOOL_GRADES.find(
+          (grade) =>
+            canStudyGrade(progress, grade.id, paid) ||
+            canPurchaseGrade(progress, grade.id, paid),
+        )?.id ?? 1;
+      return { [next]: true };
+    },
+  );
+  const [paySheetGrade, setPaySheetGrade] = useState<GradeId | null>(null);
+
+  const selectGrade = (gradeId: GradeId) => {
+    if (canStudyGrade(progress, gradeId, paid)) {
+      onOpenGrade(gradeId);
+      return;
+    }
+    if (canPurchaseGrade(progress, gradeId, paid)) {
+      setPaySheetGrade(gradeId);
+    }
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -12 }}
+      className="flex flex-col pb-4"
+    >
+      <SchoolHeader title="Программа обучения" onBack={onBack} />
+
+      <div className="space-y-3">
+        {SCHOOL_GRADES.map((grade) => (
+          <GradeAccordion
+            key={grade.id}
+            gradeId={grade.id}
+            progress={progress}
+            paid={paid}
+            expanded={Boolean(expanded[grade.id])}
+            onToggle={() =>
+              setExpanded((current) => ({
+                ...current,
+                [grade.id]: !current[grade.id],
+              }))
+            }
+            onSelect={() => selectGrade(grade.id)}
+          />
+        ))}
+      </div>
+
+      <p className="mt-5 ty-meta text-zinc-400">
+        {SCHOOL_DISCLAIMER}
+      </p>
 
       <AnimatePresence>
         {paySheetGrade ? (

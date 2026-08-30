@@ -74,29 +74,21 @@ export function listAchievements(input: {
     {
       id: "first-appliance",
       title: "За технику",
-      hint: input.applianceCount >= 1
-        ? "Техника привязана к щитку."
-        : "Добавить технику к щитку.",
+      hint: "Добавь технику к щитку",
       unlocked: input.applianceCount >= 1,
       icon: HousePlug,
     },
     {
       id: "invite-1",
       title: "За бойца",
-      hint: input.inviteCount >= 1
-        ? "В Токоме появился новый боец."
-        : "Пригласить одного пользователя в Током.",
+      hint: "Пригласи пользователя в Током",
       unlocked: input.inviteCount >= 1,
       icon: UserPlus,
     },
     {
       id: "invite-3",
       title: "За роту",
-      hint: input.inviteCount >= 3
-        ? "В Токоме целая рота — трое приглашённых."
-        : input.inviteCount > 0
-          ? `Сейчас ${input.inviteCount} из 3. Нужна целая рота.`
-          : "Собрать роту: минимум трое приглашённых.",
+      hint: "Пригласи минимум троих человек в сервис",
       unlocked: input.inviteCount >= 3,
       icon: Users,
     },

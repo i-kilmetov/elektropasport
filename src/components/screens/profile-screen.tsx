@@ -245,7 +245,7 @@ export function ProfileScreen({
       </header>
 
       <div className="min-w-0 flex-1 space-y-5 overflow-x-hidden overflow-y-auto pb-4">
-        <div className="flex flex-col items-center gap-3">
+        <div className="flex flex-col items-center gap-2">
           <div
             className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-[#6B8AFD] ty-display tracking-wide text-white"
             aria-hidden
@@ -263,6 +263,37 @@ export function ProfileScreen({
           }) && (
             <p className="ty-meta">Укажите имя и фамилию</p>
           )}
+          <div
+            className="flex items-center justify-center pt-1 pb-5"
+            style={{ perspective: 720 }}
+          >
+            {achievements.map((item, index) => (
+              <AchievementMedal
+                key={item.id}
+                item={item}
+                index={index}
+                raised={openAchievement?.id === item.id}
+                onOpen={() => {
+                  hapticImpact("light");
+                  setOpenAchievement((prev) =>
+                    prev?.id === item.id ? null : item,
+                  );
+                }}
+              />
+            ))}
+          </div>
+          <p className="min-h-[2.4rem] max-w-[17.5rem] px-2 text-center">
+            {openAchievement ? (
+              <>
+                <span className="block ty-label leading-snug">
+                  {openAchievement.title}
+                </span>
+                <span className="mt-0.5 block ty-meta text-zinc-500">
+                  {openAchievement.hint}
+                </span>
+              </>
+            ) : null}
+          </p>
         </div>
 
         {panelsUnlimited ? (
@@ -307,40 +338,6 @@ export function ProfileScreen({
             </GlassCard>
           )
         ) : null}
-
-        <div className="flex flex-col items-center">
-          <div
-            className="flex items-center justify-center py-10"
-            style={{ perspective: 720 }}
-          >
-            {achievements.map((item, index) => (
-              <AchievementMedal
-                key={item.id}
-                item={item}
-                index={index}
-                raised={openAchievement?.id === item.id}
-                onOpen={() => {
-                  hapticImpact("light");
-                  setOpenAchievement((prev) =>
-                    prev?.id === item.id ? null : item,
-                  );
-                }}
-              />
-            ))}
-          </div>
-          <p className="mt-1 min-h-[2.75rem] max-w-[17.5rem] px-2 text-center">
-            {openAchievement ? (
-              <>
-                <span className="block ty-label leading-snug">
-                  {openAchievement.title}
-                </span>
-                <span className="mt-0.5 block ty-meta text-zinc-500">
-                  {openAchievement.hint}
-                </span>
-              </>
-            ) : null}
-          </p>
-        </div>
 
         <GlassCard className="overflow-hidden p-0">
           <label className="block px-4 py-3">
@@ -646,11 +643,12 @@ function AchievementMedal({
         className="absolute inset-0 block"
         style={{
           transform: raised
-            ? "rotateX(18deg) rotateY(-28deg) scale(2)"
-            : "rotateX(18deg) rotateY(-28deg)",
+            ? "rotateX(18deg) rotateY(28deg) scale(2)"
+            : "rotateX(18deg) rotateY(28deg)",
           transformOrigin: "50% 50%",
           transformStyle: "preserve-3d",
           transition: "transform 220ms ease",
+          opacity: item.unlocked ? 1 : 0.7,
         }}
       >
         {Array.from({ length: EDGE_LAYERS }, (_, layer) => (
