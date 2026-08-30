@@ -318,7 +318,7 @@ export function AppShell({
   );
   const [onboardingReady, setOnboardingReady] = useState(forceResearchSurvey);
   const [splashPhase, setSplashPhase] = useState<SplashPhase>(
-    forceResearchSurvey ? "done" : "show",
+    forceResearchSurvey || launchWaitlist ? "done" : "show",
   );
   const [showAuthIntro, setShowAuthIntro] = useState(
     () => !forceResearchSurvey,
@@ -434,7 +434,11 @@ export function AppShell({
   }, []);
 
   useLayoutEffect(() => {
-    if (surveyLaunch || isSchoolPreviewQuery()) {
+    if (
+      surveyLaunch ||
+      isSchoolPreviewQuery() ||
+      isProdLaunchWaitlistClient(launchWaitlist)
+    ) {
       markSplashSeen();
       setSplashPhase("done");
       setShowAuthIntro(false);
@@ -1924,6 +1928,12 @@ export function AppShell({
     void openSharedPanel(token);
   }, [itemsLoading, onboardingReady, openSharedPanel, splashPhase]);
 
+  if (isProdLaunchWaitlistClient(launchWaitlist) && !surveyLaunch && !isSchoolPreviewQuery()) {
+    return (
+      <BrandLaunchWaitlist bootReady={onboardingReady && !itemsLoading} />
+    );
+  }
+
   if (splashPhase === "pending" || splashPhase === "show") {
     return (
       <BrandSplash
@@ -1933,12 +1943,6 @@ export function AppShell({
           setSplashPhase("done");
         }}
       />
-    );
-  }
-
-  if (isProdLaunchWaitlistClient(launchWaitlist) && !surveyLaunch && !isSchoolPreviewQuery()) {
-    return (
-      <BrandLaunchWaitlist bootReady={onboardingReady && !itemsLoading} />
     );
   }
 

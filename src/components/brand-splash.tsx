@@ -669,7 +669,22 @@ export function BrandLaunchWaitlist({
   return (
     <div
       ref={rootRef}
-      className="fixed inset-0 z-[200] flex h-[100dvh] min-h-[100dvh] touch-none flex-col items-center overflow-hidden px-5"
+      role={cta === "flip" ? "button" : undefined}
+      tabIndex={cta === "flip" ? 0 : undefined}
+      onClick={cta === "flip" ? flipEarth : undefined}
+      onKeyDown={
+        cta === "flip"
+          ? (event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                flipEarth();
+              }
+            }
+          : undefined
+      }
+      className={`fixed inset-0 z-[200] flex h-[100dvh] min-h-[100dvh] touch-none flex-col items-center overflow-hidden px-5${
+        cta === "flip" ? " cursor-pointer" : ""
+      }`}
       style={{
         backgroundColor: BRAND_YELLOW,
         ...(keyboardOpen && viewportHeight
@@ -684,7 +699,11 @@ export function BrandLaunchWaitlist({
           ? "0.75rem"
           : "max(1.75rem, env(safe-area-inset-bottom))",
       }}
-      aria-label="Током — подписка на открытие"
+      aria-label={
+        cta === "flip"
+          ? "Током — нажмите, чтобы перевернуть букву"
+          : "Током — подписка на открытие"
+      }
     >
       <div className="relative min-h-0 w-full flex-1">
         <div
@@ -712,6 +731,8 @@ export function BrandLaunchWaitlist({
           <div className="mx-auto flex h-14 min-h-14 w-full items-center justify-center rounded-full bg-[#111113] px-6 text-[16px] text-white">
             Спасибо! Сообщим об открытии
           </div>
+        ) : cta === "flip" ? (
+          <div className="h-14 min-h-14 w-full" aria-hidden />
         ) : cta === "phone" ? (
           <form
             className="launch-email-field mx-auto flex h-14 min-h-14 w-full items-center gap-2 rounded-full bg-[#111113] px-2"
@@ -734,6 +755,10 @@ export function BrandLaunchWaitlist({
               disabled={submitting}
               onChange={(event) => {
                 setPhone(formatRuPhone(event.target.value));
+                setError(null);
+              }}
+              onInput={(event) => {
+                setPhone(formatRuPhone(event.currentTarget.value));
                 setError(null);
               }}
               onFocus={keepInPlace}
@@ -764,10 +789,13 @@ export function BrandLaunchWaitlist({
         ) : (
           <button
             type="button"
-            onClick={cta === "flip" ? flipEarth : openPhone}
+            onClick={(event) => {
+              event.stopPropagation();
+              openPhone();
+            }}
             className="mx-auto flex h-14 min-h-14 w-full items-center justify-center rounded-full bg-[#111113] px-6 text-[16px] font-semibold text-white hover:bg-zinc-800"
           >
-            {cta === "flip" ? "Перевернуть землю" : "Сообщить об открытии"}
+            Сообщить об открытии
           </button>
         )}
         {error && (

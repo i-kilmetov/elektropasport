@@ -249,6 +249,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   -webkit-text-fill-color: #fff !important;
   caret-color: #fff;
   caret-shape: bar;
+  color-scheme: dark;
 }
 
 .launch-email-input.is-hint {
@@ -256,15 +257,37 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   -webkit-text-fill-color: rgba(255, 255, 255, 0.5) !important;
 }
 
+@keyframes launch-autofill-text {
+  to {
+    color: #fff;
+    -webkit-text-fill-color: #fff;
+    caret-color: #fff;
+    background-color: #111113;
+    box-shadow: 0 0 0 1000px #111113 inset;
+    -webkit-box-shadow: 0 0 0 1000px #111113 inset;
+  }
+}
+
 .launch-email-input:-webkit-autofill,
 .launch-email-input:-webkit-autofill:hover,
 .launch-email-input:-webkit-autofill:focus,
-.launch-email-input:-webkit-autofill:active {
+.launch-email-input:-webkit-autofill:active,
+.launch-email-input:autofill,
+.launch-email-input:autofill:hover,
+.launch-email-input:autofill:focus,
+.launch-email-input:autofill:active {
+  color: #fff !important;
   -webkit-text-fill-color: #fff !important;
   caret-color: #fff;
-  transition: background-color 99999s ease-out;
+  background-color: #111113 !important;
+  background-image: none !important;
+  border-radius: inherit;
+  -webkit-box-shadow: 0 0 0 1000px #111113 inset !important;
   box-shadow: 0 0 0 1000px #111113 inset !important;
-  background-color: transparent !important;
+  transition:
+    background-color 99999s ease-out 0s,
+    color 99999s ease-out 0s;
+  animation: launch-autofill-text 0s forwards;
 }
 
 /* iOS home-screen jiggle while editing panel devices. */
