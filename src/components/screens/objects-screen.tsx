@@ -41,7 +41,7 @@ import { PushEnableBanner } from "@/components/ui/push-enable-banner";
 import { UndoSnackbarHost } from "@/components/ui/undo-snackbar";
 import {
   applianceKindIcon,
-  applianceKindLabel,
+  applianceDisplayKindLabel,
   formatAppliancePower,
 } from "@/lib/home-appliances";
 import {
@@ -349,7 +349,7 @@ function ExpandableHomeCard({
           </div>
         </button>
 
-        <div className="flex shrink-0 flex-col items-center justify-center gap-1.5 py-3 pr-3 lg:pr-4">
+        <div className="flex shrink-0 flex-col items-center justify-center gap-1.5 py-3 pr-2 pl-1 lg:pr-3 lg:pl-1.5">
           {panel.noPanelSetupId ? (
             <span className="flex min-h-8 max-w-[3.4rem] items-center justify-center rounded-full bg-zinc-100 px-1.5 py-0.5 text-center ty-badge leading-tight text-zinc-500">
               нет щитка
@@ -373,13 +373,13 @@ function ExpandableHomeCard({
               e.stopPropagation();
               requestExpand();
             }}
-            className="flex h-8 w-8 items-center justify-center rounded-full text-zinc-300/70 transition-colors hover:bg-zinc-100/60 hover:text-zinc-400"
+            className="ml-1 flex h-9 w-9 items-center justify-center rounded-full border border-zinc-300 bg-zinc-100 text-zinc-700 shadow-sm transition-colors hover:border-zinc-400 hover:bg-zinc-200 hover:text-zinc-900"
             aria-expanded={expanded}
             aria-label={expanded ? "Скрыть технику" : "Показать технику"}
           >
             <ChevronDown
               className={cn(
-                "h-3.5 w-3.5 transition-transform",
+                "h-4 w-4 transition-transform",
                 expanded && "rotate-180",
               )}
             />
@@ -399,7 +399,7 @@ function ExpandableHomeCard({
             <div className="divide-y divide-black/[0.06] border-t border-black/[0.06] bg-white">
               {appliances.map((appliance) => {
                 const Icon = applianceKindIcon(appliance.kind);
-                const kindLabel = applianceKindLabel(appliance.kind);
+                const kindLabel = applianceDisplayKindLabel(appliance);
                 const brand = appliance.brand?.trim() || appliance.title;
                 const model = appliance.model?.trim();
                 return (

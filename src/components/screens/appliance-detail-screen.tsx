@@ -18,7 +18,7 @@ import { InfoDialog } from "@/components/ui/info-dialog";
 import { UndoSnackbarHost } from "@/components/ui/undo-snackbar";
 import {
   applianceKindIcon,
-  applianceKindLabel,
+  applianceDisplayKindLabel,
   findCatalogModel,
   formatAppliancePower,
 } from "@/lib/home-appliances";
@@ -51,7 +51,7 @@ export function ApplianceDetailScreen({
   );
   const menuRef = useRef<HTMLDivElement>(null);
   const Icon = applianceKindIcon(appliance.kind);
-  const kindLabel = applianceKindLabel(appliance.kind);
+  const kindLabel = applianceDisplayKindLabel(appliance);
   const brand = appliance.brand?.trim() || appliance.title;
   const model = appliance.model?.trim();
 

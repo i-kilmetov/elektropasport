@@ -83,6 +83,24 @@ export function applianceKindLabel(kind: HomeApplianceKind): string {
   return catalogKindTitle(kind);
 }
 
+/** Type line in lists — custom free-text type is stored in title when kind is other. */
+export function applianceDisplayKindLabel(appliance: {
+  kind: HomeApplianceKind;
+  title?: string;
+  brand?: string;
+  catalogId?: string;
+}): string {
+  if (
+    !appliance.catalogId &&
+    appliance.kind === "other" &&
+    appliance.title?.trim() &&
+    appliance.brand?.trim()
+  ) {
+    return appliance.title.trim();
+  }
+  return applianceKindLabel(appliance.kind);
+}
+
 export function applianceKindIcon(
   kind: HomeApplianceKind | CatalogApplianceKind | "other-picker",
 ): LucideIcon {
