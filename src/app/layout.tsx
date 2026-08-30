@@ -23,6 +23,9 @@ export const metadata: Metadata = {
   title: "Током",
   description: "Самодиагностика и помощь в электрике",
   manifest: "/manifest.webmanifest",
+  verification: {
+    google: "HKfodELQA13rjCdXdolzVkJO1YnQI327oQ7fi-9hwO0",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
