@@ -374,7 +374,7 @@ export async function dispatchRequestToMasters(
   const uniqueStorageIds = dedupeMasterStorageIds(masterChatIds);
   for (const storageId of uniqueStorageIds) {
     const chatId = toTelegramChatId(storageId);
-    const callbackToken = request.publicCode ?? request.id;
+    const callbackToken = request.id;
     const result = await telegramApi<{ message_id: number }>("sendMessage", {
       chat_id: chatId,
       text,

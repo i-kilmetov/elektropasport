@@ -17,7 +17,9 @@ export async function GET(request: Request) {
 
   const webhookInfo = await getTelegramWebhookInfo();
   const masterIds = await listMasterTelegramIdsForDispatch();
-  const canonicalWebhookUrl = `${productionWebhookOrigin()}/api/telegram/webhook`;
+  const canonicalWebhookUrl = process.env.TELEGRAM_WEBHOOK_SECRET?.trim()
+    ? `${productionWebhookOrigin()}/api/telegram/hook/${encodeURIComponent(process.env.TELEGRAM_WEBHOOK_SECRET.trim())}`
+    : `${productionWebhookOrigin()}/api/telegram/webhook`;
 
   return Response.json({
     ok: webhookInfo.ok,
@@ -28,8 +30,8 @@ export async function GET(request: Request) {
     secretConfigured: Boolean(process.env.TELEGRAM_WEBHOOK_SECRET?.trim()),
     botTokenConfigured: Boolean(process.env.BOT_TOKEN?.trim()),
     hint:
-      webhookInfo.url && !webhookInfo.url.includes("www.tokom.ru")
-        ? "Webhook URL должен быть на www.tokom.ru (без редиректа). Перерегистрируйте через /api/telegram/setup-webhook"
+      webhookInfo.url && webhookInfo.url !== canonicalWebhookUrl
+        ? `Webhook в Telegram (${webhookInfo.url}) не совпадает с ожидаемым (${canonicalWebhookUrl}). Откройте /api/telegram/setup-webhook?key=...`
         : webhookInfo.lastErrorMessage
           ? `Telegram ошибка доставки: ${webhookInfo.lastErrorMessage}`
           : "Создайте новую заявку и нажмите «Принять» в сообщении «🔌 Новая заявка».",

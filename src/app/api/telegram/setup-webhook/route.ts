@@ -5,11 +5,11 @@ import {
 } from "@/lib/telegram-notify";
 
 function buildWebhookUrl(secret?: string): string {
-  const base = `${productionWebhookOrigin()}/api/telegram/webhook`;
-  if (!secret) return base;
-  const url = new URL(base);
-  url.searchParams.set("token", secret);
-  return url.toString();
+  const origin = productionWebhookOrigin();
+  if (!secret) {
+    return `${origin}/api/telegram/webhook`;
+  }
+  return `${origin}/api/telegram/hook/${encodeURIComponent(secret)}`;
 }
 
 /**
@@ -63,8 +63,12 @@ export async function GET(request: Request) {
     webhookUrl,
     secretConfigured: Boolean(secret),
     webhookInfo: info,
+    webhookMatches: info.url === webhookUrl,
+    lastWebhookError: info.lastErrorMessage ?? null,
     hint: secret
-      ? "Webhook зарегистрирован на www.tokom.ru (без редиректа). Если кнопки не отвечали — перерегистрация должна помочь."
+      ? info.url !== webhookUrl
+        ? `Telegram всё ещё шлёт на ${info.url ?? "—"}. Перезапустите setup-webhook после деплоя.`
+        : "Webhook совпадает. Создайте новую заявку и нажмите «Принять»."
       : undefined,
   });
 }

@@ -20,6 +20,7 @@ const TEST_PUBLIC_PREFIXES = [
   "/api/test-access",
   "/api/auth/telegram",
   "/api/telegram/webhook",
+  "/api/telegram/hook",
   "/auth/telegram/callback",
 ];
 
