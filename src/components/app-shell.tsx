@@ -2159,6 +2159,7 @@ export function AppShell({
     screen === "photo" ||
     screen === "admin" ||
     masterApply;
+  const fullBleed = screen === "master-search";
 
   const masterDesk = masterMode && screen === "objects";
   const darkShell = masterApply || masterDesk;
@@ -2181,7 +2182,9 @@ export function AppShell({
           "relative z-10",
           fillViewport && "flex min-h-0 min-w-0 flex-1 flex-col",
           !wideLayout &&
+            !fullBleed &&
             "mx-auto w-full max-w-xl lg:max-w-3xl lg:px-8 lg:py-8",
+          fullBleed && "mx-auto w-full max-w-none p-0",
         )}
       >
         <AnimatePresence mode="wait">

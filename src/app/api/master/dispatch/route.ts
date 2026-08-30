@@ -47,7 +47,12 @@ export async function POST(request: Request) {
     );
 
     for (const r of results) {
-      await saveDispatchMessage(body.requestId, r.chatId, r.chatId, r.messageId);
+      await saveDispatchMessage(
+        body.requestId,
+        r.masterTelegramId,
+        r.chatId,
+        r.messageId,
+      );
     }
 
     return Response.json({ ok: true, mastersCount: results.length });

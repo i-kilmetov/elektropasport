@@ -2166,19 +2166,27 @@ export async function getMasterProfile(
 export async function acceptInstallRequest(
   requestId: string,
   masterTelegramId: number,
-): Promise<"accepted" | "already_taken" | "not_found"> {
+): Promise<"accepted" | "already_taken" | "not_found" | "not_master"> {
   const sql = getSql();
   await ensureSchema();
+
+  const [masterRow] = (await sql`
+    SELECT telegram_id FROM users
+    WHERE telegram_id = ${masterTelegramId} AND role = 'master'
+    LIMIT 1
+  `) as Array<{ telegram_id: string | number }>;
+  if (!masterRow) return "not_master";
+
   const rows = (await sql`
     UPDATE install_requests
     SET
       master_telegram_id = ${masterTelegramId},
       master_accepted_at = NOW(),
+      dispatched_at = COALESCE(dispatched_at, NOW()),
       status = 'in_progress',
       status_label = 'В работе'
     WHERE id = ${requestId}
       AND master_telegram_id IS NULL
-      AND dispatched_at IS NOT NULL
     RETURNING id
   `) as Array<{ id: string }>;
   if (rows.length > 0) return "accepted";

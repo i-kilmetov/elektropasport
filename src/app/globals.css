@@ -356,16 +356,19 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 .master-search-map {
   position: relative;
   overflow: hidden;
-  background: #e4e4e7;
+  background: #ececec;
   height: 100%;
   width: 100%;
-  min-height: 240px;
 }
 
 .master-search-map .leaflet-container {
   height: 100% !important;
   width: 100% !important;
-  background: #e4e4e7;
+  background: #ececec;
+}
+
+.master-search-map .leaflet-tile-pane {
+  filter: grayscale(1) contrast(1.06) brightness(1.03);
 }
 
 .master-search-map--loading {
@@ -377,11 +380,12 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   pointer-events: none;
   position: absolute;
   inset: 0;
+  z-index: 500;
   background: linear-gradient(
     180deg,
-    rgba(247, 247, 248, 0.08) 0%,
-    rgba(247, 247, 248, 0.18) 42%,
-    rgba(255, 255, 255, 0.72) 100%
+    rgba(255, 255, 255, 0.04) 0%,
+    rgba(255, 255, 255, 0.08) 55%,
+    rgba(255, 255, 255, 0.82) 100%
   );
 }
 
@@ -401,19 +405,19 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   top: 50%;
   left: 50%;
   z-index: 2;
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   transform: translate(-50%, -50%);
   border-radius: 9999px;
-  background: #10b981;
-  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.22);
+  background: #d3da00;
+  box-shadow: 0 0 0 5px rgba(211, 218, 0, 0.28);
 }
 
 .master-search-radar__ring {
   position: absolute;
   inset: 0;
   border-radius: 9999px;
-  border: 2px solid rgba(16, 185, 129, 0.55);
+  border: 4px solid rgba(211, 218, 0, 0.72);
   animation: master-search-radar-wave 2.4s ease-out infinite;
 }
 

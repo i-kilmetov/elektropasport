@@ -344,7 +344,7 @@ export async function dispatchRequestToMasters(
   masterChatIds: number[],
   request: InstallRequest,
   customerName: string,
-): Promise<Array<{ chatId: number; messageId: number }>> {
+): Promise<Array<{ chatId: number; messageId: number; masterTelegramId: number }>> {
   const addressNoApt = request.exactAddress
     ?.replace(/,?\s*(кв|квартира|apt)\.?\s*\d+/i, "")
     ?.trim();
@@ -364,7 +364,11 @@ export async function dispatchRequestToMasters(
     "Нажмите «Принять», чтобы взять заявку.",
   ].filter((line) => line !== null).join("\n");
 
-  const results: Array<{ chatId: number; messageId: number }> = [];
+  const results: Array<{
+    chatId: number;
+    messageId: number;
+    masterTelegramId: number;
+  }> = [];
 
   for (const chatId of masterChatIds) {
     const result = await telegramApi<{ message_id: number }>("sendMessage", {
@@ -379,7 +383,11 @@ export async function dispatchRequestToMasters(
       disable_web_page_preview: true,
     });
     if (result.ok) {
-      results.push({ chatId, messageId: result.data.message_id });
+      results.push({
+        chatId,
+        messageId: result.data.message_id,
+        masterTelegramId: chatId,
+      });
     }
   }
   return results;
@@ -605,12 +613,16 @@ export async function notifyAdminFeedbackAttachment(payload: {
 export async function answerCallbackQuery(
   callbackQueryId: string,
   text: string,
+  showAlert = false,
 ): Promise<void> {
-  await telegramApi("answerCallbackQuery", {
+  const result = await telegramApi("answerCallbackQuery", {
     callback_query_id: callbackQueryId,
     text,
-    show_alert: false,
+    show_alert: showAlert,
   });
+  if (!result.ok) {
+    throw new Error(result.error);
+  }
 }
 
 export async function editMessageText(params: {

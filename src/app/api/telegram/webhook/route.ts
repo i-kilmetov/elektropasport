@@ -103,57 +103,97 @@ export async function POST(request: Request) {
     if (acceptRequest) {
       const masterTelegramId = callback.from?.id;
       if (!masterTelegramId) {
-        await answerCallbackQuery(callback.id, "Ошибка авторизации");
+        await answerCallbackQuery(callback.id, "Ошибка авторизации", true);
         return Response.json({ ok: true });
       }
 
-      const result = await acceptInstallRequest(
-        acceptRequest.requestId,
-        masterTelegramId,
-      );
-
-      if (result === "not_found") {
-        await answerCallbackQuery(callback.id, "Заявка не найдена");
-        return Response.json({ ok: true });
-      }
-
-      if (result === "already_taken") {
-        await answerCallbackQuery(callback.id, "Заявку уже принял другой мастер");
-        if (callback.message) {
-          await notifyMasterRequestTaken(
-            callback.message.chat.id,
-            callback.message.message_id,
-          );
-        }
-        return Response.json({ ok: true });
-      }
-
-      // result === "accepted"
-      await answerCallbackQuery(callback.id, "Вы приняли заявку! ✅");
-
-      const existing = await getInstallRequestById(acceptRequest.requestId);
-      if (existing) {
-        await notifyMasterRequestAccepted(
+      try {
+        const result = await acceptInstallRequest(
+          acceptRequest.requestId,
           masterTelegramId,
-          existing,
-          existing.name,
         );
-        await notifyUserWebPush(existing.telegramUserId, {
-          title: "Током",
-          body: "Мастер принял вашу заявку и скоро свяжется",
-          url: "/",
-        });
+
+        if (result === "not_master") {
+          await answerCallbackQuery(
+            callback.id,
+            "Нет доступа: вы не зарегистрированы как мастер",
+            true,
+          );
+          return Response.json({ ok: true });
+        }
+
+        if (result === "not_found") {
+          await answerCallbackQuery(callback.id, "Заявка не найдена", true);
+          return Response.json({ ok: true });
+        }
+
+        if (result === "already_taken") {
+          await answerCallbackQuery(
+            callback.id,
+            "Заявку уже принял другой мастер",
+            true,
+          );
+          if (callback.message) {
+            await notifyMasterRequestTaken(
+              callback.message.chat.id,
+              callback.message.message_id,
+            );
+          }
+          return Response.json({ ok: true });
+        }
+
+        await answerCallbackQuery(callback.id, "Вы приняли заявку! ✅");
+
+        if (callback.message) {
+          const baseText = callback.message.text ?? "Новая заявка";
+          await editMessageText({
+            chatId: callback.message.chat.id,
+            messageId: callback.message.message_id,
+            text: `${baseText}\n\n✅ Вы приняли эту заявку`,
+            requestId: acceptRequest.requestId,
+            withStatusKeyboard: false,
+          });
+        }
+      } catch (error) {
+        console.error("accept request callback error", error);
+        try {
+          await answerCallbackQuery(
+            callback.id,
+            "Не удалось принять заявку. Попробуйте ещё раз",
+            true,
+          );
+        } catch (answerError) {
+          console.error("answerCallbackQuery failed", answerError);
+        }
+        return Response.json({ ok: true });
       }
 
-      // Notify all other masters that the request is taken
-      const dispatched = await getDispatchMessages(acceptRequest.requestId);
-      for (const msg of dispatched) {
-        if (msg.masterTelegramId === masterTelegramId) continue;
-        try {
-          await notifyMasterRequestTaken(msg.chatId, msg.messageId);
-        } catch {
-          // other master message may already be edited
+      try {
+        const existing = await getInstallRequestById(acceptRequest.requestId);
+        if (existing) {
+          await notifyMasterRequestAccepted(
+            masterTelegramId,
+            existing,
+            existing.name,
+          );
+          await notifyUserWebPush(existing.telegramUserId, {
+            title: "Током",
+            body: "Мастер принял вашу заявку и скоро свяжется",
+            url: "/",
+          });
         }
+
+        const dispatched = await getDispatchMessages(acceptRequest.requestId);
+        for (const msg of dispatched) {
+          if (msg.masterTelegramId === masterTelegramId) continue;
+          try {
+            await notifyMasterRequestTaken(msg.chatId, msg.messageId);
+          } catch {
+            // other master message may already be edited
+          }
+        }
+      } catch (error) {
+        console.error("accept request follow-up notify error", error);
       }
 
       return Response.json({ ok: true });
