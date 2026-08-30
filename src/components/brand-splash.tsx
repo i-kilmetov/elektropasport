@@ -36,6 +36,12 @@ const T_INVERTED_HOLD_FRACTION = 0.62;
 /** Waitlist flip: tween 180→360 so the last degrees stay as smooth as the rest. */
 const WAITLIST_FLIP_DURATION_S = 0.6;
 const WAITLIST_FLIP_EASE = [0.4, 0, 0.6, 1] as const;
+/** «ОКОМ» letter stagger after the T lands (BrandMark collapseRest). */
+const WAITLIST_OKOM_LETTER_DELAY_S = 0.12;
+const WAITLIST_OKOM_LETTER_STAGGER_S = 0.09;
+const WAITLIST_OKOM_LETTER_DURATION_S = 0.4;
+/** Brief hold after the last letter so the wordmark reads before the CTA. */
+const WAITLIST_NOTIFY_AFTER_LOGO_MS = 180;
 const PHONE_PREFIX = "+7";
 /** Inverted T stays up at least this long so it reads as a loader. */
 const SPLASH_LOADER_MIN_MS = 900;
@@ -246,10 +252,17 @@ function BrandMark({
                 }
                 transition={{
                   delay: restRevealed
-                    ? (collapseRest ? 0.12 : 0.08) +
-                      index * (collapseRest ? 0.09 : 0.07)
+                    ? (collapseRest
+                        ? WAITLIST_OKOM_LETTER_DELAY_S
+                        : 0.08) +
+                      index *
+                        (collapseRest
+                          ? WAITLIST_OKOM_LETTER_STAGGER_S
+                          : 0.07)
                     : 0,
-                  duration: collapseRest ? 0.4 : 0.32,
+                  duration: collapseRest
+                    ? WAITLIST_OKOM_LETTER_DURATION_S
+                    : 0.32,
                   ease: [0.22, 1, 0.36, 1],
                 }}
               >
@@ -626,13 +639,20 @@ export function BrandLaunchWaitlist({
   };
 
   const flipEarth = () => {
-    if (cta !== "flip") return;
-    setCta("notify");
+    if (cta !== "flip" || tUpright) return;
     setTUpright(true);
     const reveal = window.setTimeout(() => {
       setRestRevealed(true);
     }, WAITLIST_FLIP_DURATION_S * 1000);
-    flipTimersRef.current.push(reveal);
+    const lastLetterMs =
+      (WAITLIST_OKOM_LETTER_DELAY_S +
+        (WORDMARK_REST.length - 1) * WAITLIST_OKOM_LETTER_STAGGER_S +
+        WAITLIST_OKOM_LETTER_DURATION_S) *
+      1000;
+    const notify = window.setTimeout(() => {
+      setCta("notify");
+    }, WAITLIST_FLIP_DURATION_S * 1000 + lastLetterMs + WAITLIST_NOTIFY_AFTER_LOGO_MS);
+    flipTimersRef.current.push(reveal, notify);
   };
 
   const openPhone = () => {
@@ -669,11 +689,11 @@ export function BrandLaunchWaitlist({
   return (
     <div
       ref={rootRef}
-      role={cta === "flip" ? "button" : undefined}
-      tabIndex={cta === "flip" ? 0 : undefined}
-      onClick={cta === "flip" ? flipEarth : undefined}
+      role={cta === "flip" && !tUpright ? "button" : undefined}
+      tabIndex={cta === "flip" && !tUpright ? 0 : undefined}
+      onClick={cta === "flip" && !tUpright ? flipEarth : undefined}
       onKeyDown={
-        cta === "flip"
+        cta === "flip" && !tUpright
           ? (event) => {
               if (event.key === "Enter" || event.key === " ") {
                 event.preventDefault();
@@ -683,7 +703,7 @@ export function BrandLaunchWaitlist({
           : undefined
       }
       className={`fixed inset-0 z-[200] flex h-[100dvh] min-h-[100dvh] touch-none flex-col items-center overflow-hidden px-5${
-        cta === "flip" ? " cursor-pointer" : ""
+        cta === "flip" && !tUpright ? " cursor-pointer" : ""
       }`}
       style={{
         backgroundColor: BRAND_YELLOW,
@@ -700,7 +720,7 @@ export function BrandLaunchWaitlist({
           : "max(1.75rem, env(safe-area-inset-bottom))",
       }}
       aria-label={
-        cta === "flip"
+        cta === "flip" && !tUpright
           ? "Током — нажмите, чтобы перевернуть букву"
           : "Током — подписка на открытие"
       }
@@ -787,8 +807,11 @@ export function BrandLaunchWaitlist({
             </AnimatePresence>
           </form>
         ) : (
-          <button
+          <motion.button
             type="button"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.35, ease: "easeOut" }}
             onClick={(event) => {
               event.stopPropagation();
               openPhone();
@@ -796,7 +819,7 @@ export function BrandLaunchWaitlist({
             className="mx-auto flex h-14 min-h-14 w-full items-center justify-center rounded-full bg-[#111113] px-6 text-[16px] font-semibold text-white hover:bg-zinc-800"
           >
             Сообщить об открытии
-          </button>
+          </motion.button>
         )}
         {error && (
           <p className="mt-3 text-center text-[13px] text-red-700">{error}</p>
