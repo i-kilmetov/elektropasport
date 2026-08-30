@@ -15,6 +15,7 @@ export function OpenNearbyElectricalStoresButton({
   lon,
   className,
   variant = "secondary",
+  label = "Открыть магазины электрики рядом",
 }: {
   city?: string | null;
   address?: string | null;
@@ -22,6 +23,7 @@ export function OpenNearbyElectricalStoresButton({
   lon?: number | null;
   className?: string;
   variant?: "default" | "secondary" | "outline" | "ghost";
+  label?: string;
 }) {
   if (!hasNearbyElectricalStoresLocation({ city, address, lat, lon })) {
     return null;
@@ -35,7 +37,7 @@ export function OpenNearbyElectricalStoresButton({
       onClick={() => openNearbyElectricalStores({ city, address, lat, lon })}
     >
       <Store className="h-4 w-4" />
-      Открыть магазины электрики рядом
+      {label}
     </Button>
   );
 }

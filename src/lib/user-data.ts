@@ -1875,7 +1875,15 @@ export async function persistInstallRequest(
 export async function persistInstallRequestPatch(
   id: string,
   patch: Partial<
-    Pick<InstallRequest, "title" | "status" | "statusLabel" | "exactAddress">
+    Pick<
+      InstallRequest,
+      | "title"
+      | "status"
+      | "statusLabel"
+      | "exactAddress"
+      | "paymentStatus"
+      | "paidAmountRub"
+    >
   >,
 ): Promise<void> {
   if (isHomeItemDeleted(id)) return;
@@ -2204,7 +2212,12 @@ export async function pollRequestStatus(
   requestId: string,
 ): Promise<{
   status: "searching" | "accepted";
-  master?: { firstName: string; phone: string; username: string };
+  master?: {
+    firstName: string;
+    phone: string;
+    username: string;
+    rating?: number;
+  };
 }> {
   if (!canUseServer()) return { status: "searching" };
   const res = await fetch(
@@ -2214,7 +2227,12 @@ export async function pollRequestStatus(
   if (!res.ok) return { status: "searching" };
   return (await res.json()) as {
     status: "searching" | "accepted";
-    master?: { firstName: string; phone: string; username: string };
+    master?: {
+      firstName: string;
+      phone: string;
+      username: string;
+      rating?: number;
+    };
   };
 }
 

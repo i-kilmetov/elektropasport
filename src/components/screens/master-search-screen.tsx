@@ -18,6 +18,7 @@ export function MasterSearchScreen({
     firstName: string;
     phone: string;
     username: string;
+    rating?: number;
   }) => void;
   onTimeout: () => void;
 }) {

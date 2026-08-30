@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, MessageCircle } from "lucide-react";
+import { ArrowLeft, MessageCircle, Phone } from "lucide-react";
 import { AiConsultSheet } from "@/components/screens/ai-consult-sheet";
 import type { ParsedAiLead } from "@/lib/ai-lead-ready";
 import {
@@ -17,17 +17,26 @@ import {
   LEAD_SERVICE_VARIANTS,
 } from "@/lib/brand-choice-card";
 import {
+  formatRub,
   getLeadServiceOptions,
   normalizeCityName,
   type LeadServiceOption,
   type LeadServiceType,
 } from "@/lib/lead-services";
+import { hapticNotification } from "@/lib/haptics";
+import { getTelegramUserName } from "@/lib/telegram-user";
+import {
+  formatPhoneDigits,
+  getUserProfile,
+  persistUserProfile,
+} from "@/lib/user-profile";
 import { cn } from "@/lib/utils";
 
 export function LeadServiceScreen({
   city,
   onBack,
   onSelect,
+  onConfirmMasterHomeVisit,
   onAiLeadReady,
 }: {
   city: string;
@@ -35,6 +44,10 @@ export function LeadServiceScreen({
   isFirstOrder?: boolean;
   onBack: () => void;
   onSelect: (serviceType: LeadServiceType) => void;
+  onConfirmMasterHomeVisit: (payload: {
+    phone: string;
+    name: string;
+  }) => void | Promise<void>;
   onAiLeadReady?: (lead: ParsedAiLead) => void | Promise<void>;
 }) {
   const normalizedCity = normalizeCityName(city);
@@ -42,6 +55,17 @@ export function LeadServiceScreen({
   const [aiOpen, setAiOpen] = useState(false);
   const [payOption, setPayOption] = useState<LeadServiceOption | null>(null);
   const [paying, setPaying] = useState(false);
+  const [phoneDigits, setPhoneDigits] = useState(
+    () => getUserProfile().phoneDigits?.replace(/\D/g, "").slice(0, 10) ?? "",
+  );
+  const [confirming, setConfirming] = useState(false);
+
+  const phoneDisplay = useMemo(
+    () => formatPhoneDigits(phoneDigits),
+    [phoneDigits],
+  );
+  const phoneValid = phoneDigits.length === 10;
+  const isMasterHomeVisit = payOption?.id === "master_home_visit";
 
   useEffect(() => {
     let cancelled = false;
@@ -69,7 +93,27 @@ export function LeadServiceScreen({
       ? []
       : getLeadServiceOptions({ hasConnectedMaster: hasMaster });
 
-  if (paying && payOption && payOption.priceRub != null) {
+  const handleConfirmMasterHomeVisit = async () => {
+    if (!phoneValid || confirming) return;
+    setConfirming(true);
+    try {
+      await persistUserProfile({
+        ...getUserProfile(),
+        phoneDigits,
+      });
+      hapticNotification("success");
+      const name = getTelegramUserName();
+      await onConfirmMasterHomeVisit({
+        phone: `+7${phoneDigits}`,
+        name,
+      });
+      setPayOption(null);
+    } finally {
+      setConfirming(false);
+    }
+  };
+
+  if (paying && payOption && payOption.priceRub != null && !isMasterHomeVisit) {
     return (
       <motion.section
         initial={{ opacity: 0, x: 40 }}
@@ -219,23 +263,75 @@ export function LeadServiceScreen({
         ) : null}
         {payOption && !paying ? (
           <BottomSheet onClose={() => setPayOption(null)}>
-            <h2 className="ty-title">
-              Подтверждение
-            </h2>
-            <p className="mt-2 ty-body">
-              {payOption.title}
-              {payOption.priceRub != null
-                ? ` — ${payOption.priceLabel}`
-                : ""}
-              . {payOption.description}
-            </p>
-            <Button
-              className="mt-5 w-full"
-              size="lg"
-              onClick={() => setPaying(true)}
-            >
-              Оплатить
-            </Button>
+            {isMasterHomeVisit ? (
+              <>
+                <h2 className="ty-title">
+                  {payOption.title}
+                </h2>
+                <p className="mt-2 ty-body">
+                  Стоимость вызова —{" "}
+                  <span className="font-medium text-zinc-900">
+                    {payOption.priceRub != null
+                      ? formatRub(payOption.priceRub)
+                      : payOption.priceLabel}
+                  </span>
+                  . Оплату нужно будет выполнить только после успешного поиска
+                  мастера.
+                </p>
+
+                <div className="mt-5">
+                  <div className="mb-2 ty-subtitle text-zinc-600">
+                    Телефон для связи
+                  </div>
+                  <label className="flex h-14 items-center gap-2 rounded-[20px] border border-black/8 bg-zinc-50 px-4 focus-within:border-zinc-300">
+                    <Phone className="h-4 w-4 shrink-0 text-zinc-500" />
+                    <span className="ty-subtitle text-zinc-700">+7</span>
+                    <input
+                      inputMode="numeric"
+                      value={phoneDisplay}
+                      onChange={(e) => {
+                        const next = e.target.value.replace(/\D/g, "").slice(0, 10);
+                        setPhoneDigits(next);
+                      }}
+                      placeholder="999 000-00-00"
+                      className="h-full min-w-0 flex-1 bg-transparent text-[16px] text-zinc-900 outline-none placeholder:text-zinc-400"
+                    />
+                  </label>
+                </div>
+
+                <p className="mt-5 ty-heading text-zinc-900">
+                  Искать мастера?
+                </p>
+                <Button
+                  className="mt-3 w-full"
+                  size="lg"
+                  disabled={!phoneValid || confirming}
+                  onClick={() => void handleConfirmMasterHomeVisit()}
+                >
+                  {confirming ? "Отправляем…" : "Подтвердить"}
+                </Button>
+              </>
+            ) : (
+              <>
+                <h2 className="ty-title">
+                  Подтверждение
+                </h2>
+                <p className="mt-2 ty-body">
+                  {payOption.title}
+                  {payOption.priceRub != null
+                    ? ` — ${payOption.priceLabel}`
+                    : ""}
+                  . {payOption.description}
+                </p>
+                <Button
+                  className="mt-5 w-full"
+                  size="lg"
+                  onClick={() => setPaying(true)}
+                >
+                  Оплатить
+                </Button>
+              </>
+            )}
             <button
               type="button"
               onClick={() => setPayOption(null)}

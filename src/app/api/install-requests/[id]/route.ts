@@ -26,7 +26,15 @@ export async function PATCH(request: Request, context: RouteContext) {
 
     const { id } = await context.params;
     const body = (await request.json()) as Partial<
-      Pick<InstallRequest, "title" | "status" | "statusLabel" | "exactAddress">
+      Pick<
+        InstallRequest,
+        | "title"
+        | "status"
+        | "statusLabel"
+        | "exactAddress"
+        | "paymentStatus"
+        | "paidAmountRub"
+      >
     >;
     const item = await updateInstallRequest(user.telegramId, id, body);
     if (!item) {

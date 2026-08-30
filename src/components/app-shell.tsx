@@ -92,6 +92,7 @@ import { resolveRequestTypeCode } from "@/lib/request-codes";
 import {
   buildLeadServiceSetupTitle,
   countPanelModules,
+  MASTER_HOME_VISIT_PRICE_RUB,
   payableAmountRub,
   resolveRequestTypeCodeForService,
   isMoscow,
@@ -427,6 +428,7 @@ export function AppShell({
     firstName: string;
     phone: string;
     username: string;
+    rating?: number;
   } | null>(null);
   const submittedLeadIds = useRef(new Set<string>());
   const consumedShareRef = useRef(false);
@@ -1902,15 +1904,23 @@ export function AppShell({
         );
       });
 
-      // Dispatch to masters and show search screen
-      setSearchRequestId(id);
-      setFoundMaster(null);
-      setScreen("master-search");
+      const isMasterHomeVisit =
+        payload.serviceType === "master_home_visit" ||
+        selectedLeadService === "master_home_visit";
+
+      if (isMasterHomeVisit) {
+        setSearchRequestId(id);
+        setFoundMaster(null);
+        setScreen("master-search");
+      } else {
+        go("objects");
+      }
     },
     [
       activePanel?.noPanelSetupId,
       activePanelId,
       electricalDetails,
+      go,
       leadBackScreen,
       leadFlow,
       masterAbout,
@@ -1920,6 +1930,44 @@ export function AppShell({
       requestNeedId,
       selectedCity,
       selectedAddress,
+      selectedLeadService,
+    ],
+  );
+
+  const submitMasterHomeVisit = useCallback(
+    async ({ phone, name }: { phone: string; name: string }) => {
+      setSelectedLeadService("master_home_visit");
+      const typeCode = resolveRequestTypeCodeForService("master_home_visit");
+      const publicCode = await allocateRequestPublicCode(typeCode);
+      const estimatedPriceRub = MASTER_HOME_VISIT_PRICE_RUB;
+      await submitLead({
+        contactMethod: "phone",
+        phone,
+        name,
+        city: selectedCity ?? undefined,
+        exactAddress: selectedAddress ?? undefined,
+        serviceType: "master_home_visit",
+        estimatedPriceRub,
+        panelModules: leadPanelModules ?? undefined,
+        setupTitle: buildLeadServiceSetupTitle({
+          serviceType: "master_home_visit",
+          estimatedPriceRub,
+        }),
+        publicCode,
+        panelId:
+          leadBackScreen === "scheme" || activePanel?.noPanelSetupId
+            ? activePanelId ?? undefined
+            : undefined,
+      });
+    },
+    [
+      activePanel?.noPanelSetupId,
+      activePanelId,
+      leadBackScreen,
+      leadPanelModules,
+      selectedAddress,
+      selectedCity,
+      submitLead,
     ],
   );
 
@@ -2789,6 +2837,7 @@ export function AppShell({
                 setSelectedLeadService(serviceType);
                 go("lead-contact");
               }}
+              onConfirmMasterHomeVisit={submitMasterHomeVisit}
               onAiLeadReady={submitAiConsultLead}
             />
           )}
@@ -2956,10 +3005,37 @@ export function AppShell({
               key={`success-${searchRequestId}`}
               requestId={searchRequestId}
               master={foundMaster}
+              amountRub={MASTER_HOME_VISIT_PRICE_RUB}
               city={selectedCity ?? activeRequest?.city}
               address={selectedAddress ?? activeRequest?.exactAddress}
               lat={selectedCoords?.lat}
               lon={selectedCoords?.lon}
+              onPaymentComplete={() => {
+                setItems((prev) =>
+                  prev.map((item) =>
+                    item.kind === "install_request" &&
+                    item.id === searchRequestId
+                      ? {
+                          ...item,
+                          paymentStatus: "confirmed",
+                          paidAmountRub: MASTER_HOME_VISIT_PRICE_RUB,
+                        }
+                      : item,
+                  ),
+                );
+                void persistInstallRequestPatch(searchRequestId, {
+                  paymentStatus: "confirmed",
+                  paidAmountRub: MASTER_HOME_VISIT_PRICE_RUB,
+                }).catch((error) => {
+                  console.error(error);
+                });
+              }}
+              onOpenRequest={() => {
+                setActiveRequestId(searchRequestId);
+                setSearchRequestId(null);
+                setFoundMaster(null);
+                go("request-details");
+              }}
               onClose={() => {
                 setSearchRequestId(null);
                 setFoundMaster(null);
@@ -2970,10 +3046,6 @@ export function AppShell({
           {screen === "master-not-found" && (
             <MasterNotFoundScreen
               key="master-not-found"
-              city={selectedCity ?? activeRequest?.city}
-              address={selectedAddress ?? activeRequest?.exactAddress}
-              lat={selectedCoords?.lat}
-              lon={selectedCoords?.lon}
               onClose={() => {
                 setSearchRequestId(null);
                 go("objects");

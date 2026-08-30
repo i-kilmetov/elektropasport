@@ -1661,7 +1661,15 @@ export async function updateInstallRequest(
   telegramUserId: number,
   id: string,
   patch: Partial<
-    Pick<InstallRequest, "title" | "status" | "statusLabel" | "exactAddress">
+    Pick<
+      InstallRequest,
+      | "title"
+      | "status"
+      | "statusLabel"
+      | "exactAddress"
+      | "paymentStatus"
+      | "paidAmountRub"
+    >
   >,
 ): Promise<InstallRequest | null> {
   const sql = getSql();
@@ -1670,7 +1678,9 @@ export async function updateInstallRequest(
       title = COALESCE(${patch.title ?? null}, title),
       status = COALESCE(${patch.status ?? null}, status),
       status_label = COALESCE(${patch.statusLabel ?? null}, status_label),
-      exact_address = COALESCE(${patch.exactAddress ?? null}, exact_address)
+      exact_address = COALESCE(${patch.exactAddress ?? null}, exact_address),
+      payment_status = COALESCE(${patch.paymentStatus ?? null}, payment_status),
+      paid_amount_rub = COALESCE(${patch.paidAmountRub ?? null}, paid_amount_rub)
     WHERE id = ${id} AND telegram_user_id = ${telegramUserId}
     RETURNING
       id, title, subtitle, status, status_label, created_at_label,
@@ -2228,33 +2238,28 @@ export async function getRequestAcceptedMaster(
   lastName: string;
   phone: string;
   username: string;
+  rating: number;
 } | null> {
   const sql = getSql();
   const [row] = (await sql`
-    SELECT
-      u.telegram_id,
-      u.first_name,
-      u.last_name,
-      u.phone_digits,
-      u.username
+    SELECT ir.master_telegram_id
     FROM install_requests ir
-    JOIN users u ON u.telegram_id = ir.master_telegram_id
     WHERE ir.id = ${requestId}
       AND ir.master_telegram_id IS NOT NULL
-  `) as Array<{
-    telegram_id: string | number;
-    first_name: string | null;
-    last_name: string | null;
-    phone_digits: string | null;
-    username: string | null;
-  }>;
-  if (!row) return null;
+  `) as Array<{ master_telegram_id: string | number | null }>;
+  if (!row?.master_telegram_id) return null;
+
+  const masterTelegramId = Number(row.master_telegram_id);
+  const profile = await getMasterProfile(masterTelegramId);
+  if (!profile) return null;
+
   return {
-    masterTelegramId: Number(row.telegram_id),
-    firstName: row.first_name ?? "",
-    lastName: row.last_name ?? "",
-    phone: row.phone_digits ?? "",
-    username: row.username ?? "",
+    masterTelegramId,
+    firstName: profile.firstName,
+    lastName: profile.lastName,
+    phone: profile.phone,
+    username: profile.username,
+    rating: profile.rating,
   };
 }
 

@@ -39,6 +39,7 @@ export async function GET(request: Request) {
             firstName: master.firstName,
             phone: master.phone,
             username: master.username,
+            rating: master.rating,
           }
         : null,
     });
