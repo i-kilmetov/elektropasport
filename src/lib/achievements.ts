@@ -23,8 +23,6 @@ export type Achievement = {
   /** Filled steps for multi-level medals (literacy). */
   level?: number;
   maxLevel?: number;
-  /** IEC / GOST multi-core wire colour for the ribbon. */
-  ribbon: "pe" | "brown" | "black" | "grey" | "blue";
 };
 
 export function readMasterApplied(): boolean {
@@ -52,18 +50,6 @@ function literacyLevel(school: SchoolProgress | undefined): number {
   return 0;
 }
 
-function literacyTitle(level: number): string {
-  const degree = Math.min(Math.max(level, 1), 3);
-  return `За победу над неграмотностью ${degree} степени`;
-}
-
-function literacyHint(level: number): string {
-  if (level >= 3) return "Все три класса школы пройдены.";
-  if (level === 2) return "2 степень. Остался выпускной класс.";
-  if (level === 1) return "1 степень. Окончен первый класс школы.";
-  return "Окончить классы школы электрики — 1, 2 и 3 степень.";
-}
-
 export function listAchievements(input: {
   panelCount: number;
   applianceCount: number;
@@ -84,7 +70,6 @@ export function listAchievements(input: {
         : "Добавить щиток в паспорт.",
       unlocked: input.panelCount >= 1,
       icon: Zap,
-      ribbon: "pe",
     },
     {
       id: "first-appliance",
@@ -94,7 +79,6 @@ export function listAchievements(input: {
         : "Добавить технику к щитку.",
       unlocked: input.applianceCount >= 1,
       icon: HousePlug,
-      ribbon: "brown",
     },
     {
       id: "invite-1",
@@ -104,7 +88,6 @@ export function listAchievements(input: {
         : "Пригласить одного пользователя в Током.",
       unlocked: input.inviteCount >= 1,
       icon: UserPlus,
-      ribbon: "black",
     },
     {
       id: "invite-3",
@@ -116,17 +99,15 @@ export function listAchievements(input: {
           : "Собрать роту: минимум трое приглашённых.",
       unlocked: input.inviteCount >= 3,
       icon: Users,
-      ribbon: "grey",
     },
     {
       id: "literacy",
-      title: literacyTitle(literacy),
-      hint: literacyHint(literacy),
+      title: "За победу над неграмотностью",
+      hint: "За каждый класс в школе Током.",
       unlocked: literacy >= 1,
       icon: GraduationCap,
       level: literacy,
       maxLevel: 3,
-      ribbon: "blue",
     },
   ];
 }
