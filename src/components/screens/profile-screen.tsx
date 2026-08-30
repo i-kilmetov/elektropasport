@@ -14,7 +14,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { GlassCard } from "@/components/ui/glass-card";
-import { InfoDialog } from "@/components/ui/info-dialog";
 import { Portal } from "@/components/ui/portal";
 import { UndoSnackbarHost } from "@/components/ui/undo-snackbar";
 import { PushNotificationsCard } from "@/components/ui/push-notifications-card";
@@ -309,8 +308,8 @@ export function ProfileScreen({
           )
         ) : null}
 
-        <div className="flex justify-center py-3">
-          <div className="flex items-center">
+        <div className="flex flex-col items-center">
+          <div className="flex items-start justify-center pt-1">
             {achievements.map((item, index) => (
               <AchievementMedal
                 key={item.id}
@@ -319,11 +318,25 @@ export function ProfileScreen({
                 raised={openAchievement?.id === item.id}
                 onOpen={() => {
                   hapticImpact("light");
-                  setOpenAchievement(item);
+                  setOpenAchievement((prev) =>
+                    prev?.id === item.id ? null : item,
+                  );
                 }}
               />
             ))}
           </div>
+          <p className="mt-1.5 min-h-[2.75rem] max-w-[17.5rem] px-2 text-center">
+            {openAchievement ? (
+              <>
+                <span className="block ty-label leading-snug">
+                  {openAchievement.title}
+                </span>
+                <span className="mt-0.5 block ty-meta text-zinc-500">
+                  {openAchievement.hint}
+                </span>
+              </>
+            ) : null}
+          </p>
         </div>
 
         <GlassCard className="overflow-hidden p-0">
@@ -509,14 +522,6 @@ export function ProfileScreen({
         )}
       </AnimatePresence>
 
-      <AnimatePresence>
-        {openAchievement && (
-          <InfoDialog
-            title={openAchievement.title}
-            description={openAchievement.hint}
-            onClose={() => setOpenAchievement(null)}
-          />
-        )}
       </AnimatePresence>
 
       <UndoSnackbarHost
@@ -566,27 +571,49 @@ export function ProfileScreen({
 
 const MEDAL_FACE: Record<
   "locked" | "bronze" | "silver" | "gold",
-  { fill: string; icon: string; rim: string }
+  { fill: string; icon: string }
 > = {
   locked: {
-    fill: "radial-gradient(circle at 32% 26%, #f4f4f6 0%, #c9c9ce 42%, #9a9aa1 76%, #7a7a82 100%)",
-    icon: "#6b6b73",
-    rim: "linear-gradient(160deg, #ececee 0%, #8d8d94 48%, #b8b8be 100%)",
+    fill: "radial-gradient(circle at 34% 28%, #ececee 0%, #c2c2c6 46%, #8e8e94 100%)",
+    icon: "#5a5a62",
   },
   bronze: {
-    fill: "radial-gradient(circle at 32% 26%, #ffd9b4 0%, #d08948 40%, #a05622 72%, #6c3212 100%)",
-    icon: "#3a1c0b",
-    rim: "linear-gradient(160deg, #f3c49a 0%, #8a4a1e 48%, #c07838 100%)",
+    fill: "radial-gradient(circle at 34% 28%, #f3c49a 0%, #c07838 48%, #7a3e16 100%)",
+    icon: "#4a240c",
   },
   silver: {
-    fill: "radial-gradient(circle at 32% 26%, #ffffff 0%, #d8dee8 38%, #9aa4b4 70%, #5f6774 100%)",
-    icon: "#3a414c",
-    rim: "linear-gradient(160deg, #f7f9fc 0%, #7b8492 48%, #c5ccd6 100%)",
+    fill: "radial-gradient(circle at 34% 28%, #f6f8fb 0%, #c5ccd6 48%, #7b8492 100%)",
+    icon: "#3e4650",
   },
   gold: {
-    fill: "radial-gradient(circle at 32% 26%, #fff8c8 0%, #e6c43c 38%, #c9a21c 68%, #8a6a0c 100%)",
-    icon: "#3d2e06",
-    rim: "linear-gradient(160deg, #fff3a8 0%, #a07d12 48%, #e0c04a 100%)",
+    fill: "radial-gradient(circle at 34% 28%, #fff3c0 0%, #d4b12a 48%, #8a6a10 100%)",
+    icon: "#4a3a08",
+  },
+};
+
+const RIBBON: Record<
+  Achievement["ribbon"],
+  { fill: string; shadow: string }
+> = {
+  pe: {
+    fill: "repeating-linear-gradient(90deg, #E6C200 0 3px, #1B8A3A 3px 6px)",
+    shadow: "0 2px 4px rgba(27, 90, 30, 0.28)",
+  },
+  brown: {
+    fill: "repeating-linear-gradient(90deg, #6E3A12 0 2px, #C56A28 2px 4px, #8B4E1A 4px 5px, #C56A28 5px 7px)",
+    shadow: "0 2px 4px rgba(90, 40, 10, 0.28)",
+  },
+  black: {
+    fill: "repeating-linear-gradient(90deg, #1A1A1D 0 2px, #4A4A50 2px 4px, #2A2A2E 4px 5px, #4A4A50 5px 7px)",
+    shadow: "0 2px 4px rgba(0, 0, 0, 0.28)",
+  },
+  grey: {
+    fill: "repeating-linear-gradient(90deg, #6E727A 0 2px, #C4C7CE 2px 4px, #8A8E96 4px 5px, #C4C7CE 5px 7px)",
+    shadow: "0 2px 4px rgba(70, 74, 82, 0.22)",
+  },
+  blue: {
+    fill: "repeating-linear-gradient(90deg, #163E78 0 2px, #3D8AD4 2px 4px, #1E5AA8 4px 5px, #3D8AD4 5px 7px)",
+    shadow: "0 2px 4px rgba(20, 60, 120, 0.28)",
   },
 };
 
@@ -617,73 +644,73 @@ function AchievementMedal({
   const Icon = item.icon;
   const tone = medalTone(item);
   const face = MEDAL_FACE[tone];
-  const pips = item.maxLevel ?? 0;
+  const ribbon = RIBBON[item.ribbon];
+  const raisedIcon = item.unlocked;
 
   return (
     <button
       type="button"
       onClick={onOpen}
       aria-label={item.title}
+      aria-pressed={raised}
       className={cn(
-        "relative shrink-0 rounded-full transition-transform duration-200",
-        index > 0 && "-ml-4",
-        raised && "z-30 scale-110",
+        "relative h-[4.7rem] w-11 shrink-0 transition-transform duration-200",
+        index > 0 && "-ml-3.5",
+        raised && "z-30 -translate-y-0.5",
       )}
       style={{ zIndex: raised ? 30 : index + 1 }}
     >
       <span
-        className="relative flex h-14 w-14 items-center justify-center rounded-full"
+        aria-hidden
+        className="absolute top-[20px] left-1/2 h-[34px] w-[17px] -translate-x-1/2"
         style={{
-          background: face.rim,
-          boxShadow:
-            "0 1px 0 rgba(255,255,255,0.55), 0 8px 14px rgba(17,17,19,0.22), 0 2px 3px rgba(17,17,19,0.18)",
+          background: ribbon.fill,
+          clipPath: "polygon(0 0, 100% 0, 100% 70%, 50% 100%, 0 70%)",
+          boxShadow: ribbon.shadow,
+          opacity: item.unlocked ? 1 : 0.5,
+          filter: item.unlocked ? undefined : "saturate(0.7)",
         }}
       >
         <span
-          className="relative flex h-11 w-11 items-center justify-center rounded-full"
+          className="absolute inset-0"
           style={{
-            background: face.fill,
-            boxShadow:
-              "inset 0 3px 4px rgba(255,255,255,0.72), inset 0 -5px 7px rgba(0,0,0,0.28)",
+            background:
+              "linear-gradient(108deg, transparent 26%, rgba(255,255,255,0.4) 46%, transparent 64%), repeating-linear-gradient(180deg, rgba(255,255,255,0.16) 0 1px, transparent 1px 3px)",
           }}
-        >
-          <span
-            aria-hidden
-            className="pointer-events-none absolute inset-x-[18%] top-[10%] h-[38%] rounded-full opacity-70"
-            style={{
-              background:
-                "linear-gradient(180deg, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0) 100%)",
-            }}
-          />
-          <Icon
-            className={cn(
-              "relative h-[1.15rem] w-[1.15rem]",
-              pips > 0 && "-translate-y-0.5",
-            )}
-            strokeWidth={2.35}
-            color={face.icon}
-          />
-          {pips > 0 ? (
-            <span className="absolute bottom-1.5 flex gap-[3px]">
-              {Array.from({ length: pips }, (_, pip) => (
-                <span
-                  key={pip}
-                  className="h-[5px] w-[5px] rounded-full"
-                  style={{
-                    background:
-                      pip < (item.level ?? 0)
-                        ? face.icon
-                        : "rgba(17,17,19,0.18)",
-                    boxShadow:
-                      pip < (item.level ?? 0)
-                        ? "0 0 0 0.5px rgba(255,255,255,0.35)"
-                        : undefined,
-                  }}
-                />
-              ))}
-            </span>
-          ) : null}
-        </span>
+        />
+      </span>
+      <span
+        className="absolute top-0 left-1/2 z-10 flex h-11 w-11 -translate-x-1/2 items-center justify-center rounded-full"
+        style={{
+          background: face.fill,
+          boxShadow: [
+            "0 1px 0 rgba(255,255,255,0.45)",
+            "0 3px 7px rgba(17,17,19,0.22)",
+            "inset 0 1px 1px rgba(255,255,255,0.62)",
+            "inset 0 -1.5px 2px rgba(0,0,0,0.32)",
+            "inset 0 0 0 1.5px rgba(255,255,255,0.22)",
+            "inset 0 0 0 2px rgba(0,0,0,0.22)",
+          ].join(", "),
+        }}
+      >
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-[12%] top-[8%] h-[36%] rounded-full opacity-55"
+          style={{
+            background:
+              "linear-gradient(180deg, rgba(255,255,255,0.72) 0%, rgba(255,255,255,0) 100%)",
+          }}
+        />
+        <Icon
+          className="relative h-[1.05rem] w-[1.05rem]"
+          strokeWidth={2.2}
+          color={face.icon}
+          style={{
+            filter: raisedIcon
+              ? "drop-shadow(0.55px 0.7px 0 rgba(0,0,0,0.38)) drop-shadow(-0.55px -0.65px 0 rgba(255,255,255,0.5))"
+              : "drop-shadow(0.5px 0.55px 0 rgba(255,255,255,0.42)) drop-shadow(-0.45px -0.5px 0 rgba(0,0,0,0.38))",
+          }}
+        />
       </span>
     </button>
   );

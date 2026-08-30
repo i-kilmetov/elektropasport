@@ -23,6 +23,8 @@ export type Achievement = {
   /** Filled steps for multi-level medals (literacy). */
   level?: number;
   maxLevel?: number;
+  /** IEC / GOST multi-core wire colour for the ribbon. */
+  ribbon: "pe" | "brown" | "black" | "grey" | "blue";
 };
 
 export function readMasterApplied(): boolean {
@@ -50,11 +52,16 @@ function literacyLevel(school: SchoolProgress | undefined): number {
   return 0;
 }
 
+function literacyTitle(level: number): string {
+  const degree = Math.min(Math.max(level, 1), 3);
+  return `За победу над неграмотностью ${degree} степени`;
+}
+
 function literacyHint(level: number): string {
   if (level >= 3) return "Все три класса школы пройдены.";
-  if (level === 2) return "2 из 3 классов. Остался выпускной.";
-  if (level === 1) return "1 из 3 классов школы электрики.";
-  return "Окончить три класса школы электрики.";
+  if (level === 2) return "2 степень. Остался выпускной класс.";
+  if (level === 1) return "1 степень. Окончен первый класс школы.";
+  return "Окончить классы школы электрики — 1, 2 и 3 степень.";
 }
 
 export function listAchievements(input: {
@@ -71,34 +78,37 @@ export function listAchievements(input: {
   return [
     {
       id: "first-panel",
-      title: "Щиток",
+      title: "За щиток",
       hint: input.panelCount >= 1
         ? "Щиток добавлен в паспорт."
         : "Добавить щиток в паспорт.",
       unlocked: input.panelCount >= 1,
       icon: Zap,
+      ribbon: "pe",
     },
     {
       id: "first-appliance",
-      title: "Техника",
+      title: "За технику",
       hint: input.applianceCount >= 1
         ? "Техника привязана к щитку."
         : "Добавить технику к щитку.",
       unlocked: input.applianceCount >= 1,
       icon: HousePlug,
+      ribbon: "brown",
     },
     {
       id: "invite-1",
-      title: "Новый боец",
+      title: "За бойца",
       hint: input.inviteCount >= 1
         ? "В Токоме появился новый боец."
         : "Пригласить одного пользователя в Током.",
       unlocked: input.inviteCount >= 1,
       icon: UserPlus,
+      ribbon: "black",
     },
     {
       id: "invite-3",
-      title: "Целая рота",
+      title: "За роту",
       hint: input.inviteCount >= 3
         ? "В Токоме целая рота — трое приглашённых."
         : input.inviteCount > 0
@@ -106,15 +116,17 @@ export function listAchievements(input: {
           : "Собрать роту: минимум трое приглашённых.",
       unlocked: input.inviteCount >= 3,
       icon: Users,
+      ribbon: "grey",
     },
     {
       id: "literacy",
-      title: "Победа над неграмотностью",
+      title: literacyTitle(literacy),
       hint: literacyHint(literacy),
       unlocked: literacy >= 1,
       icon: GraduationCap,
       level: literacy,
       maxLevel: 3,
+      ribbon: "blue",
     },
   ];
 }
