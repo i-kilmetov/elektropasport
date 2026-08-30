@@ -3,6 +3,8 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, MessageCircle } from "lucide-react";
+import { AiConsultSheet } from "@/components/screens/ai-consult-sheet";
+import type { ParsedAiLead } from "@/lib/ai-lead-ready";
 import {
   GeminiSparkIcon,
   LiveSearchLamp,
@@ -26,12 +28,14 @@ export function LeadServiceScreen({
   city,
   onBack,
   onSelect,
+  onAiLeadReady,
 }: {
   city: string;
   panelModules?: number | null;
   isFirstOrder?: boolean;
   onBack: () => void;
   onSelect: (serviceType: LeadServiceType) => void;
+  onAiLeadReady?: (lead: ParsedAiLead) => void | Promise<void>;
 }) {
   const normalizedCity = normalizeCityName(city);
   const [hasMaster, setHasMaster] = useState<boolean | null>(null);
@@ -206,23 +210,12 @@ export function LeadServiceScreen({
       </div>
 
       <AnimatePresence>
-        {aiOpen ? (
-          <BottomSheet onClose={() => setAiOpen(false)}>
-            <h2 className="ty-title">
-              Консультант появится в ближайшее время
-            </h2>
-            <p className="mt-2 ty-body">
-              ИИ-консультация ещё настраивается. Пока можно вызвать мастера или
-              взять онлайн-консультацию — в зависимости от города.
-            </p>
-            <Button
-              className="mt-5 w-full"
-              size="lg"
-              onClick={() => setAiOpen(false)}
-            >
-              Понятно
-            </Button>
-          </BottomSheet>
+        {aiOpen && onAiLeadReady ? (
+          <AiConsultSheet
+            city={normalizedCity}
+            onClose={() => setAiOpen(false)}
+            onLeadReady={onAiLeadReady}
+          />
         ) : null}
         {payOption && !paying ? (
           <BottomSheet onClose={() => setPayOption(null)}>

@@ -36,6 +36,7 @@ import {
   type LeadFinishPayload,
 } from "@/components/screens/lead-contact-screen";
 import { LeadServiceScreen } from "@/components/screens/lead-service-screen";
+import type { ParsedAiLead } from "@/lib/ai-lead-ready";
 import { LeadAddressScreen } from "@/components/screens/lead-address-screen";
 import { NoPanelDetailScreen } from "@/components/screens/no-panel-detail-screen";
 import { NoPanelOptionsScreen } from "@/components/screens/no-panel-options-screen";
@@ -98,6 +99,7 @@ import {
 } from "@/lib/lead-services";
 import {
   AuthSessionExpiredError,
+  allocateRequestPublicCode,
   claimInviteToken,
   fetchHomeItems,
   fetchIsAdmin,
@@ -1913,6 +1915,60 @@ export function AppShell({
     ],
   );
 
+  const submitAiConsultLead = useCallback(
+    async (lead: ParsedAiLead) => {
+      const id = `ai-consult-${Date.now()}`;
+      if (submittedLeadIds.current.has(id)) return;
+      submittedLeadIds.current.add(id);
+
+      const publicCode = await allocateRequestPublicCode("C");
+      const problem = lead.problem?.trim();
+      const urgency = lead.urgency?.trim();
+      let setupTitle = "ИИ-консультация";
+      if (problem) {
+        setupTitle = `ИИ-консультация: ${problem}`;
+        if (urgency) setupTitle += ` (${urgency})`;
+      } else if (urgency) {
+        setupTitle = `ИИ-консультация (${urgency})`;
+      }
+
+      const request: InstallRequest = {
+        kind: "install_request",
+        id,
+        title: publicCode,
+        subtitle: setupTitle,
+        publicCode,
+        status: "new",
+        statusLabel: installStatusLabels.new,
+        createdAt: new Date().toLocaleDateString("ru-RU"),
+        city: lead.city?.trim() || selectedCity || "—",
+        contactMethod: "phone",
+        phone: `+7${lead.phone}`,
+        name: lead.name.trim(),
+        exactAddress: selectedAddress || undefined,
+        setupTitle,
+      };
+
+      setItems((prev) => {
+        if (prev.some((item) => item.id === id)) return prev;
+        return [request, ...prev];
+      });
+      setActiveRequestId(id);
+      setItemsError(null);
+      hapticNotification("success");
+
+      await persistInstallRequest(request).catch((error) => {
+        console.error(error);
+        setItemsError(
+          error instanceof Error
+            ? error.message
+            : "Не удалось сохранить заявку",
+        );
+      });
+    },
+    [selectedCity, selectedAddress],
+  );
+
   const submitLeadRef = useRef(submitLead);
   submitLeadRef.current = submitLead;
 
@@ -2719,6 +2775,7 @@ export function AppShell({
                 setSelectedLeadService(serviceType);
                 go("lead-contact");
               }}
+              onAiLeadReady={submitAiConsultLead}
             />
           )}
           {screen === "lead-contact" && (
