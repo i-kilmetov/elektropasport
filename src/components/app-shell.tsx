@@ -2991,6 +2991,10 @@ export function AppShell({
             <MasterSearchScreen
               key={`search-${searchRequestId}`}
               requestId={searchRequestId}
+              city={selectedCity ?? activeRequest?.city}
+              address={selectedAddress ?? activeRequest?.exactAddress}
+              lat={selectedCoords?.lat}
+              lon={selectedCoords?.lon}
               onMasterFound={(master) => {
                 setFoundMaster(master);
                 go("master-success");
