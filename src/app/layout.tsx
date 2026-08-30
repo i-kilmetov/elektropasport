@@ -1,7 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Geologica, Manrope } from "next/font/google";
-import { TelegramProvider } from "@/components/telegram-provider";
 import { PushProvider } from "@/components/push-provider";
+import { TelegramProvider } from "@/components/telegram-provider";
+import { YandexMetrika } from "@/components/yandex-metrika";
 import "./globals.css";
 
 const manrope = Manrope({
@@ -61,6 +62,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <script src="https://telegram.org/js/telegram-web-app.js" defer />
       </head>
       <body className="min-h-[var(--app-height,100dvh)] w-full bg-[#f7f7f8] font-sans text-[var(--foreground)]">
+        <YandexMetrika />
         <TelegramProvider>
           <PushProvider>{children}</PushProvider>
         </TelegramProvider>
