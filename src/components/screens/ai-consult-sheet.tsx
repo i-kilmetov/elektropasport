@@ -20,6 +20,9 @@ function nextMessageId(): string {
   return `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+const AI_CONSULT_WELCOME =
+  "Привет! Я Ток Токенович — ИИ-помощник в сервисе Током. Что у вас случилось с электрикой, чем помочь?";
+
 export function AiConsultSheet({
   city,
   onClose,
@@ -45,7 +48,7 @@ export function AiConsultSheet({
       {
         id: nextMessageId(),
         role: "assistant",
-        content: `Здравствуйте! Я ИИ-консультант «Током». Расскажите, что случилось с электрикой — разберём ситуацию. Город: ${city}.`,
+        content: AI_CONSULT_WELCOME,
       },
     ]);
   }, [city]);
@@ -160,7 +163,6 @@ export function AiConsultSheet({
           </div>
           <div className="min-w-0 flex-1">
             <h2 className="ty-title">ИИ-консультация</h2>
-            <p className="truncate ty-subtitle">{city}</p>
           </div>
           <button
             type="button"
