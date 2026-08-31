@@ -11,6 +11,8 @@ import {
 } from "@/lib/app-env";
 import {
   TEST_SITE_COOKIE,
+  signTestSiteCookie,
+  testSiteCookieOptions,
   testSitePasswordConfigured,
   verifyTestSiteCookie,
 } from "@/lib/test-site-auth";
@@ -58,16 +60,25 @@ export async function middleware(request: NextRequest) {
     }
 
     const cookie = request.cookies.get(TEST_SITE_COOKIE)?.value;
-    if (!(await verifyTestSiteCookie(cookie))) {
+    const status = await verifyTestSiteCookie(cookie);
+    if (!status.ok) {
       const login = new URL("/test-login", request.url);
       login.hostname = TEST_APP_HOST;
+      if (status.reason === "expired") {
+        login.searchParams.set("reason", "idle");
+      }
       if (pathname !== "/") {
         login.searchParams.set("next", `${pathname}${request.nextUrl.search}`);
       }
       return NextResponse.redirect(login);
     }
 
-    return NextResponse.next();
+    const response = NextResponse.next();
+    const token = await signTestSiteCookie(Date.now());
+    if (token) {
+      response.cookies.set(TEST_SITE_COOKIE, token, testSiteCookieOptions());
+    }
+    return response;
   }
 
   if (host !== LEGACY_VERCEL_HOST) {

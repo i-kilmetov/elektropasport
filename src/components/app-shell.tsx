@@ -172,6 +172,7 @@ import { installStatusLabels } from "@/types";
 import { BrandAuthIntro, BrandLaunchWaitlist, BrandSplash } from "@/components/brand-splash";
 import { BRAND_YELLOW } from "@/components/brand-logo";
 import { useAppStatusBarTheme } from "@/hooks/use-status-bar-theme";
+import { useTestSiteInactivityLogout } from "@/hooks/use-test-site-inactivity";
 import { applyAppStatusBarTheme } from "@/lib/status-bar-theme";
 import { useHomeAppliancesEnabled } from "@/hooks/use-home-appliances-enabled";
 import { isLaunchWaitlistRuntime } from "@/lib/app-env";
@@ -321,6 +322,7 @@ export function AppShell({
   /** Staging host: password gate replaces boot splash before Telegram auth. */
   skipBootSplash?: boolean;
 } = {}) {
+  useTestSiteInactivityLogout();
   const homeAppliancesEnabled = useHomeAppliancesEnabled();
   const surveyLaunch = forceResearchSurvey || isResearchSurveyLaunch();
   const [screen, setScreen] = useState<AppScreen>(() =>

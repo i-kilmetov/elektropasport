@@ -1,30 +1,65 @@
 import { NextResponse } from "next/server";
 import {
+  clearTestSiteLockout,
+  getTestSiteLockoutStatus,
+  recordTestSiteFailedAttempt,
+} from "@/lib/test-site-auth-lockout";
+import {
   TEST_SITE_COOKIE,
   signTestSiteCookie,
+  testSiteCookieOptions,
   testSitePasswordConfigured,
   verifyTestSiteCookie,
   verifyTestSitePassword,
 } from "@/lib/test-site-auth";
 
-export async function GET(request: Request) {
-  if (!testSitePasswordConfigured()) {
-    return NextResponse.json({ ok: false, configured: false }, { status: 503 });
-  }
+function readTestSiteCookie(request: Request): string {
   const cookieHeader = request.headers.get("cookie") ?? "";
   const match = cookieHeader
     .split(";")
     .map((part) => part.trim())
     .find((part) => part.startsWith(`${TEST_SITE_COOKIE}=`));
   const raw = match?.slice(`${TEST_SITE_COOKIE}=`.length) ?? "";
-  let cookie = raw;
   try {
-    cookie = decodeURIComponent(raw);
+    return decodeURIComponent(raw);
   } catch {
-    // keep raw
+    return raw;
   }
-  const ok = await verifyTestSiteCookie(cookie);
-  return NextResponse.json({ ok, configured: true });
+}
+
+export async function GET(request: Request) {
+  if (!testSitePasswordConfigured()) {
+    return NextResponse.json({ ok: false, configured: false }, { status: 503 });
+  }
+
+  const lockout = await getTestSiteLockoutStatus(request);
+  if (lockout.locked) {
+    return NextResponse.json(
+      {
+        ok: false,
+        configured: true,
+        locked: true,
+        retryAfterMs: lockout.retryAfterMs,
+        error: lockout.message,
+      },
+      { status: 429 },
+    );
+  }
+
+  const status = await verifyTestSiteCookie(readTestSiteCookie(request));
+  const response = NextResponse.json({
+    ok: status.ok,
+    configured: true,
+    locked: false,
+    expired: !status.ok && status.reason === "expired",
+  });
+  if (status.ok) {
+    const token = await signTestSiteCookie(Date.now());
+    if (token) {
+      response.cookies.set(TEST_SITE_COOKIE, token, testSiteCookieOptions());
+    }
+  }
+  return response;
 }
 
 export async function POST(request: Request) {
@@ -32,6 +67,18 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { error: "TEST_SITE_PASSWORD не настроен на сервере" },
       { status: 503 },
+    );
+  }
+
+  const lockout = await getTestSiteLockoutStatus(request);
+  if (lockout.locked) {
+    return NextResponse.json(
+      {
+        error: lockout.message,
+        locked: true,
+        retryAfterMs: lockout.retryAfterMs,
+      },
+      { status: 429 },
     );
   }
 
@@ -44,8 +91,22 @@ export async function POST(request: Request) {
   }
 
   if (!verifyTestSitePassword(password)) {
+    const afterFail = await recordTestSiteFailedAttempt(request);
+    if (afterFail.locked) {
+      return NextResponse.json(
+        {
+          error: afterFail.message,
+          locked: true,
+          retryAfterMs: afterFail.retryAfterMs,
+        },
+        { status: 429 },
+      );
+    }
+
     return NextResponse.json({ error: "Неверный пароль" }, { status: 401 });
   }
+
+  await clearTestSiteLockout(request);
 
   const token = await signTestSiteCookie();
   if (!token) {
@@ -56,23 +117,14 @@ export async function POST(request: Request) {
   }
 
   const response = NextResponse.json({ ok: true });
-  response.cookies.set(TEST_SITE_COOKIE, token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: 60 * 60 * 24 * 14,
-  });
+  response.cookies.set(TEST_SITE_COOKIE, token, testSiteCookieOptions());
   return response;
 }
 
 export async function DELETE() {
   const response = NextResponse.json({ ok: true });
   response.cookies.set(TEST_SITE_COOKIE, "", {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
+    ...testSiteCookieOptions(0),
     maxAge: 0,
   });
   return response;
