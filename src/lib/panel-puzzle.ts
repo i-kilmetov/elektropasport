@@ -9,12 +9,15 @@ import {
 export const PUZZLE_MIN_SIZE = 5;
 export const PUZZLE_SHUFFLE_MOVES = 480;
 
+export type PuzzleDir = "up" | "down" | "left" | "right";
+
 export type PuzzleModuleTile = {
   id: string;
   kind: "module";
   deviceId: number;
   moduleIndex: number;
   moduleCount: number;
+  order: number;
   typeLabel: string;
   rating: string;
   targetIndex: number;
@@ -62,11 +65,11 @@ export function cellXY(
 }
 
 export function puzzleTileLabel(tile: PuzzleModuleTile): string {
-  const part = `${tile.moduleIndex + 1}/${tile.moduleCount}`;
   const rating = tile.rating.trim();
-  return rating
-    ? `${tile.typeLabel} ${rating} · ${part}`
-    : `${tile.typeLabel} · ${part}`;
+  const body = rating
+    ? `${tile.typeLabel} ${rating}`
+    : tile.typeLabel;
+  return `№${tile.order} · ${body}`;
 }
 
 export function holeIndices(cells: Array<PuzzleTile | null>): number[] {
@@ -190,7 +193,7 @@ export function slidePuzzleTile(
 
 export function slidePuzzleHole(
   state: PuzzleState,
-  dir: "up" | "down" | "left" | "right",
+  dir: PuzzleDir,
 ): PuzzleState {
   if (state.won) return state;
   const dx = dir === "left" ? -1 : dir === "right" ? 1 : 0;
@@ -205,6 +208,46 @@ export function slidePuzzleHole(
     return slidePuzzleTile(state, tileIndex);
   }
   return state;
+}
+
+/** Move tiles one step in `tileDir` into neighbouring holes. */
+export function slidePuzzleSwipe(
+  state: PuzzleState,
+  tileDir: PuzzleDir,
+): PuzzleState {
+  if (state.won) return state;
+  const { size } = state;
+  const dx = tileDir === "left" ? -1 : tileDir === "right" ? 1 : 0;
+  const dy = tileDir === "up" ? -1 : tileDir === "down" ? 1 : 0;
+  const fromDx = -dx;
+  const fromDy = -dy;
+
+  const holes = holeIndices(state.cells).sort((a, b) => {
+    const A = cellXY(a, size);
+    const B = cellXY(b, size);
+    if (dx !== 0) return dx < 0 ? A.x - B.x : B.x - A.x;
+    return dy < 0 ? A.y - B.y : B.y - A.y;
+  });
+
+  let cells = state.cells.slice();
+  let moved = false;
+  for (const hole of holes) {
+    const { x, y } = cellXY(hole, size);
+    const nx = x + fromDx;
+    const ny = y + fromDy;
+    if (!inBounds(nx, ny, size)) continue;
+    const from = cellIndex(nx, ny, size);
+    if (cells[from] == null) continue;
+    cells = swapCells(cells, hole, from);
+    moved = true;
+  }
+  if (!moved) return state;
+  return {
+    ...state,
+    cells,
+    moves: state.moves + 1,
+    won: isPuzzleSolved(cells),
+  };
 }
 
 export function canRemovePuzzleTile(
@@ -237,6 +280,7 @@ function buildSolvedCells(rails: Device[][], size: number): Array<PuzzleTile | n
     () => null,
   );
   let fillerN = 0;
+  let order = 1;
 
   rails.forEach((rail, railIdx) => {
     if (railIdx >= size) return;
@@ -254,10 +298,12 @@ function buildSolvedCells(rails: Device[][], size: number): Array<PuzzleTile | n
           deviceId: device.id,
           moduleIndex,
           moduleCount: count,
+          order,
           typeLabel,
           rating,
           targetIndex,
         };
+        order += 1;
         x += 1;
       }
     }

@@ -61,6 +61,55 @@ export function deviceShortLabel(device: Device): string {
   return rating.length <= 6 ? `${short} ${rating}` : short;
 }
 
+export type SwipeDir = "up" | "down" | "left" | "right";
+
+export function dirFromSwipe(
+  dx: number,
+  dy: number,
+  min = 28,
+): SwipeDir | null {
+  if (Math.max(Math.abs(dx), Math.abs(dy)) < min) return null;
+  if (Math.abs(dx) > Math.abs(dy)) return dx > 0 ? "right" : "left";
+  return dy > 0 ? "down" : "up";
+}
+
+export type PanelModuleSpec = {
+  deviceId: number;
+  moduleIndex: number;
+  moduleCount: number;
+  typeLabel: string;
+  rating: string;
+  order: number;
+};
+
+export function listPanelModules(
+  devices: Device[],
+  railCount?: number,
+): PanelModuleSpec[] {
+  const rails = groupDevicesByRail(devices, railCount);
+  const specs: PanelModuleSpec[] = [];
+  let order = 1;
+  for (const rail of rails) {
+    for (const device of rail) {
+      const count = deviceModules(device);
+      const typeLabel = DEVICE_SHORT[device.type] ?? "Приб";
+      const rating = device.rating?.trim() ?? "";
+      for (let moduleIndex = 0; moduleIndex < count; moduleIndex += 1) {
+        specs.push({
+          deviceId: device.id,
+          moduleIndex,
+          moduleCount: count,
+          typeLabel,
+          rating,
+          order,
+        });
+        order += 1;
+      }
+    }
+  }
+  return specs;
+}
+
 export function moduleTotal(devices: Device[]): number {
   return devices.reduce((sum, device) => sum + deviceModules(device), 0);
 }

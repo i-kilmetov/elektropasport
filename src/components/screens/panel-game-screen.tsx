@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, Check, Grid3x3, UserPlus, Zap } from "lucide-react";
+import { ArrowLeft, Check, Grid3x3, Hash, UserPlus, Zap } from "lucide-react";
 import { DeviceFaceStatic, MODULE_PX } from "@/components/icons/device-face";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { PanelLimitSheet } from "@/components/screens/panel-limit-sheet";
+import { Panel2048Board } from "@/components/screens/panel-2048-board";
 import { PanelPuzzleBoard } from "@/components/screens/panel-puzzle-board";
 import { hapticImpact, hapticNotification } from "@/lib/haptics";
 import {
@@ -15,6 +16,7 @@ import {
   createSnakeGame,
   DEVICE_SHORT,
   deviceShortLabel,
+  dirFromSwipe,
   moduleTotal,
   playDevices,
   readSnakeContinuesUsed,
@@ -27,6 +29,7 @@ import {
   writeSnakeContinuesUsed,
   type SnakeDir,
   type SnakeGameState,
+  type SwipeDir,
 } from "@/lib/panel-game";
 import { deviceModules, groupDevicesByRail } from "@/lib/panel-rails";
 import {
@@ -36,19 +39,57 @@ import {
   placedModuleCount,
   puzzleModuleTotal,
   removeExtraPuzzleHole,
-  slidePuzzleHole,
-  slidePuzzleTile,
+  slidePuzzleSwipe,
+  type PuzzleDir,
   type PuzzleState,
 } from "@/lib/panel-puzzle";
+import {
+  createMergeGame,
+  mergeDeviceIds,
+  moveMergeGame,
+  type MergeState,
+} from "@/lib/panel-2048";
 import { hasUnlockedPanelLimit, type PanelQuota } from "@/lib/invites";
 import { cn } from "@/lib/utils";
 import type { Device, PanelObject } from "@/types";
 
-const SWIPE = 28;
 const MINI_SCALE = 0.42;
 
-type Phase = "gate" | "pick" | "ready" | "play";
-type GameKind = "puzzle" | "snake";
+type Phase = "hub" | "gate" | "pick" | "play";
+type GameKind = "puzzle" | "snake" | "merge";
+
+const GAME_CARDS: Array<{
+  id: GameKind;
+  title: string;
+  hint: string;
+  icon: typeof Grid3x3;
+}> = [
+  {
+    id: "puzzle",
+    title: "Пятнашки",
+    hint: "Соберите схему щитка по модулям",
+    icon: Grid3x3,
+  },
+  {
+    id: "snake",
+    title: "Змейка",
+    hint: "Соберите приборы щитка змейкой",
+    icon: Zap,
+  },
+  {
+    id: "merge",
+    title: "2048",
+    hint: "Сдвигайте и складывайте приборы щитка",
+    icon: Hash,
+  },
+];
+
+function gameTitle(kind: GameKind | null): string {
+  if (kind === "puzzle") return "Пятнашки";
+  if (kind === "snake") return "Змейка";
+  if (kind === "merge") return "2048";
+  return "Игра";
+}
 
 function PanelMiniature({
   devices,
@@ -211,15 +252,13 @@ export function PanelGameScreen({
   const playable = panels.filter(
     (panel) => playDevices(panel).length > 0,
   );
-  const hasAnyPanel = panels.length > 0;
 
-  const [phase, setPhase] = useState<Phase>(() =>
-    !hasAnyPanel ? "gate" : "pick",
-  );
+  const [phase, setPhase] = useState<Phase>("hub");
   const [panelId, setPanelId] = useState<string | null>(null);
-  const [gameKind, setGameKind] = useState<GameKind>("puzzle");
+  const [gameKind, setGameKind] = useState<GameKind | null>(null);
   const [state, setState] = useState<SnakeGameState | null>(null);
   const [puzzle, setPuzzle] = useState<PuzzleState | null>(null);
+  const [merge, setMerge] = useState<MergeState | null>(null);
   const [pickingHole, setPickingHole] = useState(false);
   const [confirmLeave, setConfirmLeave] = useState(false);
   const [lifeSheetOpen, setLifeSheetOpen] = useState(false);
@@ -239,9 +278,10 @@ export function PanelGameScreen({
     [devices],
   );
   const collectedIds = useMemo(() => {
+    if (merge) return mergeDeviceIds(merge);
     if (puzzle) return placedDeviceIds(puzzle, devices);
     return collectedDeviceIds(state?.collected ?? [], devices);
-  }, [devices, puzzle, state?.collected]);
+  }, [devices, merge, puzzle, state?.collected]);
   const collectedCount = state?.collected.length ?? 0;
   const totalModules = moduleTotal(devices);
   const puzzlePlaced = puzzle ? placedModuleCount(puzzle) : 0;
@@ -251,69 +291,97 @@ export function PanelGameScreen({
     quota?.creditedInvites ?? 0,
     continuesUsed,
   );
-  const viewPhase: Phase = !hasAnyPanel
-    ? "gate"
-    : phase === "gate"
-      ? "pick"
-      : phase;
+  const viewPhase: Phase =
+    phase === "pick" && playable.length === 0 ? "gate" : phase;
   const playingSnake = viewPhase === "play" && gameKind === "snake";
   const playingPuzzle = viewPhase === "play" && gameKind === "puzzle";
+  const playingMerge = viewPhase === "play" && gameKind === "merge";
   const puzzleInProgress = Boolean(
     playingPuzzle && puzzle && puzzle.moves > 0 && !puzzle.won,
   );
   const snakeInProgress = Boolean(
     playingSnake && state && state.alive && !state.won,
   );
+  const mergeInProgress = Boolean(
+    playingMerge && merge && merge.moves > 0 && !merge.won && !merge.lost,
+  );
 
   const stateRef = useRef(state);
   const puzzleRef = useRef(puzzle);
+  const mergeRef = useRef(merge);
   const devicesRef = useRef(devices);
   const pointer = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     stateRef.current = state;
     puzzleRef.current = puzzle;
+    mergeRef.current = merge;
     devicesRef.current = devices;
-  }, [devices, puzzle, state]);
+  }, [devices, merge, puzzle, state]);
 
-  const startSnake = useCallback((selected: PanelObject) => {
-    const list = playDevices(selected);
-    if (list.length === 0) return;
-    setPanelId(selected.id);
-    setGameKind("snake");
-    setPuzzle(null);
-    setPickingHole(false);
-    setState(createSnakeGame(list));
-    setPhase("play");
-    hapticImpact("soft");
-  }, [setGameKind, setPanelId, setPhase, setPickingHole, setPuzzle, setState]);
-
-  const startPuzzle = useCallback((selected: PanelObject) => {
-    const list = playDevices(selected);
-    if (list.length === 0) return;
-    setPanelId(selected.id);
-    setGameKind("puzzle");
-    setState(null);
-    setPickingHole(false);
-    setPuzzle(createPanelPuzzle(list, selected.railCount));
-    setPhase("play");
-    hapticImpact("soft");
-  }, [setGameKind, setPanelId, setPhase, setPickingHole, setPuzzle, setState]);
-
-  const readyPanel = useCallback((selected: PanelObject) => {
-    setPanelId(selected.id);
+  const resetBoards = useCallback(() => {
     setState(null);
     setPuzzle(null);
+    setMerge(null);
     setPickingHole(false);
-    setPhase("ready");
-  }, [setPanelId, setPhase, setPickingHole, setPuzzle, setState]);
+  }, [setMerge, setPickingHole, setPuzzle, setState]);
+
+  const startSelected = useCallback(
+    (selected: PanelObject, kind: GameKind) => {
+      const list = playDevices(selected);
+      if (list.length === 0) return;
+      setPanelId(selected.id);
+      setGameKind(kind);
+      setPickingHole(false);
+      if (kind === "puzzle") {
+        setState(null);
+        setMerge(null);
+        setPuzzle(createPanelPuzzle(list, selected.railCount));
+      } else if (kind === "snake") {
+        setPuzzle(null);
+        setMerge(null);
+        setState(createSnakeGame(list));
+      } else {
+        setPuzzle(null);
+        setState(null);
+        setMerge(createMergeGame(list, selected.railCount));
+      }
+      setPhase("play");
+      hapticImpact("soft");
+    },
+    [
+      setGameKind,
+      setMerge,
+      setPanelId,
+      setPhase,
+      setPickingHole,
+      setPuzzle,
+      setState,
+    ],
+  );
+
+  const chooseGame = useCallback(
+    (kind: GameKind) => {
+      setGameKind(kind);
+      setPanelId(null);
+      resetBoards();
+      setPhase(playable.length === 0 ? "gate" : "pick");
+      hapticImpact("soft");
+    },
+    [playable.length, resetBoards, setGameKind, setPanelId, setPhase],
+  );
 
   const leavePlay = useCallback(() => {
-    setPhase("pick");
-    setState(null);
-    setPuzzle(null);
-    setPickingHole(false);
-  }, [setPhase, setPickingHole, setPuzzle, setState]);
+    resetBoards();
+    setPhase(playable.length === 0 ? "hub" : "pick");
+  }, [playable.length, resetBoards, setPhase]);
+
+  const goHub = useCallback(() => {
+    resetBoards();
+    setPanelId(null);
+    setGameKind(null);
+    setPhase("hub");
+  }, [resetBoards, setGameKind, setPanelId, setPhase]);
 
   useEffect(() => {
     if (!playingSnake || !state?.alive || state.won) return;
@@ -359,7 +427,7 @@ export function PanelGameScreen({
   useEffect(() => {
     if (!playingPuzzle || pickingHole) return;
     const onKey = (event: KeyboardEvent) => {
-      const map: Record<string, "up" | "down" | "left" | "right"> = {
+      const map: Record<string, PuzzleDir> = {
         ArrowLeft: "left",
         ArrowRight: "right",
         ArrowUp: "up",
@@ -370,7 +438,7 @@ export function PanelGameScreen({
       event.preventDefault();
       const current = puzzleRef.current;
       if (!current) return;
-      const next = slidePuzzleHole(current, dir);
+      const next = slidePuzzleSwipe(current, dir);
       if (next === current) return;
       setPuzzle(next);
       if (next.won) hapticNotification("success");
@@ -380,18 +448,74 @@ export function PanelGameScreen({
     return () => window.removeEventListener("keydown", onKey);
   }, [pickingHole, playingPuzzle]);
 
+  useEffect(() => {
+    if (!playingMerge) return;
+    const onKey = (event: KeyboardEvent) => {
+      const map: Record<string, SwipeDir> = {
+        ArrowLeft: "left",
+        ArrowRight: "right",
+        ArrowUp: "up",
+        ArrowDown: "down",
+      };
+      const dir = map[event.key];
+      if (!dir) return;
+      event.preventDefault();
+      const current = mergeRef.current;
+      const selected = panel;
+      if (!current || !selected || current.lost || current.won) return;
+      const next = moveMergeGame(
+        current,
+        dir,
+        playDevices(selected),
+        selected.railCount,
+      );
+      if (next === current) return;
+      setMerge(next);
+      if (next.won && !current.won) hapticNotification("success");
+      else if (next.lost) hapticNotification("error");
+      else hapticImpact("soft");
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [panel, playingMerge]);
+
   const restart = () => {
-    if (!panel) return;
+    if (!panel || !gameKind) return;
     setLifeSheetOpen(false);
     setHoleSheetOpen(false);
     setPickingHole(false);
-    if (gameKind === "puzzle") {
-      setPuzzle(createPanelPuzzle(playDevices(panel), panel.railCount));
-    } else {
-      setState(createSnakeGame(playDevices(panel)));
-    }
-    hapticImpact("soft");
+    startSelected(panel, gameKind);
   };
+
+  const onPuzzleSwipe = useCallback(
+    (dir: PuzzleDir) => {
+      if (!puzzle || pickingHole) return;
+      const next = slidePuzzleSwipe(puzzle, dir);
+      if (next === puzzle) return;
+      setPuzzle(next);
+      if (next.won) hapticNotification("success");
+      else hapticImpact("medium");
+    },
+    [pickingHole, puzzle, setPuzzle],
+  );
+
+  const onMergeSwipe = useCallback(
+    (dir: SwipeDir) => {
+      if (!merge || !panel || merge.lost || merge.won) return;
+      const next = moveMergeGame(
+        merge,
+        dir,
+        playDevices(panel),
+        panel.railCount,
+      );
+      if (next === merge) return;
+      setMerge(next);
+      if (next.won && !merge.won) hapticNotification("success");
+      else if (next.lost) hapticNotification("error");
+      else hapticImpact("medium");
+    },
+    [merge, panel, setMerge],
+  );
 
   const onPuzzleTile = useCallback(
     (index: number) => {
@@ -408,11 +532,6 @@ export function PanelGameScreen({
         if (next.won) hapticNotification("success");
         return;
       }
-      const next = slidePuzzleTile(puzzle, index);
-      if (next === puzzle) return;
-      setPuzzle(next);
-      if (next.won) hapticNotification("success");
-      else hapticImpact("soft");
     },
     [pickingHole, puzzle, setPickingHole, setPuzzle],
   );
@@ -500,15 +619,13 @@ export function PanelGameScreen({
   ]);
 
   const title =
-    viewPhase === "gate"
+    viewPhase === "hub"
       ? "Игра"
-      : viewPhase === "pick"
-        ? "Выберите щиток"
-        : viewPhase === "ready"
-          ? "Выберите игру"
-          : gameKind === "puzzle"
-            ? "Пятнашки"
-            : panel?.title ?? "Змейка";
+      : viewPhase === "gate"
+        ? "Игра"
+        : viewPhase === "pick"
+          ? "Выберите щиток"
+          : gameTitle(gameKind);
 
   const subtitle =
     playingPuzzle && puzzle
@@ -517,7 +634,13 @@ export function PanelGameScreen({
         : `На месте ${puzzlePlaced} из ${puzzleTotal}`
       : playingSnake
         ? `Собрано ${collectedCount} из ${totalModules}`
-        : "Соберите схему своего щитка";
+        : playingMerge && merge
+          ? `Счёт ${merge.score}`
+          : viewPhase === "hub"
+            ? "Электрика — не игрушки"
+            : viewPhase === "pick"
+              ? gameTitle(gameKind)
+              : "Соберите схему своего щитка";
 
   return (
     <motion.section
@@ -530,7 +653,7 @@ export function PanelGameScreen({
         <button
           type="button"
           onClick={() => {
-            if (snakeInProgress || puzzleInProgress) {
+            if (snakeInProgress || puzzleInProgress || mergeInProgress) {
               setConfirmLeave(true);
               return;
             }
@@ -538,8 +661,12 @@ export function PanelGameScreen({
               setPickingHole(false);
               return;
             }
-            if (viewPhase === "ready" || viewPhase === "play") {
+            if (viewPhase === "play") {
               leavePlay();
+              return;
+            }
+            if (viewPhase === "pick" || viewPhase === "gate") {
+              goHub();
               return;
             }
             onBack();
@@ -566,6 +693,33 @@ export function PanelGameScreen({
         )}
       </header>
 
+      {viewPhase === "hub" && (
+        <div className="flex flex-1 flex-col gap-3">
+          <p className="ty-body">
+            Электрика — не игрушки. Но игры — хороший способ разобраться и
+            запомнить информацию. Этими играми вы как минимум запомните
+            расположение приборов в вашем щитке.
+          </p>
+          {GAME_CARDS.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => chooseGame(item.id)}
+              className="flex w-full items-center gap-3 rounded-[22px] border border-black/8 bg-white px-4 py-4 text-left transition active:scale-[0.99]"
+            >
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-zinc-100">
+                <item.icon className="h-5 w-5 text-zinc-700" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="truncate ty-heading">{item.title}</div>
+                <div className="mt-0.5 ty-note">{item.hint}</div>
+              </div>
+              <ArrowLeft className="h-4 w-4 rotate-180 text-zinc-400" />
+            </button>
+          ))}
+        </div>
+      )}
+
       {viewPhase === "gate" && (
         <div className="flex flex-1 flex-col items-center justify-center px-2 text-center">
           <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[#D3DA00]/35">
@@ -575,8 +729,8 @@ export function PanelGameScreen({
             Сначала добавьте щиток
           </h2>
           <p className="mt-3 max-w-sm ty-body">
-            Игра открывается после добавления хотя бы одного щитка. В пятнашках
-            нужно собрать схему своего щитка — каждый квадрат это один модуль.
+            Игры открываются после добавления хотя бы одного щитка с приборами.
+            Так вы запомните, как стоят модули именно у вас.
           </p>
           {onAddPanel ? (
             <Button className="mt-6 w-full max-w-sm rounded-full" onClick={onAddPanel}>
@@ -593,8 +747,7 @@ export function PanelGameScreen({
       {viewPhase === "pick" && (
         <div className="flex flex-1 flex-col gap-3">
           <p className="ty-body">
-            Выберите щиток — его схема станет полем пятнашек: один квадрат, один
-            модуль.
+            Выберите щиток для игры «{gameTitle(gameKind)}».
           </p>
           {playable.length === 0 ? (
             <div className="rounded-[24px] border border-black/8 bg-white px-4 py-6 text-center">
@@ -617,7 +770,10 @@ export function PanelGameScreen({
                 <button
                   key={item.id}
                   type="button"
-                  onClick={() => readyPanel(item)}
+                  onClick={() => {
+                    if (!gameKind) return;
+                    startSelected(item, gameKind);
+                  }}
                   className="flex w-full items-center gap-3 rounded-[22px] border border-black/8 bg-white px-4 py-4 text-left transition active:scale-[0.99]"
                 >
                   <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-zinc-100">
@@ -645,35 +801,6 @@ export function PanelGameScreen({
         </div>
       )}
 
-      {viewPhase === "ready" && panel && (
-        <div className="flex flex-1 flex-col">
-          <PanelMiniature
-            devices={devices}
-            railCount={panel.railCount}
-            collectedIds={new Set()}
-          />
-          <p className="mt-4 ty-body">
-            Соберите ряды щитка сверху вниз: первый модуль — в левом верхнем
-            углу. Если прибор занимает несколько модулей, его части идут
-            подряд, как на схеме.
-          </p>
-          <div className="mt-auto space-y-3 pt-6">
-            <Button className="w-full" onClick={() => startPuzzle(panel)}>
-              <Grid3x3 className="h-5 w-5" />
-              Пятнашки
-            </Button>
-            <Button
-              className="w-full"
-              variant="secondary"
-              onClick={() => startSnake(panel)}
-            >
-              <Zap className="h-5 w-5" />
-              Змейка
-            </Button>
-          </div>
-        </div>
-      )}
-
       {playingPuzzle && panel && puzzle && (
         <div className="flex flex-1 flex-col">
           <PanelMiniature
@@ -687,6 +814,7 @@ export function PanelGameScreen({
             <PanelPuzzleBoard
               state={puzzle}
               pickingHole={pickingHole}
+              onSwipe={onPuzzleSwipe}
               onTileClick={onPuzzleTile}
             />
 
@@ -729,8 +857,8 @@ export function PanelGameScreen({
                 </Button>
               ) : puzzle.extraHoleUsed ? (
                 <p className="ty-note">
-                  На поле две свободные ячейки. Сдвиньте плитку к пустому
-                  квадрату — ряды щитка собираются сверху вниз, слева направо.
+                  На поле две свободные ячейки. Свайпните, чтобы сдвинуть
+                  плитки — ряды щитка собираются сверху вниз, слева направо.
                 </p>
               ) : (
                 <Button
@@ -746,11 +874,71 @@ export function PanelGameScreen({
               )}
               {!pickingHole && !puzzle.extraHoleUsed && (
                 <p className="ty-note">
-                  Свободна одна ячейка. На плитке: тип прибора, номинал и часть
-                  корпуса (1/2, 2/2…), чтобы собрать прибор по порядку.
+                  Свайпните по полю — плитки сдвинутся к пустой ячейке. Цифра на
+                  модуле — порядок в схеме щитка, сверху вниз и слева направо.
                 </p>
               )}
             </div>
+          )}
+        </div>
+      )}
+
+      {playingMerge && panel && merge && (
+        <div className="flex flex-1 flex-col">
+          <PanelMiniature
+            devices={devices}
+            railCount={panel.railCount}
+            collectedIds={collectedIds}
+            className="mb-4"
+          />
+
+          <div className="relative mx-auto w-full max-w-[420px]">
+            <Panel2048Board state={merge} onSwipe={onMergeSwipe} />
+
+            {(merge.won || merge.lost) && (
+              <div className="absolute inset-0 flex items-center justify-center rounded-[24px] bg-white/90 p-5 text-center backdrop-blur-sm">
+                <div>
+                  {merge.won ? (
+                    <>
+                      <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[#D3DA00]">
+                        <Check className="h-6 w-6 text-zinc-900" />
+                      </div>
+                      <h2 className="ty-title">2048 собрано</h2>
+                      <p className="mt-3 ty-body">
+                        Плитки приборов с «{panel.title}» сложились до 2048.
+                        Счёт: {merge.score}.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <h2 className="ty-title">Ходов нет</h2>
+                      <p className="mt-3 ty-body">
+                        Поле заполнено. Можно начать заново на том же щитке.
+                      </p>
+                    </>
+                  )}
+                  <div className="mt-5 flex gap-3">
+                    <Button
+                      className="flex-1"
+                      variant="secondary"
+                      onClick={leavePlay}
+                    >
+                      Другой щиток
+                    </Button>
+                    <Button className="flex-1" onClick={restart}>
+                      Ещё раз
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {!merge.won && !merge.lost && (
+            <p className="mx-auto mt-4 max-w-[420px] ty-note">
+              Свайпните по полю. Одинаковые числа складываются. На плитке —
+              номинал прибора и его номер в схеме щитка.
+            </p>
           )}
         </div>
       )}
@@ -773,11 +961,11 @@ export function PanelGameScreen({
               const start = pointer.current;
               pointer.current = null;
               if (!start) return;
-              const dx = event.clientX - start.x;
-              const dy = event.clientY - start.y;
-              if (Math.max(Math.abs(dx), Math.abs(dy)) < SWIPE) return;
-              if (Math.abs(dx) > Math.abs(dy)) turn(dx > 0 ? "right" : "left");
-              else turn(dy > 0 ? "down" : "up");
+              const dir = dirFromSwipe(
+                event.clientX - start.x,
+                event.clientY - start.y,
+              );
+              if (dir) turn(dir);
             }}
             onPointerCancel={() => {
               pointer.current = null;
