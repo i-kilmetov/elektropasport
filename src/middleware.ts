@@ -20,6 +20,7 @@ import {
 const TEST_PUBLIC_PREFIXES = [
   "/test-login",
   "/api/test-access",
+  "/api/payments/robokassa-result",
   "/api/auth/telegram",
   "/api/telegram/webhook",
   "/api/telegram/hook",

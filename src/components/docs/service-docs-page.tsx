@@ -287,7 +287,7 @@ export function ServiceDocsPage() {
                   items={[
                     "PostgreSQL (RU / Neon)",
                     "Qwen VL, DaData, data.mos.ru",
-                    "ЮKassa СБП, Telegram Bot",
+                    "Robokassa СБП, Telegram Bot",
                   ]}
                 />
               </div>
@@ -352,7 +352,7 @@ export function ServiceDocsPage() {
                   вызов мастера с публичным кодом.
                 </li>
                 <li>
-                  Оплата фиксированных услуг через СБП (ЮKassa), создание заявки
+                  Оплата фиксированных услуг через СБП (Robokassa), создание заявки
                   после подтверждения платежа.
                 </li>
                 <li>
@@ -692,7 +692,7 @@ export function ServiceDocsPage() {
               <H2 id="payments">Оплата</H2>
               <Ul>
                 <li>
-                  Провайдер: <strong>ЮKassa</strong> (для самозанятых).
+                  Провайдер: <strong>Robokassa</strong> (для самозанятых).
                 </li>
                 <li>
                   Услуги мастера: онлайн-консультация 499 ₽; вызов мастера — по
@@ -706,8 +706,8 @@ export function ServiceDocsPage() {
                   его через <Code>GET /api/school/access</Code>.
                 </li>
                 <li>
-                  Подтверждение: webhook{" "}
-                  <Code>/api/payments/yookassa-notify</Code> или опрос{" "}
+                  Подтверждение: Result URL{" "}
+                  <Code>/api/payments/robokassa-result</Code> или опрос{" "}
                   <Code>GET /api/payments/sbp/[id]</Code>.
                 </li>
                 <li>
@@ -717,7 +717,7 @@ export function ServiceDocsPage() {
                 </li>
                 <li>
                   Таблица <Code>sbp_payments</Code> (колонка{" "}
-                  <Code>tbank_payment_id</Code> — legacy-имя, хранит id ЮKassa).
+                  <Code>tbank_payment_id</Code> — legacy-имя, хранит id Robokassa).
                 </li>
               </Ul>
             </section>
@@ -778,7 +778,7 @@ export function ServiceDocsPage() {
                     "Кто кого пригласил, credited / already_member",
                   ],
                   ["panel_shares", "Токены шаринга щитка"],
-                  ["sbp_payments", "Платежи ЮKassa: услуги мастера и школа"],
+                  ["sbp_payments", "Платежи Robokassa: услуги мастера и школа"],
                   [
                     "master_applications / master_feedback / master_dispatch_messages",
                     "Анкеты, фидбек, Telegram message ids",
@@ -873,7 +873,7 @@ export function ServiceDocsPage() {
                   ["GET", "/api/payments/sbp/[id]", "Статус платежа"],
                   ["POST", "/api/payments/school", "Оплата класса школы"],
                   ["GET", "/api/school/access", "Оплаченные классы"],
-                  ["POST", "/api/payments/yookassa-notify", "Webhook ЮKassa"],
+                  ["GET/POST", "/api/payments/robokassa-result", "Result URL Robokassa"],
                 ]}
               />
 
@@ -925,9 +925,9 @@ export function ServiceDocsPage() {
                     "Паспорт дома / капремонт",
                   ],
                   [
-                    "ЮKassa",
-                    "YOOKASSA_SHOP_ID, YOOKASSA_SECRET_KEY",
-                    "СБП услуг и оплата школы",
+                    "Robokassa",
+                    "ROBOKASSA_MERCHANT_LOGIN, ROBOKASSA_PASSWORD1, ROBOKASSA_PASSWORD2",
+                    "Оплата школы и услуг мастера",
                   ],
                   [
                     "Google Sheets",
@@ -988,7 +988,7 @@ export function ServiceDocsPage() {
                 <div>[PostgreSQL RU/Neon] ← panels, users, requests, …</div>
                 <div className="pl-4">↘</div>
                 <div>
-                  [Qwen VL] [DaData] [MOS] [YooKassa] [Telegram Bot API]
+                  [Qwen VL] [DaData] [MOS] [Robokassa] [Telegram Bot API]
                 </div>
               </div>
               <H3>Ключевые файлы</H3>
@@ -1001,7 +1001,7 @@ export function ServiceDocsPage() {
                   ["Клиентские sync", "src/lib/user-data.ts, user-profile.ts"],
                   ["Инвайты", "src/lib/invites.ts"],
                   ["Услуги и цены", "src/lib/lead-services.ts"],
-                  ["Платежи", "src/lib/yookassa.ts, sbp-fulfill.ts"],
+                  ["Платежи", "src/lib/robokassa.ts, sbp-fulfill.ts"],
                   ["Auth", "src/lib/telegram-auth.ts, session-token.ts"],
                   ["Админ", "src/lib/admin.ts, admin-db.ts"],
                   ["Env-шаблон", ".env.example"],

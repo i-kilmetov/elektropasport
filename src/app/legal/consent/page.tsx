@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   title: "Согласие на обработку персональных данных — Током",
 };
 
-const UPDATED = "25 августа 2026 г.";
+const UPDATED = "1 сентября 2026 г.";
 
 export default function ConsentPage() {
   return (
@@ -43,7 +43,7 @@ export default function ConsentPage() {
           </li>
           <li>
             <strong>Действия:</strong> сбор, запись, систематизация, хранение,
-            уточнение, использование, передача (в т.ч. Telegram, ЮKassa,
+            уточнение, использование, передача (в т.ч. Telegram, Robokassa,
             сервисы адресов, исполнителям услуг — в необходимом объёме),
             обезличивание, удаление.
           </li>

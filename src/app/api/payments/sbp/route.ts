@@ -4,6 +4,7 @@ import {
   authErrorResponse,
   requireTelegramUser,
 } from "@/lib/telegram-auth";
+import { resolveAppOrigin } from "@/lib/app-url";
 import {
   dbErrorResponse,
   ensureSchema,
@@ -12,7 +13,11 @@ import {
 } from "@/lib/db";
 import { payableAmountRub, getLeadServiceLabel } from "@/lib/lead-services";
 import type { PendingInstallLead } from "@/lib/pending-lead";
-import { isYooKassaConfigured, yooKassaCreateSbpPayment } from "@/lib/yookassa";
+import {
+  buildRobokassaPaymentUrl,
+  isRobokassaConfigured,
+  newRobokassaInvId,
+} from "@/lib/robokassa";
 
 function newOrderId(): string {
   return `p${Date.now().toString(36)}${randomBytes(6).toString("hex")}`.slice(
@@ -27,7 +32,7 @@ export async function POST(request: Request) {
     await ensureSchema();
     await upsertUser(user);
 
-    if (!isYooKassaConfigured()) {
+    if (!isRobokassaConfigured()) {
       return Response.json(
         { error: "Оплата по СБП пока не настроена" },
         { status: 503 },
@@ -52,15 +57,19 @@ export async function POST(request: Request) {
     }
 
     const orderId = newOrderId();
+    const invId = newRobokassaInvId();
     const description = getLeadServiceLabel(lead.serviceType);
-    const created = await yooKassaCreateSbpPayment({
-      orderId,
+    const origin = resolveAppOrigin(request);
+    const paymentUrl = buildRobokassaPaymentUrl({
+      invId,
       amountRub,
       description,
-      metadata: {
+      successUrl: `${origin}/`,
+      failUrl: `${origin}/`,
+      shp: {
+        kind: "lead",
         order_id: orderId,
         request_id: lead.id,
-        telegram_id: String(user.telegramId),
       },
     });
 
@@ -68,16 +77,16 @@ export async function POST(request: Request) {
       id: orderId,
       telegramUserId: user.telegramId,
       orderId,
-      tbankPaymentId: created.paymentId,
+      tbankPaymentId: String(invId),
       serviceType: lead.serviceType,
       amountRub,
       status: "pending",
-      qrPayload: created.confirmationUrl,
+      qrPayload: paymentUrl,
       qrImage: null,
       leadPayload: {
         ...lead,
         paymentOrderId: orderId,
-        tbankPaymentId: created.paymentId,
+        tbankPaymentId: String(invId),
         paidAmountRub: amountRub,
         paymentStatus: "pending",
       },

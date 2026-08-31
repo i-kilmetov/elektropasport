@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   title: "Пользовательское соглашение — Током",
 };
 
-const UPDATED = "25 августа 2026 г.";
+const UPDATED = "1 сентября 2026 г.";
 
 export default function TermsPage() {
   return (
@@ -65,7 +65,7 @@ export default function TermsPage() {
           <a href="/legal/offer" className="font-medium underline-offset-2 hover:underline">
             публичной офертой
           </a>
-          . Оплата осуществляется через ЮKassa.
+          . Оплата осуществляется через Robokassa.
         </p>
       </LegalSection>
 

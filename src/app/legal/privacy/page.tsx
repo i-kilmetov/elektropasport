@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   title: "Политика конфиденциальности — Током",
 };
 
-const UPDATED = "25 августа 2026 г.";
+const UPDATED = "1 сентября 2026 г.";
 
 export default function PrivacyPolicyPage() {
   return (
@@ -99,7 +99,7 @@ export default function PrivacyPolicyPage() {
             Messenger LLP / Telegram FZ-LLC);
           </li>
           <li>
-            <strong>ЮKassa</strong> — для приёма платежей (данные, необходимые
+            <strong>Robokassa</strong> — для приёма платежей (данные, необходимые
             для оплаты);
           </li>
           <li>

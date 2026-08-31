@@ -230,8 +230,8 @@ export function SchoolPayScreen({
             {formatRub(price)}
           </p>
           <p className="mt-2 ty-note">
-            Оплата через ЮKassa: карта, СБП и другие способы, которые подключены
-            к магазину. После подтверждения курс откроется.
+            Оплата через Robokassa: банковская карта, СБП и другие способы,
+            доступные в платёжной форме. После подтверждения курс откроется.
           </p>
         </div>
 
@@ -264,7 +264,7 @@ export function SchoolPayScreen({
         {payment?.qrPayload && payment.status === "pending" && !loading ? (
           <div className="space-y-3">
             <p className="text-center ty-body text-zinc-600">
-              Нажмите кнопку — откроется страница ЮKassa. Когда оплатите,
+              Нажмите кнопку — откроется страница Robokassa. Когда оплатите,
               вернитесь сюда: доступ откроется сам.
             </p>
             <Button

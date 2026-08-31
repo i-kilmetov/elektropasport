@@ -12,26 +12,12 @@ import {
   SCHOOL_GRADE_PAYMENT_TITLE,
 } from "@/lib/school/access";
 import { notifyAdminNewInstallRequest, notifyAdminSchoolPurchase } from "@/lib/telegram-notify";
-import { mapYooKassaStatus, yooKassaGetPayment } from "@/lib/yookassa";
 
+/** Robokassa confirms via Result URL; polling only reads the DB row. */
 export async function refreshSbpPaymentFromBank(
   payment: SbpPaymentRecord,
 ): Promise<SbpPaymentRecord> {
-  if (payment.status !== "pending" || !payment.tbankPaymentId) {
-    return payment;
-  }
-  const remote = await yooKassaGetPayment(payment.tbankPaymentId);
-  const next = mapYooKassaStatus(remote.status, remote.paid);
-  if (next === "pending") return payment;
-  if (next === "failed") {
-    return (
-      (await updateSbpPayment(payment.id, { status: "failed" })) ?? {
-        ...payment,
-        status: "failed",
-      }
-    );
-  }
-  return fulfillConfirmedSbpPayment(payment);
+  return payment;
 }
 
 export async function fulfillConfirmedSbpPayment(

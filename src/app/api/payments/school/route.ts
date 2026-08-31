@@ -21,9 +21,10 @@ import {
 } from "@/lib/school/access";
 import { refreshSbpPaymentFromBank } from "@/lib/sbp-fulfill";
 import {
-  isYooKassaConfigured,
-  yooKassaCreatePayment,
-} from "@/lib/yookassa";
+  buildRobokassaPaymentUrl,
+  isRobokassaConfigured,
+  newRobokassaInvId,
+} from "@/lib/robokassa";
 
 function newOrderId(): string {
   return `s${Date.now().toString(36)}${randomBytes(6).toString("hex")}`.slice(
@@ -56,7 +57,7 @@ export async function POST(request: Request) {
     await ensureSchema();
     await upsertUser(user);
 
-    if (!isYooKassaConfigured()) {
+    if (!isRobokassaConfigured()) {
       return Response.json(
         { error: "Оплата обучения пока не настроена" },
         { status: 503 },
@@ -97,16 +98,18 @@ export async function POST(request: Request) {
     const amountRub = SCHOOL_GRADE_PRICE_RUB[gradeId];
     const title = SCHOOL_GRADE_PAYMENT_TITLE[gradeId];
     const orderId = newOrderId();
-    const created = await yooKassaCreatePayment({
-      orderId,
+    const invId = newRobokassaInvId();
+    const origin = resolveAppOrigin(request);
+    const paymentUrl = buildRobokassaPaymentUrl({
+      invId,
       amountRub,
       description: `Школа Током — ${title}`,
-      returnUrl: `${resolveAppOrigin(request)}/school`,
-      metadata: {
-        order_id: orderId,
+      successUrl: `${origin}/school`,
+      failUrl: `${origin}/school`,
+      shp: {
         kind: "school",
+        order_id: orderId,
         grade_id: String(gradeId),
-        telegram_id: String(user.telegramId),
       },
     });
 
@@ -114,11 +117,11 @@ export async function POST(request: Request) {
       id: orderId,
       telegramUserId: user.telegramId,
       orderId,
-      tbankPaymentId: created.paymentId,
+      tbankPaymentId: String(invId),
       serviceType,
       amountRub,
       status: "pending",
-      qrPayload: created.confirmationUrl,
+      qrPayload: paymentUrl,
       qrImage: null,
       leadPayload: { kind: "school", gradeId },
       requestId: null,
