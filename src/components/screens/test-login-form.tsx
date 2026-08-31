@@ -1,10 +1,12 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { useRouter } from "next/navigation";
 import { BrandLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
-import { markSplashSeen } from "@/lib/splash-session";
+import {
+  buildPostTestLoginUrl,
+  markSplashSeen,
+} from "@/lib/splash-session";
 
 export function TestLoginForm({
   next = "/",
@@ -17,10 +19,18 @@ export function TestLoginForm({
   title?: string;
   description?: string;
 }) {
-  const router = useRouter();
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  const finishTestLogin = () => {
+    markSplashSeen();
+    if (onSuccess) {
+      onSuccess();
+      return;
+    }
+    window.location.replace(buildPostTestLoginUrl(next));
+  };
 
   const onSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -41,12 +51,10 @@ export function TestLoginForm({
         return;
       }
       if (onSuccess) {
-        markSplashSeen();
-        onSuccess();
+        finishTestLogin();
         return;
       }
-      markSplashSeen();
-      router.replace(next);
+      finishTestLogin();
     } catch {
       setError("Не удалось проверить пароль. Попробуйте ещё раз.");
     } finally {

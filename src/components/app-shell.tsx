@@ -301,17 +301,24 @@ function pickLivePanelFields(
   };
 }
 
-import { hasSeenSplashThisSession, markSplashSeen } from "@/lib/splash-session";
-
-type SplashPhase = "pending" | "show" | "done";
+import {
+  markSplashSeen,
+  resolveInitialSplashPhase,
+  shouldSkipBootSplash,
+  stripSkipSplashQuery,
+  type SplashPhase,
+} from "@/lib/splash-session";
 
 export function AppShell({
   forceResearchSurvey = false,
   launchWaitlist,
+  skipBootSplash = false,
 }: {
   forceResearchSurvey?: boolean;
   /** From the server Host header so the inverted T is centered on first paint. */
   launchWaitlist?: boolean;
+  /** Staging host: password gate replaces boot splash before Telegram auth. */
+  skipBootSplash?: boolean;
 } = {}) {
   const homeAppliancesEnabled = useHomeAppliancesEnabled();
   const surveyLaunch = forceResearchSurvey || isResearchSurveyLaunch();
@@ -320,7 +327,11 @@ export function AppShell({
   );
   const [onboardingReady, setOnboardingReady] = useState(forceResearchSurvey);
   const [splashPhase, setSplashPhase] = useState<SplashPhase>(() =>
-    forceResearchSurvey || launchWaitlist ? "done" : "pending",
+    resolveInitialSplashPhase({
+      launchWaitlist,
+      forceResearchSurvey: surveyLaunch,
+      skipBootSplash,
+    }),
   );
   const [showAuthIntro, setShowAuthIntro] = useState(
     () => !forceResearchSurvey,
@@ -452,8 +463,10 @@ export function AppShell({
       setShowAuthIntro(false);
       return;
     }
-    if (hasSeenSplashThisSession()) {
+    if (skipBootSplash || shouldSkipBootSplash()) {
+      markSplashSeen();
       setSplashPhase("done");
+      stripSkipSplashQuery();
       return;
     }
     setSplashPhase("show");

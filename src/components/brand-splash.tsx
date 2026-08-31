@@ -101,15 +101,13 @@ function AnimatedT({
           const value = rotate == null ? "180deg" : String(rotate);
           return `rotate(${value.endsWith("deg") ? value : `${value}deg`})`;
         }}
-        initial={{
-          rotate: instantUpright ? 360 : 180,
-          opacity: 1,
-          scale: 1,
-        }}
+        initial={instantUpright ? false : { rotate: 180, opacity: 1, scale: 1 }}
         animate={
-          playOnMount
-            ? { rotate: [180, 180, 0], opacity: 1, scale: 1 }
-            : { rotate: upright ? 360 : 180, opacity: 1, scale: 1 }
+          instantUpright
+            ? { rotate: 360, opacity: 1, scale: 1 }
+            : playOnMount
+              ? { rotate: [180, 180, 0], opacity: 1, scale: 1 }
+              : { rotate: upright ? 360 : 180, opacity: 1, scale: 1 }
         }
         transition={
           playOnMount
@@ -180,6 +178,7 @@ function BrandMark({
   tUpright = false,
   tInstantUpright = false,
   collapseRest = false,
+  instantReveal = false,
 }: {
   tagline: string;
   taglineVisible: boolean;
@@ -191,6 +190,8 @@ function BrandMark({
   tInstantUpright?: boolean;
   /** Keep «ОКОМ» out of layout until revealed so the inverted T sits on center. */
   collapseRest?: boolean;
+  /** Static wordmark — no letter blur/stagger (auth intro after test login). */
+  instantReveal?: boolean;
 }) {
   const wordmarkStyle =
     variant === "header" ? headerWordmarkTypeStyle : splashWordmarkTypeStyle;
@@ -239,49 +240,67 @@ function BrandMark({
                 ? "inline-flex overflow-hidden"
                 : "inline-flex overflow-visible"
             }
-            initial={collapseRest ? { opacity: 0, maxWidth: 0 } : { opacity: 0 }}
+            initial={
+              instantReveal
+                ? { opacity: 1, ...(collapseRest ? { maxWidth: "12em" } : {}) }
+                : collapseRest
+                  ? { opacity: 0, maxWidth: 0 }
+                  : { opacity: 0 }
+            }
             animate={{
               opacity: restRevealed ? 1 : 0,
               ...(collapseRest ? { maxWidth: restRevealed ? "12em" : 0 } : {}),
             }}
-            transition={{
-              opacity: {
-                duration: collapseRest ? 0.55 : 0.45,
-                delay: restRevealed ? (collapseRest ? 0.08 : 0.05) : 0,
-                ease: "easeOut",
-              },
-              maxWidth: {
-                type: "tween",
-                duration: collapseRest ? 0.7 : 0.55,
-                ease: WAITLIST_FLIP_EASE,
-              },
-            }}
+            transition={
+              instantReveal
+                ? { duration: 0 }
+                : {
+                    opacity: {
+                      duration: collapseRest ? 0.55 : 0.45,
+                      delay: restRevealed ? (collapseRest ? 0.08 : 0.05) : 0,
+                      ease: "easeOut",
+                    },
+                    maxWidth: {
+                      type: "tween",
+                      duration: collapseRest ? 0.7 : 0.55,
+                      ease: WAITLIST_FLIP_EASE,
+                    },
+                  }
+            }
           >
             {WORDMARK_REST.split("").map((letter, index) => (
               <motion.span
                 key={`${letter}-${index}`}
                 className="inline-block"
-                initial={{ opacity: 0, filter: "blur(8px)" }}
+                initial={
+                  instantReveal
+                    ? { opacity: 1, filter: "blur(0px)" }
+                    : { opacity: 0, filter: "blur(8px)" }
+                }
                 animate={
                   restRevealed
                     ? { opacity: 1, filter: "blur(0px)" }
                     : { opacity: 0, filter: "blur(8px)" }
                 }
-                transition={{
-                  delay: restRevealed
-                    ? (collapseRest
-                        ? WAITLIST_OKOM_LETTER_DELAY_S
-                        : 0.08) +
-                      index *
-                        (collapseRest
-                          ? WAITLIST_OKOM_LETTER_STAGGER_S
-                          : 0.07)
-                    : 0,
-                  duration: collapseRest
-                    ? WAITLIST_OKOM_LETTER_DURATION_S
-                    : 0.32,
-                  ease: [0.22, 1, 0.36, 1],
-                }}
+                transition={
+                  instantReveal
+                    ? { duration: 0 }
+                    : {
+                        delay: restRevealed
+                          ? (collapseRest
+                              ? WAITLIST_OKOM_LETTER_DELAY_S
+                              : 0.08) +
+                            index *
+                              (collapseRest
+                                ? WAITLIST_OKOM_LETTER_STAGGER_S
+                                : 0.07)
+                          : 0,
+                        duration: collapseRest
+                          ? WAITLIST_OKOM_LETTER_DURATION_S
+                          : 0.32,
+                        ease: [0.22, 1, 0.36, 1],
+                      }
+                }
               >
                 {letter}
               </motion.span>
@@ -435,6 +454,7 @@ export function BrandAuthIntro({
   const [starting, setStarting] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [logoWidth, setLogoWidth] = useState(0);
+  const logoReady = skipAnimation || logoWidth > 0;
   const logoRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -507,6 +527,7 @@ export function BrandAuthIntro({
             tPlayOnMount={!skipAnimation}
             tUpright={skipAnimation}
             tInstantUpright={skipAnimation}
+            instantReveal={skipAnimation}
           />
         </div>
       </div>
@@ -514,19 +535,19 @@ export function BrandAuthIntro({
       <motion.div
         className="mx-auto w-full shrink-0 pb-2"
         style={{
-          maxWidth: logoWidth > 0 ? logoWidth : undefined,
+          maxWidth: skipAnimation ? undefined : logoWidth > 0 ? logoWidth : undefined,
         }}
         initial={false}
         animate={{
-          opacity: loginVisible && logoWidth > 0 ? 1 : 0,
-          y: loginVisible && logoWidth > 0 ? 0 : 12,
+          opacity: loginVisible && logoReady ? 1 : 0,
+          y: loginVisible && logoReady ? 0 : 12,
         }}
-        transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
+        transition={{ duration: skipAnimation ? 0 : 0.38, ease: [0.22, 1, 0.36, 1] }}
       >
         <Button
           type="button"
           className="mx-auto flex h-14 min-h-14 w-full gap-2.5 rounded-full bg-[#111113] px-6 text-[16px] text-white hover:bg-zinc-800"
-          disabled={!loginVisible || starting || logoWidth <= 0}
+          disabled={!loginVisible || starting || (!skipAnimation && logoWidth <= 0)}
           onClick={handleLogin}
         >
           <TelegramAppIcon className="h-6 w-6 shrink-0 text-current" />
