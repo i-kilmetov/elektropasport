@@ -44,6 +44,7 @@ import {
   applianceDisplayKindLabel,
   formatAppliancePower,
 } from "@/lib/home-appliances";
+import { applianceNeedsDetails } from "@/lib/appliance-line-sync";
 import {
   persistInstallRequest,
   persistPanel,
@@ -400,6 +401,7 @@ function ExpandableHomeCard({
               {appliances.map((appliance) => {
                 const Icon = applianceKindIcon(appliance.kind);
                 const kindLabel = applianceDisplayKindLabel(appliance);
+                const needsDetails = applianceNeedsDetails(appliance);
                 const brand = appliance.brand?.trim() || appliance.title;
                 const model = appliance.model?.trim();
                 return (
@@ -407,7 +409,11 @@ function ExpandableHomeCard({
                     key={appliance.id}
                     type="button"
                     onClick={() => onOpenAppliance(appliance.id)}
-                    className="flex w-full items-center gap-2.5 rounded-none px-4 py-2 text-left transition-colors hover:bg-zinc-50"
+                    className={cn(
+                      "flex w-full items-center gap-2.5 rounded-none px-4 py-2 text-left transition-colors hover:bg-zinc-50",
+                      needsDetails &&
+                        "bg-amber-50/90 ring-1 ring-inset ring-amber-200/80 hover:bg-amber-50",
+                    )}
                   >
                     <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] bg-zinc-100 text-zinc-600">
                       <Icon className="h-4 w-4" />
@@ -417,9 +423,15 @@ function ExpandableHomeCard({
                         <span className="font-medium text-zinc-500">
                           {kindLabel}
                         </span>{" "}
-                        {brand}
+                        {needsDetails ? (
+                          <span className="text-amber-800">
+                            Укажите бренд и модель
+                          </span>
+                        ) : (
+                          brand
+                        )}
                       </span>
-                      {model && (
+                      {!needsDetails && model && (
                         <span className="block truncate ty-meta">
                           {model}
                         </span>

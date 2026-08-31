@@ -62,6 +62,7 @@ import { SafetyExplainSheet } from "@/components/ui/safety-explain-sheet";
 import { SafetyAxisMeters } from "@/components/ui/safety-axis-meters";
 import { EditableSpecCard } from "@/components/ui/editable-spec-card";
 import { InputBreakerDiagnosticsSheet } from "@/components/ui/input-breaker-diagnostics-sheet";
+import { IdentifyLinesGuideSheet } from "@/components/ui/identify-lines-guide-sheet";
 import {
   deviceCharacteristicRows,
   displaySpecValue,
@@ -137,8 +138,33 @@ import {
   rcdSchemeCaption,
 } from "@/lib/panel-protection";
 import { assessDeviceLineLoadSafety, assessLineLoadSafety } from "@/lib/line-load-safety";
+import {
+  appliancesToEquipmentLabels,
+  mergeEquipmentSelections,
+  OTHER_LINE_EQUIPMENT_TITLES,
+  PRIMARY_LINE_EQUIPMENT_TITLES,
+} from "@/lib/appliance-line-sync";
 import { cn } from "@/lib/utils";
-import type { Device, DeviceType, HomeListItem, PanelWire, TerminalRef } from "@/types";
+import type {
+  Device,
+  DeviceType,
+  HomeAppliance,
+  HomeListItem,
+  PanelWire,
+  TerminalRef,
+} from "@/types";
+
+const SCHEME_LINE_HINT_DISMISS_PREFIX = "elektropasport:scheme-line-hint-dismissed:";
+
+function isSchemeLineHintDismissed(panelId?: string | null): boolean {
+  if (typeof window === "undefined" || !panelId) return false;
+  return localStorage.getItem(`${SCHEME_LINE_HINT_DISMISS_PREFIX}${panelId}`) === "1";
+}
+
+function dismissSchemeLineHint(panelId?: string | null) {
+  if (typeof window === "undefined" || !panelId) return;
+  localStorage.setItem(`${SCHEME_LINE_HINT_DISMISS_PREFIX}${panelId}`, "1");
+}
 
 const TERMINAL_HOLD_MS = 320;
 
@@ -544,9 +570,11 @@ function DeviceSheet({
   knownObjectType = null,
   knownCatalogRooms = [],
   knownCatalogEquipment = [],
+  appliances = [],
   panelDevices = [],
   wires = [],
   onPersistIdentifyContext,
+  onSyncAppliances,
   onCallMaster,
 }: {
   device: Device;
@@ -570,9 +598,11 @@ function DeviceSheet({
   knownObjectType?: IdentifyObjectType | null;
   knownCatalogRooms?: string[];
   knownCatalogEquipment?: string[];
+  appliances?: HomeAppliance[];
   panelDevices?: Device[];
   wires?: PanelWire[];
   onPersistIdentifyContext?: (context: IdentifyContext) => void;
+  onSyncAppliances?: (equipmentLabels: string[]) => void;
   onCallMaster?: () => void;
 }) {
   const [sheetTop, setSheetTop] = useState(() => computeSheetTop(anchorY));
@@ -587,7 +617,7 @@ function DeviceSheet({
   );
   const [selectedCatalogEquipment, setSelectedCatalogEquipment] = useState<
     string[]
-  >(knownCatalogEquipment);
+  >(() => mergeEquipmentSelections(knownCatalogEquipment, appliances));
   const [showCustomCatalogRoomInput, setShowCustomCatalogRoomInput] =
     useState(false);
   const [showCustomCatalogEquipmentInput, setShowCustomCatalogEquipmentInput] =
@@ -699,7 +729,9 @@ function DeviceSheet({
     setShowMoreCatalogRooms(false);
     setShowMoreCatalogEquipment(false);
     setSelectedCatalogRooms(knownCatalogRooms);
-    setSelectedCatalogEquipment(knownCatalogEquipment);
+    setSelectedCatalogEquipment(
+      mergeEquipmentSelections(knownCatalogEquipment, appliances),
+    );
     setShowCustomCatalogRoomInput(false);
     setShowCustomCatalogEquipmentInput(false);
     setCustomCatalogRoom("");
@@ -733,14 +765,10 @@ function DeviceSheet({
       : selectedObjectConfig.roomBase;
   }, [selectedObjectConfig, showMoreCatalogRooms]);
   const catalogEquipmentOptions = useMemo(() => {
-    if (!selectedObjectConfig) return [...DEFAULT_LOAD_OPTIONS];
     return showMoreCatalogEquipment
-      ? [
-          ...selectedObjectConfig.equipmentBase,
-          ...selectedObjectConfig.equipmentExtra,
-        ]
-      : selectedObjectConfig.equipmentBase;
-  }, [selectedObjectConfig, showMoreCatalogEquipment]);
+      ? [...PRIMARY_LINE_EQUIPMENT_TITLES, ...OTHER_LINE_EQUIPMENT_TITLES]
+      : PRIMARY_LINE_EQUIPMENT_TITLES;
+  }, [showMoreCatalogEquipment]);
   const lineRoomOptions = useMemo(() => {
     if (!selectedObjectConfig) return [];
     const rooms =
@@ -753,18 +781,14 @@ function DeviceSheet({
     return [selectedObjectConfig.wholeLabel, ...rooms];
   }, [selectedCatalogRooms, selectedObjectConfig]);
   const lineLoadOptions = useMemo(() => {
-    if (!selectedObjectConfig) return [...DEFAULT_LOAD_OPTIONS];
     const objectEquipment =
       selectedCatalogEquipment.length > 0
         ? selectedCatalogEquipment
-        : [
-            ...selectedObjectConfig.equipmentBase,
-            ...selectedObjectConfig.equipmentExtra,
-          ];
+        : catalogEquipmentOptions;
     return Array.from(
       new Set([...CORE_ROOM_LOAD_OPTIONS, ...objectEquipment]),
     );
-  }, [selectedCatalogEquipment, selectedObjectConfig]);
+  }, [catalogEquipmentOptions, selectedCatalogEquipment]);
   const selectedLineLabel = useMemo(
     () => formatLineLoads(lineLoadsByRoom),
     [lineLoadsByRoom],
@@ -848,12 +872,23 @@ function DeviceSheet({
     });
   };
 
+  const setCatalogEquipment = (
+    value: SetStateAction<string[]>,
+  ) => {
+    setSelectedCatalogEquipment((prev) => {
+      const next = typeof value === "function" ? value(prev) : value;
+      onSyncAppliances?.(next);
+      return next;
+    });
+  };
+
   const persistCurrentContext = (nextType: IdentifyObjectType) => {
     onPersistIdentifyContext?.({
       objectType: nextType,
       rooms: selectedCatalogRooms,
       equipment: selectedCatalogEquipment,
     });
+    onSyncAppliances?.(selectedCatalogEquipment);
   };
 
   const persistDraftSpecs = () => {
@@ -1146,7 +1181,9 @@ function DeviceSheet({
                       onClick={() => {
                         setObjectType(option.id);
                         setSelectedCatalogRooms([]);
-                        setSelectedCatalogEquipment([]);
+                        setCatalogEquipment(
+                          appliancesToEquipmentLabels(appliances),
+                        );
                         setShowMoreCatalogRooms(false);
                         setShowMoreCatalogEquipment(false);
                         setShowCustomCatalogRoomInput(false);
@@ -1264,10 +1301,7 @@ function DeviceSheet({
                             key={item}
                             type="button"
                             onClick={() =>
-                              toggleSelectedValue(
-                                item,
-                                setSelectedCatalogEquipment,
-                              )
+                              toggleSelectedValue(item, setCatalogEquipment)
                             }
                             className={cn(
                               "rounded-full px-3 py-1 text-[13px] transition-colors",
@@ -1282,8 +1316,7 @@ function DeviceSheet({
                       })}
                     </div>
                     <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
-                      {selectedObjectConfig &&
-                        selectedObjectConfig.equipmentExtra.length > 0 && (
+                      {OTHER_LINE_EQUIPMENT_TITLES.length > 0 && (
                           <button
                             type="button"
                             onClick={() =>
@@ -1325,8 +1358,8 @@ function DeviceSheet({
                                 ...catalogEquipmentOptions,
                                 ...selectedCatalogEquipment,
                               ],
-                              setSelectedCatalogEquipment,
-                              setSelectedCatalogEquipment,
+                              setCatalogEquipment,
+                              setCatalogEquipment,
                               () => {
                                 setCustomCatalogEquipment("");
                                 setShowCustomCatalogEquipmentInput(false);
@@ -1718,6 +1751,8 @@ export function SchemeScreen({
   onEditHouse,
   startOnboarding = false,
   onOnboardingDone,
+  appliances = [],
+  onSyncAppliances,
 }: {
   title?: string;
   panelId?: string | null;
@@ -1777,6 +1812,8 @@ export function SchemeScreen({
   /** After photo analysis — run the section spotlight tour once. */
   startOnboarding?: boolean;
   onOnboardingDone?: () => void;
+  appliances?: HomeAppliance[];
+  onSyncAppliances?: (equipmentLabels: string[]) => void;
 }) {
   const devices = Array.isArray(devicesProp) ? devicesProp : [];
   const wires = Array.isArray(wiresProp) ? wiresProp : [];
@@ -1805,6 +1842,10 @@ export function SchemeScreen({
   const [inputDiagOpen, setInputDiagOpen] = useState(false);
   const [stickerOpen, setStickerOpen] = useState(false);
   const [stickerBlockedOpen, setStickerBlockedOpen] = useState(false);
+  const [identifyLinesGuideOpen, setIdentifyLinesGuideOpen] = useState(false);
+  const [lineHintDismissed, setLineHintDismissed] = useState(() =>
+    isSchemeLineHintDismissed(panelId),
+  );
   const [terminalsWaitlistOpen, setTerminalsWaitlistOpen] = useState(false);
   const [wireDraft, setWireDraft] = useState<{
     from: TerminalRef;
@@ -1835,6 +1876,7 @@ export function SchemeScreen({
 
   useEffect(() => {
     setIdentifyContext(loadIdentifyContext(panelId));
+    setLineHintDismissed(isSchemeLineHintDismissed(panelId));
   }, [panelId]);
 
   useEffect(() => {
@@ -1860,7 +1902,8 @@ export function SchemeScreen({
   const persistIdentifyContext = useCallback((context: IdentifyContext) => {
     setIdentifyContext(context);
     saveIdentifyContext(panelId, context);
-  }, [panelId]);
+    onSyncAppliances?.(context.equipment);
+  }, [onSyncAppliances, panelId]);
 
   const inferredObjectType = useMemo(() => {
     if (identifyContext?.objectType) return identifyContext.objectType;
@@ -2495,6 +2538,17 @@ export function SchemeScreen({
                     className="flex w-full items-center gap-2 px-4 py-3 text-left text-[15px] text-zinc-900 hover:bg-zinc-50"
                     onClick={() => {
                       setMenuOpen(false);
+                      openStickers();
+                    }}
+                  >
+                    <StickerBadgeIcon className="h-4 w-4 text-zinc-600" />
+                    Стикеры в щиток
+                  </button>
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-2 px-4 py-3 text-left text-[15px] text-zinc-900 hover:bg-zinc-50"
+                    onClick={() => {
+                      setMenuOpen(false);
                       void (async () => {
                         const url = await onShare?.();
                         if (url) setShareUrl(url);
@@ -2640,12 +2694,25 @@ export function SchemeScreen({
               </Button>
             </GlassCard>
           )}
-          {!sharedPreview && hasInputBreaker && (
+          {!sharedPreview && hasInputBreaker && !lineHintDismissed && (
             <GlassCard className="mb-4 p-4">
-              <p className="ty-note">
-                Вводной автомат подписан. Остальные линии определите в карточке
-                каждого прибора на схеме.
-              </p>
+              <div className="flex items-start gap-3">
+                <p className="min-w-0 flex-1 ty-note">
+                  Вводной автомат подписан. Остальные линии определите в карточке
+                  каждого прибора на схеме.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    dismissSchemeLineHint(panelId);
+                    setLineHintDismissed(true);
+                  }}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600"
+                  aria-label="Закрыть подсказку"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
             </GlassCard>
           )}
           <div className={cn("overflow-x-auto", showTerminals && canUseTerminals && "overflow-y-visible")}>
@@ -2904,12 +2971,11 @@ export function SchemeScreen({
 
           <button
             type="button"
-            data-scheme-tour="stickers"
-            onClick={openStickers}
+            data-scheme-tour="identify-lines"
+            onClick={() => setIdentifyLinesGuideOpen(true)}
             className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-[16px] border border-black/8 bg-white px-4 py-3 ty-subtitle text-zinc-800 shadow-sm transition-colors hover:bg-zinc-50"
           >
-            <StickerBadgeIcon className="h-4 w-4 text-zinc-600" />
-            Стикеры в щиток
+            Определить линии
           </button>
 
           <div data-scheme-tour="guide">
@@ -2950,6 +3016,14 @@ export function SchemeScreen({
       </div>
       </div>
       </div>
+
+      <AnimatePresence>
+        {identifyLinesGuideOpen && (
+          <IdentifyLinesGuideSheet
+            onClose={() => setIdentifyLinesGuideOpen(false)}
+          />
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {stickerOpen && (
@@ -3140,10 +3214,15 @@ export function SchemeScreen({
             specEditable={!sharedPreview}
             knownObjectType={inferredObjectType}
             knownCatalogRooms={identifyContext?.rooms ?? []}
-            knownCatalogEquipment={identifyContext?.equipment ?? []}
+            knownCatalogEquipment={mergeEquipmentSelections(
+              identifyContext?.equipment ?? [],
+              appliances,
+            )}
+            appliances={appliances}
             panelDevices={devices}
             wires={wires}
             onPersistIdentifyContext={persistIdentifyContext}
+            onSyncAppliances={onSyncAppliances}
             onClose={() => {
               setSelectedId(null);
               setSheetAnchorY(null);

@@ -126,6 +126,7 @@ import {
   recordInviteLinkOpen,
   syncDataEpochFromServer,
 } from "@/lib/user-data";
+import { mergeAppliancesWithEquipmentLabels } from "@/lib/appliance-line-sync";
 import {
   groundingToHasGround,
 } from "@/lib/house-insight";
@@ -1498,6 +1499,48 @@ export function AppShell({
     [assignCircuitLabels],
   );
 
+  const syncPanelAppliancesFromLineEquipment = useCallback(
+    (equipmentLabels: string[]) => {
+      if (!activePanelId) return;
+      const panel = items.find(
+        (item): item is PanelObject =>
+          item.kind === "panel" && item.id === activePanelId,
+      );
+      if (!panel) return;
+
+      const previousAppliances = panel.appliances ?? [];
+      const nextAppliances = mergeAppliancesWithEquipmentLabels(
+        previousAppliances,
+        equipmentLabels,
+      );
+      if (
+        nextAppliances.length === previousAppliances.length &&
+        nextAppliances.every(
+          (item, index) => item.id === previousAppliances[index]?.id,
+        )
+      ) {
+        return;
+      }
+
+      setItems((prev) =>
+        prev.map((item) =>
+          item.kind === "panel" && item.id === activePanelId
+            ? {
+                ...item,
+                appliances: nextAppliances,
+                appliancesUpdatedAt: new Date().toISOString(),
+                lastCheck: "сегодня",
+              }
+            : item,
+        ),
+      );
+      void persistPanelAppliances(activePanelId, nextAppliances).catch(
+        (error) => console.error(error),
+      );
+    },
+    [activePanelId, items],
+  );
+
   const updateDeviceSticker = useCallback(
     (
       deviceId: number,
@@ -2570,6 +2613,10 @@ export function AppShell({
                 }
                 startOnboarding={schemeTourPending && !sharedPreview}
                 onOnboardingDone={handleSchemeOnboardingDone}
+                appliances={activePanel?.appliances ?? []}
+                onSyncAppliances={
+                  sharedPreview ? undefined : syncPanelAppliancesFromLineEquipment
+                }
               />
             </SchemeErrorBoundary>
           )}
