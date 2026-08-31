@@ -74,7 +74,9 @@ import {
 } from "@/lib/input-breaker-diagnostics";
 import { WireSpecSheet } from "@/components/ui/wire-spec-sheet";
 import { WaitlistSheet } from "@/components/ui/waitlist-sheet";
+import { InfoDialog } from "@/components/ui/info-dialog";
 import type { PanelShareScope } from "@/lib/panel-share";
+import { resolveDeviceSeriesLabel } from "@/lib/device-catalog";
 import { Portal } from "@/components/ui/portal";
 import { SchemeOnboardingTour } from "@/components/ui/scheme-onboarding-tour";
 import { deviceTypeGuide } from "@/lib/panel-device-guide";
@@ -189,6 +191,17 @@ function deviceWord(count: number): string {
   if (n10 === 1 && n100 !== 11) return "прибор";
   if (n10 >= 2 && n10 <= 4 && (n100 < 12 || n100 > 14)) return "прибора";
   return "приборов";
+}
+
+function railEditSignature(devices: Device[], railCount?: number): string {
+  const filtered = devices.filter(
+    (device) => device.type !== "pe_bus" && device.type !== "n_bus",
+  );
+  const rails = groupDevicesByRail(filtered, railCount);
+  return JSON.stringify({
+    ids: rails.map((rail) => rail.map((device) => device.id)),
+    rails: deriveRailCount(filtered),
+  });
 }
 
 function remainingDevicesPhrase(count: number): string {
@@ -637,6 +650,7 @@ function DeviceSheet({
     owner: string;
   } | null>(null);
   const [protectiveDraft, setProtectiveDraft] = useState("");
+  const [loadMismatchInfoOpen, setLoadMismatchInfoOpen] = useState(false);
   const [draftType, setDraftType] = useState<DeviceType>(device.type);
   const [draftManufacturer, setDraftManufacturer] = useState(
     device.manufacturer ?? "",
@@ -674,17 +688,28 @@ function DeviceSheet({
     getManufacturerBrand(draftBrandKey, draftManufacturer)?.label ??
       draftManufacturer,
   );
+  const modelValue = useMemo(() => {
+    const model = device.model?.trim();
+    if (model) return model;
+    const series = resolveDeviceSeriesLabel(device);
+    return series?.trim() || null;
+  }, [device]);
   const typeValue =
     DEVICE_TYPE_OPTIONS.find((item) => item.type === draftType)?.label ??
     typeShort[draftType];
   const identitySpecs = useMemo(
-    () =>
-      [
+    () => {
+      const rows: Array<[string, string]> = [
         ["Производитель", manufacturerValue],
         ["Тип", typeValue],
         ["Номинал", displaySpecValue(draftRating)],
-      ] as Array<[string, string]>,
-    [draftRating, manufacturerValue, typeValue],
+      ];
+      if (modelValue) {
+        rows.splice(1, 0, ["Модель", modelValue]);
+      }
+      return rows;
+    },
+    [draftRating, manufacturerValue, modelValue, typeValue],
   );
   const specs = useMemo(
     () => deviceCharacteristicRows(draftDevice),
@@ -832,6 +857,10 @@ function DeviceSheet({
   const loadAlarm = useMemo(
     () => assessLineLoadSafety(device, lineLoadsByRoom),
     [device, lineLoadsByRoom],
+  );
+  const schemeLoadAlarm = useMemo(
+    () => assessDeviceLineLoadSafety(device),
+    [device],
   );
 
   const toggleSelectedValue = (
@@ -1058,6 +1087,16 @@ function DeviceSheet({
                 {confident ? deviceTitle(device) : "Прибор требует уточнения"}
               </h3>
               <Badge status={device.status} />
+              {schemeLoadAlarm && (
+                <button
+                  type="button"
+                  onClick={() => setLoadMismatchInfoOpen(true)}
+                  className="flex h-7 w-7 items-center justify-center rounded-full bg-rose-500 text-white shadow-sm"
+                  aria-label="Нагрузка не соответствует номиналу"
+                >
+                  <AlertTriangle className="h-3.5 w-3.5" strokeWidth={2.75} />
+                </button>
+              )}
             </div>
             {confident ? (
               <p className="ty-body">{device.rating}</p>
@@ -1650,6 +1689,21 @@ function DeviceSheet({
         </motion.div>
       </motion.div>
     )}
+    {loadMismatchInfoOpen && schemeLoadAlarm && (
+      <InfoDialog
+        title={schemeLoadAlarm.title}
+        description={[
+          schemeLoadAlarm.summary,
+          schemeLoadAlarm.recommendedAmps
+            ? `Рекомендуем заменить прибор на автомат не слабее ${schemeLoadAlarm.recommendedAmps} А (или переразделить линии).`
+            : null,
+          ...schemeLoadAlarm.points.slice(0, 2),
+        ]
+          .filter(Boolean)
+          .join("\n\n")}
+        onClose={() => setLoadMismatchInfoOpen(false)}
+      />
+    )}
     </Portal>
   );
 }
@@ -2058,12 +2112,49 @@ export function SchemeScreen({
     },
     [devices, onUpdateDevices],
   );
+  const [editDraft, setEditDraft] = useState<Device[] | null>(null);
+  const editBaselineRef = useRef<string | null>(null);
+  const [editConfirmOpen, setEditConfirmOpen] = useState(false);
+  const railEditDevices = editDraft ?? allRailDevices;
   const railEdit = useRailEdit({
-    devices: allRailDevices,
+    devices: railEditDevices,
     railCount,
     enabled: !sharedPreview && Boolean(onUpdateDevices),
-    onCommit: commitDevices,
+    onCommit: setEditDraft,
   });
+  const editDirty = useMemo(() => {
+    if (!editDraft || !editBaselineRef.current) return false;
+    return (
+      railEditSignature(editDraft, deriveRailCount(editDraft)) !==
+      editBaselineRef.current
+    );
+  }, [editDraft]);
+  const startRailEdit = useCallback(() => {
+    const snapshot = structuredClone(allRailDevices);
+    editBaselineRef.current = railEditSignature(snapshot, railCount);
+    setEditDraft(snapshot);
+    setTab("scheme");
+    railEdit.enterEdit();
+  }, [allRailDevices, railCount, railEdit]);
+  const finishRailEdit = useCallback(
+    (save: boolean) => {
+      if (save && editDraft) {
+        commitDevices(editDraft);
+      }
+      editBaselineRef.current = null;
+      setEditDraft(null);
+      setEditConfirmOpen(false);
+      railEdit.exitEdit();
+    },
+    [commitDevices, editDraft, railEdit],
+  );
+  const handleEditDone = useCallback(() => {
+    if (!editDirty) {
+      finishRailEdit(false);
+      return;
+    }
+    setEditConfirmOpen(true);
+  }, [editDirty, finishRailEdit]);
   const [addPickerOpen, setAddPickerOpen] = useState(false);
   const boardRails = railEdit.displayRails;
   const numRails = boardRails.length;
@@ -2073,6 +2164,13 @@ export function SchemeScreen({
     setSelectedId(null);
     setSheetAnchorY(null);
   }, [railEdit.editing]);
+
+  useEffect(() => {
+    if (!railEdit.editing || editDraft !== null) return;
+    const snapshot = structuredClone(allRailDevices);
+    editBaselineRef.current = railEditSignature(snapshot, railCount);
+    setEditDraft(snapshot);
+  }, [allRailDevices, editDraft, railCount, railEdit.editing]);
 
   useEffect(() => {
     if (canUseTerminals) return;
@@ -2266,8 +2364,7 @@ export function SchemeScreen({
 
   const handleBack = () => {
     if (railEdit.editing) {
-      commitDevices(allRailDevices);
-      railEdit.exitEdit();
+      finishRailEdit(false);
       return;
     }
     if (sharedPreview) {
@@ -2599,8 +2696,7 @@ export function SchemeScreen({
                     className="flex w-full items-center gap-2 px-4 py-3 text-left text-[15px] text-zinc-900 hover:bg-zinc-50"
                     onClick={() => {
                       setMenuOpen(false);
-                      setTab("scheme");
-                      railEdit.enterEdit();
+                      startRailEdit();
                     }}
                   >
                     <PenLine className="h-4 w-4 text-zinc-600" />
@@ -2788,48 +2884,55 @@ export function SchemeScreen({
               </div>
             </GlassCard>
           )}
-          <div className={cn("overflow-x-auto", showTerminals && canUseTerminals && "overflow-y-visible")}>
+          <div className={cn(showTerminals && canUseTerminals && "overflow-y-visible")}>
             <GlassCard
               data-scheme-tour="scheme"
               className={cn(
-                "w-max max-w-none overflow-visible p-4",
+                "w-full overflow-visible p-4",
                 showTerminals && canUseTerminals && "overflow-visible",
               )}
-              style={{ minWidth: railMinWidth }}
             >
             <div className="mb-3 flex items-center justify-between gap-3">
               {!sharedPreview ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!railEdit.editing) return;
-                    commitDevices(allRailDevices);
-                    railEdit.exitEdit();
-                  }}
-                  className={cn(
-                    "relative shrink-0 rounded-full bg-zinc-900 px-3.5 py-1.5 ty-label text-white",
-                    !railEdit.editing && "pointer-events-none invisible",
-                  )}
-                >
-                  <IosHapticHit
-                    onActivate={() => {
-                      commitDevices(allRailDevices);
-                      railEdit.exitEdit();
-                    }}
-                  />
-                  <span className="relative z-[2]">Готово</span>
-                </button>
+                <div className="flex min-h-[34px] items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleEditDone}
+                    className={cn(
+                      "relative shrink-0 rounded-full bg-zinc-900 px-3.5 py-1.5 ty-label text-white",
+                      !railEdit.editing && "pointer-events-none invisible",
+                    )}
+                  >
+                    <IosHapticHit onActivate={handleEditDone} />
+                    <span className="relative z-[2]">Готово</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => finishRailEdit(false)}
+                    className={cn(
+                      "relative shrink-0 rounded-full border border-black/8 bg-zinc-100 px-3.5 py-1.5 ty-label text-zinc-800",
+                      !railEdit.editing || !editDirty
+                        ? "pointer-events-none invisible"
+                        : "",
+                    )}
+                  >
+                    <IosHapticHit onActivate={() => finishRailEdit(false)} />
+                    <span className="relative z-[2]">Отмена</span>
+                  </button>
+                </div>
               ) : (
                 <span className="shrink-0" aria-hidden />
               )}
               <span className="ty-meta">
-                {allRailDevices.length} {deviceWord(allRailDevices.length)}
+                {railEditDevices.length} {deviceWord(railEditDevices.length)}
               </span>
             </div>
 
+            <div className="-mx-1 overflow-x-auto px-1">
             <div
               ref={setSchemeCanvasRef}
-              className={cn("relative", showTerminals && canUseTerminals && "py-11")}
+              className={cn("relative inline-block min-w-full", showTerminals && canUseTerminals && "py-11")}
+              style={{ minWidth: railMinWidth }}
             >              {showTerminals && canUseTerminals && (
                 <PanelWiresSvg
                   key={wiresLayoutTick}
@@ -3040,6 +3143,7 @@ export function SchemeScreen({
                 </div>
               )}
             </div>
+            </div>
           </GlassCard>
           </div>
 
@@ -3129,15 +3233,21 @@ export function SchemeScreen({
             }),
             confidence: 100,
           };
-          const next = appendDevice(allRailDevices, device);
+          const base = editDraft ?? allRailDevices;
+          const next = appendDevice(base, device);
           setAddPickerOpen(false);
           if (!next) {
             hapticImpact("rigid");
             return;
           }
           hapticNotification("success");
-          commitDevices(next);
-          railEdit.enterEdit();
+          if (!editBaselineRef.current) {
+            editBaselineRef.current = railEditSignature(allRailDevices, railCount);
+          }
+          setEditDraft(next);
+          if (!railEdit.editing) {
+            railEdit.enterEdit();
+          }
         }}
       />
 
@@ -3347,6 +3457,19 @@ export function SchemeScreen({
               onRename(name);
               setRenameOpen(false);
             }}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {editConfirmOpen && (
+          <ConfirmDialog
+            title="Сохранить изменения?"
+            description="Схема щитка была изменена. Сохранить новое расположение приборов?"
+            confirmLabel="Сохранить"
+            cancelLabel="Отмена"
+            onCancel={() => setEditConfirmOpen(false)}
+            onConfirm={() => finishRailEdit(true)}
           />
         )}
       </AnimatePresence>

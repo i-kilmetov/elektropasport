@@ -9,6 +9,8 @@ export type LineLoadAlarm = {
   summary: string;
   points: string[];
   unsafeLoads: string[];
+  /** Smallest standard breaker rating that fits the assigned loads. */
+  recommendedAmps?: number;
 };
 
 type LoadProfile = {
@@ -288,6 +290,42 @@ function formatKw(watts: number): string {
   })} кВт`;
 }
 
+function snapBreakerAmps(amps: number): number {
+  const standard = [6, 10, 16, 20, 25, 32, 40, 50, 63, 80, 100, 125];
+  for (const value of standard) {
+    if (value >= amps) return value;
+  }
+  return amps;
+}
+
+function recommendedAmpsForLoads(
+  device: Pick<Device, "rating" | "characteristics" | "poles">,
+  loadsByRoom: Record<string, string[]>,
+  typicalWatts: number,
+  overloaded: boolean,
+): number | undefined {
+  const selected = Object.values(loadsByRoom)
+    .flat()
+    .map((item) => item.trim())
+    .filter(Boolean);
+  if (selected.length === 0) return undefined;
+
+  const current = parseBreakerAmps(device.rating, device.characteristics);
+  let recommended = 0;
+  for (const load of Array.from(new Set(selected))) {
+    recommended = Math.max(recommended, profileForLoad(load).minAmps);
+  }
+  if (overloaded && current) {
+    const needed = Math.ceil(
+      typicalWatts / (VOLTAGE_V * CONTINUOUS_LOAD_FACTOR),
+    );
+    recommended = Math.max(recommended, needed);
+  }
+  recommended = snapBreakerAmps(recommended);
+  if (current && recommended <= current) return undefined;
+  return recommended;
+}
+
 export function assessLineLoadSafety(
   device: Pick<Device, "rating" | "characteristics" | "poles">,
   loadsByRoom: Record<string, string[]>,
@@ -361,11 +399,19 @@ export function assessLineLoadSafety(
   const closing =
     "Автомат должен быть согласован с кабелем и нагрузкой. Если слабый автомат стоит на толстом кабеле, он будет часто выбивать. Если слабый автомат стоит на тонком кабеле освещения, а к линии повесили розетки — кабель может греться до повреждения изоляции. Это стоит поправить: отдельная линия нужного номинала или перенос нагрузки.";
 
+  const recommendedAmps = recommendedAmpsForLoads(
+    device,
+    loadsByRoom,
+    typicalWatts,
+    overloaded,
+  );
+
   return {
     title,
     summary,
     points: [...points, closing],
     unsafeLoads,
+    recommendedAmps,
   };
 }
 
