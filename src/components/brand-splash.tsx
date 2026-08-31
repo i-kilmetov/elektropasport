@@ -59,12 +59,15 @@ function AnimatedT({
   wordmarkStyle,
   playOnMount = true,
   upright = false,
+  instantUpright = false,
 }: {
   pulsing: boolean;
   wordmarkStyle: typeof splashWordmarkTypeStyle;
   /** Splash/auth: flip on mount. Launch waitlist: stay inverted until `upright`. */
   playOnMount?: boolean;
   upright?: boolean;
+  /** Already upright — no 180→360 tween (e.g. auth intro after splash). */
+  instantUpright?: boolean;
 }) {
   const pulse = pulsing
     ? {
@@ -98,7 +101,11 @@ function AnimatedT({
           const value = rotate == null ? "180deg" : String(rotate);
           return `rotate(${value.endsWith("deg") ? value : `${value}deg`})`;
         }}
-        initial={{ rotate: 180, opacity: 1, scale: 1 }}
+        initial={{
+          rotate: instantUpright ? 360 : 180,
+          opacity: 1,
+          scale: 1,
+        }}
         animate={
           playOnMount
             ? { rotate: [180, 180, 0], opacity: 1, scale: 1 }
@@ -117,7 +124,8 @@ function AnimatedT({
             : {
                 rotate: {
                   type: "tween",
-                  duration: upright ? WAITLIST_FLIP_DURATION_S : 0,
+                  duration:
+                    instantUpright ? 0 : upright ? WAITLIST_FLIP_DURATION_S : 0,
                   ease: WAITLIST_FLIP_EASE,
                 },
               }
@@ -170,6 +178,7 @@ function BrandMark({
   variant = "splash",
   tPlayOnMount = true,
   tUpright = false,
+  tInstantUpright = false,
   collapseRest = false,
 }: {
   tagline: string;
@@ -179,6 +188,7 @@ function BrandMark({
   variant?: "splash" | "header";
   tPlayOnMount?: boolean;
   tUpright?: boolean;
+  tInstantUpright?: boolean;
   /** Keep «ОКОМ» out of layout until revealed so the inverted T sits on center. */
   collapseRest?: boolean;
 }) {
@@ -219,6 +229,7 @@ function BrandMark({
           wordmarkStyle={wordmarkStyle}
           playOnMount={tPlayOnMount}
           upright={tUpright}
+          instantUpright={tInstantUpright}
         />
 
         {(!collapseRest || restRevealed) && (
@@ -495,6 +506,7 @@ export function BrandAuthIntro({
             restRevealed={restRevealed}
             tPlayOnMount={!skipAnimation}
             tUpright={skipAnimation}
+            tInstantUpright={skipAnimation}
           />
         </div>
       </div>

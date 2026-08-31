@@ -301,27 +301,9 @@ function pickLivePanelFields(
   };
 }
 
-const SPLASH_SEEN_KEY = "ep:splash-seen";
+import { hasSeenSplashThisSession, markSplashSeen } from "@/lib/splash-session";
 
 type SplashPhase = "pending" | "show" | "done";
-
-/** Skip splash only when AppShell remounts in the same browser tab (e.g. /school → home). */
-function hasSeenSplashThisSession(): boolean {
-  if (typeof window === "undefined") return false;
-  try {
-    return sessionStorage.getItem(SPLASH_SEEN_KEY) === "1";
-  } catch {
-    return false;
-  }
-}
-
-function markSplashSeen(): void {
-  try {
-    sessionStorage.setItem(SPLASH_SEEN_KEY, "1");
-  } catch {
-    // private mode
-  }
-}
 
 export function AppShell({
   forceResearchSurvey = false,

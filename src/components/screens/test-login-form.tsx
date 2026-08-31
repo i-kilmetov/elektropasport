@@ -4,6 +4,7 @@ import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BrandLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
+import { markSplashSeen } from "@/lib/splash-session";
 
 export function TestLoginForm({
   next = "/",
@@ -40,11 +41,12 @@ export function TestLoginForm({
         return;
       }
       if (onSuccess) {
+        markSplashSeen();
         onSuccess();
         return;
       }
+      markSplashSeen();
       router.replace(next);
-      router.refresh();
     } catch {
       setError("Не удалось проверить пароль. Попробуйте ещё раз.");
     } finally {
