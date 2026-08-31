@@ -49,6 +49,23 @@ const snakeLifePoints = [
   },
 ] as const;
 
+const puzzleHolePoints = [
+  {
+    icon: Zap,
+    text: "На поле пятнашек свободна одна ячейка. Вторую можно открыть после приглашения.",
+  },
+  {
+    icon: Infinity,
+    text: "Когда новый пользователь откроет сервис по вашей ссылке, можно будет убрать ещё одну плитку.",
+  },
+  {
+    icon: Heart,
+    text: "Две свободные ячейки делают сборку щитка заметно проще.",
+  },
+] as const;
+
+export type PanelLimitReason = "panels" | "snake-life" | "puzzle-hole";
+
 export function PanelLimitSheet({
   quota,
   onClose,
@@ -56,14 +73,19 @@ export function PanelLimitSheet({
 }: {
   quota: PanelQuota;
   onClose: () => void;
-  reason?: "panels" | "snake-life";
+  reason?: PanelLimitReason;
 }) {
   const [shareOpen, setShareOpen] = useState(false);
   const canInvite = Boolean(quota.inviteUrl);
   const unlocked = Boolean(quota.unlimited);
   const isLife = reason === "snake-life";
-  const showUnlocked = !isLife && unlocked;
-  const points = isLife ? snakeLifePoints : panelPoints;
+  const isPuzzleHole = reason === "puzzle-hole";
+  const showUnlocked = !isLife && !isPuzzleHole && unlocked;
+  const points = isLife
+    ? snakeLifePoints
+    : isPuzzleHole
+      ? puzzleHolePoints
+      : panelPoints;
 
   return (
     <Portal>
@@ -87,16 +109,20 @@ export function PanelLimitSheet({
               <h2 className="ty-title">
                 {isLife
                   ? "Восстановить жизнь"
-                  : showUnlocked
-                    ? "Лимит щитков снят"
-                    : "Пригласите человека"}
+                  : isPuzzleHole
+                    ? "Ещё одна свободная ячейка"
+                    : showUnlocked
+                      ? "Лимит щитков снят"
+                      : "Пригласите человека"}
               </h2>
               <p className="mt-1 ty-note">
                 {isLife
                   ? "Пригласите хотя бы одного нового человека в Током"
-                  : showUnlocked
-                    ? "Можно добавлять любое количество щитков"
-                    : `${quota.panelCount} из ${BASE_PANEL_LIMIT} ${panelWord(BASE_PANEL_LIMIT)} без приглашения`}
+                  : isPuzzleHole
+                    ? "Пригласите человека в Током — и можно будет убрать ещё одну плитку"
+                    : showUnlocked
+                      ? "Можно добавлять любое количество щитков"
+                      : `${quota.panelCount} из ${BASE_PANEL_LIMIT} ${panelWord(BASE_PANEL_LIMIT)} без приглашения`}
               </p>
             </div>
             <button
@@ -144,7 +170,9 @@ export function PanelLimitSheet({
                 приложение по вашей ссылке,{" "}
                 {isLife
                   ? "можно будет продолжить игру."
-                  : "лимит щитков снимется."}
+                  : isPuzzleHole
+                    ? "можно будет убрать ещё одну плитку на поле."
+                    : "лимит щитков снимется."}
               </p>
             ) : (
               <ul className="divide-y divide-black/[0.06] overflow-hidden rounded-[20px] border border-black/8 bg-zinc-50">
@@ -171,10 +199,14 @@ export function PanelLimitSheet({
                           {event.outcome === "credited"
                             ? isLife
                               ? "Новый пользователь — можно продолжить игру"
-                              : "Новый пользователь — лимит снят"
+                              : isPuzzleHole
+                                ? "Новый пользователь — можно убрать ещё одну плитку"
+                                : "Новый пользователь — лимит снят"
                             : isLife
                               ? "Уже был в сервисе — жизнь не восстановлена"
-                              : "Уже был в сервисе — лимит не снят"}
+                              : isPuzzleHole
+                                ? "Уже был в сервисе — вторая ячейка не открыта"
+                                : "Уже был в сервисе — лимит не снят"}
                         </p>
                       </div>
                       <span className="shrink-0 ty-meta">

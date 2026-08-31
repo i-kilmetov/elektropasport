@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, Check, UserPlus, Zap } from "lucide-react";
+import { ArrowLeft, Check, Grid3x3, UserPlus, Zap } from "lucide-react";
 import { DeviceFaceStatic, MODULE_PX } from "@/components/icons/device-face";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { PanelLimitSheet } from "@/components/screens/panel-limit-sheet";
+import { PanelPuzzleBoard } from "@/components/screens/panel-puzzle-board";
 import { hapticImpact, hapticNotification } from "@/lib/haptics";
 import {
   collectedDeviceIds,
@@ -15,6 +16,7 @@ import {
   DEVICE_SHORT,
   deviceShortLabel,
   moduleTotal,
+  playDevices,
   readSnakeContinuesUsed,
   setSnakeDirection,
   SNAKE_COLS,
@@ -27,7 +29,18 @@ import {
   type SnakeGameState,
 } from "@/lib/panel-game";
 import { deviceModules, groupDevicesByRail } from "@/lib/panel-rails";
-import type { PanelQuota } from "@/lib/invites";
+import {
+  canRemovePuzzleTile,
+  createPanelPuzzle,
+  placedDeviceIds,
+  placedModuleCount,
+  puzzleModuleTotal,
+  removeExtraPuzzleHole,
+  slidePuzzleHole,
+  slidePuzzleTile,
+  type PuzzleState,
+} from "@/lib/panel-puzzle";
+import { hasUnlockedPanelLimit, type PanelQuota } from "@/lib/invites";
 import { cn } from "@/lib/utils";
 import type { Device, PanelObject } from "@/types";
 
@@ -35,12 +48,7 @@ const SWIPE = 28;
 const MINI_SCALE = 0.42;
 
 type Phase = "gate" | "pick" | "ready" | "play";
-
-/** Same devices as on the scheme miniature (без шин PE/N). */
-function playDevices(panel: PanelObject): Device[] {
-  if (!Array.isArray(panel.devices)) return [];
-  return groupDevicesByRail(panel.devices, panel.railCount).flat();
-}
+type GameKind = "puzzle" | "snake";
 
 function PanelMiniature({
   devices,
@@ -209,9 +217,13 @@ export function PanelGameScreen({
     !hasAnyPanel ? "gate" : "pick",
   );
   const [panelId, setPanelId] = useState<string | null>(null);
+  const [gameKind, setGameKind] = useState<GameKind>("puzzle");
   const [state, setState] = useState<SnakeGameState | null>(null);
+  const [puzzle, setPuzzle] = useState<PuzzleState | null>(null);
+  const [pickingHole, setPickingHole] = useState(false);
   const [confirmLeave, setConfirmLeave] = useState(false);
   const [lifeSheetOpen, setLifeSheetOpen] = useState(false);
+  const [holeSheetOpen, setHoleSheetOpen] = useState(false);
   const [continuesUsed, setContinuesUsed] = useState(readSnakeContinuesUsed);
 
   const panel = useMemo(
@@ -226,44 +238,85 @@ export function PanelGameScreen({
     () => new Map(devices.map((device) => [device.id, device])),
     [devices],
   );
-  const collectedIds = useMemo(
-    () => collectedDeviceIds(state?.collected ?? [], devices),
-    [state?.collected, devices],
-  );
+  const collectedIds = useMemo(() => {
+    if (puzzle) return placedDeviceIds(puzzle, devices);
+    return collectedDeviceIds(state?.collected ?? [], devices);
+  }, [devices, puzzle, state?.collected]);
   const collectedCount = state?.collected.length ?? 0;
   const totalModules = moduleTotal(devices);
+  const puzzlePlaced = puzzle ? placedModuleCount(puzzle) : 0;
+  const puzzleTotal = puzzle ? puzzleModuleTotal(puzzle) : totalModules;
+  const extraHoleUnlocked = hasUnlockedPanelLimit(quota?.creditedInvites ?? 0);
   const continuesLeft = snakeContinuesAvailable(
     quota?.creditedInvites ?? 0,
     continuesUsed,
   );
+  const viewPhase: Phase = !hasAnyPanel
+    ? "gate"
+    : phase === "gate"
+      ? "pick"
+      : phase;
+  const playingSnake = viewPhase === "play" && gameKind === "snake";
+  const playingPuzzle = viewPhase === "play" && gameKind === "puzzle";
+  const puzzleInProgress = Boolean(
+    playingPuzzle && puzzle && puzzle.moves > 0 && !puzzle.won,
+  );
+  const snakeInProgress = Boolean(
+    playingSnake && state && state.alive && !state.won,
+  );
 
   const stateRef = useRef(state);
-  stateRef.current = state;
+  const puzzleRef = useRef(puzzle);
   const devicesRef = useRef(devices);
-  devicesRef.current = devices;
   const pointer = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
-    if (!hasAnyPanel) setPhase("gate");
-  }, [hasAnyPanel]);
+    stateRef.current = state;
+    puzzleRef.current = puzzle;
+    devicesRef.current = devices;
+  }, [devices, puzzle, state]);
 
-  const startGame = useCallback((selected: PanelObject) => {
+  const startSnake = useCallback((selected: PanelObject) => {
     const list = playDevices(selected);
     if (list.length === 0) return;
     setPanelId(selected.id);
+    setGameKind("snake");
+    setPuzzle(null);
+    setPickingHole(false);
     setState(createSnakeGame(list));
     setPhase("play");
     hapticImpact("soft");
-  }, []);
+  }, [setGameKind, setPanelId, setPhase, setPickingHole, setPuzzle, setState]);
+
+  const startPuzzle = useCallback((selected: PanelObject) => {
+    const list = playDevices(selected);
+    if (list.length === 0) return;
+    setPanelId(selected.id);
+    setGameKind("puzzle");
+    setState(null);
+    setPickingHole(false);
+    setPuzzle(createPanelPuzzle(list, selected.railCount));
+    setPhase("play");
+    hapticImpact("soft");
+  }, [setGameKind, setPanelId, setPhase, setPickingHole, setPuzzle, setState]);
 
   const readyPanel = useCallback((selected: PanelObject) => {
     setPanelId(selected.id);
     setState(null);
+    setPuzzle(null);
+    setPickingHole(false);
     setPhase("ready");
-  }, []);
+  }, [setPanelId, setPhase, setPickingHole, setPuzzle, setState]);
+
+  const leavePlay = useCallback(() => {
+    setPhase("pick");
+    setState(null);
+    setPuzzle(null);
+    setPickingHole(false);
+  }, [setPhase, setPickingHole, setPuzzle, setState]);
 
   useEffect(() => {
-    if (phase !== "play" || !state?.alive || state.won) return;
+    if (!playingSnake || !state?.alive || state.won) return;
     const id = window.setInterval(() => {
       const current = stateRef.current;
       if (!current || !current.alive || current.won) return;
@@ -279,14 +332,14 @@ export function PanelGameScreen({
       }
     }, SNAKE_TICK_MS);
     return () => window.clearInterval(id);
-  }, [phase, state?.alive, state?.won]);
+  }, [playingSnake, state?.alive, state?.won]);
 
   const turn = useCallback((dir: SnakeDir) => {
     setState((prev) => (prev ? setSnakeDirection(prev, dir) : prev));
-  }, []);
+  }, [setState]);
 
   useEffect(() => {
-    if (phase !== "play") return;
+    if (!playingSnake) return;
     const onKey = (event: KeyboardEvent) => {
       const map: Record<string, SnakeDir> = {
         ArrowLeft: "left",
@@ -301,14 +354,85 @@ export function PanelGameScreen({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [phase, turn]);
+  }, [playingSnake, turn]);
+
+  useEffect(() => {
+    if (!playingPuzzle || pickingHole) return;
+    const onKey = (event: KeyboardEvent) => {
+      const map: Record<string, "up" | "down" | "left" | "right"> = {
+        ArrowLeft: "left",
+        ArrowRight: "right",
+        ArrowUp: "up",
+        ArrowDown: "down",
+      };
+      const dir = map[event.key];
+      if (!dir) return;
+      event.preventDefault();
+      const current = puzzleRef.current;
+      if (!current) return;
+      const next = slidePuzzleHole(current, dir);
+      if (next === current) return;
+      setPuzzle(next);
+      if (next.won) hapticNotification("success");
+      else hapticImpact("soft");
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [pickingHole, playingPuzzle]);
 
   const restart = () => {
     if (!panel) return;
     setLifeSheetOpen(false);
-    setState(createSnakeGame(playDevices(panel)));
+    setHoleSheetOpen(false);
+    setPickingHole(false);
+    if (gameKind === "puzzle") {
+      setPuzzle(createPanelPuzzle(playDevices(panel), panel.railCount));
+    } else {
+      setState(createSnakeGame(playDevices(panel)));
+    }
     hapticImpact("soft");
   };
+
+  const onPuzzleTile = useCallback(
+    (index: number) => {
+      if (!puzzle) return;
+      if (pickingHole) {
+        if (!canRemovePuzzleTile(puzzle, index)) {
+          hapticNotification("error");
+          return;
+        }
+        const next = removeExtraPuzzleHole(puzzle, index);
+        setPickingHole(false);
+        setPuzzle(next);
+        hapticImpact("medium");
+        if (next.won) hapticNotification("success");
+        return;
+      }
+      const next = slidePuzzleTile(puzzle, index);
+      if (next === puzzle) return;
+      setPuzzle(next);
+      if (next.won) hapticNotification("success");
+      else hapticImpact("soft");
+    },
+    [pickingHole, puzzle, setPickingHole, setPuzzle],
+  );
+
+  const requestExtraHole = useCallback(() => {
+    if (!puzzle || puzzle.extraHoleUsed || puzzle.won) return;
+    if (!extraHoleUnlocked) {
+      void onRefreshQuota?.();
+      setHoleSheetOpen(true);
+      return;
+    }
+    setPickingHole(true);
+    hapticImpact("soft");
+  }, [
+    extraHoleUnlocked,
+    onRefreshQuota,
+    puzzle,
+    setHoleSheetOpen,
+    setPickingHole,
+  ]);
 
   const applyContinue = useCallback(() => {
     setState((prev) => (prev ? continueSnakeGame(prev) : prev));
@@ -319,7 +443,7 @@ export function PanelGameScreen({
     });
     setLifeSheetOpen(false);
     hapticNotification("success");
-  }, []);
+  }, [setContinuesUsed, setLifeSheetOpen, setState]);
 
   const creditsRef = useRef<number | null>(null);
   useEffect(() => {
@@ -331,32 +455,69 @@ export function PanelGameScreen({
     const prev = creditsRef.current;
     creditsRef.current = current;
     if (current <= prev) return;
-    if (!state || state.alive || state.won) return;
-    const available = snakeContinuesAvailable(current, continuesUsed);
-    if (available < 1) return;
-    applyContinue();
-  }, [applyContinue, continuesUsed, quota?.creditedInvites, state]);
+    if (playingSnake && state && !state.alive && !state.won) {
+      const available = snakeContinuesAvailable(current, continuesUsed);
+      if (available < 1) return;
+      const timer = window.setTimeout(() => applyContinue(), 0);
+      return () => window.clearTimeout(timer);
+    }
+    if (playingPuzzle && holeSheetOpen && hasUnlockedPanelLimit(current)) {
+      const timer = window.setTimeout(() => {
+        setHoleSheetOpen(false);
+        setPickingHole(true);
+      }, 0);
+      return () => window.clearTimeout(timer);
+    }
+  }, [
+    applyContinue,
+    continuesUsed,
+    holeSheetOpen,
+    playingPuzzle,
+    playingSnake,
+    quota?.creditedInvites,
+    setHoleSheetOpen,
+    setPickingHole,
+    state,
+  ]);
 
   useEffect(() => {
     const waiting =
       lifeSheetOpen ||
-      (phase === "play" && state && !state.alive && !state.won);
+      holeSheetOpen ||
+      (playingSnake && state && !state.alive && !state.won);
     if (!waiting || !onRefreshQuota) return;
     void onRefreshQuota();
     const id = window.setInterval(() => {
       void onRefreshQuota();
     }, 4000);
     return () => window.clearInterval(id);
-  }, [lifeSheetOpen, onRefreshQuota, phase, state?.alive, state?.won]);
+  }, [
+    holeSheetOpen,
+    lifeSheetOpen,
+    onRefreshQuota,
+    playingSnake,
+    state,
+  ]);
 
   const title =
-    phase === "gate"
+    viewPhase === "gate"
       ? "Игра"
-      : phase === "pick"
+      : viewPhase === "pick"
         ? "Выберите щиток"
-        : phase === "ready"
-          ? "Змейка"
-          : panel?.title ?? "Змейка";
+        : viewPhase === "ready"
+          ? "Выберите игру"
+          : gameKind === "puzzle"
+            ? "Пятнашки"
+            : panel?.title ?? "Змейка";
+
+  const subtitle =
+    playingPuzzle && puzzle
+      ? pickingHole
+        ? "Нажмите пустую плитку, чтобы убрать её"
+        : `На месте ${puzzlePlaced} из ${puzzleTotal}`
+      : playingSnake
+        ? `Собрано ${collectedCount} из ${totalModules}`
+        : "Соберите схему своего щитка";
 
   return (
     <motion.section
@@ -369,13 +530,16 @@ export function PanelGameScreen({
         <button
           type="button"
           onClick={() => {
-            if (phase === "play" && state && state.alive && !state.won) {
+            if (snakeInProgress || puzzleInProgress) {
               setConfirmLeave(true);
               return;
             }
-            if (phase === "ready" || phase === "play") {
-              setPhase("pick");
-              setState(null);
+            if (pickingHole) {
+              setPickingHole(false);
+              return;
+            }
+            if (viewPhase === "ready" || viewPhase === "play") {
+              leavePlay();
               return;
             }
             onBack();
@@ -389,13 +553,9 @@ export function PanelGameScreen({
           <h1 className="truncate ty-title">
             {title}
           </h1>
-          <p className="ty-note">
-            {phase === "play"
-              ? `Собрано ${collectedCount} из ${totalModules}`
-              : "Собери приборы щитка"}
-          </p>
+          <p className="ty-note">{subtitle}</p>
         </div>
-        {phase === "play" && (
+        {viewPhase === "play" && (
           <button
             type="button"
             onClick={restart}
@@ -406,7 +566,7 @@ export function PanelGameScreen({
         )}
       </header>
 
-      {phase === "gate" && (
+      {viewPhase === "gate" && (
         <div className="flex flex-1 flex-col items-center justify-center px-2 text-center">
           <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[#D3DA00]/35">
             <Zap className="h-7 w-7 text-zinc-900" />
@@ -415,8 +575,8 @@ export function PanelGameScreen({
             Сначала добавьте щиток
           </h2>
           <p className="mt-3 max-w-sm ty-body">
-            Игра открывается после добавления хотя бы одного щитка. Змейка
-            собирает приборы именно с вашего щитка.
+            Игра открывается после добавления хотя бы одного щитка. В пятнашках
+            нужно собрать схему своего щитка — каждый квадрат это один модуль.
           </p>
           {onAddPanel ? (
             <Button className="mt-6 w-full max-w-sm rounded-full" onClick={onAddPanel}>
@@ -430,10 +590,11 @@ export function PanelGameScreen({
         </div>
       )}
 
-      {phase === "pick" && (
+      {viewPhase === "pick" && (
         <div className="flex flex-1 flex-col gap-3">
           <p className="ty-body">
-            Выберите щиток — змейка будет собирать его приборы на поле.
+            Выберите щиток — его схема станет полем пятнашек: один квадрат, один
+            модуль.
           </p>
           {playable.length === 0 ? (
             <div className="rounded-[24px] border border-black/8 bg-white px-4 py-6 text-center">
@@ -484,7 +645,7 @@ export function PanelGameScreen({
         </div>
       )}
 
-      {phase === "ready" && panel && (
+      {viewPhase === "ready" && panel && (
         <div className="flex flex-1 flex-col">
           <PanelMiniature
             devices={devices}
@@ -492,19 +653,109 @@ export function PanelGameScreen({
             collectedIds={new Set()}
           />
           <p className="mt-4 ty-body">
-            Сверху — ваш щиток с погасшими приборами. На поле каждый прибор
-            займёт столько клеток, сколько у него модулей в щитке. Соберите все
-            клетки змейкой, чтобы «включить» щиток.
+            Соберите ряды щитка сверху вниз: первый модуль — в левом верхнем
+            углу. Если прибор занимает несколько модулей, его части идут
+            подряд, как на схеме.
           </p>
-          <div className="mt-auto pt-6">
-            <Button className="w-full" onClick={() => startGame(panel)}>
-              Начать игру
+          <div className="mt-auto space-y-3 pt-6">
+            <Button className="w-full" onClick={() => startPuzzle(panel)}>
+              <Grid3x3 className="h-5 w-5" />
+              Пятнашки
+            </Button>
+            <Button
+              className="w-full"
+              variant="secondary"
+              onClick={() => startSnake(panel)}
+            >
+              <Zap className="h-5 w-5" />
+              Змейка
             </Button>
           </div>
         </div>
       )}
 
-      {phase === "play" && panel && state && (
+      {playingPuzzle && panel && puzzle && (
+        <div className="flex flex-1 flex-col">
+          <PanelMiniature
+            devices={devices}
+            railCount={panel.railCount}
+            collectedIds={collectedIds}
+            className="mb-4"
+          />
+
+          <div className="relative mx-auto w-full max-w-[420px]">
+            <PanelPuzzleBoard
+              state={puzzle}
+              pickingHole={pickingHole}
+              onTileClick={onPuzzleTile}
+            />
+
+            {puzzle.won && (
+              <div className="absolute inset-0 flex items-center justify-center rounded-[24px] bg-white/90 p-5 text-center backdrop-blur-sm">
+                <div>
+                  <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[#D3DA00]">
+                    <Check className="h-6 w-6 text-zinc-900" />
+                  </div>
+                  <h2 className="ty-title">Щиток собран</h2>
+                  <p className="mt-3 ty-body">
+                    Схема «{panel.title}» совпала с полем пятнашек.
+                  </p>
+                  <div className="mt-5 flex gap-3">
+                    <Button
+                      className="flex-1"
+                      variant="secondary"
+                      onClick={leavePlay}
+                    >
+                      Другой щиток
+                    </Button>
+                    <Button className="flex-1" onClick={restart}>
+                      Ещё раз
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {!puzzle.won && (
+            <div className="mx-auto mt-4 w-full max-w-[420px] space-y-3">
+              {pickingHole ? (
+                <Button
+                  className="w-full"
+                  variant="secondary"
+                  onClick={() => setPickingHole(false)}
+                >
+                  Отмена
+                </Button>
+              ) : puzzle.extraHoleUsed ? (
+                <p className="ty-note">
+                  На поле две свободные ячейки. Сдвиньте плитку к пустому
+                  квадрату — ряды щитка собираются сверху вниз, слева направо.
+                </p>
+              ) : (
+                <Button
+                  className="w-full"
+                  variant="secondary"
+                  onClick={requestExtraHole}
+                >
+                  <UserPlus className="h-5 w-5" />
+                  {extraHoleUnlocked
+                    ? "Удалить ещё одну ячейку"
+                    : "Ещё одна ячейка — за приглашение"}
+                </Button>
+              )}
+              {!pickingHole && !puzzle.extraHoleUsed && (
+                <p className="ty-note">
+                  Свободна одна ячейка. На плитке: тип прибора, номинал и часть
+                  корпуса (1/2, 2/2…), чтобы собрать прибор по порядку.
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {playingSnake && panel && state && (
         <div className="flex flex-1 flex-col">
           <PanelMiniature
             devices={devices}
@@ -552,10 +803,7 @@ export function PanelGameScreen({
                       <Button
                         className="flex-1"
                         variant="secondary"
-                        onClick={() => {
-                          setPhase("pick");
-                          setState(null);
-                        }}
+                        onClick={leavePlay}
                       >
                         Другой щиток
                       </Button>
@@ -629,6 +877,17 @@ export function PanelGameScreen({
         />
       )}
 
+      {holeSheetOpen && quota && (
+        <PanelLimitSheet
+          quota={quota}
+          reason="puzzle-hole"
+          onClose={() => {
+            setHoleSheetOpen(false);
+            if (extraHoleUnlocked) setPickingHole(true);
+          }}
+        />
+      )}
+
       {confirmLeave && (
         <ConfirmDialog
           title="Выйти из игры?"
@@ -639,8 +898,7 @@ export function PanelGameScreen({
           onCancel={() => setConfirmLeave(false)}
           onConfirm={() => {
             setConfirmLeave(false);
-            setPhase("pick");
-            setState(null);
+            leavePlay();
           }}
         />
       )}

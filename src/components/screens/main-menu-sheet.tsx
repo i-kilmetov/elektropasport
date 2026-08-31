@@ -38,7 +38,7 @@ const items: Array<{
   {
     id: "game",
     title: "Игра",
-    description: "Змейка: собери приборы щитка",
+    description: "Пятнашки: соберите схему щитка",
     icon: Gamepad2,
   },
   {

@@ -1,5 +1,5 @@
-import type { Device, DeviceType } from "@/types";
-import { deviceModules } from "@/lib/panel-rails";
+import type { Device, DeviceType, PanelObject } from "@/types";
+import { deviceModules, groupDevicesByRail } from "@/lib/panel-rails";
 
 export const SNAKE_COLS = 14;
 export const SNAKE_ROWS = 14;
@@ -63,6 +63,12 @@ export function deviceShortLabel(device: Device): string {
 
 export function moduleTotal(devices: Device[]): number {
   return devices.reduce((sum, device) => sum + deviceModules(device), 0);
+}
+
+/** Rail devices in scheme order (no PE/N bus bars). */
+export function playDevices(panel: PanelObject): Device[] {
+  if (!Array.isArray(panel.devices)) return [];
+  return groupDevicesByRail(panel.devices, panel.railCount).flat();
 }
 
 export function collectedDeviceIds(
