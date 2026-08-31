@@ -9,10 +9,10 @@ const STORAGE_KEY = "elektropasport:school-paid";
 const SCHOOL_SERVICE_PREFIX = "school:";
 
 export const SCHOOL_GRADE_PRICE_RUB: Record<GradeId, number> = {
-  1: 299,
-  2: 499,
-  3: 999,
-  4: 99,
+  1: 500,
+  2: 1000,
+  3: 2000,
+  4: 200,
 };
 
 export const SCHOOL_GRADE_PAYMENT_TITLE: Record<GradeId, string> = {
