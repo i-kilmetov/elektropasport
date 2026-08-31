@@ -182,28 +182,22 @@ export function MainMenuSheet({
           </div>
 
           {showInstallApps && (
-            <div className="mt-4 flex gap-2">
+            <div className="mt-4 flex items-center justify-start gap-6 px-1">
               <button
                 type="button"
                 onClick={() => setInstallPlatform("ios")}
-                className="flex flex-1 flex-col items-center gap-1.5 rounded-[20px] border border-black/8 bg-zinc-50 px-3 py-3 transition-colors hover:bg-zinc-100"
+                className="text-zinc-400 transition-colors hover:text-zinc-600"
                 aria-label="Приложение для iPhone"
               >
-                <span className="flex h-11 w-11 items-center justify-center rounded-[16px] bg-zinc-100 text-zinc-500 grayscale">
-                  <AppleIcon className="h-5 w-5" />
-                </span>
-                <span className="ty-meta text-zinc-500">iPhone</span>
+                <AppleIcon />
               </button>
               <button
                 type="button"
                 onClick={() => setInstallPlatform("android")}
-                className="flex flex-1 flex-col items-center gap-1.5 rounded-[20px] border border-black/8 bg-zinc-50 px-3 py-3 transition-colors hover:bg-zinc-100"
+                className="text-zinc-400 transition-colors hover:text-zinc-600"
                 aria-label="Приложение для Android"
               >
-                <span className="flex h-11 w-11 items-center justify-center rounded-[16px] bg-zinc-100 text-zinc-500 grayscale">
-                  <AndroidIcon className="h-5 w-5" />
-                </span>
-                <span className="ty-meta text-zinc-500">Android</span>
+                <AndroidIcon />
               </button>
             </div>
           )}
