@@ -128,6 +128,10 @@ import {
 } from "@/lib/user-data";
 import { mergeAppliancesWithEquipmentLabels } from "@/lib/appliance-line-sync";
 import {
+  fetchPanelPhotoObjectUrl,
+  uploadPanelPhoto,
+} from "@/lib/panel-photo-client";
+import {
   groundingToHasGround,
 } from "@/lib/house-insight";
 import { buildPanelHouseSnapshot } from "@/lib/house-insight-local";
@@ -863,7 +867,17 @@ export function AppShell({
                 deriveRailCount(result.devices),
               safety: null,
             };
-            void persistPanel(next).catch((error) => console.error(error));
+            void persistPanel(next)
+              .then(() => {
+                const nextPhoto = photoDataUrl ?? item.photoDataUrl;
+                if (nextPhoto) {
+                  return uploadPanelPhoto({
+                    panelId,
+                    photoDataUrl: nextPhoto,
+                  });
+                }
+              })
+              .catch((error) => console.error(error));
             return next;
           }),
         );
@@ -911,7 +925,13 @@ export function AppShell({
 
       setItems((prev) => [panel, ...prev]);
       setItemsError(null);
-      void persistPanel(panel).catch((error) => {
+      void persistPanel(panel)
+        .then(() => {
+          if (photoDataUrl) {
+            return uploadPanelPhoto({ panelId: id, photoDataUrl });
+          }
+        })
+        .catch((error) => {
         console.error(error);
         setItemsError(
           error instanceof Error
@@ -1070,6 +1090,23 @@ export function AppShell({
       setPhotoDataUrl(
         typeof panel.photoDataUrl === "string" ? panel.photoDataUrl : null,
       );
+      if (typeof panel.photoDataUrl !== "string" && canUseServerAuth()) {
+        void fetchPanelPhotoObjectUrl(panel.id)
+          .then((url) => {
+            if (!url) return;
+            setPhotoDataUrl(url);
+            setItems((prev) =>
+              prev.map((item) =>
+                item.kind === "panel" && item.id === panel.id
+                  ? { ...item, photoDataUrl: url }
+                  : item,
+              ),
+            );
+          })
+          .catch((error) =>
+            console.error("fetchPanelPhoto failed", panel.id, error),
+          );
+      }
       setDevices(nextDevices);
       setSafetyScore(
         panel.phases &&
@@ -1127,6 +1164,22 @@ export function AppShell({
             );
             if (typeof remote.photoDataUrl === "string") {
               setPhotoDataUrl(remote.photoDataUrl);
+            } else {
+              void fetchPanelPhotoObjectUrl(panel.id)
+                .then((url) => {
+                  if (!url) return;
+                  setPhotoDataUrl(url);
+                  setItems((prev) =>
+                    prev.map((item) =>
+                      item.kind === "panel" && item.id === panel.id
+                        ? { ...item, photoDataUrl: url }
+                        : item,
+                    ),
+                  );
+                })
+                .catch((error) =>
+                  console.error("fetchPanelPhoto failed", panel.id, error),
+                );
             }
           })
           .catch((error) => {

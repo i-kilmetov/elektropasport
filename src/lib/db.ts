@@ -554,6 +554,19 @@ export async function ensureSchema(): Promise<void> {
         CREATE INDEX IF NOT EXISTS appliance_passport_photos_appliance_idx
         ON appliance_passport_photos (owner_telegram_id, panel_id, appliance_id)
       `;
+      await sql`
+        CREATE TABLE IF NOT EXISTS panel_photos (
+          panel_id TEXT PRIMARY KEY REFERENCES panels(id) ON DELETE CASCADE,
+          owner_telegram_id BIGINT NOT NULL REFERENCES users(telegram_id) ON DELETE CASCADE,
+          mime TEXT NOT NULL,
+          bytes BYTEA NOT NULL,
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+      `;
+      await sql`
+        CREATE INDEX IF NOT EXISTS panel_photos_owner_idx
+        ON panel_photos (owner_telegram_id)
+      `;
 
       // One-time factory reset requested for clean testing.
       const [freshStart] = (await sql`
@@ -2717,4 +2730,63 @@ export async function deleteAppliancePassportPhoto(
     RETURNING id
   `;
   return rows.length > 0;
+}
+
+export type PanelPhoto = {
+  panelId: string;
+  mime: string;
+  bytes: Uint8Array;
+  updatedAt: string;
+};
+
+export async function upsertPanelPhoto(input: {
+  ownerTelegramId: number;
+  panelId: string;
+  mime: string;
+  bytes: Uint8Array;
+}): Promise<void> {
+  const sql = getSql();
+  await ensureSchema();
+  await sql`
+    INSERT INTO panel_photos (
+      panel_id, owner_telegram_id, mime, bytes, updated_at
+    )
+    VALUES (
+      ${input.panelId},
+      ${input.ownerTelegramId},
+      ${input.mime},
+      ${byteaParam(input.bytes)}::bytea,
+      NOW()
+    )
+    ON CONFLICT (panel_id) DO UPDATE SET
+      mime = EXCLUDED.mime,
+      bytes = EXCLUDED.bytes,
+      updated_at = NOW()
+  `;
+}
+
+export async function getPanelPhoto(
+  telegramUserId: number,
+  panelId: string,
+): Promise<PanelPhoto | null> {
+  const sql = getSql();
+  await ensureSchema();
+  const [row] = (await sql`
+    SELECT panel_id, mime, bytes, updated_at
+    FROM panel_photos
+    WHERE panel_id = ${panelId} AND owner_telegram_id = ${telegramUserId}
+    LIMIT 1
+  `) as Array<{
+    panel_id: string;
+    mime: string;
+    bytes: unknown;
+    updated_at: string | Date;
+  }>;
+  if (!row) return null;
+  return {
+    panelId: row.panel_id,
+    mime: row.mime || "image/jpeg",
+    bytes: bytesFromBytea(row.bytes),
+    updatedAt: new Date(row.updated_at).toISOString(),
+  };
 }

@@ -23,6 +23,7 @@ import {
   HelpCircle,
   ImageIcon,
   MoreHorizontal,
+  PenLine,
   Pencil,
   Plus,
   Shield,
@@ -71,7 +72,7 @@ import {
   panelHasConfirmedInputBreaker,
 } from "@/lib/input-breaker-diagnostics";
 import { WireSpecSheet } from "@/components/ui/wire-spec-sheet";
-import { WaitlistSheet } from "@/components/ui/waitlist-sheet";
+import { InfoDialog } from "@/components/ui/info-dialog";
 import { Portal } from "@/components/ui/portal";
 import { SchemeOnboardingTour } from "@/components/ui/scheme-onboarding-tour";
 import { deviceTypeGuide } from "@/lib/panel-device-guide";
@@ -1846,7 +1847,8 @@ export function SchemeScreen({
   const [lineHintDismissed, setLineHintDismissed] = useState(() =>
     isSchemeLineHintDismissed(panelId),
   );
-  const [terminalsWaitlistOpen, setTerminalsWaitlistOpen] = useState(false);
+  const [terminalsFlashOn, setTerminalsFlashOn] = useState(false);
+  const [terminalsUnavailableOpen, setTerminalsUnavailableOpen] = useState(false);
   const [wireDraft, setWireDraft] = useState<{
     from: TerminalRef;
     x: number;
@@ -2538,17 +2540,6 @@ export function SchemeScreen({
                     className="flex w-full items-center gap-2 px-4 py-3 text-left text-[15px] text-zinc-900 hover:bg-zinc-50"
                     onClick={() => {
                       setMenuOpen(false);
-                      openStickers();
-                    }}
-                  >
-                    <StickerBadgeIcon className="h-4 w-4 text-zinc-600" />
-                    Стикеры в щиток
-                  </button>
-                  <button
-                    type="button"
-                    className="flex w-full items-center gap-2 px-4 py-3 text-left text-[15px] text-zinc-900 hover:bg-zinc-50"
-                    onClick={() => {
-                      setMenuOpen(false);
                       void (async () => {
                         const url = await onShare?.();
                         if (url) setShareUrl(url);
@@ -2568,6 +2559,29 @@ export function SchemeScreen({
                   >
                     <Pencil className="h-4 w-4 text-zinc-600" />
                     Переименовать
+                  </button>
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-2 px-4 py-3 text-left text-[15px] text-zinc-900 hover:bg-zinc-50"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      setTab("scheme");
+                      railEdit.enterEdit();
+                    }}
+                  >
+                    <PenLine className="h-4 w-4 text-zinc-600" />
+                    Редактировать щиток
+                  </button>
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-2 px-4 py-3 text-left text-[15px] text-zinc-900 hover:bg-zinc-50"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      openStickers();
+                    }}
+                  >
+                    <StickerBadgeIcon className="h-4 w-4 text-zinc-600" />
+                    Наклейки в щиток
                   </button>
                   <button
                     type="button"
@@ -2630,12 +2644,17 @@ export function SchemeScreen({
           <button
             type="button"
             role="switch"
-            aria-checked={showTerminals && canUseTerminals}
+            aria-checked={
+              (showTerminals && canUseTerminals) || terminalsFlashOn
+            }
             aria-label="Клеммы"
             onClick={() => {
               if (!canUseTerminals) {
-                setShowTerminals(false);
-                setTerminalsWaitlistOpen(true);
+                setTerminalsFlashOn(true);
+                window.setTimeout(() => {
+                  setTerminalsFlashOn(false);
+                  setTerminalsUnavailableOpen(true);
+                }, 220);
                 return;
               }
               setTab("scheme");
@@ -2652,13 +2671,16 @@ export function SchemeScreen({
             }}
             className={cn(
               "relative h-7 w-12 shrink-0 rounded-full transition-colors duration-200",
-              showTerminals && canUseTerminals ? "bg-zinc-900" : "bg-zinc-200",
+              (showTerminals && canUseTerminals) || terminalsFlashOn
+                ? "bg-zinc-900"
+                : "bg-zinc-200",
             )}
           >
             <span
               className={cn(
                 "absolute top-0.5 left-0.5 h-6 w-6 rounded-full bg-white shadow-sm transition-transform duration-200",
-                showTerminals && canUseTerminals && "translate-x-5",
+                ((showTerminals && canUseTerminals) || terminalsFlashOn) &&
+                  "translate-x-5",
               )}
             />
           </button>
@@ -2746,7 +2768,7 @@ export function SchemeScreen({
                 <span />
               ) : (
                 <span className="ty-meta">
-                  Удерживайте прибор, чтобы изменить схему
+                  Меню ⋯ → Редактировать щиток
                 </span>
               )}
               <span className="ty-meta">
@@ -2895,7 +2917,10 @@ export function SchemeScreen({
                       style={{ gap: DEVICE_GAP_PX }}
                     >
                       {nodes}
-                      {isLastRail && !sharedPreview && onUpdateDevices && (
+                      {isLastRail &&
+                        !sharedPreview &&
+                        onUpdateDevices &&
+                        railEdit.editing && (
                         <button
                           type="button"
                           aria-label="Добавить прибор"
@@ -2999,8 +3024,7 @@ export function SchemeScreen({
               <div className="flex aspect-[4/3] flex-col items-center justify-center gap-3 px-6 text-zinc-400">
                 <ImageIcon className="h-10 w-10" />
                 <p className="max-w-[280px] text-center ty-body">
-                  Фотография щитка доступна только на том устройстве, с которого
-                  была сделана или загружена фотография.
+                  Фотография щитка пока недоступна на этом устройстве.
                 </p>
               </div>
             )}
@@ -3179,10 +3203,11 @@ export function SchemeScreen({
       </AnimatePresence>
 
       <AnimatePresence>
-        {terminalsWaitlistOpen && (
-          <WaitlistSheet
-            kind="terminals"
-            onClose={() => setTerminalsWaitlistOpen(false)}
+        {terminalsUnavailableOpen && (
+          <InfoDialog
+            title="Клеммы"
+            description="Редактирование клемм пока недоступно. Функция появится в одном из следующих обновлений."
+            onClose={() => setTerminalsUnavailableOpen(false)}
           />
         )}
       </AnimatePresence>
