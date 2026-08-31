@@ -1,6 +1,7 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { useEffect, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowRight,
   Gamepad2,
@@ -12,8 +13,14 @@ import {
   X,
 } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
+import { AppleIcon, AndroidIcon } from "@/components/icons/platform-icons";
+import {
+  InstallAppSheet,
+  type InstallAppPlatform,
+} from "@/components/ui/install-app-sheet";
 import { Portal } from "@/components/ui/portal";
 import { APP_VERSION } from "@/lib/app-version";
+import { shouldShowInstallAppPrompt } from "@/lib/web-push-client";
 
 export type MainMenuId =
   | "profile"
@@ -82,7 +89,15 @@ export function MainMenuSheet({
   isAdmin?: boolean;
   onMasterModeChange?: (next: boolean) => void;
 }) {
+  const [showInstallApps, setShowInstallApps] = useState(false);
+  const [installPlatform, setInstallPlatform] = useState<InstallAppPlatform | null>(
+    null,
+  );
   const canEnterMasterMode = (isMaster || isAdmin) && Boolean(onMasterModeChange);
+
+  useEffect(() => {
+    setShowInstallApps(shouldShowInstallAppPrompt());
+  }, []);
 
   const visibleItems = items.filter((item) => {
     if (item.id === "master" && isMaster) return false;
@@ -166,11 +181,47 @@ export function MainMenuSheet({
             )}
           </div>
 
+          {showInstallApps && (
+            <div className="mt-4 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setInstallPlatform("ios")}
+                className="flex flex-1 flex-col items-center gap-1.5 rounded-[20px] border border-black/8 bg-zinc-50 px-3 py-3 transition-colors hover:bg-zinc-100"
+                aria-label="Приложение для iPhone"
+              >
+                <span className="flex h-11 w-11 items-center justify-center rounded-[16px] bg-zinc-100 text-zinc-500 grayscale">
+                  <AppleIcon className="h-5 w-5" />
+                </span>
+                <span className="ty-meta text-zinc-500">iPhone</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setInstallPlatform("android")}
+                className="flex flex-1 flex-col items-center gap-1.5 rounded-[20px] border border-black/8 bg-zinc-50 px-3 py-3 transition-colors hover:bg-zinc-100"
+                aria-label="Приложение для Android"
+              >
+                <span className="flex h-11 w-11 items-center justify-center rounded-[16px] bg-zinc-100 text-zinc-500 grayscale">
+                  <AndroidIcon className="h-5 w-5" />
+                </span>
+                <span className="ty-meta text-zinc-500">Android</span>
+              </button>
+            </div>
+          )}
+
           <p className="mt-5 text-center ty-meta tabular-nums">
             {APP_VERSION}
           </p>
         </motion.div>
       </motion.div>
+
+      <AnimatePresence>
+        {installPlatform && (
+          <InstallAppSheet
+            platform={installPlatform}
+            onClose={() => setInstallPlatform(null)}
+          />
+        )}
+      </AnimatePresence>
     </Portal>
   );
 }

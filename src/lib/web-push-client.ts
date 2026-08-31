@@ -24,6 +24,19 @@ export function isIosDevice(): boolean {
   );
 }
 
+export function isAndroidDevice(): boolean {
+  if (typeof window === "undefined") return false;
+  return /Android/i.test(window.navigator.userAgent);
+}
+
+/** Regular browser tab — not Telegram Mini App and not installed PWA. */
+export function shouldShowInstallAppPrompt(): boolean {
+  if (typeof window === "undefined") return false;
+  if (isTelegramMiniApp()) return false;
+  if (isStandaloneDisplay()) return false;
+  return true;
+}
+
 export function isStandaloneDisplay(): boolean {
   if (typeof window === "undefined") return false;
   const media = window.matchMedia("(display-mode: standalone)").matches;
