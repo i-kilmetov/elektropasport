@@ -576,11 +576,12 @@ export function BrandLaunchWaitlist({
   const [viewportHeight, setViewportHeight] = useState<number | null>(null);
   const [viewportOffsetTop, setViewportOffsetTop] = useState(0);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
+  const [phoneFocused, setPhoneFocused] = useState(startAtPhone);
   const rootRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const phoneReady = isCompleteRuPhone(phone);
-  const phoneStarted = ruNationalDigits(phone).length > 0;
+  const showOk = phoneFocused || ruNationalDigits(phone).length > 0;
 
   useEffect(() => {
     if (startAtPhone) return;
@@ -670,6 +671,7 @@ export function BrandLaunchWaitlist({
     node.focus({ preventScroll: true });
     const caret = node.value.length;
     node.setSelectionRange(caret, caret);
+    setPhoneFocused(true);
   }, [cta, done]);
 
   const keepInPlace = () => {
@@ -789,7 +791,10 @@ export function BrandLaunchWaitlist({
                 setPhone(formatRuPhone(event.currentTarget.value));
                 setError(null);
               }}
-              onFocus={keepInPlace}
+              onFocus={() => {
+                setPhoneFocused(true);
+                keepInPlace();
+              }}
               onBlur={(event) => {
                 setPhone(formatRuPhone(event.target.value));
                 keepInPlace();
@@ -798,7 +803,7 @@ export function BrandLaunchWaitlist({
               aria-label="Телефон для новости об открытии"
             />
             <AnimatePresence initial={false}>
-              {phoneStarted ? (
+              {showOk ? (
                 <motion.button
                   key="ok"
                   type="submit"
@@ -807,7 +812,11 @@ export function BrandLaunchWaitlist({
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.85 }}
                   transition={{ duration: 0.18, ease: "easeOut" }}
-                  className="shrink-0 rounded-full bg-white px-4 py-2 text-[14px] font-semibold text-[#111113] disabled:cursor-not-allowed disabled:opacity-35"
+                  className={
+                    phoneReady && !submitting
+                      ? "shrink-0 rounded-full bg-white px-4 py-2 text-[14px] font-semibold text-[#111113]"
+                      : "shrink-0 cursor-not-allowed rounded-full bg-zinc-500 px-4 py-2 text-[14px] font-semibold text-zinc-300"
+                  }
                 >
                   {submitting ? "…" : "OK"}
                 </motion.button>
