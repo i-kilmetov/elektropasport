@@ -46,6 +46,8 @@ const WAITLIST_OKOM_LETTER_STAGGER_S = 0.09;
 const WAITLIST_OKOM_LETTER_DURATION_S = 0.4;
 /** Brief hold after the last letter so the wordmark reads before the CTA. */
 const WAITLIST_NOTIFY_AFTER_LOGO_MS = 180;
+/** Inverted T pulses, then flips into the wordmark without a tap. */
+const WAITLIST_PULSE_BEFORE_FLIP_MS = 3000;
 const PHONE_PREFIX = "+7";
 /** Inverted T stays up at least this long so it reads as a loader. */
 const SPLASH_LOADER_MIN_MS = 900;
@@ -576,15 +578,36 @@ export function BrandLaunchWaitlist({
   const [keyboardOpen, setKeyboardOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const flipTimersRef = useRef<number[]>([]);
 
   const phoneReady = isCompleteRuPhone(phone);
+  const phoneStarted = ruNationalDigits(phone).length > 0;
 
   useEffect(() => {
+    if (startAtPhone) return;
+    const pulse = window.setTimeout(() => {
+      setTUpright(true);
+    }, WAITLIST_PULSE_BEFORE_FLIP_MS);
+    return () => window.clearTimeout(pulse);
+  }, [startAtPhone]);
+
+  useEffect(() => {
+    if (startAtPhone || !tUpright || cta !== "flip") return;
+    const reveal = window.setTimeout(() => {
+      setRestRevealed(true);
+    }, WAITLIST_FLIP_DURATION_S * 1000);
+    const lastLetterMs =
+      (WAITLIST_OKOM_LETTER_DELAY_S +
+        (WORDMARK_REST.length - 1) * WAITLIST_OKOM_LETTER_STAGGER_S +
+        WAITLIST_OKOM_LETTER_DURATION_S) *
+      1000;
+    const notify = window.setTimeout(() => {
+      setCta("notify");
+    }, WAITLIST_FLIP_DURATION_S * 1000 + lastLetterMs + WAITLIST_NOTIFY_AFTER_LOGO_MS);
     return () => {
-      for (const id of flipTimersRef.current) window.clearTimeout(id);
+      window.clearTimeout(reveal);
+      window.clearTimeout(notify);
     };
-  }, []);
+  }, [cta, startAtPhone, tUpright]);
 
   useEffect(() => {
     const html = document.documentElement;
@@ -659,23 +682,6 @@ export function BrandLaunchWaitlist({
     });
   };
 
-  const flipEarth = () => {
-    if (cta !== "flip" || tUpright) return;
-    setTUpright(true);
-    const reveal = window.setTimeout(() => {
-      setRestRevealed(true);
-    }, WAITLIST_FLIP_DURATION_S * 1000);
-    const lastLetterMs =
-      (WAITLIST_OKOM_LETTER_DELAY_S +
-        (WORDMARK_REST.length - 1) * WAITLIST_OKOM_LETTER_STAGGER_S +
-        WAITLIST_OKOM_LETTER_DURATION_S) *
-      1000;
-    const notify = window.setTimeout(() => {
-      setCta("notify");
-    }, WAITLIST_FLIP_DURATION_S * 1000 + lastLetterMs + WAITLIST_NOTIFY_AFTER_LOGO_MS);
-    flipTimersRef.current.push(reveal, notify);
-  };
-
   const openPhone = () => {
     if (cta !== "notify") return;
     setError(null);
@@ -710,22 +716,7 @@ export function BrandLaunchWaitlist({
   return (
     <div
       ref={rootRef}
-      role={cta === "flip" && !tUpright ? "button" : undefined}
-      tabIndex={cta === "flip" && !tUpright ? 0 : undefined}
-      onClick={cta === "flip" && !tUpright ? flipEarth : undefined}
-      onKeyDown={
-        cta === "flip" && !tUpright
-          ? (event) => {
-              if (event.key === "Enter" || event.key === " ") {
-                event.preventDefault();
-                flipEarth();
-              }
-            }
-          : undefined
-      }
-      className={`fixed inset-0 z-[200] flex h-[100dvh] min-h-[100dvh] touch-none flex-col items-center overflow-hidden px-5${
-        cta === "flip" && !tUpright ? " cursor-pointer" : ""
-      }`}
+      className="fixed inset-0 z-[200] flex h-[100dvh] min-h-[100dvh] touch-none flex-col items-center overflow-hidden px-5"
       style={{
         backgroundColor: BRAND_YELLOW,
         ...(keyboardOpen && viewportHeight
@@ -740,11 +731,7 @@ export function BrandLaunchWaitlist({
           ? "0.75rem"
           : "max(1.75rem, env(safe-area-inset-bottom))",
       }}
-      aria-label={
-        cta === "flip" && !tUpright
-          ? "Током — нажмите, чтобы перевернуть букву"
-          : "Током — подписка на открытие"
-      }
+      aria-label="Током — подписка на открытие"
     >
       <div className="relative min-h-0 w-full flex-1">
         <div
@@ -758,7 +745,7 @@ export function BrandLaunchWaitlist({
           <BrandMark
             tagline=""
             taglineVisible={false}
-            stripesPulsing
+            stripesPulsing={!tUpright}
             restRevealed={restRevealed}
             tPlayOnMount={false}
             tUpright={tUpright}
@@ -811,16 +798,16 @@ export function BrandLaunchWaitlist({
               aria-label="Телефон для новости об открытии"
             />
             <AnimatePresence initial={false}>
-              {phoneReady ? (
+              {phoneStarted ? (
                 <motion.button
                   key="ok"
                   type="submit"
-                  disabled={submitting}
+                  disabled={!phoneReady || submitting}
                   initial={{ opacity: 0, scale: 0.85 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.85 }}
                   transition={{ duration: 0.18, ease: "easeOut" }}
-                  className="shrink-0 rounded-full bg-white px-4 py-2 text-[14px] font-semibold text-[#111113] disabled:opacity-60"
+                  className="shrink-0 rounded-full bg-white px-4 py-2 text-[14px] font-semibold text-[#111113] disabled:cursor-not-allowed disabled:opacity-35"
                 >
                   {submitting ? "…" : "OK"}
                 </motion.button>

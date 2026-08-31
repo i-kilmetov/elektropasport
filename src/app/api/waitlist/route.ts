@@ -120,7 +120,7 @@ export async function POST(request: Request) {
         ${telegramId},
         NOW()
       )
-      ON CONFLICT (list, email) DO UPDATE SET
+      ON CONFLICT (id) DO UPDATE SET
         telegram_user_id = COALESCE(EXCLUDED.telegram_user_id, waitlist.telegram_user_id),
         created_at = waitlist.created_at
     `;
@@ -137,6 +137,13 @@ export async function POST(request: Request) {
 
     return Response.json({ ok: true });
   } catch (error) {
-    return dbErrorResponse(error) ?? authErrorResponse(error);
+    const db = dbErrorResponse(error);
+    if (db) return db;
+    if (error instanceof AuthError) return authErrorResponse(error);
+    console.error("POST /api/waitlist", error);
+    return Response.json(
+      { error: "Не удалось сохранить номер. Попробуйте ещё раз." },
+      { status: 500 },
+    );
   }
 }
