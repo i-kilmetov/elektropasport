@@ -569,6 +569,27 @@ export async function notifyAdminResearchSurvey(payload: {
   });
 }
 
+export async function notifyAdminSchoolPurchase(payload: {
+  telegramUserId: number;
+  gradeId: 1 | 2 | 3 | 4;
+  gradeTitle: string;
+  amountRub: number;
+  orderId: string;
+}): Promise<void> {
+  await sendToAdmins({
+    text: [
+      "🎓 Школа Током — оплата класса",
+      "",
+      `Класс: ${payload.gradeTitle}`,
+      `Сумма: ${payload.amountRub.toLocaleString("ru-RU")} ₽`,
+      `Заказ: ${payload.orderId}`,
+      `Telegram user id: ${payload.telegramUserId}`,
+      `Время: ${new Date().toLocaleString("ru-RU", { timeZone: "Europe/Moscow" })} (МСК)`,
+    ].join("\n"),
+    disable_web_page_preview: true,
+  });
+}
+
 export async function notifyAdminWaitlist(payload: {
   list: string;
   email: string;

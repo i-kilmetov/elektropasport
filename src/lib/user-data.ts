@@ -1820,6 +1820,50 @@ export async function fetchSbpPayment(id: string): Promise<SbpPaymentClient> {
   return (await res.json()) as SbpPaymentClient;
 }
 
+export async function fetchSchoolPaidGrades(): Promise<
+  import("@/lib/school/types").GradeId[]
+> {
+  if (!canUseServer()) return [];
+  const res = await fetch("/api/school/access", {
+    headers: { ...authHeaders() },
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  const data = (await res.json()) as { paidGrades?: unknown };
+  if (!Array.isArray(data.paidGrades)) return [];
+  return data.paidGrades.filter(
+    (value): value is 1 | 2 | 3 | 4 =>
+      value === 1 || value === 2 || value === 3 || value === 4,
+  );
+}
+
+export async function createSchoolPayment(
+  gradeId: import("@/lib/school/types").GradeId,
+): Promise<SbpPaymentClient> {
+  if (!canUseServer()) {
+    throw new Error("Оплата доступна после входа через Telegram");
+  }
+  const res = await fetch("/api/payments/school", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders(),
+    },
+    body: JSON.stringify({ gradeId }),
+  });
+  if (res.status === 409) {
+    return {
+      id: "already-paid",
+      amountRub: 0,
+      status: "confirmed",
+      qrPayload: null,
+      qrImage: null,
+      tbankPaymentId: null,
+    };
+  }
+  if (!res.ok) throw new Error(await parseError(res));
+  return (await res.json()) as SbpPaymentClient;
+}
+
 export function openSbpPayload(payload: string): void {
   const url = payload.startsWith("http")
     ? payload

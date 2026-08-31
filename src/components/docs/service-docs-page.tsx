@@ -14,7 +14,7 @@ const SECTIONS = [
   { id: "ai", label: "Анализ фото (AI)" },
   { id: "address", label: "Адрес и данные дома" },
   { id: "leads", label: "Заявки и услуги" },
-  { id: "payments", label: "Оплата СБП" },
+              { id: "payments", label: "Оплата" },
   { id: "masters", label: "Мастера" },
   { id: "storage", label: "Где что хранится" },
   { id: "api", label: "API" },
@@ -688,17 +688,21 @@ export function ServiceDocsPage() {
             </section>
 
             <section>
-              <H2 id="payments">Оплата СБП</H2>
+              <H2 id="payments">Оплата</H2>
               <Ul>
                 <li>
                   Провайдер: <strong>ЮKassa</strong> (для самозанятых).
                 </li>
                 <li>
-                  Типичные цены: онлайн-консультация 499 ₽; вызов мастера — по
-                  тарифу выезда. Услуга «другое» без фиксцены — без СБП.
+                  Услуги мастера: онлайн-консультация 499 ₽; вызов мастера — по
+                  тарифу выезда. Услуга «другое» без фиксцены — без оплаты.
+                  <Code>POST /api/payments/sbp</Code> создаёт платёж СБП.
                 </li>
                 <li>
-                  <Code>POST /api/payments/sbp</Code> создаёт платёж и QR.
+                  Школа Током: <Code>POST /api/payments/school</Code> создаёт
+                  оплату класса (карта / СБП / другие методы магазина). Доступ
+                  пишется в <Code>users.school_paid_grades</Code>. Клиент читает
+                  его через <Code>GET /api/school/access</Code>.
                 </li>
                 <li>
                   Подтверждение: webhook{" "}
@@ -706,8 +710,9 @@ export function ServiceDocsPage() {
                   <Code>GET /api/payments/sbp/[id]</Code>.
                 </li>
                 <li>
-                  После <Code>confirmed</Code> создаётся заявка из{" "}
-                  <Code>lead_payload</Code>, админ получает уведомление.
+                  После <Code>confirmed</Code> для услуг мастера создаётся заявка
+                  из <Code>lead_payload</Code>; для школы открывается класс.
+                  Админ получает уведомление.
                 </li>
                 <li>
                   Таблица <Code>sbp_payments</Code> (колонка{" "}
@@ -757,7 +762,7 @@ export function ServiceDocsPage() {
                 rows={[
                   [
                     "users",
-                    "Telegram id, профиль, invite_token, role, is_admin, panel_limit_unlocked, pd_consent",
+                    "Telegram id, профиль, invite_token, role, is_admin, panel_limit_unlocked, pd_consent, school_paid_grades",
                   ],
                   [
                     "panels",
@@ -772,7 +777,7 @@ export function ServiceDocsPage() {
                     "Кто кого пригласил, credited / already_member",
                   ],
                   ["panel_shares", "Токены шаринга щитка"],
-                  ["sbp_payments", "Платежи СБП и lead_payload"],
+                  ["sbp_payments", "Платежи ЮKassa: услуги мастера и школа"],
                   [
                     "master_applications / master_feedback / master_dispatch_messages",
                     "Анкеты, фидбек, Telegram message ids",
@@ -865,6 +870,8 @@ export function ServiceDocsPage() {
                   ["POST", "/api/master/feedback", "Фидбек"],
                   ["POST", "/api/payments/sbp", "Создать СБП"],
                   ["GET", "/api/payments/sbp/[id]", "Статус платежа"],
+                  ["POST", "/api/payments/school", "Оплата класса школы"],
+                  ["GET", "/api/school/access", "Оплаченные классы"],
                   ["POST", "/api/payments/yookassa-notify", "Webhook ЮKassa"],
                 ]}
               />
@@ -919,7 +926,7 @@ export function ServiceDocsPage() {
                   [
                     "ЮKassa",
                     "YOOKASSA_SHOP_ID, YOOKASSA_SECRET_KEY",
-                    "СБП",
+                    "СБП услуг и оплата школы",
                   ],
                   [
                     "Google Sheets",

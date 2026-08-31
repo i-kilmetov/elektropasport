@@ -18,6 +18,8 @@ import type { PanelHouseSnapshot } from "@/lib/house-insight";
 import { countPanelDevices } from "@/lib/panel-rails";
 import { isNoPanelSetupId } from "@/lib/no-panel-setups";
 import type { AppliancePassportPhotoMeta } from "@/lib/appliance-passport";
+import type { GradeId } from "@/lib/school/types";
+import { parsePaid } from "@/lib/school/access";
 import { DbError, dbErrorResponse } from "@/lib/db-error";
 export { DbError, dbErrorResponse } from "@/lib/db-error";
 import { byteaParam, bytesFromBytea, getSql, jsonbParam } from "@/lib/sql-client";
@@ -43,7 +45,7 @@ import { ensureConnectedMoscowMaster } from "@/lib/ensure-moscow-master";
 let schemaReady: Promise<void> | null = null;
 
 /** Bump when DDL below changes so cold starts re-run migrations once. */
-const SCHEMA_VERSION = "2026-08-30-appliance-passport";
+const SCHEMA_VERSION = "2026-08-31-school-paid-grades";
 /** One-shot data wipe flag — never re-run after it is written. */
 const FRESH_START_KEY = "fresh_start_2026_08_25_b";
 /** Bumped on each factory wipe so clients drop localStorage orphans. */
@@ -425,6 +427,10 @@ export async function ensureSchema(): Promise<void> {
       await sql`
         ALTER TABLE users
         ADD COLUMN IF NOT EXISTS notify_features BOOLEAN NOT NULL DEFAULT FALSE
+      `;
+      await sql`
+        ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS school_paid_grades JSONB NOT NULL DEFAULT '[]'::jsonb
       `;
       await sql`
         ALTER TABLE users
@@ -1586,6 +1592,8 @@ export async function insertSbpPayment(
 ): Promise<SbpPaymentRecord> {
   const sql = getSql();
   const status = payment.status ?? "pending";
+  const leadJson =
+    payment.leadPayload == null ? null : jsonbParam(payment.leadPayload);
   await sql`
     INSERT INTO sbp_payments (
       id, telegram_user_id, order_id, tbank_payment_id, service_type,
@@ -1600,7 +1608,7 @@ export async function insertSbpPayment(
       ${status},
       ${payment.qrPayload},
       ${payment.qrImage},
-      ${payment.leadPayload ?? null},
+      ${leadJson}::jsonb,
       ${payment.requestId}
     )
   `;
@@ -1633,6 +1641,55 @@ export async function getSbpPaymentByTbankId(
   const rows = (await sql`
     SELECT * FROM sbp_payments
     WHERE tbank_payment_id = ${tbankPaymentId}
+    LIMIT 1
+  `) as SbpPaymentRow[];
+  return rows[0] ? rowToSbpPayment(rows[0]) : null;
+}
+
+export async function getSchoolPaidGrades(
+  telegramUserId: number,
+): Promise<GradeId[]> {
+  const sql = getSql();
+  const [row] = (await sql`
+    SELECT school_paid_grades
+    FROM users
+    WHERE telegram_id = ${telegramUserId}
+    LIMIT 1
+  `) as Array<{ school_paid_grades: unknown }>;
+  return parsePaid(row?.school_paid_grades);
+}
+
+export async function addSchoolPaidGrade(
+  telegramUserId: number,
+  gradeId: GradeId,
+): Promise<GradeId[]> {
+  const sql = getSql();
+  const gradeJson = jsonbParam([gradeId]);
+  await sql`
+    UPDATE users
+    SET
+      school_paid_grades = CASE
+        WHEN COALESCE(school_paid_grades, '[]'::jsonb) @> ${gradeJson}::jsonb
+        THEN COALESCE(school_paid_grades, '[]'::jsonb)
+        ELSE COALESCE(school_paid_grades, '[]'::jsonb) || ${gradeJson}::jsonb
+      END,
+      updated_at = NOW()
+    WHERE telegram_id = ${telegramUserId}
+  `;
+  return getSchoolPaidGrades(telegramUserId);
+}
+
+export async function getPendingSbpPaymentByService(
+  telegramUserId: number,
+  serviceType: string,
+): Promise<SbpPaymentRecord | null> {
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT * FROM sbp_payments
+    WHERE telegram_user_id = ${telegramUserId}
+      AND service_type = ${serviceType}
+      AND status = 'pending'
+    ORDER BY created_at DESC
     LIMIT 1
   `) as SbpPaymentRow[];
   return rows[0] ? rowToSbpPayment(rows[0]) : null;

@@ -67,6 +67,52 @@ export function yooKassaReturnUrl(): string {
   return "https://tokom.ru";
 }
 
+export async function yooKassaCreatePayment(input: {
+  orderId: string;
+  amountRub: number;
+  description: string;
+  metadata?: Record<string, string>;
+  returnUrl?: string;
+  /** Omit to let YooKassa show every method enabled for the shop. */
+  paymentMethod?: "sbp";
+}): Promise<{
+  paymentId: string;
+  status: string;
+  confirmationUrl: string;
+}> {
+  const payment = await yooKassaRequest("/payments", {
+    method: "POST",
+    idempotenceKey: input.orderId || randomUUID(),
+    body: {
+      amount: {
+        value: formatAmount(input.amountRub),
+        currency: "RUB",
+      },
+      capture: true,
+      description: input.description.slice(0, 128),
+      ...(input.paymentMethod
+        ? { payment_method_data: { type: input.paymentMethod } }
+        : {}),
+      confirmation: {
+        type: "redirect",
+        return_url: input.returnUrl?.trim() || yooKassaReturnUrl(),
+      },
+      metadata: input.metadata,
+    },
+  });
+
+  const confirmationUrl = payment.confirmation?.confirmation_url?.trim() ?? "";
+  if (!payment.id || !confirmationUrl) {
+    throw new Error("ЮKassa не вернула ссылку на оплату");
+  }
+
+  return {
+    paymentId: payment.id,
+    status: payment.status,
+    confirmationUrl,
+  };
+}
+
 async function yooKassaRequest(
   path: string,
   init?: {
@@ -106,40 +152,16 @@ export async function yooKassaCreateSbpPayment(input: {
   amountRub: number;
   description: string;
   metadata?: Record<string, string>;
+  returnUrl?: string;
 }): Promise<{
   paymentId: string;
   status: string;
   confirmationUrl: string;
 }> {
-  const payment = await yooKassaRequest("/payments", {
-    method: "POST",
-    idempotenceKey: input.orderId || randomUUID(),
-    body: {
-      amount: {
-        value: formatAmount(input.amountRub),
-        currency: "RUB",
-      },
-      capture: true,
-      description: input.description.slice(0, 128),
-      payment_method_data: { type: "sbp" },
-      confirmation: {
-        type: "redirect",
-        return_url: yooKassaReturnUrl(),
-      },
-      metadata: input.metadata,
-    },
+  return yooKassaCreatePayment({
+    ...input,
+    paymentMethod: "sbp",
   });
-
-  const confirmationUrl = payment.confirmation?.confirmation_url?.trim() ?? "";
-  if (!payment.id || !confirmationUrl) {
-    throw new Error("ЮKassa не вернула ссылку на оплату СБП");
-  }
-
-  return {
-    paymentId: payment.id,
-    status: payment.status,
-    confirmationUrl,
-  };
 }
 
 export async function yooKassaGetPayment(

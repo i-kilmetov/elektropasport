@@ -1,12 +1,17 @@
 import type { PendingInstallLead } from "@/lib/pending-lead";
 import {
+  addSchoolPaidGrade,
   getSbpPaymentByTbankId,
   insertInstallRequest,
   updateSbpPayment,
   type SbpPaymentRecord,
 } from "@/lib/db";
 import { installRequestFromLead } from "@/lib/install-request";
-import { notifyAdminNewInstallRequest } from "@/lib/telegram-notify";
+import {
+  parseSchoolGradeId,
+  SCHOOL_GRADE_PAYMENT_TITLE,
+} from "@/lib/school/access";
+import { notifyAdminNewInstallRequest, notifyAdminSchoolPurchase } from "@/lib/telegram-notify";
 import { mapYooKassaStatus, yooKassaGetPayment } from "@/lib/yookassa";
 
 export async function refreshSbpPaymentFromBank(
@@ -32,6 +37,29 @@ export async function refreshSbpPaymentFromBank(
 export async function fulfillConfirmedSbpPayment(
   payment: SbpPaymentRecord,
 ): Promise<SbpPaymentRecord> {
+  const gradeId = parseSchoolGradeId(payment.serviceType);
+  if (gradeId) {
+    await addSchoolPaidGrade(payment.telegramUserId, gradeId);
+    if (payment.status === "confirmed") return payment;
+    const next =
+      (await updateSbpPayment(payment.id, { status: "confirmed" })) ?? {
+        ...payment,
+        status: "confirmed" as const,
+      };
+    try {
+      await notifyAdminSchoolPurchase({
+        telegramUserId: payment.telegramUserId,
+        gradeId,
+        gradeTitle: SCHOOL_GRADE_PAYMENT_TITLE[gradeId],
+        amountRub: payment.amountRub,
+        orderId: payment.orderId,
+      });
+    } catch (error) {
+      console.error("Failed to notify admin about school payment", error);
+    }
+    return next;
+  }
+
   if (payment.status === "confirmed" && payment.requestId) {
     return payment;
   }

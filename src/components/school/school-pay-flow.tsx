@@ -1,14 +1,24 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { motion } from "framer-motion";
+import { ArrowLeft, Check, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { GlassCard } from "@/components/ui/glass-card";
 import { Portal } from "@/components/ui/portal";
-import { FakeSbpPayScreen } from "@/components/pay/fake-sbp-pay";
+import { canUseServerAuth } from "@/lib/client-auth";
+import { beginTelegramLogin } from "@/lib/pd-consent-client";
 import { formatRub } from "@/lib/lead-services";
+import { hapticNotification } from "@/lib/haptics";
 import { getGrade } from "@/lib/school";
 import { SCHOOL_GRADE_PRICE_RUB } from "@/lib/school/access";
 import type { GradeId } from "@/lib/school/types";
+import {
+  createSchoolPayment,
+  fetchSbpPayment,
+  openSbpPayload,
+  type SbpPaymentClient,
+} from "@/lib/user-data";
 import { cn } from "@/lib/utils";
 
 function classCaption(gradeId: GradeId): string {
@@ -28,10 +38,15 @@ export function SchoolPaySheet({
   const termsId = useId();
   const [agreed, setAgreed] = useState(false);
   const [needAgree, setNeedAgree] = useState(false);
+  const authed = canUseServerAuth();
 
   const tryPay = () => {
     if (!agreed) {
       setNeedAgree(true);
+      return;
+    }
+    if (!authed) {
+      void beginTelegramLogin("/school");
       return;
     }
     onPay();
@@ -54,13 +69,19 @@ export function SchoolPaySheet({
           onClick={(event) => event.stopPropagation()}
         >
           <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-zinc-300 lg:hidden" />
-          <h2 className="ty-title">Дальше будет оплата</h2>
+          <h2 className="ty-title">Оплата класса</h2>
           <p className="mt-2 ty-body">
             {classCaption(gradeId)} — {formatRub(price)}. После оплаты курс
-            откроется, и доступ к нему останется.
+            откроется, и доступ сохранится в вашем аккаунте.
           </p>
+          {!authed ? (
+            <p className="mt-3 ty-note">
+              Чтобы оплатить, войдите через Telegram — так доступ не пропадёт
+              при смене телефона.
+            </p>
+          ) : null}
           <Button className="mt-5 w-full" size="lg" onClick={tryPay}>
-            Оплатить обучение
+            {authed ? "Оплатить обучение" : "Войти через Telegram"}
           </Button>
           <div
             className={cn(
@@ -127,17 +148,145 @@ export function SchoolPayScreen({
 }) {
   const price = SCHOOL_GRADE_PRICE_RUB[gradeId];
   const title = classCaption(gradeId);
+  const [payment, setPayment] = useState<SbpPaymentClient | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const paidRef = useRef(false);
+
+  const startPayment = () => {
+    setLoading(true);
+    setError(null);
+    setPayment(null);
+    paidRef.current = false;
+    void createSchoolPayment(gradeId)
+      .then((created) => {
+        setPayment(created);
+        if (created.status === "confirmed") {
+          hapticNotification("success");
+        }
+      })
+      .catch((err: unknown) => {
+        setError(
+          err instanceof Error ? err.message : "Не удалось создать платёж",
+        );
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  };
+
+  useEffect(() => {
+    startPayment();
+    // One payment attempt per mount / grade.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gradeId]);
+
+  useEffect(() => {
+    if (!payment || payment.status !== "pending") return;
+    const timer = window.setInterval(() => {
+      void fetchSbpPayment(payment.id)
+        .then((next) => {
+          setPayment(next);
+          if (next.status === "confirmed" && !paidRef.current) {
+            paidRef.current = true;
+            hapticNotification("success");
+          }
+          if (next.status === "failed") {
+            setError("Оплата не прошла. Попробуйте ещё раз.");
+          }
+        })
+        .catch((err: unknown) => {
+          console.error(err);
+        });
+    }, 3000);
+    return () => window.clearInterval(timer);
+  }, [payment]);
+
+  const done = payment?.status === "confirmed";
 
   return (
-    <FakeSbpPayScreen
-      heading="Оплата обучения"
-      serviceTitle={title}
-      amountRub={price}
-      note="Учебный платёж. После подтверждения курс откроется, доступ сохранится."
-      successText={`${title} — доступ открыт. Можно приступать к урокам.`}
-      successAction="Перейти к обучению"
-      onBack={onBack}
-      onPaid={onPaid}
-    />
+    <motion.div
+      initial={{ opacity: 0, x: 40 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: -40 }}
+      className="flex min-h-0 flex-1 flex-col overflow-hidden"
+    >
+      <header className="mb-5 flex shrink-0 items-center gap-3">
+        <button
+          type="button"
+          onClick={onBack}
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-black/8 bg-zinc-100 text-zinc-900"
+          aria-label="Назад"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </button>
+        <h1 className="ty-title">Оплата обучения</h1>
+      </header>
+
+      <div className="min-h-0 flex-1 overflow-y-auto pb-4">
+        <div className="mb-5 rounded-[20px] border border-black/8 bg-zinc-50 p-4 text-center">
+          <p className="ty-note">{title}</p>
+          <p className="mt-1 text-[28px] font-bold tabular-nums text-zinc-900">
+            {formatRub(price)}
+          </p>
+          <p className="mt-2 ty-note">
+            Оплата через ЮKassa: карта, СБП и другие способы, которые подключены
+            к магазину. После подтверждения курс откроется.
+          </p>
+        </div>
+
+        {loading ? (
+          <div className="flex flex-col items-center justify-center gap-3 py-10 text-zinc-500">
+            <Loader2 className="h-8 w-8 animate-spin" />
+            <p className="text-[14px]">Готовим счёт…</p>
+          </div>
+        ) : null}
+
+        {error && !loading ? (
+          <p className="mb-4 text-center ty-body text-rose-600">{error}</p>
+        ) : null}
+
+        {done ? (
+          <GlassCard className="p-5 text-center">
+            <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500 text-white">
+              <Check className="h-7 w-7" strokeWidth={2.5} />
+            </div>
+            <h2 className="ty-title text-zinc-900">Оплата прошла</h2>
+            <p className="mt-2 ty-body">
+              {title} — доступ открыт. Можно приступать к урокам.
+            </p>
+            <Button className="mt-5 w-full" size="lg" onClick={onPaid}>
+              Перейти к обучению
+            </Button>
+          </GlassCard>
+        ) : null}
+
+        {payment?.qrPayload && payment.status === "pending" && !loading ? (
+          <div className="space-y-3">
+            <p className="text-center ty-body text-zinc-600">
+              Нажмите кнопку — откроется страница ЮKassa. Когда оплатите,
+              вернитесь сюда: доступ откроется сам.
+            </p>
+            <Button
+              className="w-full"
+              size="lg"
+              onClick={() => openSbpPayload(payment.qrPayload!)}
+            >
+              Оплатить
+            </Button>
+          </div>
+        ) : null}
+
+        {error && !loading && !done ? (
+          <Button
+            className="mt-4 w-full"
+            variant="secondary"
+            onClick={startPayment}
+          >
+            Попробовать снова
+          </Button>
+        ) : null}
+      </div>
+    </motion.div>
   );
 }

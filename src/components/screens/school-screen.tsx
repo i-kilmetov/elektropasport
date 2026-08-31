@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowLeft,
@@ -43,10 +43,11 @@ import {
   canPurchaseGrade,
   canStudyGrade,
   isGradePaid,
-  markGradePaid,
-  readPaidGrades,
+  writePaidGrades,
   SCHOOL_GRADE_PRICE_RUB,
 } from "@/lib/school/access";
+import { canUseServerAuth } from "@/lib/client-auth";
+import { fetchSchoolPaidGrades } from "@/lib/user-data";
 import {
   CHOICE_SECONDS,
   daysHoursLeft,
@@ -71,7 +72,27 @@ export function SchoolScreen({ onBack }: { onBack: () => void }) {
   );
   const [view, setView] = useState<View>({ kind: "home" });
 
-  const [paid, setPaid] = useState<GradeId[]>(() => readPaidGrades());
+  const [paid, setPaid] = useState<GradeId[]>([]);
+
+  useEffect(() => {
+    if (!canUseServerAuth()) {
+      setPaid([]);
+      return;
+    }
+    const load = () => {
+      void fetchSchoolPaidGrades()
+        .then((grades) => {
+          setPaid(grades);
+          writePaidGrades(grades);
+        })
+        .catch((error: unknown) => {
+          console.error(error);
+        });
+    };
+    load();
+    window.addEventListener("focus", load);
+    return () => window.removeEventListener("focus", load);
+  }, []);
 
   const persist = (next: SchoolProgress) => {
     writeSchoolProgress(next);
@@ -186,9 +207,21 @@ export function SchoolScreen({ onBack }: { onBack: () => void }) {
             gradeId={view.gradeId}
             onBack={goProgram}
             onPaid={() => {
-              const next = markGradePaid(view.gradeId);
-              setPaid(next);
+              const optimistic = writePaidGrades([...paid, view.gradeId]);
+              setPaid(optimistic);
               setView({ kind: "grade", gradeId: view.gradeId });
+              void fetchSchoolPaidGrades()
+                .then((grades) => {
+                  const next = writePaidGrades(
+                    grades.includes(view.gradeId)
+                      ? grades
+                      : [...grades, view.gradeId],
+                  );
+                  setPaid(next);
+                })
+                .catch((error: unknown) => {
+                  console.error(error);
+                });
             }}
           />
         )}
