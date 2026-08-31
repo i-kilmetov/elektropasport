@@ -7,15 +7,18 @@ import {
   BookOpen,
   ExternalLink,
   FileText,
+  HelpCircle,
   MoreHorizontal,
   Pencil,
   Trash2,
 } from "lucide-react";
 import { AddApplianceSheet } from "@/components/screens/add-appliance-sheet";
 import { AppliancePassportCard } from "@/components/screens/appliance-passport-card";
+import { ApplianceBrandModelPicker } from "@/components/ui/appliance-brand-model-picker";
 import { GlassCard } from "@/components/ui/glass-card";
 import { InfoDialog } from "@/components/ui/info-dialog";
 import { UndoSnackbarHost } from "@/components/ui/undo-snackbar";
+import { applianceNeedsDetails } from "@/lib/appliance-line-sync";
 import {
   applianceKindIcon,
   applianceDisplayKindLabel,
@@ -49,10 +52,12 @@ export function ApplianceDetailScreen({
   const [missingDoc, setMissingDoc] = useState<"instruction" | "manual" | null>(
     null,
   );
+  const [detailsHintOpen, setDetailsHintOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const Icon = applianceKindIcon(appliance.kind);
   const kindLabel = applianceDisplayKindLabel(appliance);
-  const brand = appliance.brand?.trim() || appliance.title;
+  const needsDetails = applianceNeedsDetails(appliance);
+  const brand = appliance.brand?.trim();
   const model = appliance.model?.trim();
 
   const catalog = useMemo(
@@ -183,15 +188,32 @@ export function ApplianceDetailScreen({
             </div>
             <div className="min-w-0 flex-1">
               <h2 className="truncate ty-title text-zinc-900">
-                <span className="font-semibold text-zinc-500">{kindLabel}</span>{" "}
-                {brand}
+                <span className="font-semibold text-zinc-500">{kindLabel}</span>
+                {brand ? <> {brand}</> : null}
+                {needsDetails && (
+                  <button
+                    type="button"
+                    onClick={() => setDetailsHintOpen(true)}
+                    className="ml-1.5 inline-flex h-6 w-6 translate-y-0.5 items-center justify-center rounded-full bg-zinc-100 text-zinc-400 transition-colors hover:bg-zinc-200 hover:text-zinc-600"
+                    aria-label="Зачем указывать производителя и модель"
+                  >
+                    <HelpCircle className="h-4 w-4" />
+                  </button>
+                )}
               </h2>
-              {model && (
-                <p className="truncate ty-body">{model}</p>
-              )}
+              {model && <p className="truncate ty-body">{model}</p>}
             </div>
           </div>
 
+          {needsDetails ? (
+            <GlassCard className="p-4">
+              <ApplianceBrandModelPicker
+                appliance={appliance}
+                onSave={onReplace}
+              />
+            </GlassCard>
+          ) : (
+            <>
           <GlassCard className="p-4">
             <h3 className="mb-3 ty-label uppercase tracking-wide text-zinc-400">
               Характеристики
@@ -218,6 +240,8 @@ export function ApplianceDetailScreen({
             appliance={appliance}
             onReplace={onReplace}
           />
+            </>
+          )}
         </div>
 
         <div className="mt-auto grid grid-cols-2 gap-3 pt-6">
@@ -319,6 +343,16 @@ export function ApplianceDetailScreen({
             : null
         }
       />
+
+      <AnimatePresence>
+        {detailsHintOpen && (
+          <InfoDialog
+            title="Производитель и модель"
+            description="Укажите производителя и модель — так мы сможем показать мощность, характеристики и документы для этой техники."
+            onClose={() => setDetailsHintOpen(false)}
+          />
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {missingDoc && (

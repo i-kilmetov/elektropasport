@@ -18,6 +18,7 @@ import {
 import {
   ChevronDown,
   ClipboardList,
+  HelpCircle,
   Menu,
   Plus,
   Wrench,
@@ -45,6 +46,7 @@ import {
   formatAppliancePower,
 } from "@/lib/home-appliances";
 import { applianceNeedsDetails } from "@/lib/appliance-line-sync";
+import { safetyBadgeColors } from "@/lib/safety-score";
 import {
   persistInstallRequest,
   persistPanel,
@@ -310,6 +312,13 @@ function ExpandableHomeCard({
     Boolean(panel.phases) &&
     Boolean(panel.powerKw?.trim()) &&
     typeof panel.safety === "number";
+  const safetyBadge = hasSafetyScore
+    ? safetyBadgeColors(panel.safety!)
+    : {
+        bg: "bg-zinc-100",
+        text: "text-zinc-500",
+        hover: "hover:bg-zinc-200",
+      };
 
   const requestExpand = () => {
     if (!expanded && !hasSeenAppliancesIntro()) {
@@ -362,7 +371,12 @@ function ExpandableHomeCard({
                 e.stopPropagation();
                 setSafetyInfoOpen(true);
               }}
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/15 ty-badge tabular-nums text-emerald-700 transition-colors hover:bg-emerald-500/25"
+              className={cn(
+                "flex h-8 w-8 items-center justify-center rounded-full text-[10px] font-semibold leading-none tabular-nums transition-colors",
+                safetyBadge.bg,
+                safetyBadge.text,
+                safetyBadge.hover,
+              )}
               aria-label="Что значит оценка безопасности"
             >
               {hasSafetyScore ? `${panel.safety}%` : "—"}
@@ -374,7 +388,7 @@ function ExpandableHomeCard({
               e.stopPropagation();
               requestExpand();
             }}
-            className="ml-1 flex h-9 w-9 items-center justify-center rounded-full border border-zinc-300 bg-zinc-100 text-zinc-700 shadow-sm transition-colors hover:border-zinc-400 hover:bg-zinc-200 hover:text-zinc-900"
+            className="ml-1 flex h-9 w-9 items-center justify-center text-zinc-500 transition-colors hover:text-zinc-800"
             aria-expanded={expanded}
             aria-label={expanded ? "Скрыть технику" : "Показать технику"}
           >
@@ -402,18 +416,14 @@ function ExpandableHomeCard({
                 const Icon = applianceKindIcon(appliance.kind);
                 const kindLabel = applianceDisplayKindLabel(appliance);
                 const needsDetails = applianceNeedsDetails(appliance);
-                const brand = appliance.brand?.trim() || appliance.title;
+                const brand = appliance.brand?.trim();
                 const model = appliance.model?.trim();
                 return (
                   <button
                     key={appliance.id}
                     type="button"
                     onClick={() => onOpenAppliance(appliance.id)}
-                    className={cn(
-                      "flex w-full items-center gap-2.5 rounded-none px-4 py-2 text-left transition-colors hover:bg-zinc-50",
-                      needsDetails &&
-                        "bg-amber-50/90 ring-1 ring-inset ring-amber-200/80 hover:bg-amber-50",
-                    )}
+                    className="flex w-full items-center gap-2.5 rounded-none px-4 py-2 text-left transition-colors hover:bg-zinc-50"
                   >
                     <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] bg-zinc-100 text-zinc-600">
                       <Icon className="h-4 w-4" />
@@ -422,24 +432,24 @@ function ExpandableHomeCard({
                       <span className="block truncate ty-label">
                         <span className="font-medium text-zinc-500">
                           {kindLabel}
-                        </span>{" "}
-                        {needsDetails ? (
-                          <span className="text-amber-800">
-                            Укажите бренд и модель
-                          </span>
-                        ) : (
-                          brand
-                        )}
+                        </span>
+                        {brand ? <> {brand}</> : null}
                       </span>
-                      {!needsDetails && model && (
+                      {model && (
                         <span className="block truncate ty-meta">
                           {model}
                         </span>
                       )}
                     </span>
-                    <span className="shrink-0 ty-label tabular-nums text-zinc-700">
-                      {formatAppliancePower(appliance.powerW)}
-                    </span>
+                    {needsDetails ? (
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-zinc-400">
+                        <HelpCircle className="h-4 w-4" />
+                      </span>
+                    ) : (
+                      <span className="shrink-0 ty-label tabular-nums text-zinc-700">
+                        {formatAppliancePower(appliance.powerW)}
+                      </span>
+                    )}
                   </button>
                 );
               })}

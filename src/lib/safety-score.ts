@@ -485,6 +485,46 @@ export function safetyTextColor(score: number): string {
   return "text-rose-600";
 }
 
+export function safetyBadgeColors(score: number): {
+  bg: string;
+  text: string;
+  hover: string;
+} {
+  if (score >= 80) {
+    return {
+      bg: "bg-emerald-500/15",
+      text: "text-emerald-700",
+      hover: "hover:bg-emerald-500/25",
+    };
+  }
+  if (score >= 65) {
+    return {
+      bg: "bg-lime-500/15",
+      text: "text-lime-700",
+      hover: "hover:bg-lime-500/25",
+    };
+  }
+  if (score >= 50) {
+    return {
+      bg: "bg-amber-400/15",
+      text: "text-amber-700",
+      hover: "hover:bg-amber-400/25",
+    };
+  }
+  if (score >= 35) {
+    return {
+      bg: "bg-orange-500/15",
+      text: "text-orange-700",
+      hover: "hover:bg-orange-500/25",
+    };
+  }
+  return {
+    bg: "bg-rose-500/15",
+    text: "text-rose-700",
+    hover: "hover:bg-rose-500/25",
+  };
+}
+
 export const safetyScoreDisclaimer =
   "Оценка считается по трём осям: защита человека, пожарная безопасность и защита техники. Сервис не проверяет, насколько корректно приборы расключены внутри щитка.";
 
