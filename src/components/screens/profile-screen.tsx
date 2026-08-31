@@ -264,7 +264,7 @@ export function ProfileScreen({
             <p className="ty-meta">Укажите имя и фамилию</p>
           )}
           <div
-            className="flex items-center justify-center pt-1 pb-5"
+            className="-mt-2 flex items-center justify-center"
             style={{ perspective: 720 }}
           >
             {achievements.map((item, index) => (
@@ -282,18 +282,16 @@ export function ProfileScreen({
               />
             ))}
           </div>
-          <p className="min-h-[2.4rem] max-w-[17.5rem] px-2 text-center">
-            {openAchievement ? (
-              <>
-                <span className="block ty-label leading-snug">
-                  {openAchievement.title}
-                </span>
-                <span className="mt-0.5 block ty-meta text-zinc-500">
-                  {openAchievement.hint}
-                </span>
-              </>
-            ) : null}
-          </p>
+          {openAchievement ? (
+            <p className="max-w-[17.5rem] px-2 text-center">
+              <span className="block ty-label leading-snug">
+                {openAchievement.title}
+              </span>
+              <span className="mt-0.5 block ty-meta text-zinc-500">
+                {openAchievement.hint}
+              </span>
+            </p>
+          ) : null}
         </div>
 
         {panelsUnlimited ? (
@@ -572,22 +570,22 @@ const MEDAL_FACE: Record<
   { fill: string; edge: string; icon: string }
 > = {
   locked: {
-    fill: "radial-gradient(circle at 34% 28%, #ececee 0%, #c2c2c6 46%, #8e8e94 100%)",
-    edge: "linear-gradient(180deg, #d0d0d4 0%, #7a7a80 42%, #4e4e54 100%)",
-    icon: "#5a5a62",
+    fill: "radial-gradient(circle at 34% 28%, #f4f4f5 0%, #e4e4e6 52%, #d0d0d4 100%)",
+    edge: "linear-gradient(180deg, #ececee 0%, #c8c8cc 48%, #a8a8ae 100%)",
+    icon: "#9a9aa2",
   },
   bronze: {
-    fill: "radial-gradient(circle at 34% 28%, #f3c49a 0%, #c07838 48%, #7a3e16 100%)",
+    fill: "radial-gradient(circle at 34% 28%, #e0a878 0%, #c07838 52%, #7a3e16 100%)",
     edge: "linear-gradient(180deg, #d49a58 0%, #8a4a1c 45%, #4a240c 100%)",
     icon: "#4a240c",
   },
   silver: {
-    fill: "radial-gradient(circle at 34% 28%, #f6f8fb 0%, #c5ccd6 48%, #7b8492 100%)",
+    fill: "radial-gradient(circle at 34% 28%, #e4e8ee 0%, #c5ccd6 52%, #7b8492 100%)",
     edge: "linear-gradient(180deg, #d8dee6 0%, #8a929e 45%, #4a515c 100%)",
     icon: "#3e4650",
   },
   gold: {
-    fill: "radial-gradient(circle at 34% 28%, #fff3c0 0%, #d4b12a 48%, #8a6a10 100%)",
+    fill: "radial-gradient(circle at 34% 28%, #ead878 0%, #d4b12a 52%, #8a6a10 100%)",
     edge: "linear-gradient(180deg, #e8c84a 0%, #a07d14 45%, #5c4808 100%)",
     icon: "#4a3a08",
   },
@@ -648,7 +646,6 @@ function AchievementMedal({
           transformOrigin: "50% 50%",
           transformStyle: "preserve-3d",
           transition: "transform 220ms ease",
-          opacity: item.unlocked ? 1 : 0.7,
         }}
       >
         {Array.from({ length: EDGE_LAYERS }, (_, layer) => (
@@ -668,19 +665,19 @@ function AchievementMedal({
             background: face.fill,
             transform: "translateZ(1px)",
             boxShadow: [
-              "inset 0 1px 1px rgba(255,255,255,0.62)",
-              "inset 0 -1.5px 2px rgba(0,0,0,0.32)",
-              "inset 0 0 0 1.5px rgba(255,255,255,0.22)",
-              "inset 0 0 0 2px rgba(0,0,0,0.22)",
+              "inset 0 1px 1px rgba(255,255,255,0.22)",
+              "inset 0 -1.5px 2px rgba(0,0,0,0.28)",
+              "inset 0 0 0 1.5px rgba(255,255,255,0.08)",
+              "inset 0 0 0 2px rgba(0,0,0,0.18)",
             ].join(", "),
           }}
         >
           <span
             aria-hidden
-            className="pointer-events-none absolute inset-[12%] top-[8%] h-[36%] rounded-full opacity-55"
+            className="pointer-events-none absolute inset-[18%] top-[10%] h-[28%] rounded-full opacity-25"
             style={{
               background:
-                "linear-gradient(180deg, rgba(255,255,255,0.72) 0%, rgba(255,255,255,0) 100%)",
+                "linear-gradient(180deg, rgba(255,255,255,0.32) 0%, rgba(255,255,255,0) 100%)",
             }}
           />
           <Icon
@@ -689,8 +686,8 @@ function AchievementMedal({
             color={face.icon}
             style={{
               filter: raisedIcon
-                ? "drop-shadow(0.55px 0.7px 0 rgba(0,0,0,0.38)) drop-shadow(-0.55px -0.65px 0 rgba(255,255,255,0.5))"
-                : "drop-shadow(0.5px 0.55px 0 rgba(255,255,255,0.42)) drop-shadow(-0.45px -0.5px 0 rgba(0,0,0,0.38))",
+                ? "drop-shadow(0.55px 0.7px 0 rgba(0,0,0,0.32)) drop-shadow(-0.4px -0.45px 0 rgba(255,255,255,0.22))"
+                : "drop-shadow(0.4px 0.45px 0 rgba(255,255,255,0.28)) drop-shadow(-0.4px -0.45px 0 rgba(0,0,0,0.18))",
             }}
           />
         </span>
