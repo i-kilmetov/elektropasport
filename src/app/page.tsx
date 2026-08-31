@@ -1,5 +1,6 @@
 import { headers } from "next/headers";
 import { AppShell } from "@/components/app-shell";
+import { BRAND_YELLOW } from "@/components/brand-logo";
 import { isProductionLaunchWaitlistHost, isTestAppHost } from "@/lib/app-env";
 
 export default async function Home({
@@ -15,7 +16,10 @@ export default async function Home({
   const skipBootSplash = isTestAppHost(host);
 
   return (
-    <main className="min-h-[var(--app-height,100dvh)] w-full">
+    <main
+      className="min-h-[var(--app-height,100dvh)] w-full"
+      style={skipBootSplash ? { backgroundColor: BRAND_YELLOW } : undefined}
+    >
       <AppShell launchWaitlist={launchWaitlist} skipBootSplash={skipBootSplash} />
     </main>
   );

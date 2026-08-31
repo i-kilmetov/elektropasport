@@ -170,6 +170,7 @@ import type {
 } from "@/types";
 import { installStatusLabels } from "@/types";
 import { BrandAuthIntro, BrandLaunchWaitlist, BrandSplash } from "@/components/brand-splash";
+import { BRAND_YELLOW } from "@/components/brand-logo";
 import { useAppStatusBarTheme } from "@/hooks/use-status-bar-theme";
 import { applyAppStatusBarTheme } from "@/lib/status-bar-theme";
 import { useHomeAppliancesEnabled } from "@/hooks/use-home-appliances-enabled";
@@ -2185,7 +2186,12 @@ export function AppShell({
 
   if (splashPhase === "pending") {
     return (
-      <div className="relative h-[var(--app-height,100dvh)] w-full overflow-hidden bg-[var(--bg)]" />
+      <div
+        className="relative h-[var(--app-height,100dvh)] w-full overflow-hidden"
+        style={{
+          backgroundColor: skipBootSplash ? BRAND_YELLOW : "var(--bg)",
+        }}
+      />
     );
   }
 
@@ -2212,7 +2218,7 @@ export function AppShell({
     return (
       <BrandAuthIntro
         bootReady
-        skipAnimation
+        skipAnimation={!skipBootSplash}
         onLogin={() => {
           try {
             localStorage.setItem(ONBOARDING_SKIP_KEY, "1");
