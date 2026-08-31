@@ -89,6 +89,15 @@ export type AdminInvitePending = {
   visitorKey: string;
 };
 
+export type AdminLaunchWaitlistRow = {
+  id: string;
+  phone: string;
+  telegramUserId: number | null;
+  userName: string;
+  username: string;
+  createdAt: string;
+};
+
 export type AdminDashboardData = {
   isOwner: boolean;
   ownerTelegramId: number | null;
@@ -100,6 +109,7 @@ export type AdminDashboardData = {
     applicationsCount: number;
     creditedInvites: number;
     pendingInviteOpens: number;
+    launchWaitlistCount: number;
     byStatus: Record<string, number>;
     requestsByCity: Array<{ city: string; count: number }>;
     mastersByCity: Array<{ city: string; count: number }>;
@@ -112,6 +122,7 @@ export type AdminDashboardData = {
   panels: AdminPanelRow[];
   inviteEdges: AdminInviteEdge[];
   invitePending: AdminInvitePending[];
+  launchWaitlist: AdminLaunchWaitlistRow[];
 };
 
 function personName(first?: string | null, last?: string | null, fallback = "—") {
@@ -147,6 +158,7 @@ export async function getAdminDashboard(
     applicationsCountRow,
     creditedInvitesRow,
     pendingInviteOpensRow,
+    launchWaitlistCountRow,
     statusRows,
     requestCityRows,
     masterCityRows,
@@ -157,6 +169,7 @@ export async function getAdminDashboard(
     panelRows,
     inviteEdgeRows,
     invitePendingRows,
+    launchWaitlistRows,
   ] = await Promise.all([
     sql`SELECT COUNT(*)::int AS count FROM users` as unknown as Promise<Array<{ count: number }>>,
     sql`SELECT COUNT(*)::int AS count FROM panels` as unknown as Promise<Array<{ count: number }>>,
@@ -168,6 +181,11 @@ export async function getAdminDashboard(
       SELECT COUNT(*)::int AS count
       FROM invite_link_hits
       WHERE claimed_at IS NULL
+    ` as unknown as Promise<Array<{ count: number }>>,
+    sql`
+      SELECT COUNT(*)::int AS count
+      FROM waitlist
+      WHERE list = 'launch'
     ` as unknown as Promise<Array<{ count: number }>>,
     sql`
       SELECT status, COUNT(*)::int AS count
@@ -377,6 +395,26 @@ export async function getAdminDashboard(
         username: string | null;
       }>
     >,
+    sql`
+      SELECT
+        w.id, w.email, w.telegram_user_id, w.created_at,
+        u.first_name, u.last_name, u.username
+      FROM waitlist w
+      LEFT JOIN users u ON u.telegram_id = w.telegram_user_id
+      WHERE w.list = 'launch'
+      ORDER BY w.created_at DESC
+      LIMIT 500
+    ` as unknown as Promise<
+      Array<{
+        id: string;
+        email: string;
+        telegram_user_id: string | number | null;
+        created_at: string;
+        first_name: string | null;
+        last_name: string | null;
+        username: string | null;
+      }>
+    >,
   ]);
 
   const byStatus: Record<string, number> = {
@@ -433,6 +471,7 @@ export async function getAdminDashboard(
       applicationsCount: applicationsCountRow[0]?.count ?? 0,
       creditedInvites: creditedInvitesRow[0]?.count ?? 0,
       pendingInviteOpens: pendingInviteOpensRow[0]?.count ?? 0,
+      launchWaitlistCount: launchWaitlistCountRow[0]?.count ?? 0,
       byStatus,
       requestsByCity: requestCityRows,
       mastersByCity: masterCityRows,
@@ -508,6 +547,16 @@ export async function getAdminDashboard(
       inviteToken: row.invite_token,
       openedAt: row.opened_at,
       visitorKey: row.visitor_key,
+    })),
+    launchWaitlist: launchWaitlistRows.map((row) => ({
+      id: row.id,
+      phone: row.email,
+      telegramUserId: row.telegram_user_id
+        ? Number(row.telegram_user_id)
+        : null,
+      userName: personName(row.first_name, row.last_name, ""),
+      username: row.username ?? "",
+      createdAt: row.created_at,
     })),
   };
 }

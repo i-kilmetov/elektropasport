@@ -9,6 +9,7 @@ import {
   LayoutDashboard,
   Loader2,
   MapPin,
+  Phone,
   Shield,
   Trash2,
   UserPlus,
@@ -47,6 +48,7 @@ type Section =
   | "panels"
   | "requests"
   | "invites"
+  | "launch"
   | "masters"
   | "admins"
   | "push";
@@ -56,6 +58,7 @@ const SECTIONS: Array<{ id: Section; title: string; icon: typeof Shield }> = [
   { id: "users", title: "Пользователи", icon: Users },
   { id: "panels", title: "Щитки", icon: Zap },
   { id: "requests", title: "Заявки", icon: ClipboardList },
+  { id: "launch", title: "Открытие", icon: Phone },
   { id: "invites", title: "Приглашения", icon: UserPlus },
   { id: "masters", title: "Мастера", icon: Wrench },
   { id: "push", title: "Пуши", icon: Bell },
@@ -277,6 +280,7 @@ export function AdminDashboardScreen({ onBack }: { onBack: () => void }) {
                 />
               )}
               {section === "invites" && <InvitesSection data={data} />}
+              {section === "launch" && <LaunchWaitlistSection data={data} />}
               {section === "masters" && (
                 <MastersSection
                   data={data}
@@ -351,7 +355,12 @@ function Overview({
     { label: "Пользователи", value: data.stats.usersCount, icon: Users, section: "users" as const },
     { label: "Щитки", value: data.stats.panelsCount, icon: Zap, section: "panels" as const },
     { label: "Заявки", value: data.stats.requestsCount, icon: ClipboardList, section: "requests" as const },
-    { label: "Приглашения", value: data.stats.creditedInvites, icon: UserPlus, section: "invites" as const },
+    {
+      label: "На открытие",
+      value: data.stats.launchWaitlistCount,
+      icon: Phone,
+      section: "launch" as const,
+    },
   ];
   const maxRequestCity = Math.max(
     ...data.stats.requestsByCity.map((row) => row.count),
@@ -780,6 +789,67 @@ function PanelsSection({
           <p className="px-4 py-8 text-center ty-meta">
             Щитков пока нет
           </p>
+        )}
+      </GlassCard>
+    </div>
+  );
+}
+
+function LaunchWaitlistSection({ data }: { data: AdminDashboardData }) {
+  return (
+    <div className="mx-auto w-full max-w-[1200px] space-y-6">
+      <div>
+        <h2 className="ty-display text-zinc-950">Открытие tokom.ru</h2>
+        <p className="mt-1 ty-body">
+          Заявки на новость об открытии сайта · {data.stats.launchWaitlistCount}{" "}
+          номеров
+        </p>
+      </div>
+
+      <GlassCard className="overflow-x-auto p-0">
+        <table className="w-full min-w-[720px] text-left text-[13px]">
+          <thead className="bg-zinc-50 text-zinc-500">
+            <tr>
+              <th className="px-4 py-3 font-medium">Телефон</th>
+              <th className="px-4 py-3 font-medium">Telegram</th>
+              <th className="px-4 py-3 font-medium">Когда</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.launchWaitlist.map((row) => (
+              <tr key={row.id} className="border-t border-black/6">
+                <td className="px-4 py-3">
+                  <a
+                    href={`tel:${row.phone}`}
+                    className="font-medium tabular-nums text-zinc-900 hover:underline"
+                  >
+                    {row.phone}
+                  </a>
+                </td>
+                <td className="px-4 py-3 text-zinc-600">
+                  {row.telegramUserId ? (
+                    <>
+                      <div className="font-medium text-zinc-900">
+                        {row.userName || "Без имени"}
+                      </div>
+                      <div className="tabular-nums text-zinc-400">
+                        {row.telegramUserId}
+                        {row.username ? ` · @${row.username}` : ""}
+                      </div>
+                    </>
+                  ) : (
+                    <span className="text-zinc-400">Анонимно</span>
+                  )}
+                </td>
+                <td className="px-4 py-3 text-zinc-600">
+                  {new Date(row.createdAt).toLocaleString("ru-RU")}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {data.launchWaitlist.length === 0 && (
+          <p className="px-5 py-6 ty-meta">Пока нет заявок на открытие</p>
         )}
       </GlassCard>
     </div>
