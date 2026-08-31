@@ -8,7 +8,8 @@ export async function POST(
   request: Request,
   context: { params: Promise<{ secret: string }> },
 ) {
-  const { secret } = await context.params;
+  const { secret: rawSecret } = await context.params;
+  const secret = decodeURIComponent(rawSecret);
   const expected = process.env.TELEGRAM_WEBHOOK_SECRET?.trim();
   if (expected && secret !== expected) {
     console.error("telegram hook: path secret mismatch");

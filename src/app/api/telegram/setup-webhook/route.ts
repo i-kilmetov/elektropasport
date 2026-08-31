@@ -1,16 +1,9 @@
-import { productionWebhookOrigin } from "@/lib/app-url";
 import {
+  ensureTelegramWebhook,
+  getTelegramBotMe,
   getTelegramWebhookInfo,
-  setTelegramWebhook,
 } from "@/lib/telegram-notify";
-
-function buildWebhookUrl(secret?: string): string {
-  const origin = productionWebhookOrigin();
-  if (!secret) {
-    return `${origin}/api/telegram/webhook`;
-  }
-  return `${origin}/api/telegram/hook/${encodeURIComponent(secret)}`;
-}
+import { buildTelegramWebhookUrl } from "@/lib/telegram-webhook-config";
 
 /**
  * One-time setup: open this URL after deploy (with secret) to register the webhook.
@@ -42,17 +35,19 @@ export async function GET(request: Request) {
     );
   }
 
-  const webhookUrl = buildWebhookUrl(process.env.TELEGRAM_WEBHOOK_SECRET?.trim());
-  const secret = process.env.TELEGRAM_WEBHOOK_SECRET?.trim();
-
-  const result = await setTelegramWebhook(webhookUrl, secret);
+  const webhookUrl = buildTelegramWebhookUrl();
+  const repair = await ensureTelegramWebhook();
   const info = await getTelegramWebhookInfo();
-  if (!result.ok) {
+  const bot = await getTelegramBotMe();
+
+  if (!repair.ok) {
     return Response.json(
       {
         error: "Не удалось вызвать setWebhook — проверьте BOT_TOKEN",
-        details: result.error,
+        details: repair.error,
+        bot,
         webhookInfo: info,
+        expectedWebhookUrl: webhookUrl,
       },
       { status: 500 },
     );
@@ -61,14 +56,28 @@ export async function GET(request: Request) {
   return Response.json({
     ok: true,
     webhookUrl,
-    secretConfigured: Boolean(secret),
+    bot: bot
+      ? {
+          id: bot.id,
+          username: bot.username,
+          expected: "tokomrobot",
+          matchesExpectedBot: bot.username === "tokomrobot",
+        }
+      : null,
+    secretConfigured: Boolean(process.env.TELEGRAM_WEBHOOK_SECRET?.trim()),
     webhookInfo: info,
     webhookMatches: info.url === webhookUrl,
+    webhookRepaired: repair.wasUpdated,
+    previousWebhookUrl: repair.previousUrl ?? null,
     lastWebhookError: info.lastErrorMessage ?? null,
-    hint: secret
-      ? info.url !== webhookUrl
-        ? `Telegram всё ещё шлёт на ${info.url ?? "—"}. Перезапустите setup-webhook после деплоя.`
-        : "Webhook совпадает. Создайте новую заявку и нажмите «Принять»."
-      : undefined,
+    hint: !bot
+      ? "BOT_TOKEN не работает — проверьте токен @tokomrobot в Vercel."
+      : bot.username !== "tokomrobot"
+        ? `BOT_TOKEN указывает на @${bot.username}, а не @tokomrobot. Обновите BOT_TOKEN в Vercel.`
+        : !info.url || info.url !== webhookUrl
+          ? `Webhook перерегистрирован. Создайте новую заявку и нажмите «Принять».`
+          : info.lastErrorMessage
+            ? `Telegram ошибка: ${info.lastErrorMessage}`
+            : "Webhook OK. Создайте новую заявку и нажмите «Принять» в сообщении «🔌 Новая заявка».",
   });
 }

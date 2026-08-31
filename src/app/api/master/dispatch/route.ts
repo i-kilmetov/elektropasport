@@ -11,7 +11,10 @@ import {
   saveDispatchMessage,
   upsertUser,
 } from "@/lib/db";
-import { dispatchRequestToMasters } from "@/lib/telegram-notify";
+import {
+  dispatchRequestToMasters,
+  ensureTelegramWebhook,
+} from "@/lib/telegram-notify";
 
 export async function POST(request: Request) {
   try {
@@ -39,6 +42,17 @@ export async function POST(request: Request) {
     }
 
     await markRequestDispatched(body.requestId);
+
+    const webhook = await ensureTelegramWebhook();
+    if (!webhook.ok) {
+      console.error("ensureTelegramWebhook failed before master dispatch", webhook);
+    } else if (webhook.wasUpdated) {
+      console.info("telegram webhook auto-repaired on dispatch", {
+        bot: webhook.botUsername,
+        url: webhook.webhookUrl,
+        previousUrl: webhook.previousUrl,
+      });
+    }
 
     const results = await dispatchRequestToMasters(
       masterIds,

@@ -4,6 +4,10 @@ import { PRODUCTION_APP_URL } from "@/lib/app-url";
 import { getBotToken } from "@/lib/telegram-auth";
 import { dedupeMasterStorageIds, toTelegramChatId } from "@/lib/app-env";
 import { listAdminTelegramIds, ownerAdminTelegramId } from "@/lib/admin";
+import {
+  buildTelegramWebhookUrl,
+  telegramWebhookNeedsRepair,
+} from "@/lib/telegram-webhook-config";
 
 type InlineKeyboard = {
   inline_keyboard: Array<Array<{ text: string; callback_data: string }>>;
@@ -761,10 +765,86 @@ export function parseStatusCallback(
   return { requestId, status };
 }
 
-export async function setTelegramWebhook(url: string, secret?: string) {
+export async function getTelegramBotMe(): Promise<{
+  id: number;
+  username: string;
+  firstName: string;
+} | null> {
+  const result = await telegramApi<{
+    id: number;
+    username?: string;
+    first_name?: string;
+  }>("getMe", {});
+  if (!result.ok) return null;
+  return {
+    id: result.data.id,
+    username: result.data.username ?? "",
+    firstName: result.data.first_name ?? "",
+  };
+}
+
+/** Re-register webhook if URL drifted (common after BOT_TOKEN / bot migration). */
+export async function ensureTelegramWebhook(): Promise<{
+  ok: boolean;
+  wasUpdated: boolean;
+  webhookUrl: string;
+  botUsername?: string;
+  botId?: number;
+  previousUrl?: string;
+  lastError?: string;
+  error?: string;
+}> {
+  const webhookUrl = buildTelegramWebhookUrl();
+  if (!getBotToken()) {
+    return { ok: false, wasUpdated: false, webhookUrl, error: "BOT_TOKEN missing" };
+  }
+
+  const me = await getTelegramBotMe();
+  const info = await getTelegramWebhookInfo();
+  const needsRepair = !info.ok || telegramWebhookNeedsRepair(info);
+
+  if (!needsRepair) {
+    return {
+      ok: true,
+      wasUpdated: false,
+      webhookUrl,
+      botUsername: me?.username,
+      botId: me?.id,
+    };
+  }
+
+  const result = await setTelegramWebhook(webhookUrl);
+  const after = await getTelegramWebhookInfo();
+
+  if (!result.ok) {
+    return {
+      ok: false,
+      wasUpdated: false,
+      webhookUrl,
+      botUsername: me?.username,
+      botId: me?.id,
+      previousUrl: info.url,
+      lastError: info.lastErrorMessage ?? result.error,
+      error: result.error,
+    };
+  }
+
+  return {
+    ok: true,
+    wasUpdated: true,
+    webhookUrl,
+    botUsername: me?.username,
+    botId: me?.id,
+    previousUrl: info.url,
+    lastError: after.lastErrorMessage,
+  };
+}
+
+export async function setTelegramWebhook(url: string) {
+  // Auth via secret in URL path (/api/telegram/hook/...). Do not set secret_token:
+  // redirects/proxies often strip X-Telegram-Bot-Api-Secret-Token → 401.
   return telegramApi("setWebhook", {
     url,
-    secret_token: secret || undefined,
     allowed_updates: ["callback_query", "message"],
     drop_pending_updates: true,
   });

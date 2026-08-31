@@ -106,7 +106,6 @@ export async function handleTelegramWebhook(
     callbackQueryId = callback.id;
     callbackChatId =
       callback.message?.chat.id ?? callback.from?.id;
-    callbackAnswered = await ackCallback(callback.id);
 
     await ensureSchema();
     const data = callback.data ?? "";
@@ -116,6 +115,8 @@ export async function handleTelegramWebhook(
       userId: callback.from?.id,
       chatId: callbackChatId,
     });
+
+    const acceptRequest = parseAcceptRequestCallback(data);
 
     if (callback.from?.id) {
       await upsertUser({
@@ -128,6 +129,7 @@ export async function handleTelegramWebhook(
 
     const approveMaster = parseApproveMasterCallback(data);
     if (approveMaster) {
+      callbackAnswered = await ackCallback(callback.id);
       if (!(await isPlatformAdmin(callback.from?.id ?? 0))) {
         await notifyChat(callbackChatId, "Недостаточно прав");
         return Response.json({ ok: true });
@@ -146,13 +148,17 @@ export async function handleTelegramWebhook(
       return Response.json({ ok: true });
     }
 
-    const acceptRequest = parseAcceptRequestCallback(data);
     if (acceptRequest) {
       const realMasterId = callback.from?.id;
       const chatId = callbackChatId;
 
       if (!realMasterId || !chatId) {
         console.error("accept callback missing from/chat", { data, callback });
+        callbackAnswered = await ackCallback(
+          callback.id,
+          "Ошибка: нет данных чата",
+          true,
+        );
         return Response.json({ ok: true });
       }
 
@@ -162,6 +168,11 @@ export async function handleTelegramWebhook(
       );
 
       if (result === "not_master") {
+        callbackAnswered = await ackCallback(
+          callback.id,
+          "Нет доступа: вы не мастер",
+          true,
+        );
         await notifyChat(
           chatId,
           "Нет доступа: вы не зарегистрированы как мастер. Напишите администратору.",
@@ -170,6 +181,11 @@ export async function handleTelegramWebhook(
       }
 
       if (result === "not_found") {
+        callbackAnswered = await ackCallback(
+          callback.id,
+          "Заявка не найдена",
+          true,
+        );
         await notifyChat(
           chatId,
           `Заявка «${acceptRequest.requestId}» не найдена. Создайте новую заявку в приложении.`,
@@ -178,6 +194,11 @@ export async function handleTelegramWebhook(
       }
 
       if (result === "already_taken") {
+        callbackAnswered = await ackCallback(
+          callback.id,
+          "Заявку уже приняли",
+          true,
+        );
         if (callback.message) {
           await notifyMasterRequestTaken(chatId, callback.message.message_id);
         } else {
@@ -227,9 +248,16 @@ export async function handleTelegramWebhook(
         }
       }
 
+      callbackAnswered = await ackCallback(
+        callback.id,
+        "✅ Заявка принята!",
+        true,
+      );
       await notifyChat(chatId, "✅ Заявка принята. Детали отправлены выше.");
       return Response.json({ ok: true });
     }
+
+    callbackAnswered = await ackCallback(callback.id);
 
     if (!(await isPlatformAdmin(callback.from?.id ?? 0))) {
       console.warn("telegram callback ignored for non-admin", {
