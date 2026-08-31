@@ -1614,10 +1614,15 @@ export async function persistPanelAppliances(
 
 export async function createPanelShare(
   panelId: string,
+  scope: "scheme" | "full" = "full",
 ): Promise<{ token: string; url: string }> {
   const res = await fetch(`/api/panels/${encodeURIComponent(panelId)}/share`, {
     method: "POST",
-    headers: authHeaders(),
+    headers: {
+      ...authHeaders(),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ scope }),
   });
   if (!res.ok) {
     throw new Error(await parseError(res));

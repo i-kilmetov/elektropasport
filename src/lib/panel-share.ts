@@ -41,11 +41,29 @@ function resolveShareOrigin(origin?: string): string {
   return resolveAppOrigin();
 }
 
+export type PanelShareScope = "scheme" | "full";
+
 /** Public website link to open a shared panel (not a Telegram bot deep link). */
-export function buildPanelShareUrl(token: string, origin?: string): string {
+export function buildPanelShareUrl(
+  token: string,
+  origin?: string,
+  scope: PanelShareScope = "full",
+): string {
   const url = new URL("/", resolveShareOrigin(origin));
   url.searchParams.set("share", token);
+  if (scope === "scheme") {
+    url.searchParams.set("card", "0");
+  }
   return url.href;
+}
+
+export function getPanelShareScopeFromLocation(): PanelShareScope {
+  if (typeof window === "undefined") return "full";
+
+  const params = new URLSearchParams(window.location.search);
+  const card = params.get("card")?.trim();
+  if (card === "0" || card === "scheme") return "scheme";
+  return "full";
 }
 
 /** Invite links keep `startapp` for Mini App + legacy compatibility. */
@@ -105,6 +123,11 @@ export function stripPanelShareFromLocation(): void {
 
   if (url.searchParams.has("share")) {
     url.searchParams.delete("share");
+    changed = true;
+  }
+
+  if (url.searchParams.has("card")) {
+    url.searchParams.delete("card");
     changed = true;
   }
 

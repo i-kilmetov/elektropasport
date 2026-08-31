@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -72,7 +73,8 @@ import {
   panelHasConfirmedInputBreaker,
 } from "@/lib/input-breaker-diagnostics";
 import { WireSpecSheet } from "@/components/ui/wire-spec-sheet";
-import { InfoDialog } from "@/components/ui/info-dialog";
+import { WaitlistSheet } from "@/components/ui/waitlist-sheet";
+import type { PanelShareScope } from "@/lib/panel-share";
 import { Portal } from "@/components/ui/portal";
 import { SchemeOnboardingTour } from "@/components/ui/scheme-onboarding-tour";
 import { deviceTypeGuide } from "@/lib/panel-device-guide";
@@ -1763,7 +1765,7 @@ export function SchemeScreen({
   onSaveShared?: () => void;
   onBack: () => void;
   onRename: (name: string) => void;
-  onShare?: () => Promise<string>;
+  onShare?: (scope: PanelShareScope) => Promise<string>;
   onDelete: () => void;
   onDeleted?: () => void;
   onRestoreItem?: (item: HomeListItem) => void;
@@ -1836,6 +1838,15 @@ export function SchemeScreen({
   const [saveSharedOpen, setSaveSharedOpen] = useState(false);
   const [tourOpen, setTourOpen] = useState(false);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [shareChoiceOpen, setShareChoiceOpen] = useState(false);
+  const [schemeTabMetrics, setSchemeTabMetrics] = useState({
+    leftScheme: 4,
+    widthScheme: 0,
+    leftPhoto: 4,
+    widthPhoto: 0,
+  });
+  const schemeTabRef = useRef<HTMLButtonElement>(null);
+  const photoTabRef = useRef<HTMLButtonElement>(null);
   const [safetyOpen, setSafetyOpen] = useState(false);
   const [safetyExplainOpen, setSafetyExplainOpen] = useState(false);
   const [safetyAssessing, setSafetyAssessing] = useState(false);
@@ -1848,7 +1859,7 @@ export function SchemeScreen({
     isSchemeLineHintDismissed(panelId),
   );
   const [terminalsFlashOn, setTerminalsFlashOn] = useState(false);
-  const [terminalsUnavailableOpen, setTerminalsUnavailableOpen] = useState(false);
+  const [terminalsWaitlistOpen, setTerminalsWaitlistOpen] = useState(false);
   const [wireDraft, setWireDraft] = useState<{
     from: TerminalRef;
     x: number;
@@ -1900,6 +1911,32 @@ export function SchemeScreen({
     setTourOpen(false);
     onOnboardingDone?.();
   }, [panelId, onOnboardingDone]);
+
+  useLayoutEffect(() => {
+    const schemeBtn = schemeTabRef.current;
+    const photoBtn = photoTabRef.current;
+    const container = schemeBtn?.parentElement;
+    if (!schemeBtn || !photoBtn || !container) return;
+
+    const containerRect = container.getBoundingClientRect();
+    const schemeRect = schemeBtn.getBoundingClientRect();
+    const photoRect = photoBtn.getBoundingClientRect();
+    setSchemeTabMetrics({
+      leftScheme: schemeRect.left - containerRect.left,
+      widthScheme: schemeRect.width,
+      leftPhoto: photoRect.left - containerRect.left,
+      widthPhoto: photoRect.width,
+    });
+  }, [tab]);
+
+  const beginShare = useCallback(
+    async (scope: PanelShareScope) => {
+      setShareChoiceOpen(false);
+      const url = await onShare?.(scope);
+      if (url) setShareUrl(url);
+    },
+    [onShare],
+  );
 
   const persistIdentifyContext = useCallback((context: IdentifyContext) => {
     setIdentifyContext(context);
@@ -2540,10 +2577,7 @@ export function SchemeScreen({
                     className="flex w-full items-center gap-2 px-4 py-3 text-left text-[15px] text-zinc-900 hover:bg-zinc-50"
                     onClick={() => {
                       setMenuOpen(false);
-                      void (async () => {
-                        const url = await onShare?.();
-                        if (url) setShareUrl(url);
-                      })();
+                      setShareChoiceOpen(true);
                     }}
                   >
                     <IosShareIcon className="h-4 w-4 text-zinc-600" />
@@ -2603,27 +2637,44 @@ export function SchemeScreen({
       </header>
 
       <div className="mb-3 flex items-center gap-2 px-5 lg:px-10">
-        <div className="flex items-center gap-2" data-scheme-tour="tabs">
+        <div
+          className="relative flex rounded-full bg-zinc-100 p-1"
+          data-scheme-tour="tabs"
+        >
+          {schemeTabMetrics.widthScheme > 0 && (
+            <div
+              aria-hidden
+              className="pointer-events-none absolute top-1 h-[calc(100%-8px)] rounded-full bg-white shadow-sm transition-[left,width] duration-300 ease-out"
+              style={{
+                left:
+                  tab === "scheme"
+                    ? schemeTabMetrics.leftScheme
+                    : schemeTabMetrics.leftPhoto,
+                width:
+                  tab === "scheme"
+                    ? schemeTabMetrics.widthScheme
+                    : schemeTabMetrics.widthPhoto,
+              }}
+            />
+          )}
           <button
+            ref={schemeTabRef}
             type="button"
             onClick={() => setTab("scheme")}
             className={cn(
-              "rounded-full px-3 py-1.5 ty-label transition-colors",
-              tab === "scheme"
-                ? "bg-zinc-100 text-zinc-900"
-                : "text-zinc-500 hover:text-zinc-700",
+              "relative z-10 rounded-full px-3 py-1.5 ty-label transition-colors duration-300",
+              tab === "scheme" ? "text-zinc-900" : "text-zinc-500",
             )}
           >
             Схема
           </button>
           <button
+            ref={photoTabRef}
             type="button"
             onClick={() => setTab("photo")}
             className={cn(
-              "rounded-full px-3 py-1.5 ty-label transition-colors",
-              tab === "photo"
-                ? "bg-zinc-100 text-zinc-900"
-                : "text-zinc-500 hover:text-zinc-700",
+              "relative z-10 rounded-full px-3 py-1.5 ty-label transition-colors duration-300",
+              tab === "photo" ? "text-zinc-900" : "text-zinc-500",
             )}
           >
             Фото
@@ -2653,8 +2704,8 @@ export function SchemeScreen({
                 setTerminalsFlashOn(true);
                 window.setTimeout(() => {
                   setTerminalsFlashOn(false);
-                  setTerminalsUnavailableOpen(true);
-                }, 220);
+                  setTerminalsWaitlistOpen(true);
+                }, 280);
                 return;
               }
               setTab("scheme");
@@ -2679,8 +2730,8 @@ export function SchemeScreen({
             <span
               className={cn(
                 "absolute top-0.5 left-0.5 h-6 w-6 rounded-full bg-white shadow-sm transition-transform duration-200",
-                ((showTerminals && canUseTerminals) || terminalsFlashOn) &&
-                  "translate-x-5",
+                showTerminals && canUseTerminals && "translate-x-5",
+                terminalsFlashOn && "translate-x-2.5",
               )}
             />
           </button>
@@ -2747,14 +2798,18 @@ export function SchemeScreen({
               style={{ minWidth: railMinWidth }}
             >
             <div className="mb-3 flex items-center justify-between gap-3">
-              {railEdit.editing && !sharedPreview ? (
+              {!sharedPreview ? (
                 <button
                   type="button"
                   onClick={() => {
+                    if (!railEdit.editing) return;
                     commitDevices(allRailDevices);
                     railEdit.exitEdit();
                   }}
-                  className="relative rounded-full bg-zinc-900 px-3.5 py-1.5 ty-label text-white"
+                  className={cn(
+                    "relative shrink-0 rounded-full bg-zinc-900 px-3.5 py-1.5 ty-label text-white",
+                    !railEdit.editing && "pointer-events-none invisible",
+                  )}
                 >
                   <IosHapticHit
                     onActivate={() => {
@@ -2764,15 +2819,11 @@ export function SchemeScreen({
                   />
                   <span className="relative z-[2]">Готово</span>
                 </button>
-              ) : sharedPreview ? (
-                <span />
               ) : (
-                <span className="ty-meta">
-                  Меню ⋯ → Редактировать щиток
-                </span>
+                <span className="shrink-0" aria-hidden />
               )}
               <span className="ty-meta">
-                {allRailDevices.length} приборов
+                {allRailDevices.length} {deviceWord(allRailDevices.length)}
               </span>
             </div>
 
@@ -2910,7 +2961,6 @@ export function SchemeScreen({
                         </span>
                       </div>
                     )}
-                    <div className="mb-2 h-2 rounded-full bg-gradient-to-r from-zinc-500 via-zinc-300 to-zinc-500 shadow-inner" />
                     <div
                       data-rail-drop={railIdx}
                       className="mb-2 flex min-h-[40px] items-start"
@@ -2974,7 +3024,6 @@ export function SchemeScreen({
                       Ряд {railEdit.newRailIndex + 1}
                     </span>
                   </div>
-                  <div className="mb-2 h-2 rounded-full bg-gradient-to-r from-zinc-400 via-zinc-200 to-zinc-400" />
                   <div className="flex items-start" style={{ gap: DEVICE_GAP_PX }}>
                     {railEdit.dropSlot?.isNewRail && railEdit.dragging ? (
                       <RailInsertGap
@@ -3203,11 +3252,10 @@ export function SchemeScreen({
       </AnimatePresence>
 
       <AnimatePresence>
-        {terminalsUnavailableOpen && (
-          <InfoDialog
-            title="Клеммы"
-            description="Редактирование клемм пока недоступно. Функция появится в одном из следующих обновлений."
-            onClose={() => setTerminalsUnavailableOpen(false)}
+        {terminalsWaitlistOpen && (
+          <WaitlistSheet
+            kind="terminals"
+            onClose={() => setTerminalsWaitlistOpen(false)}
           />
         )}
       </AnimatePresence>
@@ -3337,6 +3385,69 @@ export function SchemeScreen({
               onBack();
             }}
           />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {shareChoiceOpen && (
+          <Portal>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[105] flex items-end bg-black/40 backdrop-blur-sm sm:items-center sm:justify-center sm:p-6"
+              onClick={() => setShareChoiceOpen(false)}
+            >
+              <motion.div
+                initial={{ y: 40, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: 40, opacity: 0 }}
+                transition={{ type: "spring", stiffness: 320, damping: 30 }}
+                onClick={(e) => e.stopPropagation()}
+                className="w-full max-w-[430px] rounded-t-[28px] border border-black/[0.06] bg-white p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-[0_20px_60px_rgba(17,17,19,0.15)] sm:rounded-[28px]"
+              >
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <IosShareIcon className="h-5 w-5 text-zinc-700" />
+                    <h2 className="ty-title">Поделиться</h2>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShareChoiceOpen(false)}
+                    className="flex h-10 w-10 items-center justify-center rounded-full border border-black/8 bg-zinc-100 text-zinc-600"
+                    aria-label="Закрыть"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                <p className="mb-4 ty-body text-zinc-600">
+                  Что отправить по ссылке?
+                </p>
+                <div className="space-y-2">
+                  <button
+                    type="button"
+                    onClick={() => void beginShare("scheme")}
+                    className="flex w-full flex-col rounded-[20px] border border-black/8 bg-zinc-50 px-4 py-3.5 text-left transition-colors hover:bg-zinc-100"
+                  >
+                    <span className="ty-heading">Только схема щитка</span>
+                    <span className="mt-0.5 ty-note">
+                      Приборы и подписи линий без списка техники
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void beginShare("full")}
+                    className="flex w-full flex-col rounded-[20px] border border-black/8 bg-zinc-50 px-4 py-3.5 text-left transition-colors hover:bg-zinc-100"
+                  >
+                    <span className="ty-heading">Схема и техника</span>
+                    <span className="mt-0.5 ty-note">
+                      Полная карточка щитка со списком техники дома
+                    </span>
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          </Portal>
         )}
       </AnimatePresence>
 

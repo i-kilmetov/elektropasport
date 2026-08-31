@@ -148,11 +148,13 @@ import {
 } from "@/lib/manufacturer-brands";
 import { resolveDeviceSeriesLabel } from "@/lib/device-catalog";
 import {
+  getPanelShareScopeFromLocation,
   getPanelShareTokenFromLocation,
   getTelegramStartParam,
   isMasterReferralParam,
   isPanelShareToken,
   stripPanelShareFromLocation,
+  type PanelShareScope,
 } from "@/lib/panel-share";
 import { isResearchSurveyLaunch } from "@/lib/research-survey-access";
 import { markMasterApplied } from "@/lib/achievements";
@@ -371,6 +373,7 @@ export function AppShell({
   const [sharedPreview, setSharedPreview] = useState<{
     panel: PanelObject;
     token: string;
+    includeAppliances: boolean;
   } | null>(null);
   const [devices, setDevices] = useState<Device[] | null>(null);
   const [safetyScore, setSafetyScore] = useState<number | null>(null);
@@ -477,7 +480,9 @@ export function AppShell({
   useLayoutEffect(() => {
     const token = getPanelShareTokenFromLocation();
     if (!token) return;
-    writePendingPanelShare(token);
+    const includeAppliances =
+      getPanelShareScopeFromLocation() === "full";
+    writePendingPanelShare(token, includeAppliances);
     stripPanelShareFromLocation();
   }, []);
 
@@ -1283,7 +1288,7 @@ export function AppShell({
   ]);
 
   const openSharedPanel = useCallback(
-    async (token: string) => {
+    async (token: string, includeAppliances = true) => {
       if (!isPanelShareToken(token) || !canUseServerAuth()) return;
       try {
         const { panel, isOwner } = await fetchSharedPanel(token);
@@ -1309,7 +1314,7 @@ export function AppShell({
           return;
         }
 
-        setSharedPreview({ panel, token });
+        setSharedPreview({ panel, token, includeAppliances });
         setActivePanelId(null);
         setAskNameOnBack(false);
         setPhotoDataUrl(null);
@@ -1340,7 +1345,7 @@ export function AppShell({
     async (requestId: string) => {
       try {
         const panel = await fetchMasterRequestPanel(requestId);
-        setSharedPreview({ panel, token: "" });
+        setSharedPreview({ panel, token: "", includeAppliances: true });
         setActivePanelId(null);
         setAskNameOnBack(false);
         setPhotoDataUrl(null);
@@ -1386,10 +1391,12 @@ export function AppShell({
       named: true,
       sourceShareToken: sharedPreview.token,
       photoDataUrl: undefined,
-      appliances: source.appliances?.map((item) => ({
-        ...item,
-        passportPhotoIds: undefined,
-      })),
+      appliances: sharedPreview.includeAppliances
+        ? source.appliances?.map((item) => ({
+            ...item,
+            passportPhotoIds: undefined,
+          }))
+        : [],
     };
     setItems((prev) => [copy, ...prev]);
     setItemsError(null);
@@ -1411,22 +1418,25 @@ export function AppShell({
     void refreshQuota();
   }, [go, localPanelCount, openPanelLimit, quota, refreshQuota, sharedPreview]);
 
-  const shareActivePanel = useCallback(async () => {
-    const panelId = activePanelId ?? sharedPreview?.panel.id;
-    if (!panelId) return "";
-    try {
-      const { url } = await createPanelShare(panelId);
-      setItemsError(null);
-      return url;
-    } catch (error) {
-      setItemsError(
-        error instanceof Error
-          ? error.message
-          : "Не удалось создать ссылку на щиток",
-      );
-      return "";
-    }
-  }, [activePanelId, sharedPreview]);
+  const shareActivePanel = useCallback(
+    async (scope: PanelShareScope = "full") => {
+      const panelId = activePanelId ?? sharedPreview?.panel.id;
+      if (!panelId) return "";
+      try {
+        const { url } = await createPanelShare(panelId, scope);
+        setItemsError(null);
+        return url;
+      } catch (error) {
+        setItemsError(
+          error instanceof Error
+            ? error.message
+            : "Не удалось создать ссылку на щиток",
+        );
+        return "";
+      }
+    },
+    [activePanelId, sharedPreview],
+  );
 
   const renamePanel = useCallback(
     (name: string) => {
@@ -2140,14 +2150,14 @@ export function AppShell({
       return;
     }
 
-    const token = readPendingPanelShare();
-    if (!token || !isPanelShareToken(token)) return;
+    const pending = readPendingPanelShare();
+    if (!pending || !isPanelShareToken(pending.token)) return;
     if (!canUseServerAuth()) return;
 
     consumedShareRef.current = true;
     clearPendingPanelShare();
     setShowAuthIntro(false);
-    void openSharedPanel(token);
+    void openSharedPanel(pending.token, pending.includeAppliances);
   }, [itemsLoading, onboardingReady, openSharedPanel, splashPhase]);
 
   const masterApplyEarly =
@@ -2666,7 +2676,11 @@ export function AppShell({
                 }
                 startOnboarding={schemeTourPending && !sharedPreview}
                 onOnboardingDone={handleSchemeOnboardingDone}
-                appliances={activePanel?.appliances ?? []}
+                appliances={
+                  sharedPreview && !sharedPreview.includeAppliances
+                    ? []
+                    : (activePanel?.appliances ?? [])
+                }
                 onSyncAppliances={
                   sharedPreview ? undefined : syncPanelAppliancesFromLineEquipment
                 }

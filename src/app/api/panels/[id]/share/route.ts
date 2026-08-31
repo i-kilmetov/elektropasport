@@ -9,14 +9,17 @@ import {
   getPanelByOwner,
   upsertUser,
 } from "@/lib/db";
-import { buildPanelShareUrl } from "@/lib/panel-share";
+import {
+  buildPanelShareUrl,
+  type PanelShareScope,
+} from "@/lib/panel-share";
 import { resolveRequestOrigin } from "@/lib/app-url";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
-export async function POST(_request: Request, context: RouteContext) {
+export async function POST(request: Request, context: RouteContext) {
   try {
-    const user = requireTelegramUser(_request);
+    const user = requireTelegramUser(request);
     await ensureSchema();
     await upsertUser(user);
 
@@ -26,10 +29,18 @@ export async function POST(_request: Request, context: RouteContext) {
       return Response.json({ error: "Щиток не найден" }, { status: 404 });
     }
 
+    let scope: PanelShareScope = "full";
+    try {
+      const body = (await request.json()) as { scope?: string };
+      if (body.scope === "scheme") scope = "scheme";
+    } catch {
+      // empty body — full card
+    }
+
     const token = await createOrGetPanelShare(user.telegramId, id);
     return Response.json({
       token,
-      url: buildPanelShareUrl(token, resolveRequestOrigin(_request)),
+      url: buildPanelShareUrl(token, resolveRequestOrigin(request), scope),
     });
   } catch (error) {
     return dbErrorResponse(error) ?? authErrorResponse(error);

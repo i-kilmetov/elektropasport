@@ -1,18 +1,51 @@
 const PENDING_PANEL_SHARE_KEY = "ep_pending_panel_share";
 
-export function readPendingPanelShare(): string | null {
+export type PendingPanelShare = {
+  token: string;
+  includeAppliances: boolean;
+};
+
+function parsePending(raw: string | null): PendingPanelShare | null {
+  if (!raw?.trim()) return null;
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (
+      parsed &&
+      typeof parsed === "object" &&
+      typeof (parsed as PendingPanelShare).token === "string"
+    ) {
+      const token = (parsed as PendingPanelShare).token.trim();
+      if (!token) return null;
+      return {
+        token,
+        includeAppliances:
+          (parsed as PendingPanelShare).includeAppliances !== false,
+      };
+    }
+  } catch {
+    // legacy plain token string
+  }
+  return { token: raw.trim(), includeAppliances: true };
+}
+
+export function readPendingPanelShare(): PendingPanelShare | null {
   if (typeof window === "undefined") return null;
   try {
-    const token = sessionStorage.getItem(PENDING_PANEL_SHARE_KEY)?.trim();
-    return token || null;
+    return parsePending(sessionStorage.getItem(PENDING_PANEL_SHARE_KEY));
   } catch {
     return null;
   }
 }
 
-export function writePendingPanelShare(token: string): void {
+export function writePendingPanelShare(
+  token: string,
+  includeAppliances = true,
+): void {
   try {
-    sessionStorage.setItem(PENDING_PANEL_SHARE_KEY, token);
+    sessionStorage.setItem(
+      PENDING_PANEL_SHARE_KEY,
+      JSON.stringify({ token, includeAppliances }),
+    );
   } catch {
     // private mode
   }
