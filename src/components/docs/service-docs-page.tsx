@@ -513,6 +513,7 @@ export function ServiceDocsPage() {
                   ["/docs", "Внутренняя документация (Telegram → пароль)"],
                   ["/job", "Лендинг «стать мастером»"],
                   ["/research", "Опрос"],
+                  ["/opening", "Подписка на открытие (номер)"],
                   ["/moscow-status", "Диагностика open data Москвы"],
                   ["/test-login", "Вход на staging"],
                   ["/legal/*", "privacy, consent, terms, offer"],

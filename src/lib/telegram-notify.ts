@@ -545,8 +545,9 @@ export async function notifyAdminResearchSurvey(payload: {
   customerTelegramId?: number;
   branch: string;
   dwelling: string;
-  typology: string;
-  need: string;
+  knowledge: string;
+  priorities: string;
+  topPriority?: string;
   manuals?: string;
   helpFirst?: string;
 }): Promise<void> {
@@ -562,10 +563,11 @@ export async function notifyAdminResearchSurvey(payload: {
         : "Telegram user id: нет",
       `Жильё: ${payload.dwelling}`,
       `Ветка ввода: ${payload.branch}`,
-      `Тип: ${payload.typology}`,
+      `Знания: ${payload.knowledge}`,
+      `Важно: ${payload.priorities}`,
+      payload.topPriority ? `Самое важное: ${payload.topPriority}` : null,
       `Инструкции: ${payload.manuals || "—"}`,
       `Помощь: ${payload.helpFirst || "—"}`,
-      `Нужен сервис: ${payload.need}`,
     ]
       .filter((line): line is string => line !== null)
       .join("\n"),

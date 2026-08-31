@@ -9,18 +9,25 @@ export function parseTelegramStartCommand(text?: string | null): string | null {
   return match?.[1]?.trim() || null;
 }
 
-export const RESEARCH_SURVEY_TOTAL_STEPS = 23;
+export const RESEARCH_SURVEY_TOTAL_STEPS = 25;
 
 export type SurveyQuestionKind = "single" | "multi" | "text";
 
-export type SurveyTopic = "about" | "panel" | "appliances" | "help" | "service";
+export type SurveyTopic =
+  | "about"
+  | "knowledge"
+  | "panel"
+  | "appliances"
+  | "help"
+  | "priorities";
 
 export const SURVEY_TOPIC_LABEL: Record<SurveyTopic, string> = {
   about: "О вас",
+  knowledge: "Электрика",
   panel: "Щиток",
   appliances: "Техника",
   help: "Помощь",
-  service: "Сервис",
+  priorities: "Важно",
 };
 
 export type SurveyOption = {
@@ -49,6 +56,27 @@ const Q3_APARTMENT_A = new Set(["own_panel"]);
 const Q3_APARTMENT_B = new Set(["floor_only", "fuses"]);
 const Q3_HOUSE_A = new Set(["street_and_house", "single_in_house"]);
 const Q3_HOUSE_B = new Set(["pole_only", "fuses_house"]);
+
+const PRIORITY_OPTIONS: SurveyOption[] = [
+  {
+    id: "principles",
+    label: "Разобраться, как домашняя электрика работает в принципе",
+  },
+  { id: "own_panel", label: "Разобраться в своём щитке" },
+  {
+    id: "quick_help",
+    label: "Иметь возможность быстро вызвать помощь",
+  },
+  {
+    id: "manuals",
+    label: "Каталог своей техники: все бумажки в одном месте",
+  },
+  {
+    id: "load",
+    label: "Понять, потянет ли сеть новую технику",
+  },
+  { id: "safety_now", label: "Понять, не опасно ли сейчас дома" },
+];
 
 function asString(value: string | string[] | undefined): string {
   return typeof value === "string" ? value : "";
@@ -110,6 +138,59 @@ const questions: Record<string, SurveyQuestion> = {
       { id: "55_64", label: "55–64" },
       { id: "65_plus", label: "65 и старше" },
       { id: "prefer_not", label: "Предпочитаю не указывать" },
+    ],
+  },
+  k1: {
+    id: "k1",
+    kind: "single",
+    required: true,
+    topic: "knowledge",
+    title: "Насколько вы понимаете, как устроена электрика дома?",
+    options: [
+      { id: "explain", label: "Могу объяснить, как устроена схема" },
+      {
+        id: "general",
+        label: "В общих чертах: автомат, УЗО, заземление",
+      },
+      {
+        id: "where_panel",
+        label: "Знаю, где щиток, но не как это работает",
+      },
+      { id: "avoid", label: "Стараюсь в это не лезть" },
+      { id: "none", label: "Совсем не разбираюсь" },
+    ],
+  },
+  k2: {
+    id: "k2",
+    kind: "multi",
+    required: true,
+    topic: "knowledge",
+    title: "Что из этого можете объяснить своими словами?",
+    hint: "Можно несколько вариантов.",
+    exclusiveOptionId: "none",
+    options: [
+      { id: "breaker", label: "Зачем нужен автомат" },
+      { id: "rcd", label: "Чем УЗО отличается от автомата" },
+      { id: "earth", label: "Что такое заземление и зачем оно" },
+      {
+        id: "trip",
+        label: "Почему выбивает автомат: перегруз или короткое замыкание",
+      },
+      { id: "none", label: "Ничего из этого" },
+    ],
+  },
+  k3: {
+    id: "k3",
+    kind: "single",
+    required: true,
+    topic: "knowledge",
+    title: "Если дома моргнул свет или выбило — вы скорее…",
+    options: [
+      { id: "check_panel", label: "Понимаю, что проверить в щитке" },
+      { id: "search", label: "Поищу в интернете, что это значит" },
+      { id: "ask", label: "Позову того, кто шарит" },
+      { id: "wait", label: "Подожду, само пройдёт" },
+      { id: "lost", label: "Не знаю, с чего начать" },
     ],
   },
   q2: {
@@ -317,28 +398,6 @@ const questions: Record<string, SurveyQuestion> = {
       { id: "unknown", label: "Не знаю" },
     ],
   },
-  q12: {
-    id: "q12",
-    kind: "single",
-    required: true,
-    topic: "panel",
-    title: "Что из этого больше про вас?",
-    hint: "Один вариант — тот, который ближе всего.",
-    options: [
-      {
-        id: "never_thought",
-        label:
-          "Не задумывался, что со щитком и электрикой вообще может быть проблема",
-      },
-      { id: "avoid", label: "Знаю, что это важно, но стараюсь не думать" },
-      {
-        id: "need_start",
-        label: "Понимаю риски, но не знаю, с чего начать и кому можно доверить",
-      },
-      { id: "in_control", label: "Всё под контролем, разбирать щиток мне не нужно" },
-      { id: "recently_done", label: "Недавно уже разбирался / делал щиток" },
-    ],
-  },
   a1: {
     id: "a1",
     kind: "single",
@@ -450,55 +509,22 @@ const questions: Record<string, SurveyQuestion> = {
       { id: "cheap", label: "Неважно как, лишь бы дешевле" },
     ],
   },
-  c1: {
-    id: "c1",
-    kind: "single",
+  p1: {
+    id: "p1",
+    kind: "multi",
     required: true,
-    topic: "service",
-    title: "Вам такое было бы нужно?",
-    concept:
-      "Сервис в одном месте: фото щитка — и видно, что внутри и где риски; техника с нагрузкой и инструкциями, без квеста по шкафам; помощь онлайн или мастер на дом уже с вашей схемой, без пересказа с нуля.",
-    options: [
-      { id: "need_now", label: "Да, прямо сейчас было бы полезно" },
-      { id: "need_later", label: "Скорее да, но не горит" },
-      { id: "curious", label: "Интересно глянуть из любопытства" },
-      { id: "no_self", label: "Нет, разберусь сам / вызову электрика" },
-      { id: "no_point", label: "Нет, не вижу в этом смысла" },
-    ],
+    topic: "priorities",
+    title: "Что из этого для вас сейчас важнее?",
+    hint: "Можно несколько вариантов.",
+    options: PRIORITY_OPTIONS,
   },
-  c2: {
-    id: "c2",
+  p2: {
+    id: "p2",
     kind: "single",
     required: true,
-    topic: "service",
-    title: "Что в этом ценнее всего?",
-    options: [
-      { id: "panel_safety", label: "Понять, не опасен ли щиток" },
-      { id: "appliance_load", label: "Понять, тянет ли сеть технику" },
-      { id: "manuals", label: "Инструкции и паспорта в одном месте" },
-      {
-        id: "help_context",
-        label: "Вызвать помощь и не объяснять всё заново",
-      },
-      { id: "fair_price", label: "Понять объём и цену работ до визита" },
-    ],
-  },
-  c3: {
-    id: "c3",
-    kind: "single",
-    required: true,
-    topic: "service",
-    title: "Почему скорее не нужно?",
-    options: [
-      { id: "already_clear", label: "У меня и так всё понятно" },
-      { id: "distrust", label: "Не доверяю приложению в такой теме" },
-      {
-        id: "not_my_job",
-        label: "Электрика — не моя забота (снимаю / есть кто занимается)",
-      },
-      { id: "avoid", label: "Не хочу об этом думать" },
-      { id: "no_time", label: "Слишком сложно / нет времени" },
-    ],
+    topic: "priorities",
+    title: "А что одно — самое важное?",
+    options: PRIORITY_OPTIONS,
   },
   q16: {
     id: "q16",
@@ -523,8 +549,6 @@ const questions: Record<string, SurveyQuestion> = {
   },
 };
 
-const C1_POSITIVE = new Set(["need_now", "need_later", "curious"]);
-
 export function getSurveyQuestion(
   stepId: string,
   answers: SurveyAnswers,
@@ -538,6 +562,14 @@ export function getSurveyQuestion(
     const branch = resolveInletBranch(answers) ?? "C";
     return questions[`${stepId}${branch.toLowerCase()}`]!;
   }
+  if (stepId === "p2") {
+    const selected = new Set(asStringArray(answers.p1));
+    const base = questions.p2!;
+    const options = (base.options ?? []).filter((option) =>
+      selected.has(option.id),
+    );
+    return { ...base, options: options.length > 0 ? options : base.options };
+  }
   const question = questions[stepId];
   if (!question) throw new Error(`Unknown survey step: ${stepId}`);
   return question;
@@ -546,7 +578,10 @@ export function getSurveyQuestion(
 const NEXT_STEP: Record<string, string | "done"> = {
   q1: "q_sex",
   q_sex: "q_age",
-  q_age: "q2",
+  q_age: "k1",
+  k1: "k2",
+  k2: "k3",
+  k3: "q2",
   q2: "q3",
   q3: "q4",
   q4: "q5",
@@ -554,17 +589,15 @@ const NEXT_STEP: Record<string, string | "done"> = {
   q7: "q8",
   q8: "q9",
   q9: "q10",
-  q10: "q12",
-  q12: "a1",
+  q10: "a1",
   a1: "a2",
   a2: "a3",
   a3: "h1",
   h1: "h2",
   h2: "h3",
   h3: "h4",
-  h4: "c1",
-  c2: "q16",
-  c3: "q16",
+  h4: "p1",
+  p2: "q16",
   q16: "q17",
   q17: "done",
 };
@@ -573,8 +606,8 @@ export function nextSurveyStep(
   stepId: string,
   answers: SurveyAnswers,
 ): string | "done" {
-  if (stepId === "c1") {
-    return C1_POSITIVE.has(asString(answers.c1)) ? "c2" : "c3";
+  if (stepId === "p1") {
+    return asStringArray(answers.p1).length > 1 ? "p2" : "q16";
   }
   return NEXT_STEP[stepId] ?? "done";
 }
@@ -608,7 +641,11 @@ function hasOption(stepId: string, answers: SurveyAnswers): boolean {
   );
 }
 
-function hasMulti(stepId: string, answers: SurveyAnswers, emptyError: string): string | null {
+function hasMulti(
+  stepId: string,
+  answers: SurveyAnswers,
+  emptyError: string,
+): string | null {
   const question = getSurveyQuestion(stepId, answers);
   const selected = asStringArray(answers[stepId]);
   if (selected.length === 0) return emptyError;
@@ -628,6 +665,14 @@ export function validateSurveyAnswers(answers: unknown): SurveyValidation {
   }
   if (!hasOption("q_sex", data)) return { ok: false, error: "Укажите пол" };
   if (!hasOption("q_age", data)) return { ok: false, error: "Укажите возраст" };
+  if (!hasOption("k1", data)) {
+    return { ok: false, error: "Ответьте, насколько понимаете электрику" };
+  }
+  const k2Error = hasMulti("k2", data, "Отметьте, что можете объяснить");
+  if (k2Error) return { ok: false, error: k2Error };
+  if (!hasOption("k3", data)) {
+    return { ok: false, error: "Ответьте, что сделаете, если выбьет" };
+  }
   if (asString(data.q2) !== "apartment" && asString(data.q2) !== "house") {
     return { ok: false, error: "Выберите тип жилья" };
   }
@@ -643,14 +688,12 @@ export function validateSurveyAnswers(answers: unknown): SurveyValidation {
     "q7",
     "q8",
     "q10",
-    "q12",
     "a1",
     "a3",
     "h1",
     "h2",
     "h3",
     "h4",
-    "c1",
     "q16",
   ]) {
     if (!hasOption(stepId, data)) {
@@ -662,13 +705,11 @@ export function validateSurveyAnswers(answers: unknown): SurveyValidation {
   if (q9Error) return { ok: false, error: q9Error };
   const a2Error = hasMulti("a2", data, "Отметьте, что из этого было с техникой");
   if (a2Error) return { ok: false, error: a2Error };
+  const p1Error = hasMulti("p1", data, "Отметьте, что для вас важнее");
+  if (p1Error) return { ok: false, error: p1Error };
 
-  if (C1_POSITIVE.has(asString(data.c1))) {
-    if (!hasOption("c2", data)) {
-      return { ok: false, error: "Выберите, что ценнее всего" };
-    }
-  } else if (!hasOption("c3", data)) {
-    return { ok: false, error: "Выберите, почему скорее не нужно" };
+  if (asStringArray(data.p1).length > 1 && !hasOption("p2", data)) {
+    return { ok: false, error: "Выберите, что одно самое важное" };
   }
 
   if (asString(data.q17).trim().length > 80) {
@@ -681,6 +722,9 @@ const LABEL_STEPS = [
   "q1",
   "q_sex",
   "q_age",
+  "k1",
+  "k2",
+  "k3",
   "q2",
   "q3",
   "q4",
@@ -689,7 +733,6 @@ const LABEL_STEPS = [
   "q8",
   "q9",
   "q10",
-  "q12",
   "a1",
   "a2",
   "a3",
@@ -697,9 +740,8 @@ const LABEL_STEPS = [
   "h2",
   "h3",
   "h4",
-  "c1",
-  "c2",
-  "c3",
+  "p1",
+  "p2",
   "q16",
 ] as const;
 

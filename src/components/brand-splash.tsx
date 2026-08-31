@@ -556,12 +556,17 @@ function toRuPhoneE164(value: string): string {
 /** Production pre-launch screen: phone waitlist instead of Telegram login. */
 export function BrandLaunchWaitlist({
   bootReady: _bootReady = true,
+  startAtPhone = false,
 }: {
   bootReady?: boolean;
+  /** Skip the flip animation and open the phone field (survey follow-up). */
+  startAtPhone?: boolean;
 }) {
-  const [tUpright, setTUpright] = useState(false);
-  const [restRevealed, setRestRevealed] = useState(false);
-  const [cta, setCta] = useState<"flip" | "notify" | "phone">("flip");
+  const [tUpright, setTUpright] = useState(startAtPhone);
+  const [restRevealed, setRestRevealed] = useState(startAtPhone);
+  const [cta, setCta] = useState<"flip" | "notify" | "phone">(
+    startAtPhone ? "phone" : "flip",
+  );
   const [phone, setPhone] = useState(`${PHONE_PREFIX} `);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);

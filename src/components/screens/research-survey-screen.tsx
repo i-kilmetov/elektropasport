@@ -142,12 +142,15 @@ export function ResearchSurveyScreen() {
     setDone(false);
     setError(null);
     setSubmitting(false);
-    setHistory(["q1", "q_sex", "q_age"]);
+    setHistory(["q1", "q_sex", "q_age", "k1", "k2", "k3"]);
     setStepId("q2");
     setAnswers((prev) => ({
       q1: "yes",
       q_sex: prev.q_sex,
       q_age: prev.q_age,
+      k1: prev.k1,
+      k2: prev.k2,
+      k3: prev.k3,
     }));
     setMultiDraft([]);
     setTextDraft("");
@@ -168,10 +171,19 @@ export function ResearchSurveyScreen() {
             Спасибо
           </h1>
           <p className="mt-3 max-w-sm ty-body">
-            Ответы записаны. Если есть и квартира, и дом — откройте ту же ссылку
-            ещё раз и пройдите опрос про второй объект.
+            Ответы записаны. Можно оставить номер — напишем, когда откроется
+            tokom.ru. Если есть и квартира, и дом, пройдите опрос ещё раз про
+            второй объект.
           </p>
-          <Button className="mt-8 w-full max-w-sm" size="lg" onClick={restart}>
+          <Button className="mt-8 w-full max-w-sm" size="lg" asChild>
+            <a href="/opening">Узнать об открытии tokom.ru</a>
+          </Button>
+          <Button
+            className="mt-3 w-full max-w-sm"
+            variant="ghost"
+            size="lg"
+            onClick={restart}
+          >
             Пройти ещё раз
           </Button>
         </div>
