@@ -2,7 +2,7 @@ import { cn } from "@/lib/utils";
 
 type IconProps = { className?: string };
 
-const ICON_CLASS = "h-12 w-auto";
+const ICON_CLASS = "h-9 w-auto";
 
 /** Apple logo silhouette (standard bitten-apple shape). */
 export function AppleIcon({ className }: IconProps) {

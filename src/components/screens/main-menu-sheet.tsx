@@ -119,9 +119,9 @@ export function MainMenuSheet({
           exit={{ y: 40 }}
           transition={{ type: "spring", stiffness: 320, damping: 30 }}
           onClick={(e) => e.stopPropagation()}
-          className="mx-auto w-full max-w-[430px] rounded-t-[28px] border border-black/8 bg-white p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-2xl lg:max-w-md lg:rounded-[28px]"
+          className="mx-auto flex max-h-[min(92vh,820px)] w-full max-w-[430px] flex-col rounded-t-[28px] border border-black/8 bg-white p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-2xl lg:max-h-none lg:max-w-md lg:rounded-[28px]"
         >
-          <div className="mb-4 flex items-center justify-between gap-3">
+          <div className="mb-4 flex shrink-0 items-center justify-between gap-3">
             <BrandLogo className="h-8" />
             <button
               type="button"
@@ -133,7 +133,7 @@ export function MainMenuSheet({
             </button>
           </div>
 
-          <div className="space-y-2">
+          <div className="min-h-0 flex-1 space-y-2 overflow-y-auto">
             {visibleItems.map((item) => (
               <button
                 key={item.id}
@@ -181,22 +181,22 @@ export function MainMenuSheet({
             )}
           </div>
 
-          <div className="mt-5 flex items-center justify-between gap-4">
+          <div className="mt-auto flex shrink-0 items-end justify-between gap-4 pt-5">
             {showInstallApps ? (
-              <div className="flex items-center gap-5">
+              <div className="flex items-end gap-4">
                 <button
                   type="button"
                   onClick={() => setInstallPlatform("ios")}
-                  className="text-zinc-300 transition-colors hover:text-zinc-400"
-                  aria-label="Приложение для iPhone"
+                  className="text-zinc-200 transition-colors hover:text-zinc-300"
+                  aria-label="Приложение для App Store"
                 >
                   <AppleIcon />
                 </button>
                 <button
                   type="button"
                   onClick={() => setInstallPlatform("android")}
-                  className="text-zinc-300 transition-colors hover:text-zinc-400"
-                  aria-label="Приложение для Android"
+                  className="text-zinc-200 transition-colors hover:text-zinc-300"
+                  aria-label="Приложение для Play Market"
                 >
                   <AndroidIcon />
                 </button>
@@ -204,7 +204,7 @@ export function MainMenuSheet({
             ) : (
               <span aria-hidden="true" />
             )}
-            <p className="shrink-0 ty-meta tabular-nums text-zinc-400">
+            <p className="shrink-0 leading-none ty-meta tabular-nums text-zinc-400">
               {APP_VERSION}
             </p>
           </div>
