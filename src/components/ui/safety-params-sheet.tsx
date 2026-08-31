@@ -139,10 +139,13 @@ export function SafetyParamsSheet({
                   key={String(option.id)}
                   type="button"
                   onClick={() => {
-                    setHasGround(option.id);
-                    if (phases === null && option.id === false) {
-                      // keep phases untouched
-                    }
+                    setHasGround((prev) => {
+                      if (prev === option.id) {
+                        setPhases(null);
+                        return null;
+                      }
+                      return option.id;
+                    });
                   }}
                   className={cn(
                     "rounded-[16px] border px-3 py-3 ty-heading transition-colors",
@@ -185,7 +188,11 @@ export function SafetyParamsSheet({
                   <button
                     key={option.id}
                     type="button"
-                    onClick={() => setPhases(option.id)}
+                    onClick={() =>
+                      setPhases((prev) =>
+                        prev === option.id ? null : option.id,
+                      )
+                    }
                     className={cn(
                       "rounded-[16px] border px-3 py-3 ty-heading transition-colors",
                       phases === option.id

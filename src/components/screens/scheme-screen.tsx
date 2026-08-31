@@ -684,33 +684,32 @@ function DeviceSheet({
     ],
   );
   const confident = isDeviceDetailsConfident(draftDevice);
-  const manufacturerValue = displaySpecValue(
+  const manufacturerLabel =
     getManufacturerBrand(draftBrandKey, draftManufacturer)?.label ??
-      draftManufacturer,
-  );
+    draftManufacturer.trim() ??
+    "";
   const modelValue = useMemo(() => {
     const model = device.model?.trim();
     if (model) return model;
     const series = resolveDeviceSeriesLabel(device);
     return series?.trim() || null;
   }, [device]);
+  /** Scanned/catalog model locks specs — they come with the product. */
+  const modelLocked = Boolean(device.model?.trim());
+  const specsLocked = modelLocked || !specEditable;
   const typeValue =
     DEVICE_TYPE_OPTIONS.find((item) => item.type === draftType)?.label ??
     typeShort[draftType];
-  const identitySpecs = useMemo(
-    () => {
-      const rows: Array<[string, string]> = [
-        ["Производитель", manufacturerValue],
-        ["Тип", typeValue],
-        ["Номинал", displaySpecValue(draftRating)],
-      ];
-      if (modelValue) {
-        rows.splice(1, 0, ["Модель", modelValue]);
-      }
-      return rows;
-    },
-    [draftRating, manufacturerValue, modelValue, typeValue],
-  );
+  const identitySpecs = useMemo(() => {
+    const rows: Array<[string, string]> = [
+      ["Тип", typeValue],
+      ["Номинал", displaySpecValue(draftRating)],
+    ];
+    if (!manufacturerLabel && !modelLocked) {
+      rows.unshift(["Производитель", displaySpecValue(manufacturerLabel)]);
+    }
+    return rows;
+  }, [draftRating, manufacturerLabel, modelLocked, typeValue]);
   const specs = useMemo(
     () => deviceCharacteristicRows(draftDevice),
     [draftDevice],
@@ -825,12 +824,13 @@ function DeviceSheet({
   const hasExistingLine = Boolean(persistedLineLabel);
   const skipObjectStep = Boolean(objectType ?? knownObjectType);
   const specsDirty =
-    draftType !== device.type ||
-    (draftManufacturer || "") !== (device.manufacturer || "") ||
-    (draftBrandKey || "") !== (device.brandKey || "") ||
-    (draftRating || "") !== (device.rating || "") ||
-    JSON.stringify(draftCharacteristics ?? {}) !==
-      JSON.stringify(device.characteristics ?? {});
+    !modelLocked &&
+    (draftType !== device.type ||
+      (draftManufacturer || "") !== (device.manufacturer || "") ||
+      (draftBrandKey || "") !== (device.brandKey || "") ||
+      (draftRating || "") !== (device.rating || "") ||
+      JSON.stringify(draftCharacteristics ?? {}) !==
+        JSON.stringify(device.characteristics ?? {}));
   const lineSelectionDirty =
     flowStep === 5 &&
     selectedLineLabel.length > 0 &&
@@ -924,7 +924,7 @@ function DeviceSheet({
   };
 
   const persistDraftSpecs = () => {
-    if (!specsDirty) return;
+    if (modelLocked || !specsDirty) return;
     const identityPatch: {
       type?: DeviceType;
       manufacturer?: string;
@@ -1098,8 +1098,15 @@ function DeviceSheet({
                 </button>
               )}
             </div>
+            {(manufacturerLabel || modelValue) && (
+              <p className="mt-1 ty-meta text-zinc-500">
+                {[manufacturerLabel || null, modelValue]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </p>
+            )}
             {confident ? (
-              <p className="ty-body">{device.rating}</p>
+              <p className="mt-1 ty-body">{device.rating}</p>
             ) : (
               <p className="mt-1 ty-body">
                 Укажите производителя, тип и номинал ниже. Статус на схеме
@@ -1131,10 +1138,11 @@ function DeviceSheet({
                 label={key}
                 value={value}
                 editable={Boolean(
-                  specEditable && (onUpdateIdentity || onUpdateCharacteristic),
+                  !specsLocked &&
+                    (onUpdateIdentity || onUpdateCharacteristic),
                 )}
                 onChange={
-                  specEditable && (onUpdateIdentity || onUpdateCharacteristic)
+                  !specsLocked && (onUpdateIdentity || onUpdateCharacteristic)
                     ? (next) => handleSpecChange(key, next)
                     : undefined
                 }
@@ -1146,9 +1154,9 @@ function DeviceSheet({
                 deviceType={draftType}
                 label={key}
                 value={value}
-                editable={Boolean(specEditable && onUpdateCharacteristic)}
+                editable={Boolean(!specsLocked && onUpdateCharacteristic)}
                 onChange={
-                  specEditable && onUpdateCharacteristic
+                  !specsLocked && onUpdateCharacteristic
                     ? (next) => handleSpecChange(key, next)
                     : undefined
                 }
@@ -1157,7 +1165,7 @@ function DeviceSheet({
           </div>
         )}
 
-        {specEditable && onUpdateCharacteristic && (
+        {!specsLocked && onUpdateCharacteristic && (
           <p className="mb-5 ty-meta text-amber-800/90">
             {confident
               ? manualSpecEditDisclaimer
