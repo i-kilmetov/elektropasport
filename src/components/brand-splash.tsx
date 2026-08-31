@@ -29,14 +29,6 @@ const HEARTBEAT_OPACITY = [0.3, 1, 0.42, 0.9, 0.3] as const;
 const HEARTBEAT_SCALE = [0.86, 1.05, 0.88, 1.02, 0.86] as const;
 const HEARTBEAT_TIMES = [0, 0.09, 0.17, 0.26, 1] as const;
 const HEARTBEAT_DURATION_S = 1.2;
-/** Hold inverted T while boot fetch runs, then reveal OKOM. */
-const REVEAL_AT_MS = 1750;
-/** OKOM width (0.9s) finishes ~2650ms; show tagline after full wordmark. */
-const TAGLINE_AT_MS = 2750;
-const LOGIN_BUTTON_DELAY_MS = 420;
-/** T stays upside-down for ~62% of the flip timeline. */
-const T_ROTATE_DURATION_S = 2;
-const T_INVERTED_HOLD_FRACTION = 0.62;
 /** Waitlist flip: tween 180→360 so the last degrees stay as smooth as the rest. */
 const WAITLIST_FLIP_DURATION_S = 0.6;
 const WAITLIST_FLIP_EASE = [0.4, 0, 0.6, 1] as const;
@@ -57,14 +49,11 @@ const SPLASH_WORDMARK_HOLD_MS = 850;
 function AnimatedT({
   pulsing,
   wordmarkStyle,
-  playOnMount = true,
   upright = false,
   instantUpright = false,
 }: {
   pulsing: boolean;
   wordmarkStyle: typeof splashWordmarkTypeStyle;
-  /** Splash/auth: flip on mount. Launch waitlist: stay inverted until `upright`. */
-  playOnMount?: boolean;
   upright?: boolean;
   /** Already upright — no 180→360 tween (e.g. auth intro after splash). */
   instantUpright?: boolean;
@@ -94,8 +83,7 @@ function AnimatedT({
         className="relative inline-block"
         style={{
           ...wordmarkStyle,
-          // Waitlist: spin around the T center. Splash: pivot from the baseline.
-          transformOrigin: playOnMount ? "50% 100%" : "50% 50%",
+          transformOrigin: "50% 50%",
         }}
         transformTemplate={({ rotate }) => {
           const value = rotate == null ? "180deg" : String(rotate);
@@ -105,29 +93,15 @@ function AnimatedT({
         animate={
           instantUpright
             ? { rotate: 360, opacity: 1, scale: 1 }
-            : playOnMount
-              ? { rotate: [180, 180, 0], opacity: 1, scale: 1 }
-              : { rotate: upright ? 360 : 180, opacity: 1, scale: 1 }
+            : { rotate: upright ? 360 : 180, opacity: 1, scale: 1 }
         }
-        transition={
-          playOnMount
-            ? {
-                rotate: {
-                  type: "tween",
-                  duration: T_ROTATE_DURATION_S,
-                  times: [0, T_INVERTED_HOLD_FRACTION, 1],
-                  ease: [0.22, 1, 0.36, 1],
-                },
-              }
-            : {
-                rotate: {
-                  type: "tween",
-                  duration:
-                    instantUpright ? 0 : upright ? WAITLIST_FLIP_DURATION_S : 0,
-                  ease: WAITLIST_FLIP_EASE,
-                },
-              }
-        }
+        transition={{
+          rotate: {
+            type: "tween",
+            duration: instantUpright ? 0 : upright ? WAITLIST_FLIP_DURATION_S : 0,
+            ease: WAITLIST_FLIP_EASE,
+          },
+        }}
       >
       <span className="relative inline-block leading-none">
         <span
@@ -174,7 +148,6 @@ function BrandMark({
   stripesPulsing,
   restRevealed,
   variant = "splash",
-  tPlayOnMount = true,
   tUpright = false,
   tInstantUpright = false,
   collapseRest = false,
@@ -185,12 +158,11 @@ function BrandMark({
   stripesPulsing: boolean;
   restRevealed: boolean;
   variant?: "splash" | "header";
-  tPlayOnMount?: boolean;
   tUpright?: boolean;
   tInstantUpright?: boolean;
   /** Keep «ОКОМ» out of layout until revealed so the inverted T sits on center. */
   collapseRest?: boolean;
-  /** Static wordmark — no letter blur/stagger (auth intro after test login). */
+  /** Static wordmark — no letter blur/stagger (auth intro after splash). */
   instantReveal?: boolean;
 }) {
   const wordmarkStyle =
@@ -228,7 +200,6 @@ function BrandMark({
         <AnimatedT
           pulsing={stripesPulsing}
           wordmarkStyle={wordmarkStyle}
-          playOnMount={tPlayOnMount}
           upright={tUpright}
           instantUpright={tInstantUpright}
         />
@@ -312,64 +283,15 @@ function BrandMark({
   );
 }
 
-function useLogoAnimation(bootReady = true) {
-  const [stripesPulsing, setStripesPulsing] = useState(true);
-  const [restRevealed, setRestRevealed] = useState(false);
-  const [taglineVisible, setTaglineVisible] = useState(false);
-  const [loginVisible, setLoginVisible] = useState(false);
-
-  useEffect(() => {
-    if (!bootReady) return;
-
-    const pulseStop = window.setTimeout(
-      () => setStripesPulsing(false),
-      REVEAL_AT_MS,
-    );
-    const reveal = window.setTimeout(() => setRestRevealed(true), REVEAL_AT_MS);
-    const tagline = window.setTimeout(
-      () => setTaglineVisible(true),
-      TAGLINE_AT_MS,
-    );
-    const login = window.setTimeout(
-      () => setLoginVisible(true),
-      TAGLINE_AT_MS + LOGIN_BUTTON_DELAY_MS,
-    );
-    return () => {
-      window.clearTimeout(pulseStop);
-      window.clearTimeout(reveal);
-      window.clearTimeout(tagline);
-      window.clearTimeout(login);
-    };
-  }, [bootReady]);
-
-  return {
-    stripesPulsing,
-    restRevealed,
-    taglineVisible,
-    loginVisible,
-  };
-}
-
-export function BrandSplash({
-  onComplete,
-  bootReady = true,
-}: {
-  onComplete: () => void;
-  bootReady?: boolean;
-}) {
+function useCenterAxisFlipAnimation(
+  bootReady: boolean,
+  options: { revealCta?: boolean } = {},
+) {
+  const { revealCta = false } = options;
   const [tUpright, setTUpright] = useState(false);
   const [restRevealed, setRestRevealed] = useState(false);
-  const [fadeOut, setFadeOut] = useState(false);
+  const [ctaVisible, setCtaVisible] = useState(false);
   const startedAtRef = useRef(Date.now());
-  const completedRef = useRef(false);
-
-  useEffect(() => {
-    applySplashStatusBarTheme();
-  }, []);
-
-  useEffect(() => {
-    if (fadeOut) applyAppStatusBarTheme(false);
-  }, [fadeOut]);
 
   useEffect(() => {
     if (!bootReady || tUpright) return;
@@ -389,6 +311,49 @@ export function BrandSplash({
     );
     return () => window.clearTimeout(reveal);
   }, [tUpright]);
+
+  useEffect(() => {
+    if (!revealCta || !restRevealed) return;
+    const lastLetterMs =
+      (WAITLIST_OKOM_LETTER_DELAY_S +
+        (WORDMARK_REST.length - 1) * WAITLIST_OKOM_LETTER_STAGGER_S +
+        WAITLIST_OKOM_LETTER_DURATION_S) *
+      1000;
+    const id = window.setTimeout(
+      () => setCtaVisible(true),
+      lastLetterMs + WAITLIST_NOTIFY_AFTER_LOGO_MS,
+    );
+    return () => window.clearTimeout(id);
+  }, [restRevealed, revealCta]);
+
+  return {
+    stripesPulsing: !tUpright,
+    tUpright,
+    restRevealed,
+    ctaVisible,
+  };
+}
+
+export function BrandSplash({
+  onComplete,
+  bootReady = true,
+}: {
+  onComplete: () => void;
+  bootReady?: boolean;
+}) {
+  const { stripesPulsing, tUpright, restRevealed } = useCenterAxisFlipAnimation(
+    bootReady,
+  );
+  const [fadeOut, setFadeOut] = useState(false);
+  const completedRef = useRef(false);
+
+  useEffect(() => {
+    applySplashStatusBarTheme();
+  }, []);
+
+  useEffect(() => {
+    if (fadeOut) applyAppStatusBarTheme(false);
+  }, [fadeOut]);
 
   useEffect(() => {
     if (!restRevealed || completedRef.current) return;
@@ -427,9 +392,8 @@ export function BrandSplash({
         <BrandMark
           tagline=""
           taglineVisible={false}
-          stripesPulsing={!tUpright}
+          stripesPulsing={stripesPulsing}
           restRevealed={restRevealed}
-          tPlayOnMount={false}
           tUpright={tUpright}
           collapseRest
         />
@@ -447,10 +411,12 @@ export function BrandAuthIntro({
   bootReady?: boolean;
   skipAnimation?: boolean;
 }) {
-  const animation = useLogoAnimation(bootReady && !skipAnimation);
-  const restRevealed = skipAnimation || animation.restRevealed;
-  const stripesPulsing = skipAnimation ? false : animation.stripesPulsing;
-  const loginVisible = skipAnimation || animation.loginVisible;
+  const flip = useCenterAxisFlipAnimation(bootReady && !skipAnimation, {
+    revealCta: !skipAnimation,
+  });
+  const restRevealed = skipAnimation || flip.restRevealed;
+  const stripesPulsing = skipAnimation ? false : flip.stripesPulsing;
+  const loginVisible = skipAnimation || flip.ctaVisible;
   const [starting, setStarting] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [logoWidth, setLogoWidth] = useState(0);
@@ -524,10 +490,10 @@ export function BrandAuthIntro({
             taglineVisible={false}
             stripesPulsing={stripesPulsing}
             restRevealed={restRevealed}
-            tPlayOnMount={!skipAnimation}
-            tUpright={skipAnimation}
+            tUpright={skipAnimation || flip.tUpright}
             tInstantUpright={skipAnimation}
             instantReveal={skipAnimation}
+            collapseRest={!skipAnimation}
           />
         </div>
       </div>
@@ -782,7 +748,6 @@ export function BrandLaunchWaitlist({
             taglineVisible={false}
             stripesPulsing={!tUpright}
             restRevealed={restRevealed}
-            tPlayOnMount={false}
             tUpright={tUpright}
             collapseRest
           />
