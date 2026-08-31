@@ -86,7 +86,7 @@ export function InstallAppSheet({
         >
           <div className="mb-4 flex items-start justify-between gap-3">
             <div className="flex items-center gap-3">
-              <PlatformIcon className="text-zinc-400" />
+              <PlatformIcon className="text-zinc-300" />
               <h2 className="ty-heading">{copy.title}</h2>
             </div>
             <button

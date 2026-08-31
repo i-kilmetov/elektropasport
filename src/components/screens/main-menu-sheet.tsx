@@ -181,30 +181,33 @@ export function MainMenuSheet({
             )}
           </div>
 
-          {showInstallApps && (
-            <div className="mt-4 flex items-center justify-start gap-6 px-1">
-              <button
-                type="button"
-                onClick={() => setInstallPlatform("ios")}
-                className="text-zinc-400 transition-colors hover:text-zinc-600"
-                aria-label="Приложение для iPhone"
-              >
-                <AppleIcon />
-              </button>
-              <button
-                type="button"
-                onClick={() => setInstallPlatform("android")}
-                className="text-zinc-400 transition-colors hover:text-zinc-600"
-                aria-label="Приложение для Android"
-              >
-                <AndroidIcon />
-              </button>
-            </div>
-          )}
-
-          <p className="mt-5 text-center ty-meta tabular-nums">
-            {APP_VERSION}
-          </p>
+          <div className="mt-5 flex items-center justify-between gap-4">
+            {showInstallApps ? (
+              <div className="flex items-center gap-5">
+                <button
+                  type="button"
+                  onClick={() => setInstallPlatform("ios")}
+                  className="text-zinc-300 transition-colors hover:text-zinc-400"
+                  aria-label="Приложение для iPhone"
+                >
+                  <AppleIcon />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setInstallPlatform("android")}
+                  className="text-zinc-300 transition-colors hover:text-zinc-400"
+                  aria-label="Приложение для Android"
+                >
+                  <AndroidIcon />
+                </button>
+              </div>
+            ) : (
+              <span aria-hidden="true" />
+            )}
+            <p className="shrink-0 ty-meta tabular-nums text-zinc-400">
+              {APP_VERSION}
+            </p>
+          </div>
         </motion.div>
       </motion.div>
 
