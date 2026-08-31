@@ -612,6 +612,17 @@ export function nextSurveyStep(
   return NEXT_STEP[stepId] ?? "done";
 }
 
+/** Actual question count for this answer path (p2 is skipped if one priority). */
+export function surveyPathLength(answers: SurveyAnswers): number {
+  let step = "q1";
+  let count = 0;
+  while (step !== "done" && count < 40) {
+    count += 1;
+    step = nextSurveyStep(step, answers);
+  }
+  return count;
+}
+
 function optionLabel(question: SurveyQuestion, optionId: string): string {
   return question.options?.find((option) => option.id === optionId)?.label ?? optionId;
 }

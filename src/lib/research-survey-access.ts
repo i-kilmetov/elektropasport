@@ -10,15 +10,15 @@ export function isResearchSurveyStartParam(
 /** Hidden research questionnaire. Regular Mini App entry does not open this screen. */
 export function isResearchSurveyLaunch(): boolean {
   if (typeof window === "undefined") return false;
-  if (isResearchSurveyStartParam(getTelegramStartParam())) return true;
   try {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("waitlist") === "1") return false;
     const path = window.location.pathname.replace(/\/$/, "") || "/";
     if (path === "/research") return true;
-    const params = new URLSearchParams(window.location.search);
     if (params.get("survey") === "1") return true;
     if (isResearchSurveyStartParam(params.get("startapp"))) return true;
   } catch {
     // ignore
   }
-  return false;
+  return isResearchSurveyStartParam(getTelegramStartParam());
 }
