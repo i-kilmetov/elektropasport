@@ -165,10 +165,12 @@ export function PhoneLoginFlow({
   if (step === "phone") {
     return (
       <div className={cn("space-y-3", className)}>
-        <div className="space-y-2 text-left">
-          <label className="ty-caption text-zinc-600" htmlFor="phone-login">
-            Телефон
-          </label>
+        <div
+          className={cn(
+            "flex h-14 min-h-14 w-full items-center gap-3 rounded-full bg-white px-5",
+            isSplash ? "text-zinc-900" : "border border-black/10 text-zinc-900",
+          )}
+        >
           <input
             id="phone-login"
             inputMode="tel"
@@ -176,12 +178,12 @@ export function PhoneLoginFlow({
             value={phone}
             onChange={(event) => setPhone(formatRuPhone(event.target.value))}
             placeholder="+7 900 123-45-67"
-            className="h-12 w-full rounded-2xl border border-black/10 bg-white px-4 text-[16px] text-zinc-900 outline-none focus:border-zinc-400"
+            aria-label="Номер телефона"
+            className="min-w-0 flex-1 bg-transparent text-[16px] outline-none"
           />
-          <p className="ty-caption text-zinc-500">
-            Отправим код подтверждения в Telegram на номер{" "}
-            {phoneValid ? formatPhoneDigits(phoneDigits) : "…"}
-          </p>
+          <span className="shrink-0 text-[22px] leading-none" aria-hidden>
+            🇷🇺
+          </span>
         </div>
         <Button
           type="button"
@@ -193,7 +195,7 @@ export function PhoneLoginFlow({
           disabled={!phoneValid || busy}
           onClick={() => void handleSendCode()}
         >
-          {busy ? "Отправляем код…" : "Получить код"}
+          {busy ? "Входим…" : "Войти"}
         </Button>
         <TelegramLoginLink
           isSplash={isSplash}
