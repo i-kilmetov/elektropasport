@@ -49,11 +49,13 @@ import {
 import { applianceNeedsDetails } from "@/lib/appliance-line-sync";
 import {
   buildPanelSafetyStages,
-  panelSafetyStagesDisclaimer,
 } from "@/lib/panel-safety-stages";
 import { hapticContextMenu } from "@/lib/haptics";
 import { safetyBadgeColors } from "@/lib/safety-score";
-import { PanelSafetyStages } from "@/components/ui/panel-safety-stages";
+import {
+  PanelSafetyBarSheetHost,
+  PanelSafetyStages,
+} from "@/components/ui/panel-safety-stages";
 import {
   persistInstallRequest,
   persistPanel,
@@ -350,22 +352,23 @@ function HomeListCard({
   const isRequest = item.kind === "install_request";
   const panel = !isRequest && item.kind === "panel" ? item : null;
   const safetyStages = panel ? buildPanelSafetyStages({ panel }) : null;
+  const [safetyInfoOpen, setSafetyInfoOpen] = useState(false);
   const longPress = useLongPressAction(onContextMenu);
 
   return (
     <div className="relative" {...longPress.bind}>
-      <button
-        type="button"
-        onClick={() => {
-          if (longPress.longPressedRef.current) {
-            longPress.longPressedRef.current = false;
-            return;
-          }
-          onOpen();
-        }}
-        className="block w-full touch-manipulation text-left select-none lg:cursor-pointer"
-      >
-        <GlassCard className="overflow-hidden rounded-[24px] border transition-colors hover:bg-zinc-50">
+      <GlassCard className="overflow-hidden rounded-[24px] border transition-colors hover:bg-zinc-50">
+        <button
+          type="button"
+          onClick={() => {
+            if (longPress.longPressedRef.current) {
+              longPress.longPressedRef.current = false;
+              return;
+            }
+            onOpen();
+          }}
+          className="block w-full touch-manipulation text-left select-none lg:cursor-pointer"
+        >
           <div className="flex items-center gap-4 p-4 lg:p-5">
             <div
               className={cn(
@@ -413,13 +416,25 @@ function HomeListCard({
               </p>
             </div>
           </div>
-          {panel && !panel.noPanelSetupId && safetyStages ? (
-            <div className="border-t border-black/[0.06] px-4 py-3">
+        </button>
+        {panel && !panel.noPanelSetupId && safetyStages ? (
+          <div className="border-t border-black/[0.06] px-4 py-3">
+            <button
+              type="button"
+              onClick={() => setSafetyInfoOpen(true)}
+              className="w-full text-left"
+              aria-label="Этапы оценки безопасности щитка"
+            >
               <PanelSafetyStages snapshot={safetyStages} variant="bar" />
-            </div>
-          ) : null}
-        </GlassCard>
-      </button>
+            </button>
+          </div>
+        ) : null}
+      </GlassCard>
+      <PanelSafetyBarSheetHost
+        open={safetyInfoOpen}
+        snapshot={safetyStages}
+        onClose={() => setSafetyInfoOpen(false)}
+      />
     </div>
   );
 }
@@ -621,15 +636,11 @@ function ExpandableHomeCard({
           </AnimatePresence>
         ) : null}
 
-        <AnimatePresence>
-        {safetyInfoOpen && (
-          <InfoDialog
-            title="Безопасность щитка"
-            description={`${panelSafetyStagesDisclaimer}\n\n1. Схема — по составу щитка и параметрам сети.\n2. Нагрузки — после привязки техники, света и розеток к линиям.\n3. Расключение — после проверки расключения щитка и типа кабелей.`}
-            onClose={() => setSafetyInfoOpen(false)}
-          />
-        )}
-        </AnimatePresence>
+        <PanelSafetyBarSheetHost
+          open={safetyInfoOpen}
+          snapshot={safetyStages}
+          onClose={() => setSafetyInfoOpen(false)}
+        />
 
         <AnimatePresence>
           {appliancesIntroOpen && (
