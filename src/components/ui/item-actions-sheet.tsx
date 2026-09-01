@@ -6,6 +6,7 @@ import { Portal } from "@/components/ui/portal";
 
 export function ItemActionsSheet({
   title,
+  subtitle,
   description = "Что сделать с карточкой?",
   renameLabel = "Переименовать",
   onClose,
@@ -13,6 +14,7 @@ export function ItemActionsSheet({
   onDelete,
 }: {
   title: string;
+  subtitle?: string;
   description?: string;
   renameLabel?: string;
   onClose: () => void;
@@ -39,6 +41,9 @@ export function ItemActionsSheet({
           <h3 className="mb-2 ty-title">
             {title}
           </h3>
+          {subtitle ? (
+            <p className="mb-2 ty-heading text-zinc-700">{subtitle}</p>
+          ) : null}
           <p className="mb-5 ty-body">
             {description}
           </p>

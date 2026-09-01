@@ -46,6 +46,7 @@ import {
   formatAppliancePower,
 } from "@/lib/home-appliances";
 import { applianceNeedsDetails } from "@/lib/appliance-line-sync";
+import { hapticContextMenu } from "@/lib/haptics";
 import { safetyBadgeColors } from "@/lib/safety-score";
 import {
   persistInstallRequest,
@@ -183,27 +184,27 @@ function stopCardLongPress<T extends HTMLElement>(
 function PanelBookPages({ count }: { count: number }) {
   if (count <= 0) return null;
   const layers = Math.min(count, 5);
+  const stepPx = 5;
+  const pageHeightPx = 8;
+
   return (
     <div
-      className="pointer-events-none relative h-3 w-full"
+      className="pointer-events-none relative w-full"
+      style={{ height: pageHeightPx + (layers - 1) * stepPx }}
       aria-hidden
       title={`${count} шт. техники`}
     >
-      {Array.from({ length: layers }, (_, index) => {
-        const layer = layers - 1 - index;
-        return (
-          <div
-            key={layer}
-            className="absolute left-0 right-0 h-2.5 rounded-b-[14px] border border-t-0 border-black/[0.07] bg-white shadow-[0_2px_6px_rgba(17,17,19,0.06)]"
-            style={{
-              bottom: layer * 3,
-              marginLeft: layer * 4,
-              marginRight: layer * 4,
-              opacity: 0.45 + (layers - layer) * 0.11,
-            }}
-          />
-        );
-      })}
+      {Array.from({ length: layers }, (_, index) => (
+        <div
+          key={index}
+          className="absolute inset-x-0 rounded-b-[22px] border border-t-0 border-black/14 bg-zinc-50 shadow-[0_2px_0_rgba(17,17,19,0.06),inset_0_1px_0_rgba(255,255,255,0.9)]"
+          style={{
+            top: index * stepPx,
+            height: pageHeightPx,
+            zIndex: layers - index,
+          }}
+        />
+      ))}
     </div>
   );
 }
@@ -217,16 +218,51 @@ function ApplianceListRow({
   onOpen: () => void;
   onContextMenu: () => void;
 }) {
-  const longPress = useLongPressAction(onContextMenu);
+  const [isHolding, setIsHolding] = useState(false);
+  const holdVisualTimerRef = useRef<number | null>(null);
+  const longPress = useLongPressAction(() => {
+    setIsHolding(false);
+    hapticContextMenu();
+    onContextMenu();
+  });
   const kindLabel = applianceDisplayKindLabel(appliance);
   const needsDetails = applianceNeedsDetails(appliance);
   const brand = appliance.brand?.trim();
   const model = appliance.model?.trim();
 
+  const clearHoldVisual = () => {
+    if (holdVisualTimerRef.current != null) {
+      window.clearTimeout(holdVisualTimerRef.current);
+      holdVisualTimerRef.current = null;
+    }
+    setIsHolding(false);
+  };
+
+  useEffect(() => clearHoldVisual, []);
+
   return (
-    <button
+    <motion.button
       type="button"
-      {...stopCardLongPress(longPress.bind)}
+      animate={{ scale: isHolding ? 1.03 : 1 }}
+      transition={{ type: "spring", stiffness: 420, damping: 28 }}
+      {...stopCardLongPress({
+        ...longPress.bind,
+        onPointerDown: (event) => {
+          clearHoldVisual();
+          holdVisualTimerRef.current = window.setTimeout(() => {
+            setIsHolding(true);
+          }, 140);
+          longPress.bind.onPointerDown(event);
+        },
+        onPointerUp: () => {
+          clearHoldVisual();
+          longPress.bind.onPointerUp();
+        },
+        onPointerCancel: () => {
+          clearHoldVisual();
+          longPress.bind.onPointerCancel();
+        },
+      })}
       onClick={() => {
         if (longPress.longPressedRef.current) {
           longPress.longPressedRef.current = false;
@@ -234,7 +270,10 @@ function ApplianceListRow({
         }
         onOpen();
       }}
-      className="flex w-full items-center gap-2.5 rounded-none px-4 py-2 text-left transition-colors hover:bg-zinc-50"
+      className={cn(
+        "relative z-[1] flex w-full origin-center items-center gap-2.5 rounded-none px-4 py-2 text-left transition-colors hover:bg-zinc-50",
+        isHolding && "z-[2] bg-zinc-50 shadow-[0_8px_24px_rgba(17,17,19,0.12)]",
+      )}
     >
       <ApplianceBrandAvatar
         kind={appliance.kind}
@@ -260,7 +299,7 @@ function ApplianceListRow({
           {formatAppliancePower(appliance.powerW)}
         </span>
       )}
-    </button>
+    </motion.button>
   );
 }
 
@@ -448,9 +487,9 @@ function ExpandableHomeCard({
   const showBookPages = supportsAppliances && !expanded && appliances.length > 0;
 
   return (
-    <div className={cn("relative min-w-0", showBookPages && "pb-3")}>
+    <div className="flex min-w-0 flex-col">
       <GlassCard
-        className="overflow-hidden rounded-[24px] border p-0"
+        className="relative z-10 overflow-hidden rounded-[24px] border p-0"
         {...longPress.bind}
       >
         <div className="flex items-stretch">
@@ -586,7 +625,7 @@ function ExpandableHomeCard({
       </GlassCard>
 
       {showBookPages ? (
-        <div className="absolute inset-x-3 bottom-0">
+        <div className="relative z-0 mt-1.5 w-full">
           <PanelBookPages count={appliances.length} />
         </div>
       ) : null}
@@ -1347,6 +1386,10 @@ export function ObjectsScreen({
         {applianceActions && (
           <ItemActionsSheet
             title={applianceDisplayKindLabel(applianceActions.appliance)}
+            subtitle={
+              applianceActions.appliance.brand?.trim() ||
+              "Производитель не указан"
+            }
             description="Что сделать с техникой?"
             renameLabel="Изменить"
             onClose={() => setApplianceActions(null)}
