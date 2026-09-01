@@ -1581,8 +1581,7 @@ function PromoCodesSection() {
             <input
               value={code}
               onChange={(e) => setCode(e.target.value.toUpperCase())}
-              placeholder="TOKOM2026"
-              className="h-12 w-full rounded-[16px] border border-black/8 bg-zinc-50 px-4 text-[15px] uppercase outline-none placeholder:normal-case focus:border-zinc-300"
+              className="h-12 w-full rounded-[16px] border border-black/8 bg-zinc-50 px-4 text-[15px] uppercase outline-none focus:border-zinc-300"
             />
           </label>
           <label className="block">

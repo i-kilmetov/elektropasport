@@ -31,16 +31,64 @@ export function SchoolPaySheet({
   gradeId,
   onClose,
   onPay,
+  onGranted,
 }: {
   gradeId: GradeId;
   onClose: () => void;
-  onPay: () => void;
+  onPay: (promoCode?: string) => void;
+  onGranted: () => void;
 }) {
   const price = SCHOOL_GRADE_PRICE_RUB[gradeId];
   const termsId = useId();
   const [agreed, setAgreed] = useState(false);
   const [needAgree, setNeedAgree] = useState(false);
+  const [promoInput, setPromoInput] = useState("");
+  const [appliedPromo, setAppliedPromo] = useState<SchoolPromoPreview | null>(
+    null,
+  );
+  const [promoError, setPromoError] = useState<string | null>(null);
+  const [promoLoading, setPromoLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const authed = canUseServerAuth();
+
+  const payableAmount = appliedPromo?.finalAmountRub ?? price;
+  const isFree = payableAmount <= 0;
+
+  const applyPromo = () => {
+    const code = promoInput.trim();
+    if (!code) {
+      setAppliedPromo(null);
+      setPromoError(null);
+      return;
+    }
+    if (!authed) {
+      void beginTelegramLogin("/school");
+      return;
+    }
+    setPromoLoading(true);
+    setPromoError(null);
+    void validateSchoolPromo(gradeId, code)
+      .then((preview) => {
+        setAppliedPromo(preview);
+        setPromoInput(preview.code);
+      })
+      .catch((err: unknown) => {
+        setAppliedPromo(null);
+        setPromoError(
+          err instanceof Error ? err.message : "Не удалось применить промокод",
+        );
+      })
+      .finally(() => {
+        setPromoLoading(false);
+      });
+  };
+
+  const clearPromo = () => {
+    setPromoInput("");
+    setAppliedPromo(null);
+    setPromoError(null);
+  };
 
   const tryPay = () => {
     if (!agreed) {
@@ -51,7 +99,37 @@ export function SchoolPaySheet({
       void beginTelegramLogin("/school");
       return;
     }
-    onPay();
+
+    const promoCode =
+      (appliedPromo?.code ?? promoInput.trim()) || undefined;
+
+    if (isFree) {
+      if (!promoCode) {
+        setSubmitError("Примените промокод для бесплатного доступа");
+        return;
+      }
+      setSubmitting(true);
+      setSubmitError(null);
+      void createSchoolPayment(gradeId, promoCode)
+        .then((created) => {
+          if (created.status !== "confirmed") {
+            throw new Error("Не удалось активировать промокод");
+          }
+          hapticNotification("success");
+          onGranted();
+        })
+        .catch((err: unknown) => {
+          setSubmitError(
+            err instanceof Error ? err.message : "Не удалось активировать промокод",
+          );
+        })
+        .finally(() => {
+          setSubmitting(false);
+        });
+      return;
+    }
+
+    onPay(promoCode);
   };
 
   return (
@@ -72,19 +150,106 @@ export function SchoolPaySheet({
         >
           <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-zinc-300 lg:hidden" />
           <h2 className="ty-title">Оплата класса</h2>
-          <p className="mt-2 ty-body">
-            {classCaption(gradeId)} — {formatRub(price)}. После оплаты курс
-            откроется, и доступ сохранится в вашем аккаунте.
-          </p>
+          <div className="mt-2">
+            <p className="ty-body">{classCaption(gradeId)}</p>
+            {appliedPromo && appliedPromo.discountRub > 0 ? (
+              <div className="mt-1 flex items-baseline gap-2">
+                <span className="ty-body tabular-nums text-zinc-400 line-through">
+                  {formatRub(appliedPromo.originalAmountRub)}
+                </span>
+                <span className="ty-title tabular-nums text-zinc-900">
+                  {formatRub(appliedPromo.finalAmountRub)}
+                </span>
+              </div>
+            ) : (
+              <p className="mt-1 ty-title tabular-nums text-zinc-900">
+                {formatRub(price)}
+              </p>
+            )}
+            <p className="mt-2 ty-note">
+              {isFree
+                ? "С промокодом курс откроется сразу после подтверждения."
+                : "После оплаты курс откроется, и доступ сохранится в вашем аккаунте."}
+            </p>
+          </div>
+
+          <GlassCard className="mt-4 space-y-3 p-4">
+            <div className="flex items-center gap-2 ty-label text-zinc-600">
+              <Tag className="h-4 w-4" />
+              Промокод
+            </div>
+            <div className="flex gap-2">
+              <input
+                value={promoInput}
+                onChange={(e) => {
+                  setPromoInput(e.target.value.toUpperCase());
+                  if (promoError) setPromoError(null);
+                }}
+                className="h-12 min-w-0 flex-1 rounded-[16px] border border-black/8 bg-zinc-50 px-4 text-[15px] uppercase outline-none focus:border-zinc-300"
+              />
+              <Button
+                type="button"
+                variant="secondary"
+                className="h-12 shrink-0 px-4"
+                disabled={promoLoading || !promoInput.trim()}
+                onClick={applyPromo}
+              >
+                {promoLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  "Применить"
+                )}
+              </Button>
+            </div>
+            {promoError ? (
+              <p className="ty-meta text-rose-600">{promoError}</p>
+            ) : appliedPromo ? (
+              <div className="flex items-center justify-between gap-3">
+                <p className="ty-meta text-emerald-700">
+                  Скидка: {appliedPromo.discountLabel}
+                </p>
+                <button
+                  type="button"
+                  onClick={clearPromo}
+                  className="ty-meta text-zinc-500 underline-offset-2 hover:underline"
+                >
+                  Убрать
+                </button>
+              </div>
+            ) : null}
+          </GlassCard>
+
           {!authed ? (
             <p className="mt-3 ty-note">
               Чтобы оплатить, войдите через Telegram — так доступ не пропадёт
               при смене телефона.
             </p>
           ) : null}
-          <Button className="mt-5 w-full" size="lg" onClick={tryPay}>
-            {authed ? "Оплатить обучение" : "Войти через Telegram"}
+
+          {submitError ? (
+            <p className="mt-3 ty-note text-rose-600">{submitError}</p>
+          ) : null}
+
+          <Button
+            className="mt-5 w-full"
+            size="lg"
+            disabled={submitting}
+            onClick={tryPay}
+          >
+            {submitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Открываем доступ…
+              </>
+            ) : !authed ? (
+              "Войти через Telegram"
+            ) : isFree ? (
+              "Получить бесплатно"
+            ) : (
+              "Оплатить обучение"
+            )}
           </Button>
+
           <div
             className={cn(
               "mt-3 flex items-start gap-3 rounded-[18px] border p-3",
@@ -123,7 +288,7 @@ export function SchoolPaySheet({
           </div>
           {needAgree && !agreed ? (
             <p className="mt-2 text-[12px] text-red-600">
-              Чтобы оплатить, подтвердите согласие с условиями.
+              Чтобы продолжить, подтвердите согласие с условиями.
             </p>
           ) : null}
           <button
@@ -141,10 +306,12 @@ export function SchoolPaySheet({
 
 export function SchoolPayScreen({
   gradeId,
+  promoCode,
   onBack,
   onPaid,
 }: {
   gradeId: GradeId;
+  promoCode?: string;
   onBack: () => void;
   onPaid: () => void;
 }) {
@@ -152,54 +319,15 @@ export function SchoolPayScreen({
   const title = classCaption(gradeId);
   const [payment, setPayment] = useState<SbpPaymentClient | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [promoInput, setPromoInput] = useState("");
-  const [appliedPromo, setAppliedPromo] = useState<SchoolPromoPreview | null>(
-    null,
-  );
-  const [promoError, setPromoError] = useState<string | null>(null);
-  const [promoLoading, setPromoLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const paidRef = useRef(false);
-
-  const payableAmount = appliedPromo?.finalAmountRub ?? basePrice;
-
-  const applyPromo = () => {
-    const code = promoInput.trim();
-    if (!code) {
-      setAppliedPromo(null);
-      setPromoError(null);
-      return;
-    }
-    setPromoLoading(true);
-    setPromoError(null);
-    void validateSchoolPromo(gradeId, code)
-      .then((preview) => {
-        setAppliedPromo(preview);
-        setPromoInput(preview.code);
-      })
-      .catch((err: unknown) => {
-        setAppliedPromo(null);
-        setPromoError(
-          err instanceof Error ? err.message : "Не удалось применить промокод",
-        );
-      })
-      .finally(() => {
-        setPromoLoading(false);
-      });
-  };
-
-  const clearPromo = () => {
-    setPromoInput("");
-    setAppliedPromo(null);
-    setPromoError(null);
-  };
 
   const startPayment = () => {
     setLoading(true);
     setError(null);
     setPayment(null);
     paidRef.current = false;
-    void createSchoolPayment(gradeId, appliedPromo?.code ?? promoInput.trim())
+    void createSchoolPayment(gradeId, promoCode)
       .then((created) => {
         setPayment(created);
         if (created.status === "confirmed") {
@@ -215,6 +343,12 @@ export function SchoolPayScreen({
         setLoading(false);
       });
   };
+
+  useEffect(() => {
+    startPayment();
+    // One payment attempt per mount / grade / promo.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gradeId, promoCode]);
 
   useEffect(() => {
     if (!payment || payment.status !== "pending") return;
@@ -238,11 +372,12 @@ export function SchoolPayScreen({
   }, [payment]);
 
   const done = payment?.status === "confirmed";
-  const awaitingPay =
-    payment?.status === "pending" &&
-    payment.amountRub > 0 &&
-    Boolean(payment.qrPayload);
-  const canEditPromo = !loading && !done && !awaitingPay;
+  const displayPrice = payment?.amountRub ?? basePrice;
+  const originalPrice = payment?.originalAmountRub;
+  const hasDiscount =
+    typeof originalPrice === "number" &&
+    originalPrice > displayPrice &&
+    displayPrice >= 0;
 
   return (
     <motion.div
@@ -266,82 +401,30 @@ export function SchoolPayScreen({
       <div className="min-h-0 flex-1 overflow-y-auto pb-4">
         <div className="mb-5 rounded-[20px] border border-black/8 bg-zinc-50 p-4 text-center">
           <p className="ty-note">{title}</p>
-          {appliedPromo && appliedPromo.discountRub > 0 ? (
+          {hasDiscount ? (
             <div className="mt-1">
               <p className="text-[18px] font-medium tabular-nums text-zinc-400 line-through">
-                {formatRub(appliedPromo.originalAmountRub)}
+                {formatRub(originalPrice!)}
               </p>
               <p className="text-[28px] font-bold tabular-nums text-zinc-900">
-                {formatRub(appliedPromo.finalAmountRub)}
+                {formatRub(displayPrice)}
               </p>
-              <p className="mt-1 ty-note text-emerald-700">
-                Промокод {appliedPromo.code}: {appliedPromo.discountLabel}
-              </p>
+              {payment?.promoCode ? (
+                <p className="mt-1 ty-note text-emerald-700">
+                  Промокод {payment.promoCode}
+                </p>
+              ) : null}
             </div>
           ) : (
             <p className="mt-1 text-[28px] font-bold tabular-nums text-zinc-900">
-              {formatRub(basePrice)}
+              {formatRub(displayPrice)}
             </p>
           )}
           <p className="mt-2 ty-note">
-            {payableAmount <= 0
-              ? "С промокодом курс откроется сразу после подтверждения."
-              : "Оплата через Robokassa: банковская карта, СБП и другие способы, доступные в платёжной форме."}
+            Оплата через Robokassa: банковская карта, СБП и другие способы,
+            доступные в платёжной форме. После подтверждения курс откроется.
           </p>
         </div>
-
-        {canEditPromo ? (
-          <GlassCard className="mb-5 space-y-3 p-4">
-            <div className="flex items-center gap-2 ty-label text-zinc-600">
-              <Tag className="h-4 w-4" />
-              Промокод
-            </div>
-            <div className="flex gap-2">
-              <input
-                value={promoInput}
-                onChange={(e) => {
-                  setPromoInput(e.target.value.toUpperCase());
-                  if (promoError) setPromoError(null);
-                }}
-                placeholder="Например, TOKOM2026"
-                className="h-12 min-w-0 flex-1 rounded-[16px] border border-black/8 bg-zinc-50 px-4 text-[15px] uppercase outline-none placeholder:normal-case placeholder:text-zinc-400 focus:border-zinc-300"
-              />
-              <Button
-                type="button"
-                variant="secondary"
-                className="h-12 shrink-0 px-4"
-                disabled={promoLoading || !promoInput.trim()}
-                onClick={applyPromo}
-              >
-                {promoLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  "Применить"
-                )}
-              </Button>
-            </div>
-            {promoError ? (
-              <p className="ty-meta text-rose-600">{promoError}</p>
-            ) : appliedPromo ? (
-              <div className="flex items-center justify-between gap-3">
-                <p className="ty-meta text-emerald-700">
-                  Скидка применена: {appliedPromo.discountLabel}
-                </p>
-                <button
-                  type="button"
-                  onClick={clearPromo}
-                  className="ty-meta text-zinc-500 underline-offset-2 hover:underline"
-                >
-                  Убрать
-                </button>
-              </div>
-            ) : (
-              <p className="ty-meta text-zinc-500">
-                Если есть промокод, введите его до оплаты.
-              </p>
-            )}
-          </GlassCard>
-        ) : null}
 
         {loading ? (
           <div className="flex flex-col items-center justify-center gap-3 py-10 text-zinc-500">
@@ -369,13 +452,7 @@ export function SchoolPayScreen({
           </GlassCard>
         ) : null}
 
-        {!loading && !done && !payment ? (
-          <Button className="w-full" size="lg" onClick={startPayment}>
-            {payableAmount <= 0 ? "Получить бесплатно" : "Оплатить"}
-          </Button>
-        ) : null}
-
-        {awaitingPay && !loading ? (
+        {payment?.qrPayload && payment.status === "pending" && !loading ? (
           <div className="space-y-3">
             <p className="text-center ty-body text-zinc-600">
               Нажмите кнопку — откроется страница Robokassa. Когда оплатите,

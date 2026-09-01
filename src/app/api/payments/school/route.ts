@@ -87,13 +87,6 @@ export async function POST(request: Request) {
     await ensureSchema();
     await upsertUser(user);
 
-    if (!isRobokassaConfigured()) {
-      return Response.json(
-        { error: "Оплата обучения пока не настроена" },
-        { status: 503 },
-      );
-    }
-
     const body = (await request.json()) as {
       gradeId?: unknown;
       promoCode?: unknown;
@@ -140,6 +133,13 @@ export async function POST(request: Request) {
       }
       discountRub = validation.preview.discountRub;
       finalAmountRub = validation.preview.finalAmountRub;
+    }
+
+    if (finalAmountRub > 0 && !isRobokassaConfigured()) {
+      return Response.json(
+        { error: "Оплата обучения пока не настроена" },
+        { status: 503 },
+      );
     }
 
     const serviceType = schoolServiceType(gradeId);

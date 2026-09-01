@@ -64,7 +64,7 @@ type View =
   | { kind: "lesson"; gradeId: GradeId; topicId: string }
   | { kind: "quiz"; gradeId: GradeId; topicId: string }
   | { kind: "exam"; gradeId: GradeId }
-  | { kind: "pay"; gradeId: GradeId };
+  | { kind: "pay"; gradeId: GradeId; promoCode?: string };
 
 function localSchoolPreviewUnlock(): GradeId[] {
   if (typeof window === "undefined") return [];
@@ -153,7 +153,24 @@ export function SchoolScreen({ onBack }: { onBack: () => void }) {
             paid={paid}
             onBack={goHome}
             onOpenGrade={goGrade}
-            onStartPay={(gradeId) => setView({ kind: "pay", gradeId })}
+            onStartPay={(gradeId, promoCode) =>
+              setView({ kind: "pay", gradeId, promoCode })
+            }
+            onGrantAccess={(gradeId) => {
+              const optimistic = writePaidGrades([...paid, gradeId]);
+              setPaid(optimistic);
+              setView({ kind: "grade", gradeId });
+              void fetchSchoolPaidGrades()
+                .then((grades) => {
+                  const next = writePaidGrades(
+                    grades.includes(gradeId) ? grades : [...grades, gradeId],
+                  );
+                  setPaid(next);
+                })
+                .catch((error: unknown) => {
+                  console.error(error);
+                });
+            }}
           />
         ) : null}
         {view.kind === "grade" ? (
@@ -222,8 +239,9 @@ export function SchoolScreen({ onBack }: { onBack: () => void }) {
         ) : null}
         {view.kind === "pay" && (
           <SchoolPayScreen
-            key={`pay-${view.gradeId}`}
+            key={`pay-${view.gradeId}-${view.promoCode ?? ""}`}
             gradeId={view.gradeId}
+            promoCode={view.promoCode}
             onBack={goProgram}
             onPaid={() => {
               const optimistic = writePaidGrades([...paid, view.gradeId]);
@@ -378,12 +396,14 @@ function SchoolProgram({
   onBack,
   onOpenGrade,
   onStartPay,
+  onGrantAccess,
 }: {
   progress: SchoolProgress;
   paid: GradeId[];
   onBack: () => void;
   onOpenGrade: (gradeId: GradeId) => void;
-  onStartPay: (gradeId: GradeId) => void;
+  onStartPay: (gradeId: GradeId, promoCode?: string) => void;
+  onGrantAccess: (gradeId: GradeId) => void;
 }) {
   const [expanded, setExpanded] = useState<Partial<Record<GradeId, boolean>>>(
     () => {
@@ -445,10 +465,15 @@ function SchoolProgram({
           <SchoolPaySheet
             gradeId={paySheetGrade}
             onClose={() => setPaySheetGrade(null)}
-            onPay={() => {
+            onPay={(promoCode) => {
               const id = paySheetGrade;
               setPaySheetGrade(null);
-              onStartPay(id);
+              onStartPay(id, promoCode);
+            }}
+            onGranted={() => {
+              const id = paySheetGrade;
+              setPaySheetGrade(null);
+              onGrantAccess(id);
             }}
           />
         ) : null}
