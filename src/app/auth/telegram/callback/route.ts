@@ -36,6 +36,7 @@ import {
   validateTelegramIdToken,
 } from "@/lib/telegram-oauth";
 import { resolveOAuthOrigin, resolveRequestOrigin } from "@/lib/app-url";
+import { isBrowserLoginEnabled } from "@/lib/phone-auth";
 import { POST_AUTH_NEXT_KEY, POST_AUTH_SKIP_SPLASH_KEY } from "@/lib/auth-flow";
 
 function parseLoginParams(url: URL): TelegramLoginWidgetData | null {
@@ -106,7 +107,7 @@ async function finishLogin(
   request: Request,
 ): Promise<NextResponse> {
   const host = new URL(resolveRequestOrigin(request)).host;
-  if (!isTestAppHost(host)) {
+  if (!isTestAppHost(host) && !isBrowserLoginEnabled()) {
     return NextResponse.redirect(new URL("/?auth_error=closed", request.url));
   }
 

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { isTestAppHost } from "@/lib/app-env";
+import { isBrowserLoginEnabled } from "@/lib/phone-auth";
 import { resolveOAuthOrigin, resolveRequestOrigin } from "@/lib/app-url";
 import {
   buildLegacyAuthUrl,
@@ -13,7 +14,7 @@ import {
 
 export async function GET(request: Request) {
   const browserHost = new URL(resolveRequestOrigin(request)).host;
-  if (!isTestAppHost(browserHost)) {
+  if (!isTestAppHost(browserHost) && !isBrowserLoginEnabled()) {
     return NextResponse.redirect(new URL("/?auth_error=closed", request.url));
   }
 

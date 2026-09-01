@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { TelegramAppIcon } from "@/components/icons/telegram-app-icon";
 import { Button } from "@/components/ui/button";
 import { beginTelegramLogin } from "@/lib/pd-consent-client";
 import {
@@ -30,6 +29,30 @@ function formatRuPhone(value: string): string {
   if (national.length > 6) formatted += `-${national.slice(6, 8)}`;
   if (national.length > 8) formatted += `-${national.slice(8, 10)}`;
   return formatted;
+}
+
+function TelegramLoginLink({
+  disabled,
+  isSplash,
+  onClick,
+}: {
+  disabled?: boolean;
+  isSplash?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className={cn(
+        "mx-auto block w-full pt-1 text-[14px] disabled:opacity-50",
+        isSplash ? "text-zinc-900/70" : "text-zinc-500",
+      )}
+      disabled={disabled}
+      onClick={onClick}
+    >
+      Войти через Telegram
+    </button>
+  );
 }
 
 type Step = "phone" | "code";
@@ -124,19 +147,14 @@ export function PhoneLoginFlow({
   if (!enabled) {
     return (
       <div className={cn("space-y-3", className)}>
-        <Button
-          type="button"
-          className={cn(
-            "w-full gap-2",
-            isSplash &&
-              "h-14 min-h-14 rounded-full bg-[#111113] px-6 text-[16px] text-white hover:bg-zinc-800",
-          )}
+        <p className="text-center text-[13px] text-zinc-600">
+          Вход по телефону временно недоступен
+        </p>
+        <TelegramLoginLink
+          isSplash={isSplash}
           disabled={busy}
           onClick={handleTelegramLogin}
-        >
-          <TelegramAppIcon className="h-5 w-5 shrink-0 text-current" />
-          {busy ? "Открываем Telegram…" : "Войти через Telegram"}
-        </Button>
+        />
         {error && (
           <p className="text-center text-[13px] text-red-600">{error}</p>
         )}
@@ -177,6 +195,11 @@ export function PhoneLoginFlow({
         >
           {busy ? "Отправляем код…" : "Получить код"}
         </Button>
+        <TelegramLoginLink
+          isSplash={isSplash}
+          disabled={busy}
+          onClick={handleTelegramLogin}
+        />
         {error && (
           <p className="text-center text-[13px] text-red-600">{error}</p>
         )}
@@ -230,6 +253,11 @@ export function PhoneLoginFlow({
       >
         Изменить номер
       </button>
+      <TelegramLoginLink
+        isSplash={isSplash}
+        disabled={busy}
+        onClick={handleTelegramLogin}
+      />
       {error && <p className="text-center text-[13px] text-red-600">{error}</p>}
     </div>
   );
