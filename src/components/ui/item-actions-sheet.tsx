@@ -6,11 +6,15 @@ import { Portal } from "@/components/ui/portal";
 
 export function ItemActionsSheet({
   title,
+  description = "Что сделать с карточкой?",
+  renameLabel = "Переименовать",
   onClose,
   onRename,
   onDelete,
 }: {
   title: string;
+  description?: string;
+  renameLabel?: string;
   onClose: () => void;
   onRename: () => void;
   onDelete: () => void;
@@ -36,11 +40,11 @@ export function ItemActionsSheet({
             {title}
           </h3>
           <p className="mb-5 ty-body">
-            Что сделать с карточкой?
+            {description}
           </p>
           <div className="flex gap-3">
             <Button className="flex-1" variant="secondary" onClick={onRename}>
-              Переименовать
+              {renameLabel}
             </Button>
             <Button
               className="flex-1 bg-rose-500 text-white shadow-none hover:bg-rose-600"

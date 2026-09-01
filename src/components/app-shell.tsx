@@ -2416,6 +2416,99 @@ export function AppShell({
                     }
                   : undefined
               }
+              onDeleteAppliance={
+                homeAppliancesEnabled
+                  ? (panelId, applianceId) => {
+                      const panel = items.find(
+                        (item): item is PanelObject =>
+                          item.kind === "panel" && item.id === panelId,
+                      );
+                      const previousAppliances = panel?.appliances ?? [];
+                      const nextAppliances = previousAppliances.filter(
+                        (item) => item.id !== applianceId,
+                      );
+                      setItems((prev) =>
+                        prev.map((item) =>
+                          item.kind === "panel" && item.id === panelId
+                            ? {
+                                ...item,
+                                appliances: nextAppliances,
+                                appliancesUpdatedAt: new Date().toISOString(),
+                                lastCheck: "сегодня",
+                              }
+                            : item,
+                        ),
+                      );
+                      void persistPanelAppliances(panelId, nextAppliances).catch(
+                        (error) => {
+                          console.error(error);
+                          setItems((current) =>
+                            current.map((item) =>
+                              item.kind === "panel" && item.id === panelId
+                                ? { ...item, appliances: previousAppliances }
+                                : item,
+                            ),
+                          );
+                          setItemsError(
+                            formatErrorMessage(
+                              error,
+                              "Не удалось удалить технику",
+                            ),
+                          );
+                        },
+                      );
+                    }
+                  : undefined
+              }
+              onRestoreAppliance={
+                homeAppliancesEnabled
+                  ? (panelId, appliance, index) => {
+                      const panel = items.find(
+                        (item): item is PanelObject =>
+                          item.kind === "panel" && item.id === panelId,
+                      );
+                      const previousAppliances = panel?.appliances ?? [];
+                      const nextAppliances = [...previousAppliances];
+                      const insertAt =
+                        index >= 0 && index <= nextAppliances.length
+                          ? index
+                          : nextAppliances.length;
+                      if (!nextAppliances.some((item) => item.id === appliance.id)) {
+                        nextAppliances.splice(insertAt, 0, appliance);
+                      }
+                      setItems((prev) =>
+                        prev.map((item) =>
+                          item.kind === "panel" && item.id === panelId
+                            ? {
+                                ...item,
+                                appliances: nextAppliances,
+                                appliancesUpdatedAt: new Date().toISOString(),
+                                lastCheck: "сегодня",
+                              }
+                            : item,
+                        ),
+                      );
+                      void persistPanelAppliances(panelId, nextAppliances).catch(
+                        (error) => {
+                          console.error(error);
+                          setItems((current) =>
+                            current.map((item) =>
+                              item.kind === "panel" && item.id === panelId
+                                ? { ...item, appliances: previousAppliances }
+                                : item,
+                            ),
+                          );
+                          setItemsError(
+                            formatErrorMessage(
+                              error,
+                              "Не удалось восстановить технику",
+                            ),
+                          );
+                        },
+                      );
+                    }
+                  : undefined
+              }
               isMaster={isMaster}
               isAdmin={isAdmin}
               masterMode={false}

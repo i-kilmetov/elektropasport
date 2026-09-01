@@ -85,3 +85,8 @@ export function formatPanelListMeta(panel: PanelObject): string {
   }
   return `${formatPanelDeviceCount(panel)} · ${added}`;
 }
+
+/** Home appliance list is hidden for «только вводной кабель». */
+export function panelSupportsHomeAppliances(panel: PanelObject): boolean {
+  return panel.noPanelSetupId !== "inlet_cable";
+}

@@ -54,15 +54,10 @@ import {
 } from "@/lib/user-data";
 import { APP_VERSION } from "@/lib/app-version";
 import {
-  readHomeExpandedPanelId,
-  writeHomeExpandedPanelId,
+  readHomeCollapsedPanelIds,
+  writeHomeCollapsedPanelIds,
 } from "@/lib/home-expanded";
 import { cn } from "@/lib/utils";
-
-const PAGE_SPRING = { type: "spring" as const, stiffness: 420, damping: 40 };
-const SWIPE_DISTANCE = 72;
-const SWIPE_MIN_OFFSET = 24;
-const SWIPE_VELOCITY = 550;
 import type {
   HomeAppliance,
   HomeListItem,
@@ -70,9 +65,17 @@ import type {
   PanelObject,
 } from "@/types";
 import { installStatusTone } from "@/types";
-import { formatPanelListMeta } from "@/lib/panel-list-meta";
+import {
+  formatPanelListMeta,
+  panelSupportsHomeAppliances,
+} from "@/lib/panel-list-meta";
 import { getNoPanelSetup } from "@/lib/no-panel-setups";
 import { isAtPanelLimit, type PanelQuota } from "@/lib/invites";
+
+const PAGE_SPRING = { type: "spring" as const, stiffness: 420, damping: 40 };
+const SWIPE_DISTANCE = 72;
+const SWIPE_MIN_OFFSET = 24;
+const SWIPE_VELOCITY = 550;
 
 const APPLIANCES_INTRO_KEY = "elektropasport:appliances-list-intro-seen";
 
@@ -148,6 +151,117 @@ function useLongPressAction(onLongPress: () => void) {
       },
     },
   };
+}
+
+function stopCardLongPress<T extends HTMLElement>(
+  bind: ReturnType<typeof useLongPressAction>["bind"],
+) {
+  return {
+    onPointerDown: (event: React.PointerEvent<T>) => {
+      event.stopPropagation();
+      bind.onPointerDown(event);
+    },
+    onPointerMove: (event: React.PointerEvent<T>) => {
+      event.stopPropagation();
+      bind.onPointerMove(event);
+    },
+    onPointerUp: (event: React.PointerEvent<T>) => {
+      event.stopPropagation();
+      bind.onPointerUp();
+    },
+    onPointerCancel: (event: React.PointerEvent<T>) => {
+      event.stopPropagation();
+      bind.onPointerCancel();
+    },
+    onContextMenu: (event: React.MouseEvent<T>) => {
+      event.stopPropagation();
+      bind.onContextMenu(event);
+    },
+  };
+}
+
+function PanelBookPages({ count }: { count: number }) {
+  if (count <= 0) return null;
+  const layers = Math.min(count, 5);
+  return (
+    <div
+      className="pointer-events-none relative h-3 w-full"
+      aria-hidden
+      title={`${count} шт. техники`}
+    >
+      {Array.from({ length: layers }, (_, index) => {
+        const layer = layers - 1 - index;
+        return (
+          <div
+            key={layer}
+            className="absolute left-0 right-0 h-2.5 rounded-b-[14px] border border-t-0 border-black/[0.07] bg-white shadow-[0_2px_6px_rgba(17,17,19,0.06)]"
+            style={{
+              bottom: layer * 3,
+              marginLeft: layer * 4,
+              marginRight: layer * 4,
+              opacity: 0.45 + (layers - layer) * 0.11,
+            }}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+function ApplianceListRow({
+  appliance,
+  onOpen,
+  onContextMenu,
+}: {
+  appliance: HomeAppliance;
+  onOpen: () => void;
+  onContextMenu: () => void;
+}) {
+  const longPress = useLongPressAction(onContextMenu);
+  const kindLabel = applianceDisplayKindLabel(appliance);
+  const needsDetails = applianceNeedsDetails(appliance);
+  const brand = appliance.brand?.trim();
+  const model = appliance.model?.trim();
+
+  return (
+    <button
+      type="button"
+      {...stopCardLongPress(longPress.bind)}
+      onClick={() => {
+        if (longPress.longPressedRef.current) {
+          longPress.longPressedRef.current = false;
+          return;
+        }
+        onOpen();
+      }}
+      className="flex w-full items-center gap-2.5 rounded-none px-4 py-2 text-left transition-colors hover:bg-zinc-50"
+    >
+      <ApplianceBrandAvatar
+        kind={appliance.kind}
+        brandLogoUrl={appliance.brandLogoUrl}
+        brand={brand}
+        size="sm"
+      />
+      <span className="min-w-0 flex-1">
+        <span className="block truncate ty-label">
+          <span className="font-medium text-zinc-500">{kindLabel}</span>
+          {brand ? <> {brand}</> : null}
+        </span>
+        {model && (
+          <span className="block truncate ty-meta">{model}</span>
+        )}
+      </span>
+      {needsDetails ? (
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-zinc-400">
+          <HelpCircle className="h-4 w-4" />
+        </span>
+      ) : (
+        <span className="shrink-0 ty-label tabular-nums text-zinc-700">
+          {formatAppliancePower(appliance.powerW)}
+        </span>
+      )}
+    </button>
+  );
 }
 
 function HomeListCard({
@@ -294,6 +408,7 @@ function ExpandableHomeCard({
   onOpenPanel,
   onOpenAppliance,
   onAddAppliance,
+  onApplianceContextMenu,
   onContextMenu,
 }: {
   panel: PanelObject;
@@ -302,9 +417,11 @@ function ExpandableHomeCard({
   onOpenPanel: () => void;
   onOpenAppliance: (applianceId: string) => void;
   onAddAppliance: () => void;
+  onApplianceContextMenu: (appliance: HomeAppliance) => void;
   onContextMenu: () => void;
 }) {
   const appliances = panel.appliances ?? [];
+  const supportsAppliances = panelSupportsHomeAppliances(panel);
   const longPress = useLongPressAction(onContextMenu);
   const [safetyInfoOpen, setSafetyInfoOpen] = useState(false);
   const [appliancesIntroOpen, setAppliancesIntroOpen] = useState(false);
@@ -328,177 +445,152 @@ function ExpandableHomeCard({
     onToggle();
   };
 
-  return (
-    <GlassCard
-      className="overflow-hidden rounded-[24px] border p-0"
-      {...longPress.bind}
-    >
-      <div className="flex items-stretch">
-        <button
-          type="button"
-          onClick={() => {
-            if (longPress.longPressedRef.current) {
-              longPress.longPressedRef.current = false;
-              return;
-            }
-            onOpenPanel();
-          }}
-          className="flex min-w-0 flex-1 touch-manipulation items-center gap-4 p-4 text-left select-none transition-colors hover:bg-zinc-50 lg:cursor-pointer lg:p-5"
-        >
-          <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[18px] bg-zinc-100 text-zinc-600">
-            <PanelListIcon panel={panel} />
-          </div>
-          <div className="min-w-0 flex-1">
-            <h2 className="truncate ty-heading">
-              {panel.title}
-            </h2>
-            <p className="truncate ty-note">{panel.address}</p>
-            <p className="mt-1 ty-meta">
-              {formatPanelListMeta(panel)}
-            </p>
-          </div>
-        </button>
+  const showBookPages = supportsAppliances && !expanded && appliances.length > 0;
 
-        <div className="flex shrink-0 flex-col items-center justify-center gap-1.5 py-3 pr-2 pl-1 lg:pr-3 lg:pl-1.5">
-          {panel.noPanelSetupId ? (
-            <span className="flex min-h-8 max-w-[3.4rem] items-center justify-center rounded-full bg-zinc-100 px-1.5 py-0.5 text-center ty-badge leading-tight text-zinc-500">
-              нет щитка
-            </span>
-          ) : (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setSafetyInfoOpen(true);
-              }}
-              className={cn(
-                "flex h-8 w-8 items-center justify-center rounded-full text-[10px] font-semibold leading-none tabular-nums transition-colors",
-                safetyBadge.bg,
-                safetyBadge.text,
-                safetyBadge.hover,
-              )}
-              aria-label="Что значит оценка безопасности"
-            >
-              {hasSafetyScore ? `${panel.safety}%` : "—"}
-            </button>
-          )}
+  return (
+    <div className={cn("relative min-w-0", showBookPages && "pb-3")}>
+      <GlassCard
+        className="overflow-hidden rounded-[24px] border p-0"
+        {...longPress.bind}
+      >
+        <div className="flex items-stretch">
           <button
             type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              requestExpand();
+            onClick={() => {
+              if (longPress.longPressedRef.current) {
+                longPress.longPressedRef.current = false;
+                return;
+              }
+              onOpenPanel();
             }}
-            className="ml-1 flex h-9 w-9 items-center justify-center text-zinc-500 transition-colors hover:text-zinc-800"
-            aria-expanded={expanded}
-            aria-label={expanded ? "Скрыть технику" : "Показать технику"}
+            className="flex min-w-0 flex-1 touch-manipulation items-center gap-4 p-4 text-left select-none transition-colors hover:bg-zinc-50 lg:cursor-pointer lg:p-5"
           >
-            <ChevronDown
-              className={cn(
-                "h-4 w-4 transition-transform",
-                expanded && "rotate-180",
-              )}
-            />
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[18px] bg-zinc-100 text-zinc-600">
+              <PanelListIcon panel={panel} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h2 className="truncate ty-heading">{panel.title}</h2>
+              <p className="truncate ty-note">{panel.address}</p>
+              <p className="mt-1 ty-meta">{formatPanelListMeta(panel)}</p>
+            </div>
           </button>
-        </div>
-      </div>
 
-      <AnimatePresence initial={false}>
-        {expanded && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-            className="overflow-hidden"
-          >
-            <div className="divide-y divide-black/[0.06] border-t border-black/[0.06] bg-white">
-              {appliances.map((appliance) => {
-                const kindLabel = applianceDisplayKindLabel(appliance);
-                const needsDetails = applianceNeedsDetails(appliance);
-                const brand = appliance.brand?.trim();
-                const model = appliance.model?.trim();
-                return (
-                  <button
-                    key={appliance.id}
-                    type="button"
-                    onClick={() => onOpenAppliance(appliance.id)}
-                    className="flex w-full items-center gap-2.5 rounded-none px-4 py-2 text-left transition-colors hover:bg-zinc-50"
-                  >
-                    <ApplianceBrandAvatar
-                      kind={appliance.kind}
-                      brandLogoUrl={appliance.brandLogoUrl}
-                      brand={brand}
-                      size="sm"
-                    />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate ty-label">
-                        <span className="font-medium text-zinc-500">
-                          {kindLabel}
-                        </span>
-                        {brand ? <> {brand}</> : null}
-                      </span>
-                      {model && (
-                        <span className="block truncate ty-meta">
-                          {model}
-                        </span>
-                      )}
-                    </span>
-                    {needsDetails ? (
-                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-zinc-400">
-                        <HelpCircle className="h-4 w-4" />
-                      </span>
-                    ) : (
-                      <span className="shrink-0 ty-label tabular-nums text-zinc-700">
-                        {formatAppliancePower(appliance.powerW)}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-
+          <div className="flex shrink-0 flex-col items-center justify-center gap-1.5 py-3 pr-2 pl-1 lg:pr-3 lg:pl-1.5">
+            {panel.noPanelSetupId ? (
+              <span className="shrink-0 rounded-full bg-zinc-100 px-2 py-0.5 ty-badge text-zinc-600">
+                нет щитка
+              </span>
+            ) : (
               <button
                 type="button"
-                onClick={onAddAppliance}
-                className="w-full rounded-none px-4 py-2.5 text-center ty-label text-zinc-500 transition-colors hover:bg-zinc-50 hover:text-zinc-800"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSafetyInfoOpen(true);
+                }}
+                className={cn(
+                  "shrink-0 rounded-full px-2 py-0.5 ty-badge tabular-nums transition-colors",
+                  safetyBadge.bg,
+                  safetyBadge.text,
+                  safetyBadge.hover,
+                )}
+                aria-label="Что значит оценка безопасности"
               >
-                + Добавить технику
+                {hasSafetyScore ? `${panel.safety}%` : "—"}
               </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            )}
+            {supportsAppliances ? (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  requestExpand();
+                }}
+                className="ml-1 flex h-9 w-9 items-center justify-center text-zinc-500 transition-colors hover:text-zinc-800"
+                aria-expanded={expanded}
+                aria-label={expanded ? "Скрыть технику" : "Показать технику"}
+              >
+                <ChevronDown
+                  className={cn(
+                    "h-4 w-4 transition-transform",
+                    expanded && "rotate-180",
+                  )}
+                />
+              </button>
+            ) : null}
+          </div>
+        </div>
 
-      <AnimatePresence>
-        {safetyInfoOpen && (
-          <InfoDialog
-            title="Оценка безопасности щитка"
-            description={
-              hasSafetyScore
-                ? `Сейчас оценка — ${panel.safety}%.\n\nЭто сводный показатель по составу щитка, параметрам сети и нагрузкам: насколько схема защищает человека, дом от пожара и технику.\n\nЧем выше процент, тем спокойнее можно относиться к щитку. Подробный разбор и советы — внутри карточки щитка.`
-                : "Здесь появится процент безопасности щитка.\n\nЧтобы его посчитать, откройте щиток и укажите фазы, выделенную мощность и наличие земли, а также подпишите линии на схеме.\n\nПока данных мало — стоит «—»."
-            }
-            onClose={() => setSafetyInfoOpen(false)}
-          />
-        )}
-      </AnimatePresence>
+        {supportsAppliances ? (
+          <AnimatePresence initial={false}>
+            {expanded && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+                className="overflow-hidden"
+              >
+                <div className="divide-y divide-black/[0.06] border-t border-black/[0.06] bg-white">
+                  {appliances.map((appliance) => (
+                    <ApplianceListRow
+                      key={appliance.id}
+                      appliance={appliance}
+                      onOpen={() => onOpenAppliance(appliance.id)}
+                      onContextMenu={() => onApplianceContextMenu(appliance)}
+                    />
+                  ))}
 
-      <AnimatePresence>
-        {appliancesIntroOpen && (
-          <InfoDialog
-            title="Техника дома"
-            description={
-              "В этом списке можно добавить крупную бытовую технику вашего дома: стиральную машину, холодильник, духовку и другое.\n\nТак проще понимать нагрузку на щиток и линии. Нажмите «+ Добавить технику», выберите тип, производителя и модель."
-            }
-            actionLabel="Понятно"
-            onClose={() => {
-              markAppliancesIntroSeen();
-              setAppliancesIntroOpen(false);
-              if (!expanded) onToggle();
-            }}
-          />
-        )}
-      </AnimatePresence>
-    </GlassCard>
+                  <button
+                    type="button"
+                    onClick={onAddAppliance}
+                    className="w-full rounded-none px-4 py-2.5 text-center ty-label text-zinc-500 transition-colors hover:bg-zinc-50 hover:text-zinc-800"
+                  >
+                    + Добавить технику
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        ) : null}
+
+        <AnimatePresence>
+          {safetyInfoOpen && (
+            <InfoDialog
+              title="Оценка безопасности щитка"
+              description={
+                hasSafetyScore
+                  ? `Сейчас оценка — ${panel.safety}%.\n\nЭто сводный показатель по составу щитка, параметрам сети и нагрузкам: насколько схема защищает человека, дом от пожара и технику.\n\nЧем выше процент, тем спокойнее можно относиться к щитку. Подробный разбор и советы — внутри карточки щитка.`
+                  : "Здесь появится процент безопасности щитка.\n\nЧтобы его посчитать, откройте щиток и укажите фазы, выделенную мощность и наличие земли, а также подпишите линии на схеме.\n\nПока данных мало — стоит «—»."
+              }
+              onClose={() => setSafetyInfoOpen(false)}
+            />
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {appliancesIntroOpen && (
+            <InfoDialog
+              title="Техника дома"
+              description={
+                "В этом списке можно добавить крупную бытовую технику вашего дома: стиральную машину, холодильник, духовку и другое.\n\nТак проще понимать нагрузку на щиток и линии. Нажмите «+ Добавить технику», выберите тип, производителя и модель."
+              }
+              actionLabel="Понятно"
+              onClose={() => {
+                markAppliancesIntroSeen();
+                setAppliancesIntroOpen(false);
+                if (!expanded) onToggle();
+              }}
+            />
+          )}
+        </AnimatePresence>
+      </GlassCard>
+
+      {showBookPages ? (
+        <div className="absolute inset-x-3 bottom-0">
+          <PanelBookPages count={appliances.length} />
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -655,6 +747,8 @@ export function ObjectsScreen({
   homeAppliancesMode = false,
   onAddAppliance,
   onOpenAppliance,
+  onDeleteAppliance,
+  onRestoreAppliance,
   initialPage = 0,
   onPageChange,
 }: {
@@ -683,17 +777,36 @@ export function ObjectsScreen({
   homeAppliancesMode?: boolean;
   onAddAppliance?: (panelId: string, appliance: HomeAppliance) => void;
   onOpenAppliance?: (panelId: string, applianceId: string) => void;
+  onDeleteAppliance?: (panelId: string, applianceId: string) => void;
+  onRestoreAppliance?: (
+    panelId: string,
+    appliance: HomeAppliance,
+    index: number,
+  ) => void;
   initialPage?: 0 | 1;
   onPageChange?: (page: 0 | 1) => void;
 }) {
   const [page, setPage] = useState<0 | 1>(initialPage);
   const [pendingDelete, setPendingDelete] = useState<HomeListItem | null>(null);
+  const [pendingApplianceDelete, setPendingApplianceDelete] = useState<{
+    panelId: string;
+    appliance: HomeAppliance;
+    index: number;
+  } | null>(null);
   const [actionsItemId, setActionsItemId] = useState<string | null>(null);
+  const [applianceActions, setApplianceActions] = useState<{
+    panelId: string;
+    appliance: HomeAppliance;
+  } | null>(null);
   const [renameItemId, setRenameItemId] = useState<string | null>(null);
-  const [expandedId, setExpandedId] = useState<string | null>(
-    readHomeExpandedPanelId,
+  const [collapsedPanelIds, setCollapsedPanelIds] = useState<Set<string>>(
+    () => new Set(),
   );
   const [addApplianceOpen, setAddApplianceOpen] = useState(false);
+  const [addAppliancePanelId, setAddAppliancePanelId] = useState<string | null>(
+    null,
+  );
+  const collapsedInitRef = useRef(false);
   const [tabMetrics, setTabMetrics] = useState({
     left0: 4,
     width0: 0,
@@ -721,8 +834,39 @@ export function ObjectsScreen({
   }, [items, pendingDelete]);
 
   useEffect(() => {
-    writeHomeExpandedPanelId(expandedId);
-  }, [expandedId]);
+    if (collapsedInitRef.current || panels.length === 0) return;
+    collapsedInitRef.current = true;
+    setCollapsedPanelIds(
+      readHomeCollapsedPanelIds(panels.map((panel) => panel.id)),
+    );
+  }, [panels]);
+
+  useEffect(() => {
+    if (!collapsedInitRef.current) return;
+    writeHomeCollapsedPanelIds(collapsedPanelIds);
+  }, [collapsedPanelIds]);
+
+  const isPanelExpanded = (panel: PanelObject) =>
+    panelSupportsHomeAppliances(panel) && !collapsedPanelIds.has(panel.id);
+
+  const togglePanelExpanded = (panelId: string) => {
+    setCollapsedPanelIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(panelId)) next.delete(panelId);
+      else next.add(panelId);
+      return next;
+    });
+  };
+
+  const expandPanel = (panelId: string) => {
+    setCollapsedPanelIds((prev) => {
+      if (!prev.has(panelId)) return prev;
+      const next = new Set(prev);
+      next.delete(panelId);
+      return next;
+    });
+  };
+
   const requests = useMemo(
     () =>
       items.filter(
@@ -884,18 +1028,20 @@ export function ObjectsScreen({
             ) : (
               <ExpandableHomeCard
                 panel={obj}
-                expanded={expandedId === obj.id}
-                onToggle={() =>
-                  setExpandedId((prev) => (prev === obj.id ? null : obj.id))
-                }
+                expanded={isPanelExpanded(obj)}
+                onToggle={() => togglePanelExpanded(obj.id)}
                 onOpenPanel={() => onOpenPanel(obj.id)}
                 onOpenAppliance={(applianceId) =>
                   onOpenAppliance?.(obj.id, applianceId)
                 }
                 onAddAppliance={() => {
-                  setExpandedId(obj.id);
+                  expandPanel(obj.id);
+                  setAddAppliancePanelId(obj.id);
                   setAddApplianceOpen(true);
                 }}
+                onApplianceContextMenu={(appliance) =>
+                  setApplianceActions({ panelId: obj.id, appliance })
+                }
                 onContextMenu={() => setActionsItemId(obj.id)}
               />
             )}
@@ -1182,12 +1328,42 @@ export function ObjectsScreen({
         {homeAppliancesMode && addApplianceOpen && onAddAppliance && (
           <AddApplianceSheet
             panels={panels}
-            preferredPanelId={expandedId}
-            onClose={() => setAddApplianceOpen(false)}
+            preferredPanelId={addAppliancePanelId}
+            onClose={() => {
+              setAddApplianceOpen(false);
+              setAddAppliancePanelId(null);
+            }}
             onSave={(panelId, appliance) => {
               onAddAppliance(panelId, appliance);
-              setExpandedId(panelId);
+              expandPanel(panelId);
+              setAddAppliancePanelId(panelId);
               setAddApplianceOpen(false);
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {applianceActions && (
+          <ItemActionsSheet
+            title={applianceDisplayKindLabel(applianceActions.appliance)}
+            description="Что сделать с техникой?"
+            renameLabel="Изменить"
+            onClose={() => setApplianceActions(null)}
+            onRename={() => {
+              const { panelId, appliance } = applianceActions;
+              setApplianceActions(null);
+              onOpenAppliance?.(panelId, appliance.id);
+            }}
+            onDelete={() => {
+              const { panelId, appliance } = applianceActions;
+              const panel = panels.find((item) => item.id === panelId);
+              const index =
+                panel?.appliances?.findIndex((item) => item.id === appliance.id) ??
+                -1;
+              setApplianceActions(null);
+              setPendingApplianceDelete({ panelId, appliance, index });
+              onDeleteAppliance?.(panelId, appliance.id);
             }}
           />
         )}
@@ -1266,7 +1442,24 @@ export function ObjectsScreen({
                   setPendingDelete(null);
                 },
               }
-            : null
+            : pendingApplianceDelete
+              ? {
+                  key: `appliance-${pendingApplianceDelete.appliance.id}`,
+                  message: "Техника будет удалена",
+                  onUndo: () => {
+                    const snapshot = pendingApplianceDelete;
+                    setPendingApplianceDelete(null);
+                    onRestoreAppliance?.(
+                      snapshot.panelId,
+                      snapshot.appliance,
+                      snapshot.index,
+                    );
+                  },
+                  onCommit: () => {
+                    setPendingApplianceDelete(null);
+                  },
+                }
+              : null
         }
       />
     </motion.section>
