@@ -6,8 +6,10 @@ import { ChevronDown, Lock, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Portal } from "@/components/ui/portal";
 import {
+  buildSafetyBarSheetDetails,
   buildSafetyStageCardCopy,
   formatSafetyScoreAssessment,
+  getLastCompletedSafetyStage,
   panelSafetyStagesDisclaimer,
   stageScoreBadge,
   type PanelSafetyStagesSnapshot,
@@ -27,6 +29,8 @@ function SafetyStageBar({
   const completedCount = stages.filter((stage) => stage.score != null).length;
   const badge =
     headlineScore != null ? stageScoreBadge(headlineScore) : null;
+  const fillWidth =
+    completedCount > 0 ? `${(completedCount / stages.length) * 100}%` : "0%";
 
   return (
     <div
@@ -41,22 +45,15 @@ function SafetyStageBar({
       <div className="relative h-5 w-full">
         <div className="absolute inset-0 rounded-full bg-zinc-100" />
 
-        {stages.map((stage, index) => {
-          if (index >= completedCount || !badge) return null;
-          return (
-            <div
-              key={stage.id}
-              className={cn(
-                "absolute inset-y-0 left-0 rounded-full shadow-[2px_0_3px_0_rgba(0,0,0,0.1)]",
-                badge.bg,
-              )}
-              style={{
-                width: `${((index + 1) / stages.length) * 100}%`,
-                zIndex: index + 1,
-              }}
-            />
-          );
-        })}
+        {completedCount > 0 && badge ? (
+          <div
+            className={cn(
+              "absolute inset-y-0 left-0 rounded-full",
+              badge.bg,
+            )}
+            style={{ width: fillWidth }}
+          />
+        ) : null}
 
         {stages.map((stage, index) => {
           if (index < completedCount) return null;
@@ -78,7 +75,7 @@ function SafetyStageBar({
         {headlineScore != null && completedCount > 0 && badge ? (
           <div
             className="pointer-events-none absolute inset-y-0 left-0 z-20 flex items-center px-3"
-            style={{ width: `${(completedCount / stages.length) * 100}%` }}
+            style={{ width: fillWidth }}
           >
             <span
               className={cn(
@@ -103,10 +100,8 @@ export function PanelSafetyBarSheet({
   onClose: () => void;
 }) {
   const copy = buildSafetyStageCardCopy(snapshot);
-  const activeStage =
-    snapshot.stages.find((stage) => stage.id === snapshot.activeStageId) ??
-    snapshot.stages[0];
-  const displayScore = snapshot.headlineScore ?? activeStage?.score ?? null;
+  const completedStage = getLastCompletedSafetyStage(snapshot);
+  const detailParagraphs = buildSafetyBarSheetDetails(snapshot);
 
   return (
     <Portal>
@@ -139,21 +134,21 @@ export function PanelSafetyBarSheet({
 
           <SafetyStageBar snapshot={snapshot} className="mb-4" />
 
-          {displayScore != null && activeStage ? (
+          {completedStage?.score != null ? (
             <div className="mb-4 rounded-[18px] border border-black/8 bg-zinc-50 px-4 py-3">
               <p className="ty-heading text-zinc-900">
-                Этап «{activeStage.title}»: {displayScore}%
+                Этап «{completedStage.title}»: {completedStage.score}%
               </p>
               <p className="mt-1 ty-note text-zinc-600">
-                {formatSafetyScoreAssessment(displayScore)}
+                {formatSafetyScoreAssessment(completedStage.score)}
               </p>
             </div>
-          ) : null}
-
-          <p className="mb-3 ty-body text-zinc-700">{copy.summary}</p>
+          ) : (
+            <p className="mb-4 ty-body text-zinc-700">{copy.summary}</p>
+          )}
 
           <div className="mb-4 space-y-2 ty-note leading-relaxed text-zinc-500">
-            {copy.details.split("\n\n").map((paragraph) => (
+            {detailParagraphs.map((paragraph) => (
               <p key={paragraph}>{paragraph}</p>
             ))}
           </div>

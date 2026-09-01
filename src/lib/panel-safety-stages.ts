@@ -345,6 +345,38 @@ export function buildPanelSafetyStages(input: {
   return { stages, activeStageId, headlineScore };
 }
 
+export function getLastCompletedSafetyStage(
+  snapshot: PanelSafetyStagesSnapshot,
+): SafetyStageSnapshot | null {
+  for (let i = snapshot.stages.length - 1; i >= 0; i--) {
+    const stage = snapshot.stages[i];
+    if (stage.score != null) return stage;
+  }
+  return null;
+}
+
+export function buildSafetyBarSheetDetails(
+  snapshot: PanelSafetyStagesSnapshot,
+): string[] {
+  const lastCompleted = getLastCompletedSafetyStage(snapshot);
+  if (!lastCompleted) {
+    const copy = buildSafetyStageCardCopy(snapshot);
+    return copy.details.split("\n\n").filter(Boolean);
+  }
+
+  const paragraphs = [
+    lastCompleted.hint,
+    ...pickAdviceLines(lastCompleted.analysis?.advice),
+  ].filter(Boolean);
+
+  const nextStage = snapshot.stages.find((stage) => stage.status !== "done");
+  if (nextStage && nextStage.id !== lastCompleted.id && nextStage.hint) {
+    paragraphs.push(nextStage.hint);
+  }
+
+  return paragraphs;
+}
+
 export function areFirstTwoSafetyStagesDone(
   snapshot: PanelSafetyStagesSnapshot,
 ): boolean {

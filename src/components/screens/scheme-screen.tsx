@@ -32,6 +32,7 @@ import {
   X,
 } from "lucide-react";
 import { DeviceFaceIdentityMark } from "@/components/icons/brand-mark";
+import { BRAND_YELLOW } from "@/components/brand-logo";
 import { IosShareIcon } from "@/components/icons/ios-share-icon";
 import { StickerBadgeIcon } from "@/components/icons/sticker-badge";
 import {
@@ -2456,7 +2457,7 @@ export function SchemeScreen({
         >
           <div className="mb-2 flex items-center gap-1.5 ty-note">
             <Building2 className="h-3.5 w-3.5 text-zinc-400" />
-            Дом
+            Адрес
           </div>
           {houseSnapshot ? (
             <div className="flex min-h-0 flex-1 flex-col">
@@ -2468,22 +2469,12 @@ export function SchemeScreen({
                   {formatBuildingYear(houseSnapshot.buildingYear)}
                 </p>
               ) : null}
-              {onEditHouse ? (
-                <span className="mt-2 block ty-label text-zinc-700">
-                  Изменить адрес
-                </span>
-              ) : null}
             </div>
           ) : (
             <div className="flex min-h-0 flex-1 flex-col justify-between">
               <p className="ty-note text-zinc-400">
                 Укажем адрес автоматически по геопозиции.
               </p>
-              {onEditHouse ? (
-                <span className="mt-2 block ty-label text-zinc-700">
-                  Определить адрес
-                </span>
-              ) : null}
             </div>
           )}
         </GlassCard>
@@ -2677,16 +2668,23 @@ export function SchemeScreen({
                 return next;
               });
             }}
-            className={cn(
-              "relative h-7 w-12 shrink-0 rounded-full transition-colors duration-200",
-              (showTerminals && canUseTerminals) || terminalsFlashOn
-                ? "bg-zinc-900"
-                : "bg-zinc-200",
-            )}
+            className="relative h-7 w-12 shrink-0 overflow-hidden rounded-full bg-zinc-200"
           >
             <span
+              className="absolute inset-y-0 left-0 rounded-full transition-[width] duration-200 ease-out"
+              style={{
+                width:
+                  showTerminals && canUseTerminals
+                    ? "100%"
+                    : terminalsFlashOn
+                      ? "50%"
+                      : "0%",
+                backgroundColor: BRAND_YELLOW,
+              }}
+            />
+            <span
               className={cn(
-                "absolute top-0.5 left-0.5 h-6 w-6 rounded-full bg-white shadow-sm transition-transform duration-200",
+                "absolute top-0.5 left-0.5 z-[1] h-6 w-6 rounded-full bg-white shadow-sm transition-transform duration-200 ease-out",
                 showTerminals && canUseTerminals && "translate-x-5",
                 terminalsFlashOn && "translate-x-2.5",
               )}
@@ -2962,13 +2960,15 @@ export function SchemeScreen({
           </GlassCard>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setPanelDiagnosticsOpen(true)}
-            className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-[16px] border border-black/8 bg-white px-4 py-3 ty-subtitle text-zinc-800 shadow-sm transition-colors hover:bg-zinc-50"
-          >
-            Определить линии
-          </button>
+          {!sharedPreview && !loadsStageReady ? (
+            <button
+              type="button"
+              onClick={() => setPanelDiagnosticsOpen(true)}
+              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-[16px] border border-black/8 bg-white px-4 py-3 ty-subtitle text-zinc-800 shadow-sm transition-colors hover:bg-zinc-50"
+            >
+              Определить линии
+            </button>
+          ) : null}
 
           <div>
             <PanelDeviceGuideSection
