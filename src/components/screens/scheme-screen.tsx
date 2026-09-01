@@ -2539,16 +2539,21 @@ export function SchemeScreen({
 
   const networkSafetyCards = (
     <>
-      <button
-        type="button"
+      <div
+        className="min-w-0 col-span-2"
         data-scheme-tour="safety"
-        onClick={() => setSafetyExplainOpen(true)}
-        className="min-w-0 col-span-2 text-left transition-transform active:scale-[0.99] lg:col-span-1 lg:cursor-pointer"
       >
-        <GlassCard className="flex h-full flex-col justify-center p-4 lg:p-5">
-          <PanelSafetyStages snapshot={safetyStages} variant="bar" />
+        <GlassCard className="flex h-full flex-col p-4 lg:p-5">
+          <PanelSafetyStages snapshot={safetyStages} variant="detailed" />
+          <button
+            type="button"
+            onClick={() => setSafetyExplainOpen(true)}
+            className="mt-3 w-full text-left ty-label text-zinc-700 transition-colors hover:text-zinc-900"
+          >
+            Подробнее об оценке
+          </button>
         </GlassCard>
-      </button>
+      </div>
       <button
         type="button"
         data-scheme-tour="network"
@@ -2558,7 +2563,7 @@ export function SchemeScreen({
         }}
         className="min-w-0 text-left transition-transform active:scale-[0.99] lg:cursor-pointer"
       >
-        <GlassCard className="flex h-full flex-col p-4 lg:p-5">
+        <GlassCard className="flex aspect-square flex-col p-4 lg:p-5">
           <div className="mb-2 ty-note">Параметры сети</div>
           {networkParamsFilled ? (
             <div className="space-y-2">
@@ -2599,10 +2604,10 @@ export function SchemeScreen({
           )}
         </GlassCard>
       </button>
-      <div className="min-w-0 col-span-2 lg:col-span-1">
+      <div className="min-w-0">
         <GlassCard
           className={cn(
-            "flex h-full flex-col p-4 lg:p-5",
+            "flex aspect-square flex-col p-4 lg:p-5",
             onEditHouse && "cursor-pointer transition-colors active:bg-zinc-50",
           )}
           onClick={onEditHouse}
@@ -2613,45 +2618,31 @@ export function SchemeScreen({
             Дом
           </div>
           {houseSnapshot ? (
-            <div className="space-y-2">
-              <p className="ty-heading leading-snug text-zinc-900">
+            <div className="flex min-h-0 flex-1 flex-col">
+              <p className="line-clamp-4 ty-heading leading-snug text-zinc-900">
                 {houseSnapshot.address}
               </p>
-              {houseSnapshot.buildingYear != null && (
-                <>
-                  <p className="text-[13px] text-zinc-600">
-                    Год постройки:{" "}
-                    <span className="font-medium text-zinc-800">
-                      {formatBuildingYear(houseSnapshot.buildingYear)}
-                    </span>
-                  </p>
-                  <p className="ty-note text-zinc-600">
-                    {houseSnapshot.groundingTitle}.{" "}
-                    {houseSnapshot.groundingSummary}
-                  </p>
-                  {houseSnapshot.dataSource && (
-                    <p className="ty-meta">
-                      Источник: {houseSnapshot.dataSource}
-                    </p>
-                  )}
-                </>
-              )}
-              {onEditHouse && (
-                <span className="block pt-1 ty-label text-zinc-700">
+              {houseSnapshot.buildingYear != null ? (
+                <p className="mt-auto pt-2 text-[13px] text-zinc-600">
+                  {formatBuildingYear(houseSnapshot.buildingYear)}
+                </p>
+              ) : null}
+              {onEditHouse ? (
+                <span className="mt-2 block ty-label text-zinc-700">
                   Изменить адрес
                 </span>
-              )}
+              ) : null}
             </div>
           ) : (
-            <div>
+            <div className="flex min-h-0 flex-1 flex-col justify-between">
               <p className="ty-note text-zinc-400">
                 Укажем адрес автоматически по геопозиции.
               </p>
-              {onEditHouse && (
+              {onEditHouse ? (
                 <span className="mt-2 block ty-label text-zinc-700">
                   Определить адрес
                 </span>
-              )}
+              ) : null}
             </div>
           )}
         </GlassCard>

@@ -1,21 +1,15 @@
 "use client";
 
-import { Lock } from "lucide-react";
+import { useState } from "react";
+import { ChevronDown, Lock } from "lucide-react";
 import {
+  buildSafetyStageCardCopy,
   stageScoreBadge,
   type PanelSafetyStagesSnapshot,
   type SafetyStageId,
   type SafetyStageSnapshot,
 } from "@/lib/panel-safety-stages";
 import { cn } from "@/lib/utils";
-
-function safetyBarFill(score: number): string {
-  if (score >= 80) return "bg-emerald-500";
-  if (score >= 65) return "bg-lime-500";
-  if (score >= 50) return "bg-amber-400";
-  if (score >= 35) return "bg-orange-500";
-  return "bg-rose-500";
-}
 
 function SafetyStageBar({
   snapshot,
@@ -26,15 +20,12 @@ function SafetyStageBar({
 }) {
   const { stages, headlineScore } = snapshot;
   const completedCount = stages.filter((stage) => stage.score != null).length;
-  const fillClass =
-    headlineScore != null ? safetyBarFill(headlineScore) : null;
+  const badge =
+    headlineScore != null ? stageScoreBadge(headlineScore) : null;
 
   return (
     <div
-      className={cn(
-        "relative h-9 w-full overflow-hidden rounded-full bg-zinc-200",
-        className,
-      )}
+      className={cn("relative w-full", className)}
       role="img"
       aria-label={
         headlineScore != null
@@ -42,42 +33,72 @@ function SafetyStageBar({
           : "Безопасность щитка: оценка ещё не определена"
       }
     >
-      {stages.map((stage, index) => {
-        const isCompleted = index < completedCount;
-        return (
-          <div
-            key={stage.id}
-            className="absolute inset-y-0"
-            style={{
-              left: `${(index / stages.length) * 100}%`,
-              width: `${100 / stages.length}%`,
-              zIndex: index + 1,
-            }}
-          >
+      <div className="relative h-7 w-full rounded-full bg-zinc-100 shadow-inner shadow-black/[0.04]">
+        {stages.map((stage, index) => {
+          if (index < completedCount) return null;
+          return (
             <div
-              className={cn(
-                "absolute inset-0",
-                isCompleted && fillClass ? fillClass : "bg-zinc-200",
-              )}
-            />
-            {!isCompleted ? (
-              <div className="absolute inset-0 flex items-center justify-center">
-                <Lock className="h-3.5 w-3.5 text-zinc-400" aria-hidden />
-              </div>
-            ) : null}
-          </div>
-        );
-      })}
+              key={stage.id}
+              className="absolute inset-y-0 flex items-center justify-center"
+              style={{
+                left: `${(index / stages.length) * 100}%`,
+                width: `${100 / stages.length}%`,
+              }}
+            >
+              <Lock className="h-3 w-3 text-zinc-400" aria-hidden />
+            </div>
+          );
+        })}
 
-      {headlineScore != null && completedCount > 0 ? (
-        <div
-          className="pointer-events-none absolute inset-y-0 left-0 z-10 flex items-center px-3.5"
-          style={{ width: `${(completedCount / stages.length) * 100}%` }}
-        >
-          <span className="text-[13px] font-semibold tabular-nums text-white drop-shadow-sm">
+        {completedCount > 0 && headlineScore != null && badge ? (
+          <div
+            className={cn(
+              "absolute inset-y-0 left-0 z-10 flex items-center justify-center rounded-full px-3 ty-badge font-semibold tabular-nums shadow-sm",
+              badge.bg,
+              badge.text,
+            )}
+            style={{ width: `${(completedCount / stages.length) * 100}%` }}
+          >
             {headlineScore}%
-          </span>
-        </div>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function PanelSafetyStageCardDetails({
+  snapshot,
+}: {
+  snapshot: PanelSafetyStagesSnapshot;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const copy = buildSafetyStageCardCopy(snapshot);
+
+  return (
+    <div className="mt-3 border-t border-black/[0.06] pt-3">
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          setExpanded((value) => !value);
+        }}
+        className="flex w-full items-start gap-2 text-left"
+        aria-expanded={expanded}
+      >
+        <p className="min-w-0 flex-1 ty-note leading-snug text-zinc-600">
+          {copy.summary}
+        </p>
+        <ChevronDown
+          className={cn(
+            "mt-0.5 h-4 w-4 shrink-0 text-zinc-400 transition-transform",
+            expanded && "rotate-180",
+          )}
+          aria-hidden
+        />
+      </button>
+      {expanded ? (
+        <p className="mt-2 ty-note leading-relaxed text-zinc-500">{copy.details}</p>
       ) : null}
     </div>
   );
@@ -138,7 +159,7 @@ export function PanelSafetyStages({
   onStageClick,
 }: {
   snapshot: PanelSafetyStagesSnapshot;
-  variant?: "bar" | "compact" | "panel";
+  variant?: "bar" | "compact" | "detailed" | "panel";
   className?: string;
   onStageClick?: (stageId: SafetyStageId) => void;
 }) {
@@ -146,6 +167,16 @@ export function PanelSafetyStages({
 
   if (variant === "bar" || variant === "compact") {
     return <SafetyStageBar snapshot={snapshot} className={className} />;
+  }
+
+  if (variant === "detailed") {
+    return (
+      <div className={cn("min-w-0", className)}>
+        <div className="mb-3 ty-note">Оценка безопасности щитка</div>
+        <SafetyStageBar snapshot={snapshot} />
+        <PanelSafetyStageCardDetails snapshot={snapshot} />
+      </div>
+    );
   }
 
   return (

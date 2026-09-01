@@ -262,4 +262,78 @@ export function buildPanelSafetyStages(input: {
   return { stages, activeStageId, headlineScore };
 }
 
+export function buildSafetyStageCardCopy(
+  snapshot: PanelSafetyStagesSnapshot,
+): {
+  summary: string;
+  details: string;
+} {
+  const { stages, activeStageId, headlineScore } = snapshot;
+  const scheme = stages.find((stage) => stage.id === "scheme");
+  const loads = stages.find((stage) => stage.id === "loads");
+  const professional = stages.find((stage) => stage.id === "professional");
+
+  if (!scheme || !loads || !professional) {
+    return {
+      summary: "Оценка безопасности строится поэтапно.",
+      details: panelSafetyStagesDisclaimer,
+    };
+  }
+
+  if (activeStageId === "scheme") {
+    if (scheme.status === "locked") {
+      return {
+        summary:
+          "Сначала нужна цифровая схема щитка и параметры сети — без этого оценку посчитать нельзя.",
+        details: scheme.hint,
+      };
+    }
+    if (scheme.score != null) {
+      return {
+        summary: `По схеме и параметрам сети сейчас ${scheme.score}%. Это первый этап из трёх.`,
+        details: scheme.hint,
+      };
+    }
+    return {
+      summary:
+        "Схема и параметры сети заполнены — можно получить оценку первого этапа.",
+      details: scheme.hint,
+    };
+  }
+
+  if (activeStageId === "loads") {
+    const schemeScore =
+      scheme.score != null ? `${scheme.score}%` : "определена";
+    return {
+      summary:
+        headlineScore != null
+          ? `Этап «Схема» — ${schemeScore}. Следующий шаг — учесть нагрузки дома на линиях щитка.`
+          : "Первый этап пройден. Следующий шаг — учесть нагрузки дома на линиях щитка.",
+      details: loads.hint,
+    };
+  }
+
+  if (activeStageId === "professional") {
+    const loadsScore =
+      loads.score != null ? `${loads.score}%` : "определена";
+    return {
+      summary:
+        headlineScore != null
+          ? `Этап «Нагрузки» — ${loadsScore}. Дальше — финальная проверка расключения на объекте.`
+          : "Нагрузки учтены. Дальше — финальная проверка расключения на объекте.",
+      details: professional.hint,
+    };
+  }
+
+  const finalScore =
+    professional.score ?? loads.score ?? scheme.score ?? headlineScore;
+  return {
+    summary:
+      finalScore != null
+        ? `Все этапы пройдены. Итоговая оценка безопасности — ${finalScore}%.`
+        : "Все этапы оценки безопасности пройдены.",
+    details: professional.hint,
+  };
+}
+
 export { stageScoreBadge };
