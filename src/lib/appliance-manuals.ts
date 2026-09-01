@@ -1,8 +1,8 @@
 import type { ApplianceManual } from "@/types";
 
 const MANUAL_TITLE_RU: Record<string, string> = {
-  brochure: "Брошюра",
-  "product brochure": "Брошюра производителя",
+  brochure: "Описание изделия",
+  "product brochure": "Описание изделия",
   manual: "Руководство",
   "user manual": "Руководство пользователя",
   "instruction manual": "Инструкция",
@@ -57,7 +57,7 @@ export function localizeApplianceManualTitle(title: string): string {
   const exact = MANUAL_TITLE_RU[key];
   if (exact) return exact;
 
-  if (/^brochure\b/i.test(trimmed)) return "Брошюра";
+  if (/^brochure\b/i.test(trimmed)) return "Описание изделия";
   if (/^user manual/i.test(trimmed)) return "Руководство пользователя";
   if (/^manual\b/i.test(trimmed)) return "Руководство";
   if (/^quick start/i.test(trimmed)) return "Краткое руководство";

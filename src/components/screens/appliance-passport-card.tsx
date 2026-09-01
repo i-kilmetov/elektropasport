@@ -2,9 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Camera, ChevronRight, FileText, ImagePlus, Trash2, X } from "lucide-react";
+import { Camera, ExternalLink, FileText, HelpCircle, ImagePlus, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
+import { InfoDialog } from "@/components/ui/info-dialog";
 import { Portal } from "@/components/ui/portal";
 import { MAX_APPLIANCE_PASSPORT_PHOTOS } from "@/lib/appliance-passport";
 import {
@@ -83,7 +84,9 @@ export function AppliancePassportCard({
   const [urls, setUrls] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hintOpen, setHintOpen] = useState(false);
   const [viewerId, setViewerId] = useState<string | null>(null);
+  const [viewerLoading, setViewerLoading] = useState(false);
   const [titlePromptId, setTitlePromptId] = useState<string | null>(null);
   const [titleDraft, setTitleDraft] = useState("");
   const urlsRef = useRef(urls);
@@ -110,26 +113,6 @@ export function AppliancePassportCard({
       cancelled = true;
     };
   }, [panel.id, appliance.id]);
-
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      for (const id of ids) {
-        if (cancelled || urlsRef.current[id]) continue;
-        try {
-          const blob = await fetchAppliancePassportPhotoBlob(id);
-          if (cancelled) return;
-          const url = URL.createObjectURL(blob);
-          setUrls((prev) => ({ ...prev, [id]: url }));
-        } catch {
-          /* thumbnail stays empty until retry */
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [ids]);
 
   useEffect(() => {
     return () => {
@@ -174,6 +157,29 @@ export function AppliancePassportCard({
     saveTitle(titlePromptId, titleDraft);
     setTitlePromptId(null);
     setTitleDraft("");
+  };
+
+  const ensurePhotoUrl = async (id: string) => {
+    if (urlsRef.current[id]) return urlsRef.current[id];
+    const blob = await fetchAppliancePassportPhotoBlob(id);
+    const url = URL.createObjectURL(blob);
+    setUrls((prev) => ({ ...prev, [id]: url }));
+    return url;
+  };
+
+  const openViewer = async (id: string) => {
+    setViewerId(id);
+    if (urlsRef.current[id]) return;
+    setViewerLoading(true);
+    try {
+      await ensurePhotoUrl(id);
+    } catch {
+      setViewerId(null);
+      hapticNotification("error");
+      setError("Не удалось открыть файл");
+    } finally {
+      setViewerLoading(false);
+    }
   };
 
   const addFile = async (file: File | null) => {
@@ -221,7 +227,7 @@ export function AppliancePassportCard({
         delete next[id];
         return next;
       });
-      if (viewerId === id) setViewerId(null);
+      setViewerId(null);
       if (titlePromptId === id) {
         setTitlePromptId(null);
         setTitleDraft("");
@@ -244,71 +250,43 @@ export function AppliancePassportCard({
     titles[id]?.trim() || defaultPassportPhotoTitle(index);
 
   const canAdd = ids.length < MAX_APPLIANCE_PASSPORT_PHOTOS && !busy;
+  const viewerUrl = viewerId ? urls[viewerId] : null;
 
   return (
     <>
       <GlassCard className="p-4">
-        <h3 className="mb-1 ty-label uppercase tracking-wide text-zinc-400">
-          Паспорт техники
-        </h3>
-        <p className="mb-3 ty-note">
-          Сфотографируйте или загрузите скан разворота с датой покупки и печатью
-          продавца. Хранится в вашей карточке, до {MAX_APPLIANCE_PASSPORT_PHOTOS}{" "}
-          снимков.
-        </p>
+        <div className="mb-3 flex items-center gap-1.5">
+          <h3 className="ty-label uppercase tracking-wide text-zinc-400">
+            Паспорт техники
+          </h3>
+          <button
+            type="button"
+            onClick={() => setHintOpen(true)}
+            className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-zinc-100 text-zinc-400 transition-colors hover:bg-zinc-200 hover:text-zinc-600"
+            aria-label="Зачем добавлять паспорт техники"
+          >
+            <HelpCircle className="h-4 w-4" />
+          </button>
+        </div>
 
         {ids.length > 0 ? (
-          <div className="mb-3 divide-y divide-black/[0.06] rounded-[16px] border border-black/8 bg-white">
+          <div className="mb-3 space-y-2">
             {ids.map((id, index) => (
-              <div
+              <button
                 key={id}
-                className="flex items-center gap-2 px-3 py-2.5 first:rounded-t-[16px] last:rounded-b-[16px]"
+                type="button"
+                onClick={() => void openViewer(id)}
+                className="flex w-full items-center gap-3 rounded-[16px] border border-black/8 bg-white px-4 py-3 text-left transition-colors hover:bg-zinc-50"
+                aria-label={`Открыть ${photoTitle(id, index)}`}
               >
-                <button
-                  type="button"
-                  className="flex min-w-0 flex-1 items-center gap-3 text-left"
-                  onClick={() => setViewerId(id)}
-                  aria-label={`Открыть ${photoTitle(id, index)}`}
-                >
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-[12px] bg-zinc-100 text-zinc-600">
-                    {urls[id] ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={urls[id]}
-                        alt=""
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <FileText className="h-5 w-5" />
-                    )}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate ty-heading">
-                      {photoTitle(id, index)}
-                    </span>
-                    <span className="block ty-note">Открыть</span>
-                  </span>
-                  <ChevronRight className="h-4 w-4 shrink-0 text-zinc-400" />
-                </button>
-                <button
-                  type="button"
-                  aria-label="Переименовать"
-                  disabled={busy}
-                  onClick={() => openTitlePrompt(id, index)}
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-zinc-500 hover:bg-zinc-100 disabled:opacity-40"
-                >
-                  <span className="text-[13px] font-semibold">Aa</span>
-                </button>
-                <button
-                  type="button"
-                  aria-label="Удалить"
-                  disabled={busy}
-                  onClick={() => void removePhoto(id)}
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-rose-600 hover:bg-rose-50 disabled:opacity-40"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-zinc-100 text-zinc-600">
+                  <FileText className="h-5 w-5" />
+                </span>
+                <span className="min-w-0 flex-1 truncate ty-heading">
+                  {photoTitle(id, index)}
+                </span>
+                <ExternalLink className="h-4 w-4 shrink-0 text-zinc-400" />
+              </button>
             ))}
           </div>
         ) : null}
@@ -346,33 +324,63 @@ export function AppliancePassportCard({
           </div>
         ) : (
           <p className="ty-note">
-            Добавлено максимум фото. Лишнее можно удалить и заменить.
+            Добавлено максимум файлов. Откройте файл, чтобы удалить и заменить.
           </p>
         )}
       </GlassCard>
 
-      {viewerId && urls[viewerId] ? (
+      {viewerId ? (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-5"
           onClick={() => setViewerId(null)}
         >
-          <button
-            type="button"
-            aria-label="Закрыть"
-            className="absolute right-5 top-[max(1.25rem,env(safe-area-inset-top))] flex h-11 w-11 items-center justify-center rounded-full bg-white/15 text-white"
-            onClick={() => setViewerId(null)}
-          >
-            <X className="h-5 w-5" />
-          </button>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={urls[viewerId]}
-            alt={photoTitle(viewerId, ids.indexOf(viewerId))}
-            className="max-h-full max-w-full rounded-[16px] object-contain"
-            onClick={(event) => event.stopPropagation()}
-          />
+          <div className="absolute right-5 top-[max(1.25rem,env(safe-area-inset-top))] flex items-center gap-2">
+            <button
+              type="button"
+              aria-label="Удалить файл"
+              disabled={busy}
+              onClick={(event) => {
+                event.stopPropagation();
+                void removePhoto(viewerId);
+              }}
+              className="flex h-11 w-11 items-center justify-center rounded-full bg-white/15 text-white disabled:opacity-40"
+            >
+              <Trash2 className="h-5 w-5" />
+            </button>
+            <button
+              type="button"
+              aria-label="Закрыть"
+              onClick={() => setViewerId(null)}
+              className="flex h-11 w-11 items-center justify-center rounded-full bg-white/15 text-white"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+          {viewerLoading || !viewerUrl ? (
+            <div className="ty-body text-white/80">Загружаем…</div>
+          ) : (
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={viewerUrl}
+                alt={photoTitle(viewerId, ids.indexOf(viewerId))}
+                className="max-h-full max-w-full rounded-[16px] object-contain"
+                onClick={(event) => event.stopPropagation()}
+              />
+            </>
+          )}
         </div>
       ) : null}
+
+      <AnimatePresence>
+        {hintOpen ? (
+          <InfoDialog
+            title="Паспорт техники"
+            description={`Сфотографируйте или загрузите скан разворота с датой покупки и печатью продавца. Хранится в вашей карточке, до ${MAX_APPLIANCE_PASSPORT_PHOTOS} снимков.`}
+            onClose={() => setHintOpen(false)}
+          />
+        ) : null}
+      </AnimatePresence>
 
       <AnimatePresence>
         {titlePromptId ? (
