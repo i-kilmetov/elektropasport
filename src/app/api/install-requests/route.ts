@@ -1,4 +1,4 @@
-import { isAiConsultationRequest, type InstallRequest } from "@/types";
+import { isStandaloneAiConsultation, type InstallRequest } from "@/types";
 import {
   authErrorResponse,
   requireTelegramUser,
@@ -37,7 +37,7 @@ export async function POST(request: Request) {
 
     // Must await: Vercel freezes the function after the response is sent.
     try {
-      if (item.created && !isAiConsultationRequest(item.request)) {
+      if (item.created && !isStandaloneAiConsultation(item.request)) {
         await notifyAdminNewInstallRequest(item.request, user.telegramId, {
           username: user.username,
           botCanMessage,

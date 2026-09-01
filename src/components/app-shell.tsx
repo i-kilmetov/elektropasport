@@ -176,7 +176,7 @@ import type {
   PanelObject,
   PanelWire,
 } from "@/types";
-import { installStatusLabels } from "@/types";
+import { installStatusLabels, isStandaloneAiConsultation } from "@/types";
 import { BrandAuthIntro, BrandLaunchWaitlist, BrandSplash } from "@/components/brand-splash";
 import { BRAND_YELLOW } from "@/components/brand-logo";
 import { useAppStatusBarTheme } from "@/hooks/use-status-bar-theme";
@@ -759,16 +759,24 @@ export function AppShell({
     [items, activePanelId, sharedPreview],
   );
 
-  const activeRequest = useMemo(
-    () =>
+  const activeRequest = useMemo(() => {
+    const base =
       masterViewRequest?.id === activeRequestId
         ? masterViewRequest
         : items.find(
             (item): item is InstallRequest =>
               item.kind === "install_request" && item.id === activeRequestId,
-          ) ?? null,
-    [items, activeRequestId, masterViewRequest],
-  );
+          ) ?? null;
+    if (!base?.linkedRequestId || base.aiConsultation) return base;
+    const linked = items.find(
+      (item): item is InstallRequest =>
+        item.kind === "install_request" && item.id === base.linkedRequestId,
+    );
+    if (linked?.aiConsultation) {
+      return { ...base, aiConsultation: linked.aiConsultation };
+    }
+    return base;
+  }, [items, activeRequestId, masterViewRequest]);
 
   const installSetupTitle = useMemo(() => {
     if (selectedLeadService) {
@@ -2067,12 +2075,17 @@ export function AppShell({
           (leadBackScreen === "scheme" || activePanel?.noPanelSetupId
             ? activePanelId ?? undefined
             : undefined),
-        linkedRequestId: payload.linkedRequestId,
+        aiConsultation: payload.aiConsultation,
       };
 
       setItems((prev) => {
-        if (prev.some((item) => item.id === id)) return prev;
-        return [request, ...prev];
+        const withoutConsultation = payload.replaceConsultationId
+          ? prev.filter((item) => item.id !== payload.replaceConsultationId)
+          : prev;
+        if (withoutConsultation.some((item) => item.id === id)) {
+          return withoutConsultation;
+        }
+        return [request, ...withoutConsultation];
       });
       setActiveRequestId(id);
       setItemsError(null);
@@ -2085,6 +2098,14 @@ export function AppShell({
             : "Не удалось сохранить заявку",
         );
       });
+
+      if (payload.replaceConsultationId) {
+        void persistDeleteInstallRequest(payload.replaceConsultationId).catch(
+          (error) => {
+            console.error(error);
+          },
+        );
+      }
 
       const isMasterHomeVisit =
         payload.serviceType === "master_home_visit" ||
@@ -2149,6 +2170,14 @@ export function AppShell({
       const modules = countPanelModules(panel?.devices ?? []);
       setLeadPanelModules(modules > 0 ? modules : null);
 
+      const consultation = consultationRequestId
+        ? items.find(
+            (item): item is InstallRequest =>
+              item.kind === "install_request" &&
+              item.id === consultationRequestId,
+          )
+        : null;
+
       const typeCode = resolveRequestTypeCodeForService("master_home_visit");
       const publicCode = await allocateRequestPublicCode(typeCode);
       const estimatedPriceRub = MASTER_HOME_VISIT_PRICE_RUB;
@@ -2168,7 +2197,71 @@ export function AppShell({
         }),
         publicCode,
         panelId: context.panelId,
-        linkedRequestId: consultationRequestId ?? undefined,
+        aiConsultation: consultation?.aiConsultation,
+        replaceConsultationId: consultationRequestId ?? undefined,
+      });
+    },
+    [items, submitLead],
+  );
+
+  const handleConsultationCallMaster = useCallback(
+    async (
+      consultation: InstallRequest,
+      { phone, name }: { phone: string; name: string },
+    ) => {
+      if (!consultation.aiConsultation) return;
+
+      if (consultation.panelId) {
+        setActivePanelId(consultation.panelId);
+      }
+      setHelpElectricalFlow(true);
+      setLeadFlow("install");
+      setSelectedLeadService("master_home_visit");
+      setSelectedCity(
+        consultation.city && consultation.city !== "—" ? consultation.city : null,
+      );
+      setSelectedAddress(consultation.exactAddress ?? null);
+      setSelectedAddressFiasId(null);
+      setSelectedBuildingYear(null);
+      setSelectedStreet(null);
+      setSelectedHouse(null);
+      setSelectedBlock(null);
+      setAddressEntrySource("manual");
+      setLeadBackScreen("objects");
+
+      const panel = consultation.panelId
+        ? items.find(
+            (item): item is PanelObject =>
+              item.kind === "panel" && item.id === consultation.panelId,
+          )
+        : null;
+      const modules = countPanelModules(panel?.devices ?? []);
+      setLeadPanelModules(modules > 0 ? modules : null);
+
+      const typeCode = resolveRequestTypeCodeForService("master_home_visit");
+      const publicCode = await allocateRequestPublicCode(typeCode);
+      const estimatedPriceRub = MASTER_HOME_VISIT_PRICE_RUB;
+
+      await submitLead({
+        contactMethod: "phone",
+        phone,
+        name,
+        city:
+          consultation.city && consultation.city !== "—"
+            ? consultation.city
+            : undefined,
+        exactAddress: consultation.exactAddress,
+        serviceType: "master_home_visit",
+        estimatedPriceRub,
+        panelModules: modules > 0 ? modules : undefined,
+        setupTitle: buildLeadServiceSetupTitle({
+          serviceType: "master_home_visit",
+          estimatedPriceRub,
+        }),
+        publicCode,
+        panelId: consultation.panelId,
+        aiConsultation: consultation.aiConsultation,
+        replaceConsultationId: consultation.id,
       });
     },
     [items, submitLead],
@@ -3264,6 +3357,12 @@ export function AppShell({
                       }
                     }
                   : (panelId) => openPanel(panelId)
+              }
+              onCallMaster={
+                activeRequest && isStandaloneAiConsultation(activeRequest)
+                  ? (payload) =>
+                      handleConsultationCallMaster(activeRequest, payload)
+                  : undefined
               }
             />
           )}

@@ -315,7 +315,7 @@ function AiAnswerStep({
   );
 }
 
-function MasterConfirmStep({
+export function MasterVisitConfirmStep({
   onBack,
   onConfirm,
 }: {
@@ -697,7 +697,7 @@ export function HelpElectricalWizardSheet({
           ) : null}
 
           {step === "master_confirm" && aiContext ? (
-            <MasterConfirmStep
+            <MasterVisitConfirmStep
               onBack={handleBack}
               onConfirm={(payload) =>
                 void onConfirmMasterVisit({

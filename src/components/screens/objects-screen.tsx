@@ -76,7 +76,7 @@ import type {
   InstallRequest,
   PanelObject,
 } from "@/types";
-import { installStatusTone } from "@/types";
+import { installStatusTone, isStandaloneAiConsultation } from "@/types";
 import {
   formatPanelListMeta,
   panelSupportsHomeAppliances,
@@ -456,7 +456,7 @@ function RequestListCard({
   onOpen: () => void;
   onContextMenu: () => void;
 }) {
-  const isConsultation = Boolean(item.aiConsultation);
+  const isConsultation = isStandaloneAiConsultation(item);
   const longPress = useLongPressAction(onContextMenu);
   return (
     <GlassCard
@@ -505,43 +505,6 @@ function RequestListCard({
         </div>
       </button>
     </GlassCard>
-  );
-}
-
-function RequestStackCard({
-  master,
-  consultation,
-  onOpenMaster,
-  onOpenConsultation,
-  onContextMenu,
-}: {
-  master: InstallRequest;
-  consultation: InstallRequest;
-  onOpenMaster: () => void;
-  onOpenConsultation: () => void;
-  onContextMenu: () => void;
-}) {
-  return (
-    <div className="relative min-w-0">
-      <PanelCardStack peekCount={1}>
-        <RequestListCard
-          item={master}
-          onOpen={onOpenMaster}
-          onContextMenu={onContextMenu}
-        />
-      </PanelCardStack>
-      <button
-        type="button"
-        onClick={onOpenConsultation}
-        className="absolute inset-x-3 bottom-0 z-20 flex h-8 items-center gap-2 rounded-b-[18px] bg-zinc-50/95 px-3 text-left touch-manipulation backdrop-blur-sm"
-        aria-label="Открыть консультацию"
-      >
-        <Sparkles className="h-3.5 w-3.5 shrink-0 text-violet-500" />
-        <span className="truncate ty-meta text-zinc-600">
-          {consultation.publicCode ?? consultation.title} · {consultation.subtitle}
-        </span>
-      </button>
-    </div>
   );
 }
 
@@ -1007,15 +970,6 @@ export function ObjectsScreen({
       ),
     [items, pendingDelete],
   );
-  const consultationById = useMemo(() => {
-    const map = new Map<string, InstallRequest>();
-    for (const request of requests) {
-      if (request.aiConsultation) {
-        map.set(request.id, request);
-      }
-    }
-    return map;
-  }, [requests]);
   const linkedConsultationIds = useMemo(() => {
     const ids = new Set<string>();
     for (const request of requests) {
@@ -1134,29 +1088,13 @@ export function ObjectsScreen({
   const pagerDragConstraints =
     pagerWidth > 0 ? { left: -pagerWidth, right: 0 } : { left: 0, right: 0 };
 
-  const renderRequestItem = (request: InstallRequest) => {
-    const consultation = request.linkedRequestId
-      ? consultationById.get(request.linkedRequestId)
-      : undefined;
-    if (consultation) {
-      return (
-        <RequestStackCard
-          master={request}
-          consultation={consultation}
-          onOpenMaster={() => onOpenRequest(request.id)}
-          onOpenConsultation={() => onOpenRequest(consultation.id)}
-          onContextMenu={() => setActionsItemId(request.id)}
-        />
-      );
-    }
-    return (
-      <RequestListCard
-        item={request}
-        onOpen={() => onOpenRequest(request.id)}
-        onContextMenu={() => setActionsItemId(request.id)}
-      />
-    );
-  };
+  const renderRequestItem = (request: InstallRequest) => (
+    <RequestListCard
+      item={request}
+      onOpen={() => onOpenRequest(request.id)}
+      onContextMenu={() => setActionsItemId(request.id)}
+    />
+  );
 
   const renderList = (
     list: HomeListItem[],

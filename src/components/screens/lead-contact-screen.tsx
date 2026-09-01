@@ -40,6 +40,7 @@ import {
   persistUserProfile,
 } from "@/lib/user-profile";
 import { cn } from "@/lib/utils";
+import type { AiConsultationRecord } from "@/types";
 
 type Step = "contact" | "done";
 
@@ -62,7 +63,8 @@ export type LeadFinishPayload = {
   paidAmountRub?: number;
   tbankPaymentId?: string;
   panelId?: string;
-  linkedRequestId?: string;
+  aiConsultation?: AiConsultationRecord;
+  replaceConsultationId?: string;
 };
 
 function resolveEstimatedPriceRub(

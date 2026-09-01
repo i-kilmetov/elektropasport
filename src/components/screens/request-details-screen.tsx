@@ -14,7 +14,9 @@ import {
   Trash2,
 } from "lucide-react";
 import { BreakerIcon } from "@/components/icons/breaker-icon";
+import { GeminiSparkle } from "@/components/icons/gemini-sparkle";
 import { Button } from "@/components/ui/button";
+import { MasterVisitConfirmStep } from "@/components/ui/help-electrical-wizard-sheet";
 import { GlassCard } from "@/components/ui/glass-card";
 import { AddressSuggestField } from "@/components/ui/address-suggest-field";
 import { Progress } from "@/components/ui/progress";
@@ -27,6 +29,7 @@ import {
   installStatusProgress,
   installStatusSteps,
   installStatusTone,
+  isStandaloneAiConsultation,
 } from "@/types";
 
 function NameDialog({
@@ -169,6 +172,39 @@ function DetailItem({
   );
 }
 
+function AiConsultationSection({
+  request,
+}: {
+  request: InstallRequest;
+}) {
+  if (!request.aiConsultation) return null;
+  return (
+    <GlassCard className="p-4">
+      <div className="mb-3 flex items-center gap-2 ty-label">
+        <Sparkles className="h-4 w-4 text-violet-500" />
+        ИИ-консультация
+      </div>
+      <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+        <DetailItem
+          label="Тип обращения"
+          value={request.aiConsultation.topicLabel}
+        />
+        <DetailItem
+          label="Проблема"
+          value={request.aiConsultation.problemLabel}
+          wide
+        />
+      </div>
+      <div className="mt-4 rounded-[16px] border border-black/8 bg-zinc-50 px-4 py-3">
+        <div className="mb-2 ty-meta text-zinc-500">Ответ ИИ-консультанта</div>
+        <p className="whitespace-pre-wrap ty-body text-zinc-800">
+          {request.aiConsultation.aiReply}
+        </p>
+      </div>
+    </GlassCard>
+  );
+}
+
 export function RequestDetailsScreen({
   request,
   onBack,
@@ -176,6 +212,7 @@ export function RequestDetailsScreen({
   onDelete,
   onUpdate,
   onOpenPanel,
+  onCallMaster,
   readOnly = false,
 }: {
   request: InstallRequest;
@@ -188,16 +225,24 @@ export function RequestDetailsScreen({
     >,
   ) => void;
   onOpenPanel?: (panelId: string) => void;
+  onCallMaster?: (payload: {
+    phone: string;
+    name: string;
+  }) => void | Promise<void>;
   readOnly?: boolean;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
   const [pendingDelete, setPendingDelete] = useState(false);
+  const [masterConfirmOpen, setMasterConfirmOpen] = useState(false);
   const [address, setAddress] = useState(request.exactAddress ?? "");
   const [addressSaved, setAddressSaved] = useState(false);
+  const standaloneConsultation =
+    !readOnly && isStandaloneAiConsultation(request) && Boolean(onCallMaster);
 
   useEffect(() => {
     setAddress(request.exactAddress ?? "");
+    setMasterConfirmOpen(false);
   }, [request.exactAddress, request.id]);
 
   const dwellingLabel =
@@ -419,34 +464,6 @@ export function RequestDetailsScreen({
           </button>
         )}
 
-        {request.aiConsultation ? (
-          <GlassCard className="p-4">
-            <div className="mb-3 flex items-center gap-2 ty-label">
-              <Sparkles className="h-4 w-4 text-violet-500" />
-              ИИ-консультация
-            </div>
-            <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-              <DetailItem
-                label="Тип обращения"
-                value={request.aiConsultation.topicLabel}
-              />
-              <DetailItem
-                label="Проблема"
-                value={request.aiConsultation.problemLabel}
-                wide
-              />
-            </div>
-            <div className="mt-4 rounded-[16px] border border-black/8 bg-zinc-50 px-4 py-3">
-              <div className="mb-2 ty-meta text-zinc-500">
-                Ответ ИИ-консультанта
-              </div>
-              <p className="whitespace-pre-wrap ty-body text-zinc-800">
-                {request.aiConsultation.aiReply}
-              </p>
-            </div>
-          </GlassCard>
-        ) : null}
-
         <GlassCard className="p-4">
           <div className="mb-3 flex items-center gap-2 ty-label">
             {request.contactMethod === "telegram" ? (
@@ -470,12 +487,28 @@ export function RequestDetailsScreen({
             />
           </div>
         </GlassCard>
+
+        <AiConsultationSection request={request} />
       </div>
 
-      <div className="mt-auto pt-2">
-        <Button className="w-full" variant="secondary" onClick={onBack}>
-          Назад к списку
-        </Button>
+      <div className="mt-auto space-y-2 pt-2">
+        {standaloneConsultation && masterConfirmOpen && onCallMaster ? (
+          <MasterVisitConfirmStep
+            onBack={() => setMasterConfirmOpen(false)}
+            onConfirm={onCallMaster}
+          />
+        ) : null}
+        {standaloneConsultation && !masterConfirmOpen ? (
+          <Button className="w-full" onClick={() => setMasterConfirmOpen(true)}>
+            <GeminiSparkle className="h-5 w-5" />
+            Вызвать мастера
+          </Button>
+        ) : null}
+        {!masterConfirmOpen ? (
+          <Button className="w-full" variant="secondary" onClick={onBack}>
+            Назад к списку
+          </Button>
+        ) : null}
       </div>
 
       <AnimatePresence>

@@ -1,4 +1,4 @@
-import { isAiConsultationRequest, type InstallRequest } from "@/types";
+import { isStandaloneAiConsultation, type InstallRequest } from "@/types";
 import {
   authErrorResponse,
   requireTelegramUser,
@@ -41,7 +41,7 @@ export async function PATCH(request: Request, context: RouteContext) {
       return Response.json({ error: "Заявка не найдена" }, { status: 404 });
     }
 
-    if (body.status && !isAiConsultationRequest(item)) {
+    if (body.status && !isStandaloneAiConsultation(item)) {
       try {
         await notifyAdminInstallRequestStatusChangedByUser(
           item,
@@ -77,7 +77,7 @@ export async function DELETE(request: Request, context: RouteContext) {
     }
 
     try {
-      if (!isAiConsultationRequest(existing)) {
+      if (!isStandaloneAiConsultation(existing)) {
         await notifyAdminInstallRequestDeletedByUser(existing, user.telegramId, {
           username: user.username,
         });

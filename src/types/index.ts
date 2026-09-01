@@ -264,6 +264,14 @@ export function isAiConsultationRequest(request: InstallRequest): boolean {
   return Boolean(request.aiConsultation);
 }
 
+/** Consultation-only card (C-*), not yet converted to a master visit. */
+export function isStandaloneAiConsultation(request: InstallRequest): boolean {
+  return (
+    Boolean(request.aiConsultation) &&
+    request.publicCode?.startsWith("C-") === true
+  );
+}
+
 export type HomeListItem = PanelObject | InstallRequest;
 
 export type AppScreen =
