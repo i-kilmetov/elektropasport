@@ -4,7 +4,11 @@ import { createGunzip, gunzipSync } from "node:zlib";
 import type { CatalogApplianceKind } from "@/lib/appliance-catalog-enrichment";
 import { ensureSchema } from "@/lib/db";
 import { getSql } from "@/lib/sql-client";
-import { searchIcecatProduct, searchIcecatProductByIcecatId } from "@/lib/icecat";
+import {
+  ICECAT_APPLIANCE_LANG,
+  searchIcecatProduct,
+  searchIcecatProductByIcecatId,
+} from "@/lib/icecat";
 import type { ApplianceManual, ApplianceSpec } from "@/types";
 
 const REFS_BASE = "https://data.icecat.biz/export/freexml/refs";
@@ -709,7 +713,7 @@ export async function loadIcecatProductDetails(options: {
   const byId = options.icecatId
     ? await searchIcecatProductByIcecatId({
         icecatId: options.icecatId,
-        lang: "EN",
+        lang: ICECAT_APPLIANCE_LANG,
       })
     : null;
 
@@ -718,7 +722,7 @@ export async function loadIcecatProductDetails(options: {
     result = await searchIcecatProduct({
       brand: options.brand,
       model: options.productCode,
-      lang: "EN",
+      lang: ICECAT_APPLIANCE_LANG,
     });
   }
 

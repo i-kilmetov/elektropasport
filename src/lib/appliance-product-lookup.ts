@@ -1,6 +1,6 @@
 import type { CatalogApplianceKind } from "@/lib/appliance-catalog-enrichment";
 import { buildEprelPublicUrl } from "@/lib/appliance-catalog-enrichment";
-import { searchIcecatProduct } from "@/lib/icecat";
+import { ICECAT_APPLIANCE_LANG, searchIcecatProduct } from "@/lib/icecat";
 import { isEprelConfigured, searchEprelProduct } from "@/lib/eprel";
 import type { ApplianceManual, ApplianceSpec } from "@/types";
 
@@ -39,7 +39,7 @@ export async function enrichApplianceProduct(options: {
   const icecat = await searchIcecatProduct({
     brand: options.brand,
     model: options.model,
-    lang: "EN",
+    lang: ICECAT_APPLIANCE_LANG,
   });
 
   if (icecat.hit) {

@@ -1,6 +1,9 @@
 import type { ApplianceManual, ApplianceSpec } from "@/types";
+import { localizeApplianceSpecs } from "@/lib/appliance-spec-i18n";
 
 const ICECAT_API = "https://live.icecat.biz/api";
+/** Default locale for home-appliance specs shown to users. */
+export const ICECAT_APPLIANCE_LANG = "RU";
 
 /** Known Open Icecat product — used to verify free-account access. */
 const OPEN_PROBE = { brand: "HP", model: "RJ459AV", lang: "EN" } as const;
@@ -144,10 +147,10 @@ function specsFromFeatures(data: Record<string, unknown>): ApplianceSpec[] {
       const value = pickFeatureValue(feature);
       if (!label || !value || value.length > 120) continue;
       specs.push({ label, value });
-      if (specs.length >= 20) return specs;
+      if (specs.length >= 20) return localizeApplianceSpecs(specs);
     }
   }
-  return specs;
+  return localizeApplianceSpecs(specs);
 }
 
 function manualsFromData(data: Record<string, unknown>): ApplianceManual[] {
@@ -444,7 +447,7 @@ export async function searchIcecatProduct(options: {
     return { configured: true, hit: null, status: "not_found" };
   }
 
-  const lang = (options.lang || "EN").trim() || "EN";
+  const lang = (options.lang || ICECAT_APPLIANCE_LANG).trim() || ICECAT_APPLIANCE_LANG;
   const hasTokens = Boolean(apiToken() || contentToken());
 
   const primary = await fetchIcecatOnce({
@@ -513,7 +516,7 @@ export async function searchIcecatProductByIcecatId(options: {
     return { configured: true, hit: null, status: "not_found" };
   }
 
-  const lang = (options.lang || "EN").trim() || "EN";
+  const lang = (options.lang || ICECAT_APPLIANCE_LANG).trim() || ICECAT_APPLIANCE_LANG;
   const hasTokens = Boolean(apiToken() || contentToken());
 
   const primary = await fetchIcecatOnce({
@@ -530,6 +533,23 @@ export async function searchIcecatProductByIcecatId(options: {
       withTokens: false,
     });
     if (fallback.status === "ok") return fallback;
+  }
+
+  if (primary.status === "not_found" && lang.toUpperCase() !== "EN") {
+    const en = await fetchIcecatOnce({
+      icecatId,
+      lang: "EN",
+      withTokens: hasTokens,
+    });
+    if (en.status === "ok") return en;
+    if (hasTokens && en.status === "auth_error") {
+      const enNoToken = await fetchIcecatOnce({
+        icecatId,
+        lang: "EN",
+        withTokens: false,
+      });
+      if (enNoToken.status === "ok") return enNoToken;
+    }
   }
 
   return primary;
