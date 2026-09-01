@@ -211,14 +211,15 @@ function PanelCardStack({
             <div
               key={index}
               className={cn(
-                "pointer-events-none absolute inset-x-0 top-0",
+                "pointer-events-none absolute inset-x-0 top-0 border-b border-black/12",
                 panelCardShellClass,
                 PANEL_CARD_RADIUS,
               )}
               style={{
                 height: `calc(100% - ${stackDepth}px)`,
                 transform: `translateY(${(index + 1) * BOOK_PEEK_PX}px)`,
-                zIndex: index + 1,
+                // Closest page sits just under the panel card.
+                zIndex: layers - index,
               }}
               aria-hidden
             />
