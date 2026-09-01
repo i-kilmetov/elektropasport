@@ -82,7 +82,7 @@ import {
   readPendingPanelShare,
   writePendingPanelShare,
 } from "@/lib/pending-panel-share";
-import { syncUserProfileFromServer } from "@/lib/user-profile";
+import { syncUserProfileFromServer, getUserProfile } from "@/lib/user-profile";
 import {
   hapticDelete,
   hapticNav,
@@ -130,8 +130,11 @@ import {
 import { mergeAppliancesWithEquipmentLabels } from "@/lib/appliance-line-sync";
 import {
   listHelpElectricalPanels,
+  buildAiConsultationRecord,
+  buildAiConsultationSubtitle,
   type HelpElectricalContext,
 } from "@/lib/help-electrical-flow";
+import { getTelegramUserName } from "@/lib/telegram-user";
 import {
   fetchPanelPhotoObjectUrl,
   uploadPanelPhoto,
@@ -849,41 +852,62 @@ export function AppShell({
     startHelpElectricalAddressFlow();
   }, [helpElectricalPanels.length, startHelpElectricalAddressFlow]);
 
-  const handleHelpWizardCallMaster = useCallback(
-    (context: HelpElectricalContext) => {
-      setHelpWizardOpen(false);
-      setActivePanelId(context.panelId);
-      setHelpElectricalFlow(true);
-      setLeadFlow("install");
-      setRequestNeedId("install");
-      setSelectedLeadService(null);
-      setLeadBackScreen("objects");
-      const panel = items.find(
-        (item): item is PanelObject =>
-          item.kind === "panel" && item.id === context.panelId,
-      );
-      const modules = countPanelModules(panel?.devices ?? []);
-      setLeadPanelModules(modules > 0 ? modules : null);
-      if (context.panelCity && context.panelAddress) {
-        setSelectedCity(context.panelCity);
-        setSelectedAddress(context.panelAddress);
-        setSelectedAddressFiasId(null);
-        setSelectedBuildingYear(panel?.houseSnapshot?.buildingYear ?? null);
-        setSelectedStreet(null);
-        setSelectedHouse(null);
-        setSelectedBlock(null);
-        setAddressEntrySource("manual");
-        if (canUseServerAuth()) {
-          go("lead-service");
-          return;
-        }
-        setPendingAuthAction("help-electrical");
-        go("telegram-auth");
-        return;
-      }
-      startHelpElectricalAddressFlow();
+  const submitHelpElectricalConsultation = useCallback(
+    async (
+      context: HelpElectricalContext,
+      aiReply: string,
+    ): Promise<string> => {
+      const id = `ai-consult-${Date.now()}`;
+      if (submittedLeadIds.current.has(id)) return id;
+      submittedLeadIds.current.add(id);
+
+      const publicCode = await allocateRequestPublicCode("C");
+      const aiConsultation = buildAiConsultationRecord(context, aiReply);
+      const subtitle = buildAiConsultationSubtitle(context);
+      const profile = getUserProfile();
+      const phone =
+        profile.phoneDigits?.replace(/\D/g, "").length === 10
+          ? `+7${profile.phoneDigits!.replace(/\D/g, "")}`
+          : undefined;
+
+      const request: InstallRequest = {
+        kind: "install_request",
+        id,
+        title: publicCode,
+        subtitle,
+        publicCode,
+        status: "done",
+        statusLabel: "Получен ответ",
+        createdAt: new Date().toLocaleDateString("ru-RU"),
+        city: context.panelCity?.trim() || selectedCity || "—",
+        contactMethod: "phone",
+        phone,
+        name: getTelegramUserName(),
+        exactAddress: context.panelAddress,
+        setupTitle: "Консультация",
+        panelId: context.panelId,
+        aiConsultation,
+      };
+
+      setItems((prev) => {
+        if (prev.some((item) => item.id === id)) return prev;
+        return [request, ...prev];
+      });
+      setItemsError(null);
+      hapticNotification("success");
+
+      await persistInstallRequest(request).catch((error) => {
+        console.error(error);
+        setItemsError(
+          error instanceof Error
+            ? error.message
+            : "Не удалось сохранить консультацию",
+        );
+      });
+
+      return id;
     },
-    [go, items, startHelpElectricalAddressFlow],
+    [selectedCity],
   );
 
   const startCallMaster = useCallback(() => {
@@ -2043,6 +2067,7 @@ export function AppShell({
           (leadBackScreen === "scheme" || activePanel?.noPanelSetupId
             ? activePanelId ?? undefined
             : undefined),
+        linkedRequestId: payload.linkedRequestId,
       };
 
       setItems((prev) => {
@@ -2089,6 +2114,64 @@ export function AppShell({
       selectedAddress,
       selectedLeadService,
     ],
+  );
+
+  const handleHelpWizardCallMaster = useCallback(
+    async ({
+      context,
+      consultationRequestId,
+      phone,
+      name,
+    }: {
+      context: HelpElectricalContext;
+      consultationRequestId: string | null;
+      phone: string;
+      name: string;
+    }) => {
+      setHelpWizardOpen(false);
+      setActivePanelId(context.panelId);
+      setHelpElectricalFlow(true);
+      setLeadFlow("install");
+      setSelectedLeadService("master_home_visit");
+      setSelectedCity(context.panelCity ?? null);
+      setSelectedAddress(context.panelAddress ?? null);
+      setSelectedAddressFiasId(null);
+      setSelectedBuildingYear(null);
+      setSelectedStreet(null);
+      setSelectedHouse(null);
+      setSelectedBlock(null);
+      setAddressEntrySource("manual");
+      setLeadBackScreen("objects");
+      const panel = items.find(
+        (item): item is PanelObject =>
+          item.kind === "panel" && item.id === context.panelId,
+      );
+      const modules = countPanelModules(panel?.devices ?? []);
+      setLeadPanelModules(modules > 0 ? modules : null);
+
+      const typeCode = resolveRequestTypeCodeForService("master_home_visit");
+      const publicCode = await allocateRequestPublicCode(typeCode);
+      const estimatedPriceRub = MASTER_HOME_VISIT_PRICE_RUB;
+
+      await submitLead({
+        contactMethod: "phone",
+        phone,
+        name,
+        city: context.panelCity ?? undefined,
+        exactAddress: context.panelAddress ?? undefined,
+        serviceType: "master_home_visit",
+        estimatedPriceRub,
+        panelModules: modules > 0 ? modules : undefined,
+        setupTitle: buildLeadServiceSetupTitle({
+          serviceType: "master_home_visit",
+          estimatedPriceRub,
+        }),
+        publicCode,
+        panelId: context.panelId,
+        linkedRequestId: consultationRequestId ?? undefined,
+      });
+    },
+    [items, submitLead],
   );
 
   const submitMasterHomeVisit = useCallback(
@@ -3424,7 +3507,8 @@ export function AppShell({
               panels={helpElectricalPanels}
               onClose={() => setHelpWizardOpen(false)}
               onElsewhere={startHelpElectricalAddressFlow}
-              onCallMaster={handleHelpWizardCallMaster}
+              onConsultationReady={submitHelpElectricalConsultation}
+              onConfirmMasterVisit={handleHelpWizardCallMaster}
             />
           ) : null}
         </AnimatePresence>

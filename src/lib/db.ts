@@ -374,6 +374,14 @@ export async function ensureSchema(): Promise<void> {
         ADD COLUMN IF NOT EXISTS dispatched_at TIMESTAMPTZ
       `;
       await sql`
+        ALTER TABLE install_requests
+        ADD COLUMN IF NOT EXISTS linked_request_id TEXT
+      `;
+      await sql`
+        ALTER TABLE install_requests
+        ADD COLUMN IF NOT EXISTS ai_consultation JSONB
+      `;
+      await sql`
         CREATE TABLE IF NOT EXISTS master_feedback (
           id TEXT PRIMARY KEY,
           request_id TEXT NOT NULL,
@@ -924,6 +932,8 @@ type RequestRow = {
   panel_id?: string | null;
   master_accepted_at?: string | null;
   dispatched_at?: string | null;
+  linked_request_id?: string | null;
+  ai_consultation?: unknown;
 };
 
 function sanitizeJsonValue<T>(value: T): T {
@@ -1042,6 +1052,10 @@ function rowToRequest(row: RequestRow): InstallRequest {
     panelId: row.panel_id ?? undefined,
     masterAcceptedAt: row.master_accepted_at ?? undefined,
     dispatchedAt: row.dispatched_at ?? undefined,
+    linkedRequestId: row.linked_request_id ?? undefined,
+    aiConsultation: parseJsonbValue<InstallRequest["aiConsultation"]>(
+      row.ai_consultation,
+    ),
   };
 }
 
@@ -1064,7 +1078,8 @@ export async function listHomeItems(
       city, contact_method, phone, name, dwelling, phases, power_kw,
       setup_title, exact_address, public_code, payment_status,
       paid_amount_rub, tbank_payment_id, created_at,
-      master_telegram_id, panel_id, master_accepted_at, dispatched_at
+      master_telegram_id, panel_id, master_accepted_at, dispatched_at,
+      linked_request_id, ai_consultation
     FROM install_requests
     WHERE telegram_user_id = ${telegramUserId}
   `) as RequestRow[];
@@ -1514,7 +1529,8 @@ export async function insertInstallRequest(
       id, telegram_user_id, title, subtitle, status, status_label,
       created_at_label, city, contact_method, phone, name,
       dwelling, phases, power_kw, setup_title, exact_address, public_code,
-      payment_status, paid_amount_rub, tbank_payment_id, panel_id, created_at
+      payment_status, paid_amount_rub, tbank_payment_id, panel_id,
+      linked_request_id, ai_consultation, created_at
     ) VALUES (
       ${request.id},
       ${telegramUserId},
@@ -1537,6 +1553,8 @@ export async function insertInstallRequest(
       ${request.paidAmountRub ?? null},
       ${request.tbankPaymentId ?? null},
       ${request.panelId ?? null},
+      ${request.linkedRequestId ?? null},
+      ${request.aiConsultation ? jsonbParam(sanitizeJsonValue(request.aiConsultation)) : null},
       NOW()
     )
     ON CONFLICT (id) DO UPDATE SET
@@ -1547,7 +1565,9 @@ export async function insertInstallRequest(
       payment_status = COALESCE(EXCLUDED.payment_status, install_requests.payment_status),
       paid_amount_rub = COALESCE(EXCLUDED.paid_amount_rub, install_requests.paid_amount_rub),
       tbank_payment_id = COALESCE(EXCLUDED.tbank_payment_id, install_requests.tbank_payment_id),
-      panel_id = COALESCE(EXCLUDED.panel_id, install_requests.panel_id)
+      panel_id = COALESCE(EXCLUDED.panel_id, install_requests.panel_id),
+      linked_request_id = COALESCE(EXCLUDED.linked_request_id, install_requests.linked_request_id),
+      ai_consultation = COALESCE(EXCLUDED.ai_consultation, install_requests.ai_consultation)
   `;
   return { request, created };
 }
@@ -1758,7 +1778,8 @@ export async function updateInstallRequest(
       city, contact_method, phone, name, dwelling, phases, power_kw,
       setup_title, exact_address, public_code, payment_status,
       paid_amount_rub, tbank_payment_id, created_at,
-      master_telegram_id, panel_id, master_accepted_at, dispatched_at
+      master_telegram_id, panel_id, master_accepted_at, dispatched_at,
+      linked_request_id, ai_consultation
   `) as RequestRow[];
   return rows[0] ? rowToRequest(rows[0]) : null;
 }
@@ -1773,7 +1794,8 @@ export async function getInstallRequestById(
       city, contact_method, phone, name, dwelling, phases, power_kw,
       setup_title, exact_address, public_code, payment_status,
       paid_amount_rub, tbank_payment_id, created_at,
-      master_telegram_id, panel_id, master_accepted_at, dispatched_at
+      master_telegram_id, panel_id, master_accepted_at, dispatched_at,
+      linked_request_id, ai_consultation
     FROM install_requests
     WHERE id = ${id}
     LIMIT 1
@@ -1806,7 +1828,8 @@ export async function adminUpdateInstallRequest(
       city, contact_method, phone, name, dwelling, phases, power_kw,
       setup_title, exact_address, public_code, payment_status,
       paid_amount_rub, tbank_payment_id, created_at,
-      master_telegram_id, panel_id, master_accepted_at, dispatched_at
+      master_telegram_id, panel_id, master_accepted_at, dispatched_at,
+      linked_request_id, ai_consultation
   `) as RequestRow[];
   return rows[0] ? rowToRequest(rows[0]) : null;
 }

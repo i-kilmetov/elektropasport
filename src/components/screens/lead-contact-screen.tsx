@@ -62,6 +62,7 @@ export type LeadFinishPayload = {
   paidAmountRub?: number;
   tbankPaymentId?: string;
   panelId?: string;
+  linkedRequestId?: string;
 };
 
 function resolveEstimatedPriceRub(

@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, Loader2, Sparkles, X } from "lucide-react";
+import { ArrowLeft, Loader2, Phone, Sparkles, X } from "lucide-react";
 import { GeminiSparkle } from "@/components/icons/gemini-sparkle";
 import { Button } from "@/components/ui/button";
 import { Portal } from "@/components/ui/portal";
@@ -19,6 +19,14 @@ import {
   type HelpProblemOption,
 } from "@/lib/help-electrical-flow";
 import { equipmentLabelForAppliance } from "@/lib/appliance-line-sync";
+import { formatRub, MASTER_HOME_VISIT_PRICE_RUB } from "@/lib/lead-services";
+import { hapticNotification } from "@/lib/haptics";
+import { getTelegramUserName } from "@/lib/telegram-user";
+import {
+  formatPhoneDigits,
+  getUserProfile,
+  persistUserProfile,
+} from "@/lib/user-profile";
 import type { PanelObject } from "@/types";
 
 type WizardStep =
@@ -28,7 +36,8 @@ type WizardStep =
   | "appliance"
   | "problem"
   | "other"
-  | "ai";
+  | "ai"
+  | "master_confirm";
 
 function stepTitle(step: WizardStep): string {
   switch (step) {
@@ -46,6 +55,8 @@ function stepTitle(step: WizardStep): string {
       return "Опишите проблему";
     case "ai":
       return "Рекомендации";
+    case "master_confirm":
+      return "Вызов мастера";
   }
 }
 
@@ -79,14 +90,20 @@ function AiAnswerStep({
   context,
   onBack,
   onCallMaster,
+  onConsultationReady,
 }: {
   context: HelpElectricalContext;
   onBack: () => void;
-  onCallMaster: (context: HelpElectricalContext) => void;
+  onCallMaster: () => void;
+  onConsultationReady: (
+    context: HelpElectricalContext,
+    aiReply: string,
+  ) => void | Promise<string | void>;
 }) {
   const [reply, setReply] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const consultationSavedRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -134,6 +151,12 @@ function AiAnswerStep({
     };
   }, [context]);
 
+  useEffect(() => {
+    if (!reply || consultationSavedRef.current) return;
+    consultationSavedRef.current = true;
+    void onConsultationReady(context, reply);
+  }, [reply, context, onConsultationReady]);
+
   return (
     <div className="space-y-4">
       <div className="rounded-[18px] border border-black/8 bg-zinc-50 px-4 py-3">
@@ -169,8 +192,8 @@ function AiAnswerStep({
       <div className="flex flex-col gap-2 pt-1">
         <Button
           className="w-full"
-          onClick={() => onCallMaster(context)}
-          disabled={loading}
+          onClick={onCallMaster}
+          disabled={loading || !reply}
         >
           <GeminiSparkle className="h-5 w-5" />
           Вызвать мастера
@@ -183,18 +206,107 @@ function AiAnswerStep({
   );
 }
 
+function MasterConfirmStep({
+  onBack,
+  onConfirm,
+}: {
+  onBack: () => void;
+  onConfirm: (payload: { phone: string; name: string }) => void | Promise<void>;
+}) {
+  const [phoneDigits, setPhoneDigits] = useState(
+    () => getUserProfile().phoneDigits?.replace(/\D/g, "").slice(0, 10) ?? "",
+  );
+  const [confirming, setConfirming] = useState(false);
+  const phoneDisplay = useMemo(
+    () => formatPhoneDigits(phoneDigits),
+    [phoneDigits],
+  );
+  const phoneValid = phoneDigits.length === 10;
+
+  const handleConfirm = async () => {
+    if (!phoneValid || confirming) return;
+    setConfirming(true);
+    try {
+      await persistUserProfile({
+        ...getUserProfile(),
+        phoneDigits,
+      });
+      hapticNotification("success");
+      await onConfirm({
+        phone: `+7${phoneDigits}`,
+        name: getTelegramUserName(),
+      });
+    } finally {
+      setConfirming(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <p className="ty-body text-zinc-700">
+        Стоимость вызова —{" "}
+        <span className="font-medium text-zinc-900">
+          {formatRub(MASTER_HOME_VISIT_PRICE_RUB)}
+        </span>
+        . Оплату нужно будет выполнить только после успешного поиска мастера.
+      </p>
+
+      <div>
+        <div className="mb-2 ty-subtitle text-zinc-600">Телефон для связи</div>
+        <label className="flex h-14 items-center gap-2 rounded-[20px] border border-black/8 bg-zinc-50 px-4 focus-within:border-zinc-300">
+          <Phone className="h-4 w-4 shrink-0 text-zinc-500" />
+          <span className="ty-subtitle text-zinc-700">+7</span>
+          <input
+            inputMode="numeric"
+            value={phoneDisplay}
+            onChange={(e) => {
+              const next = e.target.value.replace(/\D/g, "").slice(0, 10);
+              setPhoneDigits(next);
+            }}
+            placeholder="999 000-00-00"
+            className="h-full min-w-0 flex-1 bg-transparent text-[16px] text-zinc-900 outline-none placeholder:text-zinc-400"
+          />
+        </label>
+      </div>
+
+      <p className="ty-heading text-zinc-900">Искать мастера?</p>
+      <Button
+        className="w-full"
+        size="lg"
+        disabled={!phoneValid || confirming}
+        onClick={() => void handleConfirm()}
+      >
+        {confirming ? "Отправляем…" : "Подтвердить"}
+      </Button>
+      <Button className="w-full" variant="secondary" onClick={onBack}>
+        Назад
+      </Button>
+    </div>
+  );
+}
+
 export function HelpElectricalWizardSheet({
   panels,
   open,
   onClose,
   onElsewhere,
-  onCallMaster,
+  onConsultationReady,
+  onConfirmMasterVisit,
 }: {
   panels: PanelObject[];
   open: boolean;
   onClose: () => void;
   onElsewhere: () => void;
-  onCallMaster: (context: HelpElectricalContext) => void;
+  onConsultationReady: (
+    context: HelpElectricalContext,
+    aiReply: string,
+  ) => void | Promise<string | void>;
+  onConfirmMasterVisit: (payload: {
+    context: HelpElectricalContext;
+    consultationRequestId: string | null;
+    phone: string;
+    name: string;
+  }) => void | Promise<void>;
 }) {
   const [step, setStep] = useState<WizardStep>(
     panels.length > 1 ? "panel" : "location",
@@ -211,6 +323,9 @@ export function HelpElectricalWizardSheet({
     useState<HelpProblemOption | null>(null);
   const [customProblem, setCustomProblem] = useState("");
   const [aiContext, setAiContext] = useState<HelpElectricalContext | null>(null);
+  const [consultationRequestId, setConsultationRequestId] = useState<
+    string | null
+  >(null);
 
   const selectedPanel = useMemo(
     () => panels.find((panel) => panel.id === selectedPanelId) ?? null,
@@ -232,7 +347,18 @@ export function HelpElectricalWizardSheet({
     setSelectedProblem(null);
     setCustomProblem("");
     setAiContext(null);
+    setConsultationRequestId(null);
   }, [open, panels]);
+
+  const handleConsultationReady = async (
+    context: HelpElectricalContext,
+    aiReply: string,
+  ) => {
+    const id = await onConsultationReady(context, aiReply);
+    if (typeof id === "string") {
+      setConsultationRequestId(id);
+    }
+  };
 
   const goToAi = (problem: HelpProblemOption, customText?: string) => {
     if (!selectedPanel || !location || !category) return;
@@ -300,6 +426,9 @@ export function HelpElectricalWizardSheet({
           setStep("problem");
         }
         setAiContext(null);
+        break;
+      case "master_confirm":
+        setStep("ai");
         break;
     }
   };
@@ -473,7 +602,21 @@ export function HelpElectricalWizardSheet({
             <AiAnswerStep
               context={aiContext}
               onBack={handleBack}
-              onCallMaster={onCallMaster}
+              onCallMaster={() => setStep("master_confirm")}
+              onConsultationReady={handleConsultationReady}
+            />
+          ) : null}
+
+          {step === "master_confirm" && aiContext ? (
+            <MasterConfirmStep
+              onBack={handleBack}
+              onConfirm={(payload) =>
+                void onConfirmMasterVisit({
+                  context: aiContext,
+                  consultationRequestId,
+                  ...payload,
+                })
+              }
             />
           ) : null}
         </motion.div>

@@ -215,6 +215,16 @@ export type InstallRequestStatus =
   | "done"
   | "cancelled";
 
+export type AiConsultationRecord = {
+  category: "electrical" | "appliance_repair";
+  topicLabel: string;
+  problemLabel: string;
+  customProblem?: string;
+  aiReply: string;
+  panelId?: string;
+  panelTitle?: string;
+};
+
 export interface InstallRequest {
   kind: "install_request";
   id: string;
@@ -244,6 +254,10 @@ export interface InstallRequest {
   masterAcceptedAt?: string;
   /** When the request was dispatched to masters */
   dispatchedAt?: string;
+  /** Linked consultation request shown under a master visit card */
+  linkedRequestId?: string;
+  /** Saved AI consultation payload for consultation requests */
+  aiConsultation?: AiConsultationRecord;
 }
 
 export type HomeListItem = PanelObject | InstallRequest;

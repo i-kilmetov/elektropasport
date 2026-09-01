@@ -10,6 +10,7 @@ import {
   MoreHorizontal,
   Pencil,
   Phone,
+  Sparkles,
   Trash2,
 } from "lucide-react";
 import { BreakerIcon } from "@/components/icons/breaker-icon";
@@ -417,6 +418,34 @@ export function RequestDetailsScreen({
             </GlassCard>
           </button>
         )}
+
+        {request.aiConsultation ? (
+          <GlassCard className="p-4">
+            <div className="mb-3 flex items-center gap-2 ty-label">
+              <Sparkles className="h-4 w-4 text-violet-500" />
+              ИИ-консультация
+            </div>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+              <DetailItem
+                label="Тип обращения"
+                value={request.aiConsultation.topicLabel}
+              />
+              <DetailItem
+                label="Проблема"
+                value={request.aiConsultation.problemLabel}
+                wide
+              />
+            </div>
+            <div className="mt-4 rounded-[16px] border border-black/8 bg-zinc-50 px-4 py-3">
+              <div className="mb-2 ty-meta text-zinc-500">
+                Ответ ИИ-консультанта
+              </div>
+              <p className="whitespace-pre-wrap ty-body text-zinc-800">
+                {request.aiConsultation.aiReply}
+              </p>
+            </div>
+          </GlassCard>
+        ) : null}
 
         <GlassCard className="p-4">
           <div className="mb-3 flex items-center gap-2 ty-label">

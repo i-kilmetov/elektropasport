@@ -22,6 +22,7 @@ import {
   HelpCircle,
   Menu,
   Plus,
+  Sparkles,
   Wrench,
 } from "lucide-react";
 import { BreakerIcon } from "@/components/icons/breaker-icon";
@@ -455,6 +456,7 @@ function RequestListCard({
   onOpen: () => void;
   onContextMenu: () => void;
 }) {
+  const isConsultation = Boolean(item.aiConsultation);
   const longPress = useLongPressAction(onContextMenu);
   return (
     <GlassCard
@@ -472,8 +474,17 @@ function RequestListCard({
         }}
         className="flex min-w-0 flex-1 items-center gap-4 text-left touch-manipulation select-none lg:cursor-pointer"
       >
-        <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[18px] bg-zinc-100 text-zinc-500">
-          <ClipboardList className="h-6 w-6" />
+        <div
+          className={cn(
+            "flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[18px] bg-zinc-100",
+            isConsultation ? "text-violet-500" : "text-zinc-500",
+          )}
+        >
+          {isConsultation ? (
+            <Sparkles className="h-6 w-6" />
+          ) : (
+            <ClipboardList className="h-6 w-6" />
+          )}
         </div>
         <div className="min-w-0 flex-1">
           <div className="mb-0.5 flex items-center justify-between gap-2">
@@ -494,6 +505,43 @@ function RequestListCard({
         </div>
       </button>
     </GlassCard>
+  );
+}
+
+function RequestStackCard({
+  master,
+  consultation,
+  onOpenMaster,
+  onOpenConsultation,
+  onContextMenu,
+}: {
+  master: InstallRequest;
+  consultation: InstallRequest;
+  onOpenMaster: () => void;
+  onOpenConsultation: () => void;
+  onContextMenu: () => void;
+}) {
+  return (
+    <div className="relative min-w-0">
+      <PanelCardStack peekCount={1}>
+        <RequestListCard
+          item={master}
+          onOpen={onOpenMaster}
+          onContextMenu={onContextMenu}
+        />
+      </PanelCardStack>
+      <button
+        type="button"
+        onClick={onOpenConsultation}
+        className="absolute inset-x-3 bottom-0 z-20 flex h-8 items-center gap-2 rounded-b-[18px] bg-zinc-50/95 px-3 text-left touch-manipulation backdrop-blur-sm"
+        aria-label="Открыть консультацию"
+      >
+        <Sparkles className="h-3.5 w-3.5 shrink-0 text-violet-500" />
+        <span className="truncate ty-meta text-zinc-600">
+          {consultation.publicCode ?? consultation.title} · {consultation.subtitle}
+        </span>
+      </button>
+    </div>
   );
 }
 
@@ -959,6 +1007,28 @@ export function ObjectsScreen({
       ),
     [items, pendingDelete],
   );
+  const consultationById = useMemo(() => {
+    const map = new Map<string, InstallRequest>();
+    for (const request of requests) {
+      if (request.aiConsultation) {
+        map.set(request.id, request);
+      }
+    }
+    return map;
+  }, [requests]);
+  const linkedConsultationIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const request of requests) {
+      if (request.linkedRequestId) {
+        ids.add(request.linkedRequestId);
+      }
+    }
+    return ids;
+  }, [requests]);
+  const visibleRequests = useMemo(
+    () => requests.filter((request) => !linkedConsultationIds.has(request.id)),
+    [requests, linkedConsultationIds],
+  );
   const atPanelLimit = isAtPanelLimit(quota, panels.length);
   const panelEmptyText =
     "Щиток — электрическое сердце дома. Сфотографируйте, чтобы оценить его состояние, и добавлять в дальнейшем остальную технику";
@@ -977,7 +1047,7 @@ export function ObjectsScreen({
     imageAlt: "Мастер пришёл помочь с электрикой",
   };
   const bothEmpty =
-    !loading && panels.length === 0 && requests.length === 0;
+    !loading && panels.length === 0 && visibleRequests.length === 0;
 
   const actionsItem = items.find((item) => item.id === actionsItemId);
   const renameItem = items.find((item) => item.id === renameItemId);
@@ -999,7 +1069,7 @@ export function ObjectsScreen({
     observer.observe(first);
     observer.observe(second);
     return () => observer.disconnect();
-  }, [panels.length, requests.length]);
+  }, [panels.length, visibleRequests.length]);
 
   const settlePage = (next: 0 | 1) => {
     pageRef.current = next;
@@ -1064,6 +1134,30 @@ export function ObjectsScreen({
   const pagerDragConstraints =
     pagerWidth > 0 ? { left: -pagerWidth, right: 0 } : { left: 0, right: 0 };
 
+  const renderRequestItem = (request: InstallRequest) => {
+    const consultation = request.linkedRequestId
+      ? consultationById.get(request.linkedRequestId)
+      : undefined;
+    if (consultation) {
+      return (
+        <RequestStackCard
+          master={request}
+          consultation={consultation}
+          onOpenMaster={() => onOpenRequest(request.id)}
+          onOpenConsultation={() => onOpenRequest(consultation.id)}
+          onContextMenu={() => setActionsItemId(request.id)}
+        />
+      );
+    }
+    return (
+      <RequestListCard
+        item={request}
+        onOpen={() => onOpenRequest(request.id)}
+        onContextMenu={() => setActionsItemId(request.id)}
+      />
+    );
+  };
+
   const renderList = (
     list: HomeListItem[],
     empty: {
@@ -1093,21 +1187,17 @@ export function ObjectsScreen({
         {list.map((obj) => (
           <div key={obj.id} className="min-w-0">
             {!homeAppliancesMode ? (
-              <HomeListCard
-                item={obj}
-                onOpen={() =>
-                  obj.kind === "install_request"
-                    ? onOpenRequest(obj.id)
-                    : onOpenPanel(obj.id)
-                }
-                onContextMenu={() => setActionsItemId(obj.id)}
-              />
+              obj.kind === "install_request" ? (
+                renderRequestItem(obj)
+              ) : (
+                <HomeListCard
+                  item={obj}
+                  onOpen={() => onOpenPanel(obj.id)}
+                  onContextMenu={() => setActionsItemId(obj.id)}
+                />
+              )
             ) : obj.kind === "install_request" ? (
-              <RequestListCard
-                item={obj}
-                onOpen={() => onOpenRequest(obj.id)}
-                onContextMenu={() => setActionsItemId(obj.id)}
-              />
+              renderRequestItem(obj)
             ) : (
               <ExpandableHomeCard
                 panel={obj}
@@ -1250,7 +1340,7 @@ export function ObjectsScreen({
             >
               Заявки
               <span className="ml-1 ty-badge text-zinc-400">
-                {loading ? "…" : requests.length}
+                {loading ? "…" : visibleRequests.length}
               </span>
             </button>
           </div>
@@ -1312,7 +1402,7 @@ export function ObjectsScreen({
       <div className="hidden min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-none px-10 pb-10 lg:flex lg:flex-col">
         {page === 0
           ? renderList(panels, panelEmpty)
-          : renderList(requests, requestEmpty)}
+          : renderList(visibleRequests, requestEmpty)}
       </div>
 
       <div
@@ -1342,7 +1432,7 @@ export function ObjectsScreen({
             className="flex h-full min-h-0 flex-col overflow-y-auto overscroll-none px-5 pb-2"
             style={{ width: pagerWidth || "50%", WebkitOverflowScrolling: "touch" }}
           >
-            {renderList(requests, requestEmpty)}
+            {renderList(visibleRequests, requestEmpty)}
           </div>
         </motion.div>
       </div>

@@ -1,6 +1,12 @@
 import { equipmentLabelForAppliance } from "@/lib/appliance-line-sync";
 import { panelSupportsHomeAppliances } from "@/lib/panel-list-meta";
-import type { HomeAppliance, HomeApplianceKind, HomeListItem, PanelObject } from "@/types";
+import type {
+  AiConsultationRecord,
+  HomeAppliance,
+  HomeApplianceKind,
+  HomeListItem,
+  PanelObject,
+} from "@/types";
 
 export type HelpProblemOption = {
   id: string;
@@ -166,6 +172,36 @@ export function buildHelpElectricalAiPrompt(
     "Ответь по-русски: в чём может быть причина, что можно безопасно проверить самому, и когда нужен мастер. Без markdown и списков с маркерами — короткими абзацами.",
   );
   return lines.join("\n");
+}
+
+export function buildAiConsultationTopicLabel(
+  context: HelpElectricalContext,
+): string {
+  if (context.category === "appliance_repair") {
+    return context.applianceLabel ?? "Ремонт техники";
+  }
+  return "Электрика";
+}
+
+export function buildAiConsultationSubtitle(
+  context: HelpElectricalContext,
+): string {
+  return `Консультация · ${buildAiConsultationTopicLabel(context)}`;
+}
+
+export function buildAiConsultationRecord(
+  context: HelpElectricalContext,
+  aiReply: string,
+): AiConsultationRecord {
+  return {
+    category: context.category,
+    topicLabel: buildAiConsultationTopicLabel(context),
+    problemLabel: context.customProblem?.trim() || context.problemLabel,
+    customProblem: context.customProblem,
+    aiReply,
+    panelId: context.panelId,
+    panelTitle: context.panelTitle,
+  };
 }
 
 export function buildHelpElectricalContext(input: {
