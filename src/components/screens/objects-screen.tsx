@@ -6,6 +6,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type ComponentPropsWithoutRef,
   type ReactNode,
 } from "react";
 import {
@@ -182,40 +183,60 @@ function stopCardLongPress<T extends HTMLElement>(
 }
 
 const PANEL_CARD_RADIUS = "rounded-[24px]";
-const BOOK_PAGE_GAP_PX = 5;
-const BOOK_PAGE_HEIGHT_PX = 7;
+const BOOK_PEEK_PX = 5;
 
-function PanelBookPages({ count }: { count: number }) {
-  if (count <= 0) return null;
-  const layers = Math.min(count, 5);
+const panelCardShellClass =
+  "min-w-0 max-w-full border border-black/[0.06] bg-white shadow-[0_1px_1px_rgba(17,17,19,0.04),0_2px_6px_rgba(17,17,19,0.04)]";
+
+function PanelCardStack({
+  peekCount,
+  children,
+  className,
+  ...props
+}: {
+  peekCount: number;
+  children: ReactNode;
+} & ComponentPropsWithoutRef<"div">) {
+  const layers = Math.min(Math.max(peekCount, 0), 5);
+  const stackDepth = layers * BOOK_PEEK_PX;
 
   return (
     <div
-      className="flex flex-col"
-      style={{
-        gap: BOOK_PAGE_GAP_PX,
-        paddingTop: BOOK_PAGE_GAP_PX,
-        paddingBottom: BOOK_PAGE_GAP_PX,
-      }}
-      aria-hidden
-      title={`${count} шт. техники`}
+      className={cn("relative min-w-0", className)}
+      style={layers > 0 ? { paddingBottom: stackDepth } : undefined}
+      {...props}
     >
-      {Array.from({ length: layers }, (_, index) => (
-        <div
-          key={index}
-          className={cn(
-            "pointer-events-none w-full shrink-0 border border-black/14 bg-zinc-50 shadow-[0_1px_0_rgba(17,17,19,0.08),inset_0_1px_0_rgba(255,255,255,0.85)]",
-            PANEL_CARD_RADIUS,
-          )}
-          style={{ height: BOOK_PAGE_HEIGHT_PX }}
-        />
-      ))}
+      {layers > 0
+        ? Array.from({ length: layers }, (_, index) => (
+            <div
+              key={index}
+              className={cn(
+                "pointer-events-none absolute inset-x-0 top-0",
+                panelCardShellClass,
+                PANEL_CARD_RADIUS,
+              )}
+              style={{
+                height: `calc(100% - ${stackDepth}px)`,
+                transform: `translateY(${(index + 1) * BOOK_PEEK_PX}px)`,
+                zIndex: index + 1,
+              }}
+              aria-hidden
+            />
+          ))
+        : null}
+      <div
+        className={cn(
+          "relative overflow-hidden",
+          panelCardShellClass,
+          PANEL_CARD_RADIUS,
+        )}
+        style={{ zIndex: layers + 10 }}
+      >
+        {children}
+      </div>
     </div>
   );
 }
-
-const panelCardShellClass =
-  "min-w-0 max-w-full overflow-hidden border border-black/[0.06] bg-white shadow-[0_1px_1px_rgba(17,17,19,0.04),0_2px_6px_rgba(17,17,19,0.04)]";
 
 function ApplianceListRow({
   appliance,
@@ -495,8 +516,11 @@ function ExpandableHomeCard({
   const showBookPages = supportsAppliances && !expanded && appliances.length > 0;
 
   return (
-    <div
-      className={cn(panelCardShellClass, PANEL_CARD_RADIUS)}
+    <PanelCardStack
+      peekCount={showBookPages ? appliances.length : 0}
+      title={
+        showBookPages ? `${appliances.length} шт. техники` : undefined
+      }
       {...longPress.bind}
     >
       <div className="flex items-stretch">
@@ -630,8 +654,7 @@ function ExpandableHomeCard({
           )}
         </AnimatePresence>
 
-      {showBookPages ? <PanelBookPages count={appliances.length} /> : null}
-    </div>
+    </PanelCardStack>
   );
 }
 
