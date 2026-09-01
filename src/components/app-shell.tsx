@@ -60,6 +60,7 @@ import {
   type WaitlistKind,
 } from "@/components/ui/waitlist-sheet";
 import { PanelHouseAddressSheet } from "@/components/ui/panel-house-address-sheet";
+import { HelpElectricalWizardSheet } from "@/components/ui/help-electrical-wizard-sheet";
 import { PdConsentGate } from "@/components/ui/pd-consent-gate";
 import { SchemeErrorBoundary } from "@/components/ui/scheme-error-boundary";
 import { fetchPdConsentStatus } from "@/lib/pd-consent-client";
@@ -127,6 +128,10 @@ import {
   syncDataEpochFromServer,
 } from "@/lib/user-data";
 import { mergeAppliancesWithEquipmentLabels } from "@/lib/appliance-line-sync";
+import {
+  listHelpElectricalPanels,
+  type HelpElectricalContext,
+} from "@/lib/help-electrical-flow";
 import {
   fetchPanelPhotoObjectUrl,
   uploadPanelPhoto,
@@ -409,6 +414,7 @@ export function AppShell({
     "geo" | "manual" | null
   >(null);
   const [helpElectricalFlow, setHelpElectricalFlow] = useState(false);
+  const [helpWizardOpen, setHelpWizardOpen] = useState(false);
   const [selectedLeadService, setSelectedLeadService] =
     useState<LeadServiceType | null>(null);
   const [leadPanelModules, setLeadPanelModules] = useState<number | null>(null);
@@ -711,7 +717,15 @@ export function AppShell({
       setHelpElectricalFlow(true);
       setSelectedLeadService(null);
       setLeadBackScreen(pending === "help-electrical" ? "objects" : "scheme");
-      if (pending === "help-electrical") setLeadPanelModules(null);
+      if (pending === "help-electrical") {
+        setLeadPanelModules(null);
+        const panels = listHelpElectricalPanels(getCachedHomeItems() ?? []);
+        if (panels.length > 0) {
+          setHelpWizardOpen(true);
+          setScreen("objects");
+          return;
+        }
+      }
       setScreen("geo-address");
     }
   }, []);
@@ -723,6 +737,11 @@ export function AppShell({
 
   const localPanelCount = useMemo(
     () => items.filter((item) => item.kind === "panel").length,
+    [items],
+  );
+
+  const helpElectricalPanels = useMemo(
+    () => listHelpElectricalPanels(items),
     [items],
   );
 
@@ -796,7 +815,8 @@ export function AppShell({
     go("telegram-auth");
   }, [go, localPanelCount, openPanelLimit, quota]);
 
-  const startHelpElectrical = useCallback(() => {
+  const startHelpElectricalAddressFlow = useCallback(() => {
+    setHelpWizardOpen(false);
     setLeadFlow("install");
     setElectricalDetails(null);
     setSelectedCity(null);
@@ -820,6 +840,51 @@ export function AppShell({
     setPendingAuthAction("help-electrical");
     go("telegram-auth");
   }, [go]);
+
+  const startHelpElectrical = useCallback(() => {
+    if (helpElectricalPanels.length > 0) {
+      setHelpWizardOpen(true);
+      return;
+    }
+    startHelpElectricalAddressFlow();
+  }, [helpElectricalPanels.length, startHelpElectricalAddressFlow]);
+
+  const handleHelpWizardCallMaster = useCallback(
+    (context: HelpElectricalContext) => {
+      setHelpWizardOpen(false);
+      setActivePanelId(context.panelId);
+      setHelpElectricalFlow(true);
+      setLeadFlow("install");
+      setRequestNeedId("install");
+      setSelectedLeadService(null);
+      setLeadBackScreen("objects");
+      const panel = items.find(
+        (item): item is PanelObject =>
+          item.kind === "panel" && item.id === context.panelId,
+      );
+      const modules = countPanelModules(panel?.devices ?? []);
+      setLeadPanelModules(modules > 0 ? modules : null);
+      if (context.panelCity && context.panelAddress) {
+        setSelectedCity(context.panelCity);
+        setSelectedAddress(context.panelAddress);
+        setSelectedAddressFiasId(null);
+        setSelectedBuildingYear(panel?.houseSnapshot?.buildingYear ?? null);
+        setSelectedStreet(null);
+        setSelectedHouse(null);
+        setSelectedBlock(null);
+        setAddressEntrySource("manual");
+        if (canUseServerAuth()) {
+          go("lead-service");
+          return;
+        }
+        setPendingAuthAction("help-electrical");
+        go("telegram-auth");
+        return;
+      }
+      startHelpElectricalAddressFlow();
+    },
+    [go, items, startHelpElectricalAddressFlow],
+  );
 
   const startCallMaster = useCallback(() => {
     setLeadFlow("install");
@@ -3351,6 +3416,17 @@ export function AppShell({
               onConfirm={(payload) => savePanelHouseInsight(payload)}
             />
           )}
+        </AnimatePresence>
+        <AnimatePresence>
+          {helpWizardOpen && helpElectricalPanels.length > 0 ? (
+            <HelpElectricalWizardSheet
+              open={helpWizardOpen}
+              panels={helpElectricalPanels}
+              onClose={() => setHelpWizardOpen(false)}
+              onElsewhere={startHelpElectricalAddressFlow}
+              onCallMaster={handleHelpWizardCallMaster}
+            />
+          ) : null}
         </AnimatePresence>
         <AnimatePresence>
           {waitlistKind && (
