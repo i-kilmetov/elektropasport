@@ -3,7 +3,9 @@ import { allPanelLoadsIdentified, parseLineLoads } from "@/lib/panel-identify";
 import {
   analyzePanelSafety,
   safetyBadgeColors,
+  safetyLabel,
   type PanelSafetyAnalysis,
+  type SafetyAdviceItem,
 } from "@/lib/safety-score";
 import type { Device, HomeAppliance, PanelObject } from "@/types";
 
@@ -53,15 +55,15 @@ export const PANEL_SAFETY_STAGE_META: Array<{
   {
     id: "professional",
     step: 3,
-    title: "Заключение",
-    subtitle: "Проверка расключения электриком",
+    title: "Расключение",
+    subtitle: "Проверка расключения и типа кабелей",
     lockedHint:
-      "Нужен выезд мастера: как соединены приборы в щитке и какие кабели идут к технике",
+      "Финальное заключение — после проверки расключения щитка и типа кабелей к нагрузкам",
   },
 ];
 
 export const panelSafetyStagesDisclaimer =
-  "Оценка строится в три этапа: сначала по схеме и параметрам сети, затем с учётом нагрузок дома, и только после проверки электрика — финальное заключение по реальной проводке.";
+  "Оценка строится в три этапа: сначала по схеме и параметрам сети, затем с учётом нагрузок дома, и финальное заключение после проверки расключения и кабелей.";
 
 function railDevices(devices: Device[] | undefined): Device[] {
   return (devices ?? []).filter(
@@ -241,7 +243,7 @@ export function buildPanelSafetyStages(input: {
           : "locked",
       score: professionalDone ? professionalScore : null,
       hint: professionalDone
-        ? "Профессиональное заключение после проверки на объекте"
+        ? "Заключение по расключению щитка и типу кабелей"
         : meta.lockedHint,
     };
   });
@@ -262,6 +264,36 @@ export function buildPanelSafetyStages(input: {
   return { stages, activeStageId, headlineScore };
 }
 
+export function areFirstTwoSafetyStagesDone(
+  snapshot: PanelSafetyStagesSnapshot,
+): boolean {
+  const scheme = snapshot.stages.find((stage) => stage.id === "scheme");
+  const loads = snapshot.stages.find((stage) => stage.id === "loads");
+  return scheme?.status === "done" && loads?.status === "done";
+}
+
+export function formatSafetyScoreAssessment(score: number): string {
+  const label = safetyLabel(score);
+  if (score >= 80) {
+    return `Сейчас ${score}% — ${label} показатель для этого этапа.`;
+  }
+  if (score >= 60) {
+    return `Сейчас ${score}% — ${label} уровень, есть что улучшить.`;
+  }
+  return `Сейчас ${score}% — ${label} уровень, стоит обратить внимание на слабые места.`;
+}
+
+function pickAdviceLines(
+  advice: SafetyAdviceItem[] | undefined,
+  limit = 2,
+): string[] {
+  if (!advice?.length) return [];
+  const improve = advice.filter((item) => item.kind === "improve");
+  const good = advice.filter((item) => item.kind === "good");
+  const picked = [...improve, ...good].slice(0, limit);
+  return picked.map((item) => `${item.title}. ${item.detail}`);
+}
+
 export function buildSafetyStageCardCopy(
   snapshot: PanelSafetyStagesSnapshot,
 ): {
@@ -272,32 +304,33 @@ export function buildSafetyStageCardCopy(
   const scheme = stages.find((stage) => stage.id === "scheme");
   const loads = stages.find((stage) => stage.id === "loads");
   const professional = stages.find((stage) => stage.id === "professional");
+  const activeStage = stages.find((stage) => stage.id === activeStageId);
 
-  if (!scheme || !loads || !professional) {
+  if (!scheme || !loads || !professional || !activeStage) {
     return {
       summary: "Оценка безопасности строится поэтапно.",
       details: panelSafetyStagesDisclaimer,
     };
   }
 
+  const activeScore = activeStage.score ?? headlineScore;
+  const scoreLine =
+    activeScore != null ? formatSafetyScoreAssessment(activeScore) : null;
+  const adviceLines = pickAdviceLines(activeStage.analysis?.advice);
+
   if (activeStageId === "scheme") {
     if (scheme.status === "locked") {
       return {
         summary:
           "Сначала нужна цифровая схема щитка и параметры сети — без этого оценку посчитать нельзя.",
-        details: scheme.hint,
-      };
-    }
-    if (scheme.score != null) {
-      return {
-        summary: `По схеме и параметрам сети сейчас ${scheme.score}%. Это первый этап из трёх.`,
-        details: scheme.hint,
+        details: [scheme.hint, ...adviceLines].filter(Boolean).join("\n\n"),
       };
     }
     return {
       summary:
+        scoreLine ??
         "Схема и параметры сети заполнены — можно получить оценку первого этапа.",
-      details: scheme.hint,
+      details: [scheme.hint, ...adviceLines].filter(Boolean).join("\n\n"),
     };
   }
 
@@ -306,10 +339,11 @@ export function buildSafetyStageCardCopy(
       scheme.score != null ? `${scheme.score}%` : "определена";
     return {
       summary:
-        headlineScore != null
+        scoreLine ??
+        (headlineScore != null
           ? `Этап «Схема» — ${schemeScore}. Следующий шаг — учесть нагрузки дома на линиях щитка.`
-          : "Первый этап пройден. Следующий шаг — учесть нагрузки дома на линиях щитка.",
-      details: loads.hint,
+          : "Первый этап пройден. Следующий шаг — учесть нагрузки дома на линиях щитка."),
+      details: [loads.hint, ...adviceLines].filter(Boolean).join("\n\n"),
     };
   }
 
@@ -318,10 +352,11 @@ export function buildSafetyStageCardCopy(
       loads.score != null ? `${loads.score}%` : "определена";
     return {
       summary:
-        headlineScore != null
-          ? `Этап «Нагрузки» — ${loadsScore}. Дальше — финальная проверка расключения на объекте.`
-          : "Нагрузки учтены. Дальше — финальная проверка расключения на объекте.",
-      details: professional.hint,
+        scoreLine ??
+        (headlineScore != null
+          ? `Этап «Нагрузки» — ${loadsScore}. Дальше — проверка расключения щитка и типа кабелей.`
+          : "Нагрузки учтены. Дальше — проверка расключения щитка и типа кабелей."),
+      details: [professional.hint, ...adviceLines].filter(Boolean).join("\n\n"),
     };
   }
 
@@ -330,9 +365,9 @@ export function buildSafetyStageCardCopy(
   return {
     summary:
       finalScore != null
-        ? `Все этапы пройдены. Итоговая оценка безопасности — ${finalScore}%.`
+        ? `Все этапы пройдены. ${formatSafetyScoreAssessment(finalScore)}`
         : "Все этапы оценки безопасности пройдены.",
-    details: professional.hint,
+    details: [professional.hint, ...adviceLines].filter(Boolean).join("\n\n"),
   };
 }
 

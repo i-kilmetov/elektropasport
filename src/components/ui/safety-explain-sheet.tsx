@@ -9,6 +9,8 @@ import { Portal } from "@/components/ui/portal";
 import { PanelSafetyStages } from "@/components/ui/panel-safety-stages";
 import { SafetyAxisMeters } from "@/components/ui/safety-axis-meters";
 import {
+  areFirstTwoSafetyStagesDone,
+  formatSafetyScoreAssessment,
   panelSafetyStagesDisclaimer,
   type PanelSafetyStagesSnapshot,
   type SafetyStageId,
@@ -44,6 +46,8 @@ export function SafetyExplainSheet({
     (item) => item.kind === "improve" && item.axis === "general",
   );
   const stageAnalysis = selectedStage?.analysis;
+  const bothStagesDone = areFirstTwoSafetyStagesDone(stages);
+  const selectedScore = selectedStage?.score;
 
   return (
     <Portal>
@@ -88,7 +92,18 @@ export function SafetyExplainSheet({
 
           <p className="mb-4 ty-note">{panelSafetyStagesDisclaimer}</p>
 
-          {selectedStage?.score != null && stageAnalysis?.axes ? (
+          {selectedScore != null ? (
+            <div className="mb-4 rounded-[18px] border border-black/8 bg-zinc-50 px-4 py-3">
+              <p className="ty-heading text-zinc-900">
+                Этап «{selectedStage.title}»: {selectedScore}%
+              </p>
+              <p className="mt-1 ty-note text-zinc-600">
+                {formatSafetyScoreAssessment(selectedScore)}
+              </p>
+            </div>
+          ) : null}
+
+          {selectedScore != null && stageAnalysis?.axes ? (
             <div className="mb-4 rounded-[18px] border border-black/8 bg-zinc-50 p-3">
               <p className="mb-2 ty-label text-zinc-500">
                 Детализация этапа «{selectedStage.title}»
@@ -115,12 +130,12 @@ export function SafetyExplainSheet({
                   advice={stageAnalysis.advice}
                 />
               ))
-            : selectedStage?.id === "professional" &&
+            : bothStagesDone &&
+                selectedStage?.id === "professional" &&
                 selectedStage.status !== "done" ? (
               <div className="mb-5 rounded-[18px] border border-black/8 bg-zinc-50 px-4 py-3 ty-body text-zinc-600">
-                Финальная оценка возможна только после осмотра щитка мастером:
-                как соединены автоматы, УЗО и кабели, и соответствуют ли они
-                реальной проводке в квартире.
+                Финальная оценка возможна после проверки расключения щитка и
+                типа кабелей к нагрузкам: как соединены автоматы, УЗО и линии.
               </div>
             ) : null}
 
@@ -131,6 +146,7 @@ export function SafetyExplainSheet({
               </Button>
             ) : null}
             {onCallMaster &&
+            bothStagesDone &&
             (selectedStage?.id === "professional" || improveCount > 0) ? (
               <Button className="w-full" onClick={onCallMaster}>
                 <GeminiSparkle className="h-5 w-5" />

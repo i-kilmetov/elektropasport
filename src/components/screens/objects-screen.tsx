@@ -625,7 +625,7 @@ function ExpandableHomeCard({
         {safetyInfoOpen && (
           <InfoDialog
             title="Безопасность щитка"
-            description={`${panelSafetyStagesDisclaimer}\n\n1. Схема — по составу щитка и параметрам сети.\n2. Нагрузки — после привязки техники, света и розеток к линиям.\n3. Заключение — после проверки электрика на объекте.`}
+            description={`${panelSafetyStagesDisclaimer}\n\n1. Схема — по составу щитка и параметрам сети.\n2. Нагрузки — после привязки техники, света и розеток к линиям.\n3. Расключение — после проверки расключения щитка и типа кабелей.`}
             onClose={() => setSafetyInfoOpen(false)}
           />
         )}

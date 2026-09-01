@@ -33,35 +33,32 @@ function SafetyStageBar({
           : "Безопасность щитка: оценка ещё не определена"
       }
     >
-      <div className="relative h-7 w-full rounded-full bg-zinc-100 shadow-inner shadow-black/[0.04]">
+      <div className="flex h-5 w-full items-stretch gap-0.5">
         {stages.map((stage, index) => {
-          if (index < completedCount) return null;
+          const isCompleted = index < completedCount;
           return (
-            <div
-              key={stage.id}
-              className="absolute inset-y-0 flex items-center justify-center"
-              style={{
-                left: `${(index / stages.length) * 100}%`,
-                width: `${100 / stages.length}%`,
-              }}
-            >
-              <Lock className="h-3 w-3 text-zinc-400" aria-hidden />
+            <div key={stage.id} className="relative min-w-0 flex-1">
+              <div
+                className={cn(
+                  "flex h-full w-full items-center justify-center rounded-full px-2 ty-badge font-semibold tabular-nums",
+                  isCompleted && badge
+                    ? cn(
+                        badge.bg,
+                        badge.text,
+                        "shadow-[2px_0_3px_0_rgba(0,0,0,0.1)]",
+                      )
+                    : "bg-zinc-100 text-zinc-400",
+                )}
+              >
+                {isCompleted && index === 0 && headlineScore != null ? (
+                  <span>{headlineScore}%</span>
+                ) : !isCompleted ? (
+                  <Lock className="h-2.5 w-2.5" aria-hidden />
+                ) : null}
+              </div>
             </div>
           );
         })}
-
-        {completedCount > 0 && headlineScore != null && badge ? (
-          <div
-            className={cn(
-              "absolute inset-y-0 left-0 z-10 flex items-center justify-center rounded-full px-3 ty-badge font-semibold tabular-nums shadow-sm",
-              badge.bg,
-              badge.text,
-            )}
-            style={{ width: `${(completedCount / stages.length) * 100}%` }}
-          >
-            {headlineScore}%
-          </div>
-        ) : null}
       </div>
     </div>
   );
@@ -98,7 +95,11 @@ function PanelSafetyStageCardDetails({
         />
       </button>
       {expanded ? (
-        <p className="mt-2 ty-note leading-relaxed text-zinc-500">{copy.details}</p>
+        <div className="mt-2 space-y-2 ty-note leading-relaxed text-zinc-500">
+          {copy.details.split("\n\n").map((paragraph) => (
+            <p key={paragraph}>{paragraph}</p>
+          ))}
+        </div>
       ) : null}
     </div>
   );
