@@ -181,33 +181,41 @@ function stopCardLongPress<T extends HTMLElement>(
   };
 }
 
+const PANEL_CARD_RADIUS = "rounded-[24px]";
+const BOOK_PAGE_GAP_PX = 5;
+const BOOK_PAGE_HEIGHT_PX = 7;
+
 function PanelBookPages({ count }: { count: number }) {
   if (count <= 0) return null;
   const layers = Math.min(count, 5);
-  const stepPx = 5;
-  const pageHeightPx = 8;
 
   return (
     <div
-      className="pointer-events-none relative w-full"
-      style={{ height: pageHeightPx + (layers - 1) * stepPx }}
+      className="flex flex-col"
+      style={{
+        gap: BOOK_PAGE_GAP_PX,
+        paddingTop: BOOK_PAGE_GAP_PX,
+        paddingBottom: BOOK_PAGE_GAP_PX,
+      }}
       aria-hidden
       title={`${count} шт. техники`}
     >
       {Array.from({ length: layers }, (_, index) => (
         <div
           key={index}
-          className="absolute inset-x-0 rounded-b-[22px] border border-t-0 border-black/14 bg-zinc-50 shadow-[0_2px_0_rgba(17,17,19,0.06),inset_0_1px_0_rgba(255,255,255,0.9)]"
-          style={{
-            top: index * stepPx,
-            height: pageHeightPx,
-            zIndex: layers - index,
-          }}
+          className={cn(
+            "pointer-events-none w-full shrink-0 border border-black/14 bg-zinc-50 shadow-[0_1px_0_rgba(17,17,19,0.08),inset_0_1px_0_rgba(255,255,255,0.85)]",
+            PANEL_CARD_RADIUS,
+          )}
+          style={{ height: BOOK_PAGE_HEIGHT_PX }}
         />
       ))}
     </div>
   );
 }
+
+const panelCardShellClass =
+  "min-w-0 max-w-full overflow-hidden border border-black/[0.06] bg-white shadow-[0_1px_1px_rgba(17,17,19,0.04),0_2px_6px_rgba(17,17,19,0.04)]";
 
 function ApplianceListRow({
   appliance,
@@ -487,12 +495,11 @@ function ExpandableHomeCard({
   const showBookPages = supportsAppliances && !expanded && appliances.length > 0;
 
   return (
-    <div className="flex min-w-0 flex-col">
-      <GlassCard
-        className="relative z-10 overflow-hidden rounded-[24px] border p-0"
-        {...longPress.bind}
-      >
-        <div className="flex items-stretch">
+    <div
+      className={cn(panelCardShellClass, PANEL_CARD_RADIUS)}
+      {...longPress.bind}
+    >
+      <div className="flex items-stretch">
           <button
             type="button"
             onClick={() => {
@@ -622,13 +629,8 @@ function ExpandableHomeCard({
             />
           )}
         </AnimatePresence>
-      </GlassCard>
 
-      {showBookPages ? (
-        <div className="relative z-0 mt-1.5 w-full">
-          <PanelBookPages count={appliances.length} />
-        </div>
-      ) : null}
+      {showBookPages ? <PanelBookPages count={appliances.length} /> : null}
     </div>
   );
 }
