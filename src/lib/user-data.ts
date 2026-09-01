@@ -1828,6 +1828,9 @@ export type SbpPaymentClient = {
   qrPayload: string | null;
   qrImage: string | null;
   tbankPaymentId: string | null;
+  originalAmountRub?: number;
+  discountRub?: number;
+  promoCode?: string | null;
 };
 
 export async function createSbpPayment(
@@ -1877,6 +1880,7 @@ export async function fetchSchoolPaidGrades(): Promise<
 
 export async function createSchoolPayment(
   gradeId: import("@/lib/school/types").GradeId,
+  promoCode?: string,
 ): Promise<SbpPaymentClient> {
   if (!canUseServer()) {
     throw new Error("Оплата доступна после входа через Telegram");
@@ -1887,7 +1891,10 @@ export async function createSchoolPayment(
       "Content-Type": "application/json",
       ...authHeaders(),
     },
-    body: JSON.stringify({ gradeId }),
+    body: JSON.stringify({
+      gradeId,
+      promoCode: promoCode?.trim() || undefined,
+    }),
   });
   if (res.status === 409) {
     return {
@@ -1901,6 +1908,92 @@ export async function createSchoolPayment(
   }
   if (!res.ok) throw new Error(await parseError(res));
   return (await res.json()) as SbpPaymentClient;
+}
+
+export async function validateSchoolPromo(
+  gradeId: import("@/lib/school/types").GradeId,
+  code: string,
+): Promise<import("@/lib/school/promo").SchoolPromoPreview> {
+  if (!canUseServer()) {
+    throw new Error("Промокод доступен после входа через Telegram");
+  }
+  const res = await fetch("/api/school/promo/validate", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders(),
+    },
+    body: JSON.stringify({ gradeId, code }),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  const data = (await res.json()) as {
+    preview: import("@/lib/school/promo").SchoolPromoPreview;
+  };
+  return data.preview;
+}
+
+export type AdminPromoCode = import("@/lib/school/promo").SchoolPromoCode;
+
+export async function fetchAdminPromoCodes(): Promise<AdminPromoCode[]> {
+  const res = await fetch("/api/admin/promo-codes", {
+    headers: authHeaders(),
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  const data = (await res.json()) as { items?: AdminPromoCode[] };
+  return data.items ?? [];
+}
+
+export async function adminCreatePromoCode(input: {
+  code: string;
+  discountType: AdminPromoCode["discountType"];
+  discountValue: number;
+  validFrom?: string | null;
+  validUntil?: string | null;
+  maxUses?: number | null;
+  gradeIds?: import("@/lib/school/types").GradeId[] | null;
+  note?: string | null;
+}): Promise<AdminPromoCode> {
+  const res = await fetch("/api/admin/promo-codes", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  const data = (await res.json()) as { item: AdminPromoCode };
+  return data.item;
+}
+
+export async function adminUpdatePromoCode(
+  id: string,
+  patch: Partial<{
+    code: string;
+    discountType: AdminPromoCode["discountType"];
+    discountValue: number;
+    validFrom: string | null;
+    validUntil: string | null;
+    maxUses: number | null;
+    gradeIds: import("@/lib/school/types").GradeId[] | null;
+    active: boolean;
+    note: string | null;
+  }>,
+): Promise<AdminPromoCode> {
+  const res = await fetch(`/api/admin/promo-codes/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(patch),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  const data = (await res.json()) as { item: AdminPromoCode };
+  return data.item;
+}
+
+export async function adminDeletePromoCode(id: string): Promise<void> {
+  const res = await fetch(`/api/admin/promo-codes/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
 }
 
 export function openSbpPayload(payload: string): void {

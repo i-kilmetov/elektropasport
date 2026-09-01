@@ -11,6 +11,7 @@ import {
   MapPin,
   Phone,
   Shield,
+  Tag,
   Trash2,
   UserPlus,
   UserRound,
@@ -25,16 +26,22 @@ import { SchemeScreen } from "@/components/screens/scheme-screen";
 import type { AdminDashboardData } from "@/lib/admin-db";
 import {
   adminAddAdmin,
+  adminCreatePromoCode,
+  adminDeletePromoCode,
   adminDeleteRequest,
   adminRemoveAdmin,
   adminSendPush,
   adminSetRequestStatus,
   adminSetRole,
+  adminUpdatePromoCode,
   fetchAdminDashboard,
   fetchAdminPanel,
+  fetchAdminPromoCodes,
   fetchAdminPushAudience,
+  type AdminPromoCode,
   type AdminPushAudience,
 } from "@/lib/user-data";
+import { SCHOOL_GRADE_PAYMENT_TITLE } from "@/lib/school/access";
 import {
   installStatusLabels,
   type InstallRequestStatus,
@@ -51,7 +58,8 @@ type Section =
   | "launch"
   | "masters"
   | "admins"
-  | "push";
+  | "push"
+  | "promos";
 
 const SECTIONS: Array<{ id: Section; title: string; icon: typeof Shield }> = [
   { id: "overview", title: "Обзор", icon: LayoutDashboard },
@@ -62,6 +70,7 @@ const SECTIONS: Array<{ id: Section; title: string; icon: typeof Shield }> = [
   { id: "invites", title: "Приглашения", icon: UserPlus },
   { id: "masters", title: "Мастера", icon: Wrench },
   { id: "push", title: "Пуши", icon: Bell },
+  { id: "promos", title: "Промокоды", icon: Tag },
   { id: "admins", title: "Администраторы", icon: Shield },
 ];
 
@@ -295,6 +304,7 @@ export function AdminDashboardScreen({ onBack }: { onBack: () => void }) {
                 />
               )}
               {section === "push" && <PushSection />}
+              {section === "promos" && <PromoCodesSection />}
               {section === "admins" && (
                 <AdminsSection
                   data={data}
@@ -1414,6 +1424,334 @@ function PushSection() {
             ))}
           </ul>
         )}
+      </GlassCard>
+    </div>
+  );
+}
+
+function formatPromoDiscount(item: AdminPromoCode): string {
+  if (item.discountType === "free") return "Бесплатно";
+  if (item.discountType === "percent") return `−${item.discountValue}%`;
+  return `−${item.discountValue.toLocaleString("ru-RU")} ₽`;
+}
+
+function formatPromoGrades(item: AdminPromoCode): string {
+  if (!item.gradeIds || item.gradeIds.length === 0) return "Все классы";
+  return item.gradeIds.map((id) => SCHOOL_GRADE_PAYMENT_TITLE[id]).join(", ");
+}
+
+function formatPromoPeriod(item: AdminPromoCode): string {
+  const from = item.validFrom
+    ? new Date(item.validFrom).toLocaleDateString("ru-RU")
+    : null;
+  const until = item.validUntil
+    ? new Date(item.validUntil).toLocaleDateString("ru-RU")
+    : null;
+  if (from && until) return `${from} — ${until}`;
+  if (from) return `с ${from}`;
+  if (until) return `до ${until}`;
+  return "Без ограничения по сроку";
+}
+
+function PromoCodesSection() {
+  const [items, setItems] = useState<AdminPromoCode[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [code, setCode] = useState("");
+  const [discountType, setDiscountType] =
+    useState<AdminPromoCode["discountType"]>("percent");
+  const [discountValue, setDiscountValue] = useState("20");
+  const [validFrom, setValidFrom] = useState("");
+  const [validUntil, setValidUntil] = useState("");
+  const [maxUses, setMaxUses] = useState("");
+  const [gradeScope, setGradeScope] = useState<"all" | "1" | "2" | "3" | "4">(
+    "all",
+  );
+  const [note, setNote] = useState("");
+
+  const reload = useCallback(async () => {
+    const next = await fetchAdminPromoCodes();
+    setItems(next);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const next = await fetchAdminPromoCodes();
+        if (!cancelled) setItems(next);
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "Не удалось загрузить");
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const createPromo = async () => {
+    if (busy) return;
+    setBusy("create");
+    setError(null);
+    try {
+      await adminCreatePromoCode({
+        code,
+        discountType,
+        discountValue:
+          discountType === "free" ? 0 : Number(discountValue.replace(",", ".")),
+        validFrom: validFrom ? new Date(validFrom).toISOString() : null,
+        validUntil: validUntil ? new Date(validUntil).toISOString() : null,
+        maxUses: maxUses.trim() ? Number(maxUses) : null,
+        gradeIds:
+          gradeScope === "all"
+            ? null
+            : [Number(gradeScope) as 1 | 2 | 3 | 4],
+        note: note.trim() || null,
+      });
+      setCode("");
+      setDiscountValue("20");
+      setValidFrom("");
+      setValidUntil("");
+      setMaxUses("");
+      setNote("");
+      await reload();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не удалось создать");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const toggleActive = async (item: AdminPromoCode) => {
+    setBusy(`toggle-${item.id}`);
+    setError(null);
+    try {
+      await adminUpdatePromoCode(item.id, { active: !item.active });
+      await reload();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не удалось обновить");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const removePromo = async (item: AdminPromoCode) => {
+    if (!window.confirm(`Удалить промокод ${item.code}?`)) return;
+    setBusy(`delete-${item.id}`);
+    setError(null);
+    try {
+      await adminDeletePromoCode(item.id);
+      await reload();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не удалось удалить");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <Loader2 className="h-7 w-7 animate-spin text-zinc-300" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="mx-auto w-full max-w-[960px] space-y-6">
+      <div>
+        <h2 className="ty-display text-zinc-950">Промокоды школы</h2>
+        <p className="mt-1 ty-body">
+          Скидка в процентах, фиксированная сумма или бесплатный доступ к классу.
+        </p>
+      </div>
+
+      <GlassCard className="space-y-4 p-5">
+        <h3 className="ty-heading">Новый промокод</h3>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="block sm:col-span-2">
+            <span className="mb-1.5 block ty-note">Код</span>
+            <input
+              value={code}
+              onChange={(e) => setCode(e.target.value.toUpperCase())}
+              placeholder="TOKOM2026"
+              className="h-12 w-full rounded-[16px] border border-black/8 bg-zinc-50 px-4 text-[15px] uppercase outline-none placeholder:normal-case focus:border-zinc-300"
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1.5 block ty-note">Тип скидки</span>
+            <select
+              value={discountType}
+              onChange={(e) =>
+                setDiscountType(e.target.value as AdminPromoCode["discountType"])
+              }
+              className="h-12 w-full rounded-[16px] border border-black/8 bg-white px-3 text-[14px]"
+            >
+              <option value="percent">Процент</option>
+              <option value="fixed">Сумма в ₽</option>
+              <option value="free">Бесплатно</option>
+            </select>
+          </label>
+          {discountType !== "free" ? (
+            <label className="block">
+              <span className="mb-1.5 block ty-note">
+                {discountType === "percent" ? "Процент" : "Сумма, ₽"}
+              </span>
+              <input
+                value={discountValue}
+                onChange={(e) => setDiscountValue(e.target.value)}
+                inputMode="decimal"
+                className="h-12 w-full rounded-[16px] border border-black/8 bg-zinc-50 px-4 text-[15px] outline-none focus:border-zinc-300"
+              />
+            </label>
+          ) : (
+            <div className="flex items-end pb-1 ty-note text-zinc-500">
+              Курс откроется без оплаты
+            </div>
+          )}
+          <label className="block">
+            <span className="mb-1.5 block ty-note">Действует с</span>
+            <input
+              type="datetime-local"
+              value={validFrom}
+              onChange={(e) => setValidFrom(e.target.value)}
+              className="h-12 w-full rounded-[16px] border border-black/8 bg-white px-3 text-[14px]"
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1.5 block ty-note">Действует до</span>
+            <input
+              type="datetime-local"
+              value={validUntil}
+              onChange={(e) => setValidUntil(e.target.value)}
+              className="h-12 w-full rounded-[16px] border border-black/8 bg-white px-3 text-[14px]"
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1.5 block ty-note">Лимит использований</span>
+            <input
+              value={maxUses}
+              onChange={(e) => setMaxUses(e.target.value.replace(/\D/g, ""))}
+              placeholder="Без лимита"
+              className="h-12 w-full rounded-[16px] border border-black/8 bg-zinc-50 px-4 text-[15px] outline-none focus:border-zinc-300"
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1.5 block ty-note">Класс</span>
+            <select
+              value={gradeScope}
+              onChange={(e) =>
+                setGradeScope(e.target.value as typeof gradeScope)
+              }
+              className="h-12 w-full rounded-[16px] border border-black/8 bg-white px-3 text-[14px]"
+            >
+              <option value="all">Все классы</option>
+              <option value="1">1 класс</option>
+              <option value="2">2 класс</option>
+              <option value="3">3 класс</option>
+              <option value="4">Продленка</option>
+            </select>
+          </label>
+          <label className="block sm:col-span-2">
+            <span className="mb-1.5 block ty-note">Заметка</span>
+            <input
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Для кого или зачем"
+              className="h-12 w-full rounded-[16px] border border-black/8 bg-zinc-50 px-4 text-[15px] outline-none focus:border-zinc-300"
+            />
+          </label>
+        </div>
+        {error ? <p className="ty-note text-rose-600">{error}</p> : null}
+        <Button
+          className="w-full sm:w-auto"
+          disabled={!code.trim() || busy === "create"}
+          onClick={() => void createPromo()}
+        >
+          {busy === "create" ? "Создаём…" : "Создать промокод"}
+        </Button>
+      </GlassCard>
+
+      <GlassCard className="overflow-x-auto p-0">
+        <table className="w-full min-w-[860px] text-left text-[13px]">
+          <thead className="bg-zinc-50 text-zinc-500">
+            <tr>
+              <th className="px-4 py-3 font-medium">Код</th>
+              <th className="px-4 py-3 font-medium">Скидка</th>
+              <th className="px-4 py-3 font-medium">Класс</th>
+              <th className="px-4 py-3 font-medium">Срок</th>
+              <th className="px-4 py-3 font-medium">Использований</th>
+              <th className="px-4 py-3 font-medium">Статус</th>
+              <th className="px-4 py-3 font-medium" />
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((item) => (
+              <tr key={item.id} className="border-t border-black/6">
+                <td className="px-4 py-3">
+                  <div className="font-mono font-semibold text-zinc-900">
+                    {item.code}
+                  </div>
+                  {item.note ? (
+                    <div className="ty-meta text-zinc-500">{item.note}</div>
+                  ) : null}
+                </td>
+                <td className="px-4 py-3">{formatPromoDiscount(item)}</td>
+                <td className="px-4 py-3 text-zinc-600">
+                  {formatPromoGrades(item)}
+                </td>
+                <td className="px-4 py-3 text-zinc-600">
+                  {formatPromoPeriod(item)}
+                </td>
+                <td className="px-4 py-3 tabular-nums">
+                  {item.usesCount}
+                  {item.maxUses != null ? ` / ${item.maxUses}` : ""}
+                </td>
+                <td className="px-4 py-3">
+                  {item.active ? (
+                    <span className="rounded-full bg-emerald-50 px-2 py-0.5 ty-badge text-emerald-700">
+                      Активен
+                    </span>
+                  ) : (
+                    <span className="rounded-full bg-zinc-100 px-2 py-0.5 ty-badge text-zinc-600">
+                      Выключен
+                    </span>
+                  )}
+                </td>
+                <td className="px-4 py-3">
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      disabled={busy === `toggle-${item.id}`}
+                      onClick={() => void toggleActive(item)}
+                    >
+                      {item.active ? "Выключить" : "Включить"}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      disabled={busy === `delete-${item.id}`}
+                      onClick={() => void removePromo(item)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {items.length === 0 ? (
+          <p className="px-4 py-8 text-center ty-meta">Промокодов пока нет</p>
+        ) : null}
       </GlassCard>
     </div>
   );

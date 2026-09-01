@@ -1,8 +1,11 @@
+import { randomBytes } from "crypto";
 import type { PendingInstallLead } from "@/lib/pending-lead";
 import {
   addSchoolPaidGrade,
   getSbpPaymentByTbankId,
+  hasSchoolPromoRedemption,
   insertInstallRequest,
+  recordSchoolPromoRedemption,
   updateSbpPayment,
   type SbpPaymentRecord,
 } from "@/lib/db";
@@ -11,7 +14,50 @@ import {
   parseSchoolGradeId,
   SCHOOL_GRADE_PAYMENT_TITLE,
 } from "@/lib/school/access";
+import {
+  computePromoAmounts,
+  parseSchoolPaymentLeadPayload,
+} from "@/lib/school/promo";
 import { notifyAdminNewInstallRequest, notifyAdminSchoolPurchase } from "@/lib/telegram-notify";
+
+function newRedemptionId(): string {
+  return `redeem-${Date.now().toString(36)}${randomBytes(4).toString("hex")}`;
+}
+
+async function maybeRecordSchoolPromoRedemption(
+  payment: SbpPaymentRecord,
+): Promise<void> {
+  const payload = parseSchoolPaymentLeadPayload(payment.leadPayload);
+  if (!payload?.promoCodeId) return;
+
+  const already = await hasSchoolPromoRedemption({
+    promoCodeId: payload.promoCodeId,
+    telegramUserId: payment.telegramUserId,
+    gradeId: payload.gradeId,
+  });
+  if (already) return;
+
+  const originalAmountRub =
+    payload.originalAmountRub ??
+    payment.amountRub + (payload.discountRub ?? 0);
+  const discountRub =
+    payload.discountRub ??
+    computePromoAmounts(originalAmountRub, {
+      discountType: "fixed",
+      discountValue: originalAmountRub - payment.amountRub,
+    }).discountRub;
+
+  await recordSchoolPromoRedemption({
+    id: newRedemptionId(),
+    promoCodeId: payload.promoCodeId,
+    telegramUserId: payment.telegramUserId,
+    gradeId: payload.gradeId,
+    paymentId: payment.id,
+    originalAmountRub,
+    discountRub,
+    finalAmountRub: payment.amountRub,
+  });
+}
 
 /** Robokassa confirms via Result URL; polling only reads the DB row. */
 export async function refreshSbpPaymentFromBank(
@@ -32,6 +78,11 @@ export async function fulfillConfirmedSbpPayment(
         ...payment,
         status: "confirmed" as const,
       };
+    try {
+      await maybeRecordSchoolPromoRedemption(next);
+    } catch (error) {
+      console.error("Failed to record school promo redemption", error);
+    }
     try {
       await notifyAdminSchoolPurchase({
         telegramUserId: payment.telegramUserId,

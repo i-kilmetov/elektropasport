@@ -20,6 +20,12 @@ import { isNoPanelSetupId } from "@/lib/no-panel-setups";
 import type { AppliancePassportPhotoMeta } from "@/lib/appliance-passport";
 import type { GradeId } from "@/lib/school/types";
 import { parsePaid } from "@/lib/school/access";
+import {
+  normalizePromoCode,
+  parsePromoGradeIds,
+  type SchoolPromoCode,
+  type SchoolPromoDiscountType,
+} from "@/lib/school/promo";
 import { DbError, dbErrorResponse } from "@/lib/db-error";
 export { DbError, dbErrorResponse } from "@/lib/db-error";
 import { byteaParam, bytesFromBytea, getSql, jsonbParam } from "@/lib/sql-client";
@@ -45,7 +51,7 @@ import { ensureConnectedMoscowMaster } from "@/lib/ensure-moscow-master";
 let schemaReady: Promise<void> | null = null;
 
 /** Bump when DDL below changes so cold starts re-run migrations once. */
-const SCHEMA_VERSION = "2026-09-01-ai-consultation-links";
+const SCHEMA_VERSION = "2026-09-01-school-promo-codes";
 /** One-shot data wipe flag — never re-run after it is written. */
 const FRESH_START_KEY = "fresh_start_2026_08_25_b";
 /** Bumped on each factory wipe so clients drop localStorage orphans. */
@@ -574,6 +580,41 @@ export async function ensureSchema(): Promise<void> {
       await sql`
         CREATE INDEX IF NOT EXISTS panel_photos_owner_idx
         ON panel_photos (owner_telegram_id)
+      `;
+      await sql`
+        CREATE TABLE IF NOT EXISTS school_promo_codes (
+          id TEXT PRIMARY KEY,
+          code TEXT NOT NULL UNIQUE,
+          discount_type TEXT NOT NULL,
+          discount_value INTEGER NOT NULL DEFAULT 0,
+          valid_from TIMESTAMPTZ,
+          valid_until TIMESTAMPTZ,
+          max_uses INTEGER,
+          uses_count INTEGER NOT NULL DEFAULT 0,
+          grade_ids JSONB,
+          active BOOLEAN NOT NULL DEFAULT TRUE,
+          note TEXT,
+          created_by BIGINT REFERENCES users(telegram_id) ON DELETE SET NULL,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+      `;
+      await sql`
+        CREATE INDEX IF NOT EXISTS school_promo_codes_code_idx
+        ON school_promo_codes (code)
+      `;
+      await sql`
+        CREATE TABLE IF NOT EXISTS school_promo_redemptions (
+          id TEXT PRIMARY KEY,
+          promo_code_id TEXT NOT NULL REFERENCES school_promo_codes(id) ON DELETE CASCADE,
+          telegram_user_id BIGINT NOT NULL REFERENCES users(telegram_id) ON DELETE CASCADE,
+          grade_id INTEGER NOT NULL,
+          payment_id TEXT REFERENCES sbp_payments(id) ON DELETE SET NULL,
+          original_amount_rub INTEGER NOT NULL,
+          discount_rub INTEGER NOT NULL,
+          final_amount_rub INTEGER NOT NULL,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          UNIQUE (promo_code_id, telegram_user_id, grade_id)
+        )
       `;
 
       // One-time factory reset requested for clean testing.
@@ -2812,4 +2853,238 @@ export async function getPanelPhoto(
     bytes: bytesFromBytea(row.bytes),
     updatedAt: new Date(row.updated_at).toISOString(),
   };
+}
+
+type SchoolPromoCodeRow = {
+  id: string;
+  code: string;
+  discount_type: string;
+  discount_value: number;
+  valid_from: string | Date | null;
+  valid_until: string | Date | null;
+  max_uses: number | null;
+  uses_count: number;
+  grade_ids: unknown;
+  active: boolean;
+  note: string | null;
+  created_at: string | Date;
+};
+
+function rowToSchoolPromoCode(row: SchoolPromoCodeRow): SchoolPromoCode {
+  const discountType = row.discount_type as SchoolPromoDiscountType;
+  return {
+    id: row.id,
+    code: row.code,
+    discountType,
+    discountValue: Number(row.discount_value),
+    validFrom: row.valid_from ? new Date(row.valid_from).toISOString() : null,
+    validUntil: row.valid_until ? new Date(row.valid_until).toISOString() : null,
+    maxUses: row.max_uses == null ? null : Number(row.max_uses),
+    usesCount: Number(row.uses_count),
+    gradeIds: parsePromoGradeIds(row.grade_ids),
+    active: Boolean(row.active),
+    note: row.note,
+    createdAt: new Date(row.created_at).toISOString(),
+  };
+}
+
+export async function listSchoolPromoCodes(): Promise<SchoolPromoCode[]> {
+  const sql = getSql();
+  await ensureSchema();
+  const rows = (await sql`
+    SELECT *
+    FROM school_promo_codes
+    ORDER BY created_at DESC
+  `) as SchoolPromoCodeRow[];
+  return rows.map(rowToSchoolPromoCode);
+}
+
+export async function getSchoolPromoByCode(
+  code: string,
+): Promise<SchoolPromoCode | null> {
+  const sql = getSql();
+  await ensureSchema();
+  const normalized = normalizePromoCode(code);
+  if (!normalized) return null;
+  const rows = (await sql`
+    SELECT *
+    FROM school_promo_codes
+    WHERE code = ${normalized}
+    LIMIT 1
+  `) as SchoolPromoCodeRow[];
+  return rows[0] ? rowToSchoolPromoCode(rows[0]) : null;
+}
+
+export async function getSchoolPromoById(
+  id: string,
+): Promise<SchoolPromoCode | null> {
+  const sql = getSql();
+  await ensureSchema();
+  const rows = (await sql`
+    SELECT *
+    FROM school_promo_codes
+    WHERE id = ${id}
+    LIMIT 1
+  `) as SchoolPromoCodeRow[];
+  return rows[0] ? rowToSchoolPromoCode(rows[0]) : null;
+}
+
+export async function insertSchoolPromoCode(input: {
+  id: string;
+  code: string;
+  discountType: SchoolPromoDiscountType;
+  discountValue: number;
+  validFrom?: string | null;
+  validUntil?: string | null;
+  maxUses?: number | null;
+  gradeIds?: GradeId[] | null;
+  note?: string | null;
+  createdBy?: number | null;
+}): Promise<SchoolPromoCode> {
+  const sql = getSql();
+  await ensureSchema();
+  const gradeJson =
+    input.gradeIds && input.gradeIds.length > 0
+      ? jsonbParam(input.gradeIds)
+      : null;
+  const rows = (await sql`
+    INSERT INTO school_promo_codes (
+      id, code, discount_type, discount_value, valid_from, valid_until,
+      max_uses, grade_ids, note, created_by
+    ) VALUES (
+      ${input.id},
+      ${normalizePromoCode(input.code)},
+      ${input.discountType},
+      ${input.discountType === "free" ? 0 : Math.round(input.discountValue)},
+      ${input.validFrom ?? null},
+      ${input.validUntil ?? null},
+      ${input.maxUses ?? null},
+      ${gradeJson}::jsonb,
+      ${input.note ?? null},
+      ${input.createdBy ?? null}
+    )
+    RETURNING *
+  `) as SchoolPromoCodeRow[];
+  return rowToSchoolPromoCode(rows[0]!);
+}
+
+export async function updateSchoolPromoCode(
+  id: string,
+  patch: Partial<{
+    code: string;
+    discountType: SchoolPromoDiscountType;
+    discountValue: number;
+    validFrom: string | null;
+    validUntil: string | null;
+    maxUses: number | null;
+    gradeIds: GradeId[] | null;
+    active: boolean;
+    note: string | null;
+  }>,
+): Promise<SchoolPromoCode | null> {
+  const sql = getSql();
+  await ensureSchema();
+  const existing = await getSchoolPromoById(id);
+  if (!existing) return null;
+
+  const next = {
+    code: patch.code ? normalizePromoCode(patch.code) : existing.code,
+    discountType: patch.discountType ?? existing.discountType,
+    discountValue:
+      (patch.discountType ?? existing.discountType) === "free"
+        ? 0
+        : Math.round(patch.discountValue ?? existing.discountValue),
+    validFrom: patch.validFrom === undefined ? existing.validFrom : patch.validFrom,
+    validUntil:
+      patch.validUntil === undefined ? existing.validUntil : patch.validUntil,
+    maxUses: patch.maxUses === undefined ? existing.maxUses : patch.maxUses,
+    gradeIds: patch.gradeIds === undefined ? existing.gradeIds : patch.gradeIds,
+    active: patch.active ?? existing.active,
+    note: patch.note === undefined ? existing.note : patch.note,
+  };
+  const gradeJson =
+    next.gradeIds && next.gradeIds.length > 0 ? jsonbParam(next.gradeIds) : null;
+
+  const rows = (await sql`
+    UPDATE school_promo_codes SET
+      code = ${next.code},
+      discount_type = ${next.discountType},
+      discount_value = ${next.discountValue},
+      valid_from = ${next.validFrom},
+      valid_until = ${next.validUntil},
+      max_uses = ${next.maxUses},
+      grade_ids = ${gradeJson}::jsonb,
+      active = ${next.active},
+      note = ${next.note}
+    WHERE id = ${id}
+    RETURNING *
+  `) as SchoolPromoCodeRow[];
+  return rows[0] ? rowToSchoolPromoCode(rows[0]) : null;
+}
+
+export async function deleteSchoolPromoCode(id: string): Promise<boolean> {
+  const sql = getSql();
+  await ensureSchema();
+  const rows = await sql`
+    DELETE FROM school_promo_codes
+    WHERE id = ${id}
+    RETURNING id
+  `;
+  return rows.length > 0;
+}
+
+export async function hasSchoolPromoRedemption(params: {
+  promoCodeId: string;
+  telegramUserId: number;
+  gradeId: GradeId;
+}): Promise<boolean> {
+  const sql = getSql();
+  await ensureSchema();
+  const rows = (await sql`
+    SELECT id
+    FROM school_promo_redemptions
+    WHERE promo_code_id = ${params.promoCodeId}
+      AND telegram_user_id = ${params.telegramUserId}
+      AND grade_id = ${params.gradeId}
+    LIMIT 1
+  `) as Array<{ id: string }>;
+  return rows.length > 0;
+}
+
+export async function recordSchoolPromoRedemption(input: {
+  id: string;
+  promoCodeId: string;
+  telegramUserId: number;
+  gradeId: GradeId;
+  paymentId: string;
+  originalAmountRub: number;
+  discountRub: number;
+  finalAmountRub: number;
+}): Promise<boolean> {
+  const sql = getSql();
+  await ensureSchema();
+  const inserted = (await sql`
+    INSERT INTO school_promo_redemptions (
+      id, promo_code_id, telegram_user_id, grade_id, payment_id,
+      original_amount_rub, discount_rub, final_amount_rub
+    ) VALUES (
+      ${input.id},
+      ${input.promoCodeId},
+      ${input.telegramUserId},
+      ${input.gradeId},
+      ${input.paymentId},
+      ${input.originalAmountRub},
+      ${input.discountRub},
+      ${input.finalAmountRub}
+    )
+    ON CONFLICT (promo_code_id, telegram_user_id, grade_id) DO NOTHING
+    RETURNING id
+  `) as Array<{ id: string }>;
+  if (inserted.length === 0) return false;
+  await sql`
+    UPDATE school_promo_codes
+    SET uses_count = uses_count + 1
+    WHERE id = ${input.promoCodeId}
+  `;
+  return true;
 }
