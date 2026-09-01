@@ -51,6 +51,17 @@ function asString(value: unknown): string | undefined {
   return undefined;
 }
 
+/** Icecat often wraps labels in `{ Value, Language }` objects. */
+function localizedString(value: unknown): string | undefined {
+  const direct = asString(value);
+  if (direct) return direct;
+  if (value && typeof value === "object") {
+    const obj = value as Record<string, unknown>;
+    return asString(obj.Value) ?? asString(obj.value) ?? asString(obj.Name);
+  }
+  return undefined;
+}
+
 function pickFeatureValue(feature: Record<string, unknown>): string | null {
   const present = feature.PresentationValue ?? feature.Value;
   if (typeof present === "string" && present.trim()) return present.trim();
@@ -77,11 +88,16 @@ function specsFromFeatures(data: Record<string, unknown>): ApplianceSpec[] {
       const nameObj = feature.Feature;
       let label: string | undefined;
       if (nameObj && typeof nameObj === "object") {
+        const meta = nameObj as Record<string, unknown>;
         label =
-          asString((nameObj as Record<string, unknown>).Name) ||
-          asString((nameObj as Record<string, unknown>).Value);
+          localizedString(meta.Name) ||
+          localizedString(meta.Value) ||
+          localizedString(meta.LocalName);
       }
-      label = label || asString(feature.Name) || asString(feature.LocalName);
+      label =
+        label ||
+        localizedString(feature.Name) ||
+        localizedString(feature.LocalName);
       const value = pickFeatureValue(feature);
       if (!label || !value || value.length > 120) continue;
       specs.push({ label, value });
