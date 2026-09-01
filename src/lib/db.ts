@@ -45,7 +45,7 @@ import { ensureConnectedMoscowMaster } from "@/lib/ensure-moscow-master";
 let schemaReady: Promise<void> | null = null;
 
 /** Bump when DDL below changes so cold starts re-run migrations once. */
-const SCHEMA_VERSION = "2026-08-31-school-paid-grades";
+const SCHEMA_VERSION = "2026-09-01-ai-consultation-links";
 /** One-shot data wipe flag — never re-run after it is written. */
 const FRESH_START_KEY = "fresh_start_2026_08_25_b";
 /** Bumped on each factory wipe so clients drop localStorage orphans. */
