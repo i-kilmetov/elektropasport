@@ -44,7 +44,7 @@ function TelegramLoginLink({
     <button
       type="button"
       className={cn(
-        "mx-auto block w-full pt-1 text-[14px] disabled:opacity-50",
+        "mx-auto block w-full pt-1 text-[14px] underline disabled:opacity-50",
         isSplash ? "text-zinc-900/70" : "text-zinc-500",
       )}
       disabled={disabled}
@@ -171,6 +171,9 @@ export function PhoneLoginFlow({
             isSplash ? "text-zinc-900" : "border border-black/10 text-zinc-900",
           )}
         >
+          <span className="shrink-0 text-[22px] leading-none" aria-hidden>
+            🇷🇺
+          </span>
           <input
             id="phone-login"
             inputMode="tel"
@@ -181,9 +184,6 @@ export function PhoneLoginFlow({
             aria-label="Номер телефона"
             className="min-w-0 flex-1 bg-transparent text-[16px] outline-none"
           />
-          <span className="shrink-0 text-[22px] leading-none" aria-hidden>
-            🇷🇺
-          </span>
         </div>
         <Button
           type="button"
