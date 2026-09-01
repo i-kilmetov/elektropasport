@@ -26,7 +26,7 @@ export function buildApplianceSpecsSnapshot(
   return [
     ...(powerSpec ? [powerSpec] : []),
     ...(details.specs ?? []).filter(
-      (spec) => !/мощност|power|watt/i.test(spec.label),
+      (spec) => !isDerivedPowerSpecLabel(spec.label),
     ),
   ];
 }
@@ -68,22 +68,63 @@ export function icecatStatusMessage(
   return detail || null;
 }
 
-export function extractPowerWattsFromSpecs(
+function isExcludedPowerLabel(label: string): boolean {
+  return /standby|sleep|энергопотреб|energy consumption|kwh/i.test(label);
+}
+
+/** Primary Icecat labels: Power / Мощность / потребление. */
+function isPrimaryPowerLabel(label: string): boolean {
+  return /power|watt|мощност|потребл/.test(label);
+}
+
+/** Fallback when no explicit power row: load / подключённая нагрузка (value must contain W). */
+function isFallbackLoadLabel(label: string): boolean {
+  return /нагрузк|подключ.*нагруз|connected load|rated load|^load$/.test(
+    label,
+  );
+}
+
+export function isDerivedPowerSpecLabel(label: string): boolean {
+  const normalized = label.toLowerCase();
+  if (isExcludedPowerLabel(normalized)) return false;
+  return isPrimaryPowerLabel(normalized) || isFallbackLoadLabel(normalized);
+}
+
+function parseWattsFromValue(value: string): number | undefined {
+  const m = value
+    .replace(",", ".")
+    .match(/(\d+(?:\.\d+)?)\s*(k?\s*w|k?\s*вт|к?\s*вт)/i);
+  if (!m) return undefined;
+  const n = Number(m[1]);
+  if (!Number.isFinite(n) || n <= 0) return undefined;
+  const unit = m[2]!.toLowerCase().replace(/\s/g, "");
+  const watts =
+    unit.startsWith("kw") || unit.startsWith("квт")
+      ? Math.round(n * 1000)
+      : Math.round(n);
+  if (watts >= 20 && watts <= 20000) return watts;
+  return undefined;
+}
+
+function extractPowerFromSpecs(
   specs: ApplianceSpec[],
+  matchLabel: (label: string) => boolean,
 ): number | undefined {
   for (const spec of specs) {
     const label = spec.label.toLowerCase();
-    if (!/power|watt|мощност|потребл/.test(label)) continue;
-    if (/standby|sleep|энергопотреб|energy consumption|kwh/i.test(label)) {
-      continue;
-    }
-    const m = spec.value.replace(",", ".").match(/(\d+(?:\.\d+)?)\s*(k?\s*w)/i);
-    if (!m) continue;
-    const n = Number(m[1]);
-    if (!Number.isFinite(n) || n <= 0) continue;
-    const unit = m[2]!.toLowerCase().replace(/\s/g, "");
-    const watts = unit.startsWith("kw") ? Math.round(n * 1000) : Math.round(n);
-    if (watts >= 20 && watts <= 20000) return watts;
+    if (!matchLabel(label)) continue;
+    if (isExcludedPowerLabel(label)) continue;
+    const watts = parseWattsFromValue(spec.value);
+    if (watts != null) return watts;
   }
   return undefined;
+}
+
+export function extractPowerWattsFromSpecs(
+  specs: ApplianceSpec[],
+): number | undefined {
+  return (
+    extractPowerFromSpecs(specs, isPrimaryPowerLabel) ??
+    extractPowerFromSpecs(specs, isFallbackLoadLabel)
+  );
 }

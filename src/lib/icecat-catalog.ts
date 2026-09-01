@@ -10,6 +10,7 @@ import {
   searchIcecatProductByIcecatId,
 } from "@/lib/icecat";
 import type { ApplianceManual, ApplianceSpec } from "@/types";
+import { extractPowerWattsFromSpecs } from "@/lib/appliance-specs";
 
 const REFS_BASE = "https://data.icecat.biz/export/freexml/refs";
 const INDEX_URL =
@@ -677,24 +678,6 @@ export async function countIcecatCatalog(): Promise<number> {
   return row?.count ?? 0;
 }
 
-function extractPowerWatts(specs: ApplianceSpec[]): number | undefined {
-  for (const spec of specs) {
-    const label = spec.label.toLowerCase();
-    if (!/power|watt|мощност|потребл/.test(label)) continue;
-    if (/standby|sleep|энергопотреб|energy consumption|kwh/i.test(label)) {
-      continue;
-    }
-    const m = spec.value.replace(",", ".").match(/(\d+(?:\.\d+)?)\s*(k?\s*w)/i);
-    if (!m) continue;
-    const n = Number(m[1]);
-    if (!Number.isFinite(n) || n <= 0) continue;
-    const unit = m[2]!.toLowerCase().replace(/\s/g, "");
-    const watts = unit.startsWith("kw") ? Math.round(n * 1000) : Math.round(n);
-    if (watts >= 20 && watts <= 20000) return watts;
-  }
-  return undefined;
-}
-
 export async function loadIcecatProductDetails(options: {
   brand?: string;
   productCode?: string;
@@ -745,7 +728,7 @@ export async function loadIcecatProductDetails(options: {
     };
   }
   return {
-    powerW: extractPowerWatts(result.hit.specs),
+    powerW: extractPowerWattsFromSpecs(result.hit.specs),
     specs: result.hit.specs,
     manuals: result.hit.manuals,
     title: result.hit.title,
