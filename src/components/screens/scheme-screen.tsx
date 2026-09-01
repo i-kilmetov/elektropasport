@@ -2504,45 +2504,43 @@ export function SchemeScreen({
         {sharedPreview ? (
           <div className="h-11 w-11" />
         ) : (
-          <div className="relative">
+          <div className="flex items-center gap-1">
             <button
               type="button"
-              onClick={() => setMenuOpen((v) => !v)}
-              className="flex h-11 w-11 items-center justify-center rounded-full border border-black/8 bg-zinc-100 text-zinc-900"
-              aria-label="Ещё"
+              onClick={() => setShareChoiceOpen(true)}
+              className="flex h-11 w-11 items-center justify-center text-zinc-900 transition-colors hover:text-zinc-600"
+              aria-label="Поделиться"
             >
-              <MoreHorizontal className="h-5 w-5" />
+              <IosShareIcon className="h-5 w-5" />
             </button>
-            <AnimatePresence>
-              {menuOpen && (
-                <motion.div
-                  initial={{ opacity: 0, y: -6, scale: 0.96 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -6, scale: 0.96 }}
-                  className="absolute right-0 top-12 z-30 min-w-[180px] overflow-hidden rounded-[18px] border border-black/8 bg-white shadow-2xl backdrop-blur-xl"
-                >
-                  <button
-                    type="button"
-                    className="flex w-full items-center gap-2 px-4 py-3 text-left text-[15px] text-zinc-900 hover:bg-zinc-50"
-                    onClick={() => {
-                      setMenuOpen(false);
-                      setShareChoiceOpen(true);
-                    }}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setMenuOpen((v) => !v)}
+                className="flex h-11 w-11 items-center justify-center rounded-full border border-black/8 bg-zinc-100 text-zinc-900"
+                aria-label="Ещё"
+              >
+                <MoreHorizontal className="h-5 w-5" />
+              </button>
+              <AnimatePresence>
+                {menuOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -6, scale: 0.96 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -6, scale: 0.96 }}
+                    className="absolute right-0 top-12 z-30 min-w-[180px] overflow-hidden rounded-[18px] border border-black/8 bg-white shadow-2xl backdrop-blur-xl"
                   >
-                    <IosShareIcon className="h-4 w-4 text-zinc-600" />
-                    Поделиться
-                  </button>
-                  <button
-                    type="button"
-                    className="flex w-full items-center gap-2 px-4 py-3 text-left text-[15px] text-zinc-900 hover:bg-zinc-50"
-                    onClick={() => {
-                      setMenuOpen(false);
-                      setRenameOpen(true);
-                    }}
-                  >
-                    <Pencil className="h-4 w-4 text-zinc-600" />
-                    Переименовать
-                  </button>
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-2 px-4 py-3 text-left text-[15px] text-zinc-900 hover:bg-zinc-50"
+                      onClick={() => {
+                        setMenuOpen(false);
+                        setRenameOpen(true);
+                      }}
+                    >
+                      <Pencil className="h-4 w-4 text-zinc-600" />
+                      Переименовать
+                    </button>
                   <button
                     type="button"
                     className="flex w-full items-center gap-2 px-4 py-3 text-left text-[15px] text-zinc-900 hover:bg-zinc-50"
@@ -2580,6 +2578,7 @@ export function SchemeScreen({
                 </motion.div>
               )}
             </AnimatePresence>
+            </div>
           </div>
         )}
       </header>

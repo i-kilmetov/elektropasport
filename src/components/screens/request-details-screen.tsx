@@ -10,10 +10,10 @@ import {
   MoreHorizontal,
   Pencil,
   Phone,
-  Sparkles,
   Trash2,
 } from "lucide-react";
 import { BreakerIcon } from "@/components/icons/breaker-icon";
+import { ConsultationIcon } from "@/components/icons/consultation-icon";
 import { GeminiSparkle } from "@/components/icons/gemini-sparkle";
 import { Button } from "@/components/ui/button";
 import { MasterVisitConfirmStep } from "@/components/ui/help-electrical-wizard-sheet";
@@ -181,7 +181,7 @@ function AiConsultationSection({
   return (
     <GlassCard className="p-4">
       <div className="mb-3 flex items-center gap-2 ty-label">
-        <Sparkles className="h-4 w-4 text-violet-500" />
+        <ConsultationIcon className="h-4 w-4 text-zinc-900" />
         ИИ-консультация
       </div>
       <div className="grid grid-cols-2 gap-x-4 gap-y-3">
@@ -239,6 +239,8 @@ export function RequestDetailsScreen({
   const [addressSaved, setAddressSaved] = useState(false);
   const standaloneConsultation =
     !readOnly && isStandaloneAiConsultation(request) && Boolean(onCallMaster);
+  const showStatusBlock = !isStandaloneAiConsultation(request);
+  const showContactBlock = !isStandaloneAiConsultation(request);
 
   useEffect(() => {
     setAddress(request.exactAddress ?? "");
@@ -361,25 +363,27 @@ export function RequestDetailsScreen({
       </p>
 
       <div className="flex-1 space-y-3 overflow-y-auto pb-4">
-        <GlassCard className="p-4">
-          <StatusProgress status={request.status} />
-          {request.status === "cancelled" && !readOnly && (
-            <Button
-              className="mt-4 w-full"
-              variant="secondary"
-              onClick={() =>
-                onUpdate({
-                  status: "in_progress",
-                  statusLabel: installStatusLabels.in_progress,
-                })
-              }
-            >
-              Вернуть в работу
-            </Button>
-          )}
-        </GlassCard>
+        {showStatusBlock ? (
+          <GlassCard className="p-4">
+            <StatusProgress status={request.status} />
+            {request.status === "cancelled" && !readOnly && (
+              <Button
+                className="mt-4 w-full"
+                variant="secondary"
+                onClick={() =>
+                  onUpdate({
+                    status: "in_progress",
+                    statusLabel: installStatusLabels.in_progress,
+                  })
+                }
+              >
+                Вернуть в работу
+              </Button>
+            )}
+          </GlassCard>
+        ) : null}
 
-        {request.status === "new" && !readOnly && (
+        {request.status === "new" && !readOnly && showStatusBlock ? (
           <GlassCard className="space-y-3 p-4">
             <div className="flex items-start gap-2">
               <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-zinc-400" />
@@ -423,7 +427,7 @@ export function RequestDetailsScreen({
               {addressSaved ? "Сохранено" : "Сохранить адрес"}
             </Button>
           </GlassCard>
-        )}
+        ) : null}
 
         {objectFields.length > 0 && (
           <GlassCard className="p-4">
@@ -456,7 +460,7 @@ export function RequestDetailsScreen({
               </div>
               <div className="min-w-0 flex-1">
                 <div className="ty-heading">
-                  Щиток клиента
+                  {request.aiConsultation?.panelTitle ?? "Щиток"}
                 </div>
                 <p className="ty-note">Открыть схему щитка</p>
               </div>
@@ -464,29 +468,31 @@ export function RequestDetailsScreen({
           </button>
         )}
 
-        <GlassCard className="p-4">
-          <div className="mb-3 flex items-center gap-2 ty-label">
-            {request.contactMethod === "telegram" ? (
-              <MessageCircle className="h-4 w-4 text-zinc-400" />
-            ) : (
-              <Phone className="h-4 w-4 text-zinc-400" />
-            )}
-            Контакт
-          </div>
-          <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-            <DetailItem label="Имя" value={request.name} />
-            <DetailItem label="Телефон" value={request.phone ?? "—"} />
-            <DetailItem
-              label="Как связаться"
-              value={
-                request.contactMethod === "telegram"
-                  ? "Telegram, иначе звонок"
-                  : "Звонок"
-              }
-              wide
-            />
-          </div>
-        </GlassCard>
+        {showContactBlock ? (
+          <GlassCard className="p-4">
+            <div className="mb-3 flex items-center gap-2 ty-label">
+              {request.contactMethod === "telegram" ? (
+                <MessageCircle className="h-4 w-4 text-zinc-400" />
+              ) : (
+                <Phone className="h-4 w-4 text-zinc-400" />
+              )}
+              Контакт
+            </div>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+              <DetailItem label="Имя" value={request.name} />
+              <DetailItem label="Телефон" value={request.phone ?? "—"} />
+              <DetailItem
+                label="Как связаться"
+                value={
+                  request.contactMethod === "telegram"
+                    ? "Telegram, иначе звонок"
+                    : "Звонок"
+                }
+                wide
+              />
+            </div>
+          </GlassCard>
+        ) : null}
 
         <AiConsultationSection request={request} />
       </div>

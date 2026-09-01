@@ -22,10 +22,10 @@ import {
   HelpCircle,
   Menu,
   Plus,
-  Sparkles,
   Wrench,
 } from "lucide-react";
 import { BreakerIcon } from "@/components/icons/breaker-icon";
+import { ConsultationIcon } from "@/components/icons/consultation-icon";
 import { GeminiSparkle } from "@/components/icons/gemini-sparkle";
 import { AddApplianceSheet } from "@/components/screens/add-appliance-sheet";
 import {
@@ -331,7 +331,7 @@ function ApplianceListRow({
         )}
       </span>
       {needsDetails ? (
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-zinc-400">
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center text-zinc-400">
           <HelpCircle className="h-4 w-4" />
         </span>
       ) : (
@@ -353,6 +353,8 @@ function HomeListCard({
   onContextMenu: () => void;
 }) {
   const isRequest = item.kind === "install_request";
+  const isConsultationRequest =
+    isRequest && isStandaloneAiConsultation(item as InstallRequest);
   const panel = !isRequest && item.kind === "panel" ? item : null;
   const safetyStages = panel
     ? buildPanelSafetyStages({
@@ -381,11 +383,19 @@ function HomeListCard({
             <div
               className={cn(
                 "flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[18px] bg-zinc-100",
-                isRequest ? "text-zinc-500" : "text-zinc-600",
+                isConsultationRequest
+                  ? "text-zinc-900"
+                  : isRequest
+                    ? "text-zinc-500"
+                    : "text-zinc-600",
               )}
             >
               {isRequest ? (
-                <ClipboardList className="h-6 w-6" />
+                isConsultationRequest ? (
+                  <ConsultationIcon className="h-6 w-6 text-zinc-900" />
+                ) : (
+                  <ClipboardList className="h-6 w-6" />
+                )
               ) : panel ? (
                 <PanelListIcon panel={panel} />
               ) : (
@@ -397,14 +407,14 @@ function HomeListCard({
                 <h2 className="truncate ty-heading">
                   {isRequest && item.publicCode ? item.publicCode : item.title}
                 </h2>
-                {isRequest ? (
+                {isRequest && !isConsultationRequest ? (
                   <span
                     className={cn(
                       "shrink-0 rounded-full px-2 py-0.5 ty-badge",
-                      installStatusTone(item.status).badge,
+                      installStatusTone((item as InstallRequest).status).badge,
                     )}
                   >
-                    {item.statusLabel}
+                    {(item as InstallRequest).statusLabel}
                   </span>
                 ) : panel?.noPanelSetupId ? (
                   <span className="shrink-0 rounded-full bg-zinc-100 px-2 py-0.5 ty-badge text-zinc-600">
@@ -477,11 +487,11 @@ function RequestListCard({
         <div
           className={cn(
             "flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[18px] bg-zinc-100",
-            isConsultation ? "text-violet-500" : "text-zinc-500",
+            isConsultation ? "text-zinc-900" : "text-zinc-500",
           )}
         >
           {isConsultation ? (
-            <Sparkles className="h-6 w-6" />
+            <ConsultationIcon className="h-6 w-6" />
           ) : (
             <ClipboardList className="h-6 w-6" />
           )}
@@ -491,14 +501,16 @@ function RequestListCard({
             <h2 className="truncate ty-heading">
               {item.publicCode ? item.publicCode : item.title}
             </h2>
-            <span
-              className={cn(
-                "shrink-0 rounded-full px-2 py-0.5 ty-badge",
-                installStatusTone(item.status).badge,
-              )}
-            >
-              {item.statusLabel}
-            </span>
+            {!isConsultation ? (
+              <span
+                className={cn(
+                  "shrink-0 rounded-full px-2 py-0.5 ty-badge",
+                  installStatusTone(item.status).badge,
+                )}
+              >
+                {item.statusLabel}
+              </span>
+            ) : null}
           </div>
           <p className="truncate ty-note">{item.subtitle}</p>
           <p className="mt-1 ty-meta">{item.createdAt}</p>

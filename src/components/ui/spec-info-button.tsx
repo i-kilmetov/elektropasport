@@ -26,13 +26,11 @@ export function HintInfoButton({
       aria-expanded={open}
       onClick={onToggle}
       className={cn(
-        "inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full transition-colors",
-        open
-          ? "bg-zinc-200 text-zinc-700"
-          : "bg-zinc-200 text-zinc-500 hover:text-zinc-600",
+        "inline-flex h-4 w-4 shrink-0 items-center justify-center text-zinc-400 transition-colors hover:text-zinc-700",
+        open && "text-zinc-700",
       )}
     >
-      <Info className="h-3 w-3" strokeWidth={2.25} />
+      <Info className="h-3.5 w-3.5" strokeWidth={2.25} />
     </button>
   );
 }

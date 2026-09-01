@@ -16,6 +16,9 @@ import { cn } from "@/lib/utils";
 export const groundPresenceHint =
   "Посмотрите на вводной кабель в щитке. Жёлто-зелёная жила — это земля (PE): она садится на шину PE или на металлический корпус. Ноль — синий и идёт на шину N, его нельзя считать землёй. Если во вводе только фаза (коричневый, чёрный или серый) и синий ноль — заземления нет.";
 
+export const phasesPresenceHint =
+  "Обычно видно по числу проводов на вводе или по маркировке счётчика (однофазный / трёхфазный).";
+
 export function SafetyParamsSheet({
   initialPhases,
   initialPowerKw,
@@ -42,15 +45,13 @@ export function SafetyParamsSheet({
   const [powerKw, setPowerKw] = useState(initialPowerKw ?? "");
   const [powerError, setPowerError] = useState<string | null>(null);
   const [groundHintOpen, setGroundHintOpen] = useState(false);
+  const [phasesHintOpen, setPhasesHintOpen] = useState(false);
 
   useEffect(() => {
     if (typeof initialHasGround === "boolean") {
       setHasGround(initialHasGround);
     }
   }, [initialHasGround]);
-
-  const showPhases = hasGround !== null;
-  const showPower = showPhases && phases !== null;
 
   const powerNum = Number(powerKw.replace(",", "."));
   const cableAdvice = useMemo(() => {
@@ -108,20 +109,15 @@ export function SafetyParamsSheet({
           onClick={(e) => e.stopPropagation()}
           className="max-h-[min(92dvh,640px)] w-full overflow-y-auto rounded-t-[28px] border border-black/8 bg-white p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-2xl sm:max-w-sm sm:rounded-[28px]"
         >
-          <h3 className="mb-1 ty-title">
-            Параметры сети
-          </h3>
+          <h3 className="mb-1 ty-title">Параметры сети</h3>
           <p className="mb-5 ty-body">
-            Ответьте по шагам — внизу соберём схему вводного кабеля.
+            Укажите все параметры — внизу соберём схему вводного кабеля.
           </p>
 
-          {/* 1. Grounding */}
           <div className="mb-4">
             <div className="mb-2 flex items-center gap-2">
               <GroundSymbol className="h-5 w-5 text-emerald-700" />
-              <span className="ty-label text-zinc-700">
-                Есть заземление?
-              </span>
+              <span className="ty-label text-zinc-700">Есть заземление?</span>
               <HintInfoButton
                 label="Как определить, есть ли земля"
                 open={groundHintOpen}
@@ -139,13 +135,9 @@ export function SafetyParamsSheet({
                   key={String(option.id)}
                   type="button"
                   onClick={() => {
-                    setHasGround((prev) => {
-                      if (prev === option.id) {
-                        setPhases(null);
-                        return null;
-                      }
-                      return option.id;
-                    });
+                    setHasGround((prev) =>
+                      prev === option.id ? null : option.id,
+                    );
                   }}
                   className={cn(
                     "rounded-[16px] border px-3 py-3 ty-heading transition-colors",
@@ -159,132 +151,111 @@ export function SafetyParamsSheet({
               ))}
             </div>
             {groundHintOpen && (
-              <p className="mt-2.5 ty-meta text-zinc-500">
-                {groundPresenceHint}
-              </p>
+              <p className="mt-2.5 ty-meta text-zinc-500">{groundPresenceHint}</p>
             )}
           </div>
 
-          {/* 2. Phases — after ground */}
-          {showPhases && (
-            <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mb-4"
-            >
-              <div className="mb-2 flex items-center gap-2">
-                <Zap className="h-5 w-5 text-amber-700" />
-                <span className="ty-label text-zinc-700">
-                  Сколько фаз?
-                </span>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                {(
-                  [
-                    { id: "1" as const, label: "1 фаза" },
-                    { id: "3" as const, label: "3 фазы" },
-                  ] as const
-                ).map((option) => (
-                  <button
-                    key={option.id}
-                    type="button"
-                    onClick={() =>
-                      setPhases((prev) =>
-                        prev === option.id ? null : option.id,
-                      )
-                    }
-                    className={cn(
-                      "rounded-[16px] border px-3 py-3 ty-heading transition-colors",
-                      phases === option.id
-                        ? "border-zinc-900 bg-zinc-900 text-white"
-                        : "border-black/8 bg-zinc-50 text-zinc-800 hover:bg-zinc-100",
-                    )}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-            </motion.div>
-          )}
-
-          {/* 3. Power — after phases */}
-          {showPower && (
-            <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mb-4"
-            >
-              <div className="mb-2 flex items-center gap-2">
-                <Gauge className="h-5 w-5 text-sky-700" />
-                <span className="ty-label text-zinc-700">
-                  Выделенная мощность, кВт
-                </span>
-              </div>
-              <input
-                inputMode="decimal"
-                value={powerKw}
-                onChange={(e) => onPowerChange(e.target.value)}
-                placeholder="Например, 7.5"
-                className="mb-2 h-12 w-full rounded-[16px] border border-black/8 bg-zinc-50 px-4 text-[16px] text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-zinc-300"
+          <div className="mb-4">
+            <div className="mb-2 flex items-center gap-2">
+              <Zap className="h-5 w-5 text-amber-700" />
+              <span className="ty-label text-zinc-700">Сколько фаз?</span>
+              <HintInfoButton
+                label="Как определить число фаз"
+                open={phasesHintOpen}
+                onToggle={() => setPhasesHintOpen((v) => !v)}
               />
-              {powerError ? (
-                <p className="ty-meta text-rose-600">
-                  {powerError}
-                </p>
-              ) : (
-                <p className="ty-meta text-zinc-400">
-                  Обычно в договоре с энергосбытом или на вводном автомате.
-                </p>
-              )}
-              {cableAdvice && (
-                <div className="mt-3 rounded-[16px] border border-emerald-500/20 bg-emerald-50 px-3.5 py-3">
-                  <p className="ty-label text-emerald-950">
-                    Медный кабель от {cableAdvice.mm2} мм²
-                  </p>
-                  <p className="mt-1 ty-meta text-emerald-900/80">
-                    {cableAdvice.note} Это ориентир для ввода; точное сечение
-                    зависит от длины линии и условий прокладки.
-                  </p>
-                </div>
-              )}
-            </motion.div>
-          )}
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {(
+                [
+                  { id: "1" as const, label: "1 фаза" },
+                  { id: "3" as const, label: "3 фазы" },
+                ] as const
+              ).map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() =>
+                    setPhases((prev) => (prev === option.id ? null : option.id))
+                  }
+                  className={cn(
+                    "rounded-[16px] border px-3 py-3 ty-heading transition-colors",
+                    phases === option.id
+                      ? "border-zinc-900 bg-zinc-900 text-white"
+                      : "border-black/8 bg-zinc-50 text-zinc-800 hover:bg-zinc-100",
+                  )}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+            {phasesHintOpen && (
+              <p className="mt-2.5 ty-meta text-zinc-500">{phasesPresenceHint}</p>
+            )}
+          </div>
 
-          {/* Live cable preview */}
-          {(hasGround === true || phases !== null) && (
-            <motion.div
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mb-5 rounded-[18px] border border-black/8 bg-zinc-50 px-4 py-4"
-            >
-              <p className="mb-3 text-center ty-badge text-zinc-500">
-                Вводной кабель
+          <div className="mb-4">
+            <div className="mb-2 flex items-center gap-2">
+              <Gauge className="h-5 w-5 text-sky-700" />
+              <span className="ty-label text-zinc-700">
+                Выделенная мощность, кВт
+              </span>
+            </div>
+            <input
+              inputMode="decimal"
+              value={powerKw}
+              onChange={(e) => onPowerChange(e.target.value)}
+              placeholder="Например, 7.5"
+              className="mb-2 h-12 w-full rounded-[16px] border border-black/8 bg-zinc-50 px-4 text-[16px] text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-zinc-300"
+            />
+            {powerError ? (
+              <p className="ty-meta text-rose-600">{powerError}</p>
+            ) : (
+              <p className="ty-meta text-zinc-500">
+                Эту информацию можно узнать в договоре с энергосбытом
               </p>
-              <div className="flex justify-center">
-                <SupplyCableIcon
-                  phases={phases}
-                  hasGround={hasGround}
-                  coreScale={coreScale}
-                  className="scale-125"
-                />
+            )}
+            {cableAdvice && (
+              <div className="mt-3 rounded-[16px] border border-emerald-500/20 bg-emerald-50 px-3.5 py-3">
+                <p className="ty-label text-emerald-950">
+                  Медный кабель от {cableAdvice.mm2} мм²
+                </p>
+                <p className="mt-1 ty-meta text-emerald-900/80">
+                  {cableAdvice.note} Это ориентир для ввода; точное сечение
+                  зависит от длины линии и условий прокладки.
+                </p>
               </div>
-              <div className="mt-3 flex flex-wrap justify-center gap-x-3 gap-y-1 ty-meta">
-                {hasGround === true && <span>PE — жёлто-зелёный</span>}
-                {phases === "1" && (
-                  <>
-                    <span>L — коричневый</span>
-                    <span>N — синий</span>
-                  </>
-                )}
-                {phases === "3" && (
-                  <>
-                    <span>L1–L3 — фазы</span>
-                    <span>N — синий</span>
-                  </>
-                )}
-              </div>
-            </motion.div>
-          )}
+            )}
+          </div>
+
+          <div className="mb-5 rounded-[18px] border border-black/8 bg-zinc-50 px-4 py-4">
+            <p className="mb-3 text-center ty-badge text-zinc-500">
+              Вводной кабель
+            </p>
+            <div className="flex justify-center">
+              <SupplyCableIcon
+                phases={phases}
+                hasGround={hasGround}
+                coreScale={coreScale}
+                className="scale-125"
+              />
+            </div>
+            <div className="mt-3 flex flex-wrap justify-center gap-x-3 gap-y-1 ty-meta">
+              {hasGround === true && <span>PE — жёлто-зелёный</span>}
+              {phases === "1" && (
+                <>
+                  <span>L — коричневый</span>
+                  <span>N — синий</span>
+                </>
+              )}
+              {phases === "3" && (
+                <>
+                  <span>L1–L3 — фазы</span>
+                  <span>N — синий</span>
+                </>
+              )}
+            </div>
+          </div>
 
           <div className="flex gap-3">
             <Button className="flex-1" variant="secondary" onClick={onCancel}>

@@ -285,7 +285,7 @@ export function AppliancePassportCard({
           <button
             type="button"
             onClick={() => setHintOpen(true)}
-            className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-zinc-100 text-zinc-400 transition-colors hover:bg-zinc-200 hover:text-zinc-600"
+            className="inline-flex h-6 w-6 items-center justify-center text-zinc-400 transition-colors hover:text-zinc-600"
             aria-label="Зачем добавлять паспорт техники"
           >
             <HelpCircle className="h-4 w-4" />

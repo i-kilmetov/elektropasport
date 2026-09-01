@@ -225,7 +225,7 @@ export function ApplianceDetailScreen({
                   <button
                     type="button"
                     onClick={() => setDetailsHintOpen(true)}
-                    className="ml-1.5 inline-flex h-6 w-6 translate-y-0.5 items-center justify-center rounded-full bg-zinc-100 text-zinc-400 transition-colors hover:bg-zinc-200 hover:text-zinc-600"
+                    className="ml-1.5 inline-flex h-6 w-6 translate-y-0.5 items-center justify-center text-zinc-400 transition-colors hover:text-zinc-600"
                     aria-label="Зачем указывать производителя и модель"
                   >
                     <HelpCircle className="h-4 w-4" />
