@@ -281,10 +281,9 @@ export function ApplianceBrandModelPicker({
         powerW: details?.powerW ?? null,
         specs: details?.specs ?? [],
       });
-      const manuals = buildApplianceManualsSnapshot(
-        { manuals: details?.manuals ?? [] },
-        `${selectedModel.brand} ${selectedModel.productCode}`,
-      );
+      const manuals = buildApplianceManualsSnapshot({
+        manuals: details?.manuals ?? [],
+      });
       onSave({
         ...appliance,
         kind: catalogKind,
@@ -318,10 +317,7 @@ export function ApplianceBrandModelPicker({
         : appliance.specs,
       manuals:
         details?.matched && (details.manuals?.length ?? 0) > 0
-          ? buildApplianceManualsSnapshot(
-              { manuals: details.manuals },
-              `${resolvedBrand} ${resolvedModel}`,
-            )
+          ? buildApplianceManualsSnapshot({ manuals: details.manuals })
           : appliance.manuals,
     });
   };

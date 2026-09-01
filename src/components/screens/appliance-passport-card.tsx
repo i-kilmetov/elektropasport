@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Camera, ImagePlus, Plus, Trash2, X } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import { Camera, ChevronRight, FileText, ImagePlus, Trash2, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
+import { Portal } from "@/components/ui/portal";
 import { MAX_APPLIANCE_PASSPORT_PHOTOS } from "@/lib/appliance-passport";
 import {
   deleteAppliancePassportPhotoClient,
@@ -17,6 +20,10 @@ import type { HomeAppliance, PanelObject } from "@/types";
 
 const GALLERY_ACCEPT =
   "image/jpeg,image/png,image/heic,image/heif,image/webp,.jpg,.jpeg,.png,.heic,.webp";
+
+function defaultPassportPhotoTitle(index: number): string {
+  return `Фото паспорта ${index + 1}`;
+}
 
 function pickImageFile(options: {
   accept: string;
@@ -70,10 +77,15 @@ export function AppliancePassportCard({
   onReplace: (next: HomeAppliance) => void;
 }) {
   const [ids, setIds] = useState<string[]>(appliance.passportPhotoIds ?? []);
+  const [titles, setTitles] = useState<Record<string, string>>(
+    appliance.passportPhotoTitles ?? {},
+  );
   const [urls, setUrls] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [viewerId, setViewerId] = useState<string | null>(null);
+  const [titlePromptId, setTitlePromptId] = useState<string | null>(null);
+  const [titleDraft, setTitleDraft] = useState("");
   const urlsRef = useRef(urls);
   const mutatedRef = useRef(false);
   urlsRef.current = urls;
@@ -81,7 +93,8 @@ export function AppliancePassportCard({
   useEffect(() => {
     mutatedRef.current = false;
     setIds(appliance.passportPhotoIds ?? []);
-  }, [appliance.id]);
+    setTitles(appliance.passportPhotoTitles ?? {});
+  }, [appliance.id, appliance.passportPhotoIds, appliance.passportPhotoTitles]);
 
   useEffect(() => {
     let cancelled = false;
@@ -100,7 +113,6 @@ export function AppliancePassportCard({
 
   useEffect(() => {
     let cancelled = false;
-    const created: string[] = [];
     void (async () => {
       for (const id of ids) {
         if (cancelled || urlsRef.current[id]) continue;
@@ -108,7 +120,6 @@ export function AppliancePassportCard({
           const blob = await fetchAppliancePassportPhotoBlob(id);
           if (cancelled) return;
           const url = URL.createObjectURL(blob);
-          created.push(url);
           setUrls((prev) => ({ ...prev, [id]: url }));
         } catch {
           /* thumbnail stays empty until retry */
@@ -128,10 +139,41 @@ export function AppliancePassportCard({
     };
   }, []);
 
-  const commitIds = (nextIds: string[]) => {
+  const commitAppliance = (
+    nextIds: string[],
+    nextTitles: Record<string, string>,
+  ) => {
     mutatedRef.current = true;
     setIds(nextIds);
-    onReplace({ ...appliance, passportPhotoIds: nextIds });
+    setTitles(nextTitles);
+    onReplace({
+      ...appliance,
+      passportPhotoIds: nextIds,
+      passportPhotoTitles: nextTitles,
+    });
+  };
+
+  const saveTitle = (photoId: string, title: string) => {
+    const trimmed = title.trim();
+    const nextTitles = { ...titles };
+    if (trimmed) {
+      nextTitles[photoId] = trimmed;
+    } else {
+      delete nextTitles[photoId];
+    }
+    commitAppliance(ids, nextTitles);
+  };
+
+  const openTitlePrompt = (photoId: string, index: number) => {
+    setTitleDraft(titles[photoId] ?? defaultPassportPhotoTitle(index));
+    setTitlePromptId(photoId);
+  };
+
+  const confirmTitlePrompt = () => {
+    if (!titlePromptId) return;
+    saveTitle(titlePromptId, titleDraft);
+    setTitlePromptId(null);
+    setTitleDraft("");
   };
 
   const addFile = async (file: File | null) => {
@@ -153,7 +195,9 @@ export function AppliancePassportCard({
       hapticImpact("light");
       const url = URL.createObjectURL(jpeg);
       setUrls((prev) => ({ ...prev, [photo.id]: url }));
-      commitIds([...ids, photo.id].slice(0, MAX_APPLIANCE_PASSPORT_PHOTOS));
+      const nextIds = [...ids, photo.id].slice(0, MAX_APPLIANCE_PASSPORT_PHOTOS);
+      commitAppliance(nextIds, titles);
+      openTitlePrompt(photo.id, nextIds.indexOf(photo.id));
     } catch (caught) {
       hapticNotification("error");
       setError(
@@ -178,7 +222,16 @@ export function AppliancePassportCard({
         return next;
       });
       if (viewerId === id) setViewerId(null);
-      commitIds(ids.filter((item) => item !== id));
+      if (titlePromptId === id) {
+        setTitlePromptId(null);
+        setTitleDraft("");
+      }
+      const nextTitles = { ...titles };
+      delete nextTitles[id];
+      commitAppliance(
+        ids.filter((item) => item !== id),
+        nextTitles,
+      );
     } catch (caught) {
       hapticNotification("error");
       setError(formatErrorMessage(caught, "Не удалось удалить фото"));
@@ -186,6 +239,9 @@ export function AppliancePassportCard({
       setBusy(false);
     }
   };
+
+  const photoTitle = (id: string, index: number) =>
+    titles[id]?.trim() || defaultPassportPhotoTitle(index);
 
   const canAdd = ids.length < MAX_APPLIANCE_PASSPORT_PHOTOS && !busy;
 
@@ -202,54 +258,58 @@ export function AppliancePassportCard({
         </p>
 
         {ids.length > 0 ? (
-          <div className="mb-3 grid grid-cols-3 gap-2">
+          <div className="mb-3 divide-y divide-black/[0.06] rounded-[16px] border border-black/8 bg-white">
             {ids.map((id, index) => (
               <div
                 key={id}
-                className="relative aspect-[3/4] overflow-hidden rounded-[16px] border border-black/8 bg-zinc-100"
+                className="flex items-center gap-2 px-3 py-2.5 first:rounded-t-[16px] last:rounded-b-[16px]"
               >
-                {urls[id] ? (
-                  <button
-                    type="button"
-                    className="h-full w-full"
-                    onClick={() => setViewerId(id)}
-                    aria-label={`Открыть фото паспорта ${index + 1}`}
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={urls[id]}
-                      alt={`Паспорт ${index + 1}`}
-                      className="h-full w-full object-cover"
-                    />
-                  </button>
-                ) : (
-                  <div className="h-full w-full animate-pulse bg-zinc-200" />
-                )}
                 <button
                   type="button"
-                  aria-label="Удалить фото"
+                  className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                  onClick={() => setViewerId(id)}
+                  aria-label={`Открыть ${photoTitle(id, index)}`}
+                >
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-[12px] bg-zinc-100 text-zinc-600">
+                    {urls[id] ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={urls[id]}
+                        alt=""
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <FileText className="h-5 w-5" />
+                    )}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate ty-heading">
+                      {photoTitle(id, index)}
+                    </span>
+                    <span className="block ty-note">Открыть</span>
+                  </span>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-zinc-400" />
+                </button>
+                <button
+                  type="button"
+                  aria-label="Переименовать"
+                  disabled={busy}
+                  onClick={() => openTitlePrompt(id, index)}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-zinc-500 hover:bg-zinc-100 disabled:opacity-40"
+                >
+                  <span className="text-[13px] font-semibold">Aa</span>
+                </button>
+                <button
+                  type="button"
+                  aria-label="Удалить"
                   disabled={busy}
                   onClick={() => void removePhoto(id)}
-                  className="absolute right-1.5 top-1.5 flex h-8 w-8 items-center justify-center rounded-full bg-black/65 text-white disabled:opacity-40"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-rose-600 hover:bg-rose-50 disabled:opacity-40"
                 >
-                  <Trash2 className="h-3.5 w-3.5" />
+                  <Trash2 className="h-4 w-4" />
                 </button>
               </div>
             ))}
-            {canAdd ? (
-              <button
-                type="button"
-                onClick={() =>
-                  void pickImageFile({ accept: GALLERY_ACCEPT, capture: true }).then(
-                    addFile,
-                  )
-                }
-                className="flex aspect-[3/4] flex-col items-center justify-center gap-1 rounded-[16px] border border-dashed border-black/15 bg-zinc-50 text-zinc-500"
-              >
-                <Plus className="h-5 w-5" />
-                <span className="ty-meta">Ещё</span>
-              </button>
-            ) : null}
           </div>
         ) : null}
 
@@ -307,12 +367,78 @@ export function AppliancePassportCard({
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={urls[viewerId]}
-            alt="Паспорт техники"
+            alt={photoTitle(viewerId, ids.indexOf(viewerId))}
             className="max-h-full max-w-full rounded-[16px] object-contain"
             onClick={(event) => event.stopPropagation()}
           />
         </div>
       ) : null}
+
+      <AnimatePresence>
+        {titlePromptId ? (
+          <Portal>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[100] flex items-end justify-center bg-black/30 backdrop-blur-sm sm:items-center sm:p-6"
+              onClick={() => {
+                setTitlePromptId(null);
+                setTitleDraft("");
+              }}
+            >
+              <motion.div
+                initial={{ y: 40, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: 40, opacity: 0 }}
+                transition={{ type: "spring", stiffness: 320, damping: 30 }}
+                onClick={(event) => event.stopPropagation()}
+                className="w-full max-w-[430px] rounded-t-[28px] border border-black/[0.06] bg-white p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-[0_20px_60px_rgba(17,17,19,0.15)] sm:rounded-[28px]"
+              >
+                <h3 className="mb-2 ty-title">Название файла</h3>
+                <p className="mb-4 ty-body text-zinc-600">
+                  Как назвать этот снимок паспорта? Например: «Разворот с печатью»
+                  или «Гарантийный талон».
+                </p>
+                <label className="mb-4 block">
+                  <span className="mb-1.5 block ty-label text-zinc-500">
+                    Название
+                  </span>
+                  <input
+                    type="text"
+                    value={titleDraft}
+                    onChange={(event) => setTitleDraft(event.target.value)}
+                    placeholder="Например, Разворот с печатью"
+                    className="h-12 w-full rounded-[16px] border border-black/8 bg-zinc-50 px-3 text-[15px] text-zinc-900 outline-none"
+                    autoFocus
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        confirmTitlePrompt();
+                      }
+                    }}
+                  />
+                </label>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => {
+                      setTitlePromptId(null);
+                      setTitleDraft("");
+                    }}
+                  >
+                    Пропустить
+                  </Button>
+                  <Button className="flex-1" onClick={confirmTitlePrompt}>
+                    Сохранить
+                  </Button>
+                </div>
+              </motion.div>
+            </motion.div>
+          </Portal>
+        ) : null}
+      </AnimatePresence>
     </>
   );
 }

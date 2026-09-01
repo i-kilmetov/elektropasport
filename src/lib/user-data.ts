@@ -398,6 +398,10 @@ export function mergeAppliancesUnion(
                 ...(item.passportPhotoIds ?? []),
               ]),
             ],
+            passportPhotoTitles: {
+              ...(prev.passportPhotoTitles ?? {}),
+              ...(item.passportPhotoTitles ?? {}),
+            },
           }
         : item,
     );

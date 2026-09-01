@@ -424,10 +424,9 @@ export function AddApplianceSheet({
         powerW: details?.powerW ?? null,
         specs: details?.specs ?? [],
       });
-      const manuals = buildApplianceManualsSnapshot(
-        { manuals: details?.manuals ?? [] },
-        `${selectedModel.brand} ${selectedModel.productCode}`,
-      );
+      const manuals = buildApplianceManualsSnapshot({
+        manuals: details?.manuals ?? [],
+      });
 
       const appliance: HomeAppliance = {
         id: initialAppliance?.id ?? createApplianceId(),
@@ -456,10 +455,7 @@ export function AddApplianceSheet({
       : undefined;
     const manuals =
       details?.matched && details.manuals.length > 0
-        ? buildApplianceManualsSnapshot(
-            { manuals: details.manuals },
-            `${resolvedBrand} ${resolvedModel}`,
-          )
+        ? buildApplianceManualsSnapshot({ manuals: details.manuals })
         : undefined;
     const appliance: HomeAppliance = {
       id: initialAppliance?.id ?? createApplianceId(),

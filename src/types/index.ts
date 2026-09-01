@@ -157,6 +157,8 @@ export interface HomeAppliance {
   photoDataUrl?: string;
   /** BYTEA rows in appliance_passport_photos (Amvera). Not image payloads. */
   passportPhotoIds?: string[];
+  /** User labels for passport photos/files, keyed by photo id */
+  passportPhotoTitles?: Record<string, string>;
   /** Spec rows (power, capacity, …) — snapshot from catalog at save time */
   specs?: ApplianceSpec[];
   manuals?: ApplianceManual[];

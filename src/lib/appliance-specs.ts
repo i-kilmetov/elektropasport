@@ -33,16 +33,8 @@ export function buildApplianceSpecsSnapshot(
 
 export function buildApplianceManualsSnapshot(
   details: Pick<LoadedProductDetails, "manuals">,
-  fallbackSearch: string,
 ): ApplianceManual[] {
-  const manuals: ApplianceManual[] = [...(details.manuals ?? [])];
-  if (manuals.length === 0) {
-    manuals.push({
-      title: "Карточка товара",
-      url: `https://icecat.biz/search?query=${encodeURIComponent(fallbackSearch)}`,
-    });
-  }
-  return manuals;
+  return [...(details.manuals ?? [])];
 }
 
 export function icecatStatusMessage(

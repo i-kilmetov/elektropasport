@@ -4,7 +4,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowLeft,
-  BookOpen,
   ExternalLink,
   FileText,
   HelpCircle,
@@ -16,20 +15,32 @@ import { AddApplianceSheet } from "@/components/screens/add-appliance-sheet";
 import { AppliancePassportCard } from "@/components/screens/appliance-passport-card";
 import { ApplianceBrandModelPicker } from "@/components/ui/appliance-brand-model-picker";
 import { ApplianceBrandAvatar } from "@/components/ui/appliance-brand-avatar";
+import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
 import { InfoDialog } from "@/components/ui/info-dialog";
+import { Portal } from "@/components/ui/portal";
 import { UndoSnackbarHost } from "@/components/ui/undo-snackbar";
+import { displayApplianceManuals } from "@/lib/appliance-manuals";
 import { applianceNeedsDetails } from "@/lib/appliance-line-sync";
+import {
+  buildApplianceSpecsSnapshot,
+  isDerivedPowerSpecLabel,
+} from "@/lib/appliance-specs";
 import {
   applianceDisplayKindLabel,
   findCatalogModel,
   formatAppliancePower,
 } from "@/lib/home-appliances";
-import type { HomeAppliance, PanelObject } from "@/types";
+import type { ApplianceSpec, HomeAppliance, PanelObject } from "@/types";
 
 function openExternalDoc(url: string) {
   window.open(url, "_blank", "noopener,noreferrer");
 }
+
+type SpecRow =
+  | { kind: "spec"; label: string; value: string }
+  | { kind: "power-missing" }
+  | { kind: "power-known"; value: string };
 
 export function ApplianceDetailScreen({
   appliance,
@@ -49,10 +60,10 @@ export function ApplianceDetailScreen({
   const [editOpen, setEditOpen] = useState(false);
   const [pendingDelete, setPendingDelete] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [missingDoc, setMissingDoc] = useState<"instruction" | "manual" | null>(
-    null,
-  );
   const [detailsHintOpen, setDetailsHintOpen] = useState(false);
+  const [powerEditOpen, setPowerEditOpen] = useState(false);
+  const [powerDraft, setPowerDraft] = useState("");
+  const [powerError, setPowerError] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const kindLabel = applianceDisplayKindLabel(appliance);
   const needsDetails = applianceNeedsDetails(appliance);
@@ -65,41 +76,35 @@ export function ApplianceDetailScreen({
     [appliance.catalogId],
   );
 
-  const specs = useMemo(() => {
-    if (appliance.specs?.length) return appliance.specs;
-    if (catalog?.specs?.length) return catalog.specs;
-    if (appliance.powerW != null && appliance.powerW > 0) {
-      return [
-        {
-          label: "Максимальная мощность",
-          value: formatAppliancePower(appliance.powerW),
-        },
-      ];
-    }
-    return [];
-  }, [appliance.powerW, appliance.specs, catalog?.specs]);
+  const hasPower =
+    appliance.powerW != null &&
+    Number.isFinite(appliance.powerW) &&
+    appliance.powerW > 0;
 
-  const instructionUrl =
-    appliance.manuals?.find((item) =>
-      item.title.toLowerCase().includes("инструк"),
-    )?.url || catalog?.instructionUrl;
-  const manualUrl =
-    appliance.manuals?.find((item) =>
-      item.title.toLowerCase().includes("руковод"),
-    )?.url ||
-    catalog?.manualUrl ||
-    appliance.manuals?.[1]?.url ||
-    appliance.manuals?.[0]?.url;
-  const extraDocs = useMemo(
-    () =>
-      (appliance.manuals ?? []).filter((item) => {
-        const t = item.title.toLowerCase();
-        return (
-          !t.includes("инструк") &&
-          !t.includes("руковод") &&
-          Boolean(item.url?.trim())
-        );
-      }),
+  const specRows = useMemo((): SpecRow[] => {
+    const baseSpecs: ApplianceSpec[] = appliance.specs?.length
+      ? appliance.specs
+      : (catalog?.specs ?? []);
+    const withoutPower = baseSpecs.filter(
+      (spec) => !isDerivedPowerSpecLabel(spec.label),
+    );
+    const rows: SpecRow[] = [];
+    if (hasPower) {
+      rows.push({
+        kind: "power-known",
+        value: formatAppliancePower(appliance.powerW),
+      });
+    } else {
+      rows.push({ kind: "power-missing" });
+    }
+    for (const spec of withoutPower) {
+      rows.push({ kind: "spec", label: spec.label, value: spec.value });
+    }
+    return rows;
+  }, [appliance.powerW, appliance.specs, catalog?.specs, hasPower]);
+
+  const documents = useMemo(
+    () => displayApplianceManuals(appliance.manuals),
     [appliance.manuals],
   );
 
@@ -113,6 +118,28 @@ export function ApplianceDetailScreen({
     document.addEventListener("pointerdown", onPointerDown);
     return () => document.removeEventListener("pointerdown", onPointerDown);
   }, [menuOpen]);
+
+  const savePower = () => {
+    const n = Number(powerDraft.replace(",", ".").trim());
+    if (!Number.isFinite(n) || n <= 0 || n > 50000) {
+      setPowerError("Укажите мощность в ваттах, например 2000");
+      return;
+    }
+    const watts = Math.round(n);
+    const withoutPower = (appliance.specs ?? []).filter(
+      (spec) => !isDerivedPowerSpecLabel(spec.label),
+    );
+    onReplace({
+      ...appliance,
+      powerW: watts,
+      specs: buildApplianceSpecsSnapshot({
+        powerW: watts,
+        specs: withoutPower,
+      }),
+    });
+    setPowerEditOpen(false);
+    setPowerError(null);
+  };
 
   return (
     <motion.section
@@ -233,112 +260,101 @@ export function ApplianceDetailScreen({
                 onSave={onReplace}
               />
             </GlassCard>
-          ) : (
-            <>
+          ) : null}
+
           <GlassCard className="p-4">
             <h3 className="mb-3 ty-label uppercase tracking-wide text-zinc-400">
               Характеристики
             </h3>
-            {specs.length > 0 ? (
-              <div className="divide-y divide-black/[0.06]">
-                {specs.map((spec) => (
+            <div className="divide-y divide-black/[0.06]">
+              {specRows.map((row, index) => {
+                if (row.kind === "power-known") {
+                  return (
+                    <div
+                      key="power-known"
+                      className="flex items-start justify-between gap-3 py-2.5 first:pt-0 last:pb-0"
+                    >
+                      <div className="min-w-0 ty-body">Максимальная мощность</div>
+                      <div className="max-w-[55%] shrink-0 text-right ty-heading">
+                        {row.value}
+                      </div>
+                    </div>
+                  );
+                }
+                if (row.kind === "power-missing") {
+                  return (
+                    <div
+                      key="power-missing"
+                      className="flex items-start justify-between gap-3 py-2.5 first:pt-0 last:pb-0"
+                    >
+                      <div className="min-w-0 ty-body">Максимальная мощность</div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPowerDraft("");
+                          setPowerError(null);
+                          setPowerEditOpen(true);
+                        }}
+                        className="inline-flex h-8 min-w-[2rem] items-center justify-center rounded-full bg-zinc-100 px-2.5 text-[15px] font-semibold text-zinc-500 transition-colors hover:bg-zinc-200 hover:text-zinc-800"
+                        aria-label="Указать мощность"
+                      >
+                        ?
+                      </button>
+                    </div>
+                  );
+                }
+                return (
                   <div
-                    key={`${spec.label}-${spec.value}`}
+                    key={`${row.label}-${row.value}-${index}`}
                     className="flex items-start justify-between gap-3 py-2.5 first:pt-0 last:pb-0"
                   >
-                    <div className="min-w-0 ty-body">
-                      {spec.label}
-                    </div>
+                    <div className="min-w-0 ty-body">{row.label}</div>
                     <div className="max-w-[55%] shrink-0 text-right ty-heading">
-                      {spec.value}
+                      {row.value}
                     </div>
                   </div>
-                ))}
-              </div>
-            ) : (
-              <p className="ty-body text-zinc-500">
-                Характеристики не найдены. Укажите модель из каталога или
-                проверьте, что на сервере настроен ICECAT_USERNAME.
+                );
+              })}
+            </div>
+            {specRows.length === 1 && specRows[0]?.kind === "power-missing" ? (
+              <p className="mt-3 ty-note text-zinc-500">
+                Остальные характеристики не найдены. Укажите мощность, если
+                знаете её — это поможет при расчёте нагрузки.
               </p>
-            )}
+            ) : null}
           </GlassCard>
+
+          {documents.length > 0 ? (
+            <div className="space-y-2">
+              <h3 className="ty-label uppercase tracking-wide text-zinc-400">
+                Документы
+              </h3>
+              {documents.map((doc) => (
+                <button
+                  key={`${doc.title}-${doc.url}`}
+                  type="button"
+                  onClick={() => openExternalDoc(doc.url)}
+                  className="flex w-full items-center gap-3 rounded-[16px] border border-black/8 bg-white px-4 py-3 text-left transition-colors hover:bg-zinc-50"
+                >
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-zinc-100 text-zinc-600">
+                    <FileText className="h-5 w-5" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block ty-heading">{doc.title}</span>
+                    <span className="block ty-note">Открыть PDF</span>
+                  </span>
+                  <ExternalLink className="h-4 w-4 shrink-0 text-zinc-400" />
+                </button>
+              ))}
+            </div>
+          ) : null}
 
           <AppliancePassportCard
             panel={panel}
             appliance={appliance}
             onReplace={onReplace}
           />
-            </>
-          )}
         </div>
-
-        <div className="mt-auto grid grid-cols-2 gap-3 pt-6">
-          <button
-            type="button"
-            onClick={() => {
-              if (instructionUrl) openExternalDoc(instructionUrl);
-              else setMissingDoc("instruction");
-            }}
-            className="rounded-[20px] border border-black/8 bg-white p-4 text-left transition-colors hover:bg-zinc-50"
-          >
-            <span className="mb-3 flex h-10 w-10 items-center justify-center rounded-[12px] bg-zinc-100 text-zinc-600">
-              <FileText className="h-5 w-5" />
-            </span>
-            <span className="flex items-start justify-between gap-2">
-              <span className="block ty-heading">
-                Инструкция
-              </span>
-              <ExternalLink className="mt-0.5 h-3.5 w-3.5 shrink-0 text-zinc-400" />
-            </span>
-            <span className="mt-0.5 block ty-note">
-              Открыть PDF на сайте
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              if (manualUrl) openExternalDoc(manualUrl);
-              else setMissingDoc("manual");
-            }}
-            className="rounded-[20px] border border-black/8 bg-white p-4 text-left transition-colors hover:bg-zinc-50"
-          >
-            <span className="mb-3 flex h-10 w-10 items-center justify-center rounded-[12px] bg-zinc-100 text-zinc-600">
-              <BookOpen className="h-5 w-5" />
-            </span>
-            <span className="flex items-start justify-between gap-2">
-              <span className="block ty-heading leading-snug text-zinc-900">
-                Руководство по эксплуатации
-              </span>
-              <ExternalLink className="mt-0.5 h-3.5 w-3.5 shrink-0 text-zinc-400" />
-            </span>
-            <span className="mt-0.5 block ty-note">
-              Открыть PDF на сайте
-            </span>
-          </button>
-        </div>
-
-        {extraDocs.length > 0 && (
-          <div className="mt-3 space-y-2">
-            {extraDocs.map((doc) => (
-              <button
-                key={`${doc.title}-${doc.url}`}
-                type="button"
-                onClick={() => openExternalDoc(doc.url)}
-                className="flex w-full items-center justify-between gap-3 rounded-[16px] border border-black/8 bg-white px-4 py-3 text-left transition-colors hover:bg-zinc-50"
-              >
-                <span className="min-w-0">
-                  <span className="block ty-heading">
-                    {doc.title}
-                  </span>
-                  <span className="block ty-note">
-                    Открыть на сайте ЕС
-                  </span>
-                </span>
-                <ExternalLink className="h-4 w-4 shrink-0 text-zinc-400" />
-              </button>
-            ))}
-          </div>
-        )}
       </div>
 
       <AnimatePresence>
@@ -383,16 +399,65 @@ export function ApplianceDetailScreen({
       </AnimatePresence>
 
       <AnimatePresence>
-        {missingDoc && (
-          <InfoDialog
-            title={
-              missingDoc === "instruction"
-                ? "Инструкция"
-                : "Руководство по эксплуатации"
-            }
-            description="Документ для этой модели пока не найден. Попробуйте позже или откройте сайт производителя по названию модели."
-            onClose={() => setMissingDoc(null)}
-          />
+        {powerEditOpen && (
+          <Portal>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[100] flex items-end justify-center bg-black/30 backdrop-blur-sm sm:items-center sm:p-6"
+              onClick={() => setPowerEditOpen(false)}
+            >
+              <motion.div
+                initial={{ y: 40, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: 40, opacity: 0 }}
+                transition={{ type: "spring", stiffness: 320, damping: 30 }}
+                onClick={(e) => e.stopPropagation()}
+                className="w-full max-w-[430px] rounded-t-[28px] border border-black/[0.06] bg-white p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-[0_20px_60px_rgba(17,17,19,0.15)] sm:rounded-[28px]"
+              >
+                <h3 className="mb-2 ty-title">Максимальная мощность</h3>
+                <p className="mb-4 ty-body text-zinc-600">
+                  Укажите номинальную мощность в ваттах — её можно найти на
+                  шильдике или в документации.
+                </p>
+                <label className="mb-2 block">
+                  <span className="mb-1.5 block ty-label text-zinc-500">
+                    Мощность, Вт
+                  </span>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    max={50000}
+                    value={powerDraft}
+                    onChange={(e) => {
+                      setPowerDraft(e.target.value);
+                      setPowerError(null);
+                    }}
+                    placeholder="Например, 2000"
+                    className="h-12 w-full rounded-[16px] border border-black/8 bg-zinc-50 px-3 text-[15px] text-zinc-900 outline-none"
+                    autoFocus
+                  />
+                </label>
+                {powerError ? (
+                  <p className="mb-3 ty-note text-rose-600">{powerError}</p>
+                ) : null}
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => setPowerEditOpen(false)}
+                  >
+                    Отмена
+                  </Button>
+                  <Button className="flex-1" onClick={savePower}>
+                    Сохранить
+                  </Button>
+                </div>
+              </motion.div>
+            </motion.div>
+          </Portal>
         )}
       </AnimatePresence>
     </motion.section>
