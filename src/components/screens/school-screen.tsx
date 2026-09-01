@@ -66,6 +66,20 @@ type View =
   | { kind: "exam"; gradeId: GradeId }
   | { kind: "pay"; gradeId: GradeId };
 
+function localSchoolPreviewUnlock(): GradeId[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const host = window.location.hostname;
+    if (host !== "localhost" && host !== "127.0.0.1") return [];
+    if (new URLSearchParams(window.location.search).get("open") !== "school") {
+      return [];
+    }
+    return [1];
+  } catch {
+    return [];
+  }
+}
+
 export function SchoolScreen({ onBack }: { onBack: () => void }) {
   const [progress, setProgress] = useState<SchoolProgress>(() =>
     readSchoolProgress(),
@@ -75,6 +89,11 @@ export function SchoolScreen({ onBack }: { onBack: () => void }) {
   const [paid, setPaid] = useState<GradeId[]>([]);
 
   useEffect(() => {
+    const previewPaid = localSchoolPreviewUnlock();
+    if (previewPaid.length > 0) {
+      setPaid(previewPaid);
+      return;
+    }
     if (!canUseServerAuth()) {
       setPaid([]);
       return;

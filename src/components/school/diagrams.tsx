@@ -68,47 +68,6 @@ function Label({
   );
 }
 
-function WaterAnalogy() {
-  return (
-    <Frame>
-      <rect x="28" y="36" width="52" height="70" rx="8" fill="#E4E4E7" />
-      <rect x="36" y="28" width="36" height="14" rx="4" fill="#A1A1AA" />
-      <Label x="54" y="122" fill={INK}>
-        Насос
-      </Label>
-      <Label x="54" y="136">U, вольты</Label>
-      <path
-        d="M80 58 H128 C140 58 140 88 160 88 H292"
-        fill="none"
-        stroke={NEUTRAL}
-        strokeWidth="10"
-        strokeLinecap="round"
-      />
-      <path
-        d="M80 58 H128 C140 58 140 88 160 88 H250"
-        fill="none"
-        stroke="#93C5FD"
-        strokeWidth="5"
-        strokeLinecap="round"
-      />
-      <circle cx="118" cy="58" r="4" fill="white" />
-      <circle cx="170" cy="88" r="4" fill="white" />
-      <circle cx="230" cy="88" r="4" fill="white" />
-      <rect x="188" y="74" width="44" height="28" rx="6" fill="#FEF08A" stroke={LIME} />
-      <Label x="210" y="92" fill={INK} size={9}>
-        кран
-      </Label>
-      <Label x="210" y="128" fill={INK}>
-        Ток I
-      </Label>
-      <Label x="210" y="142">амперы</Label>
-      <Label x="88" y="46" size={9} fill={NEUTRAL} anchor="start">
-        труба = провод
-      </Label>
-    </Frame>
-  );
-}
-
 function UnitsTrio() {
   const cells = [
     { x: 24, title: "U", sub: "вольты", note: "давление", color: "#FDBA74" },
@@ -655,8 +614,54 @@ function TestPanel() {
   );
 }
 
+type SketchChip = {
+  title: string;
+  note?: string;
+  x: string;
+  y: string;
+};
+
+const WATER_ANALOGY_CHIPS: SketchChip[] = [
+  { title: "Насос", note: "U, вольты", x: "22%", y: "62%" },
+  { title: "труба = провод", note: "сопротивление", x: "50%", y: "28%" },
+  { title: "Ток I", note: "амперы", x: "78%", y: "58%" },
+];
+
+function SketchChipLabel({ chip }: { chip: SketchChip }) {
+  return (
+    <div
+      className="absolute z-[1] -translate-x-1/2 -translate-y-1/2 rounded-full border border-black/[0.08] bg-white/92 px-3 py-1.5 text-center shadow-[0_1px_4px_rgba(17,17,19,0.08)] backdrop-blur-sm"
+      style={{ left: chip.x, top: chip.y }}
+    >
+      <div className="text-[12px] font-semibold leading-none text-zinc-900">
+        {chip.title}
+      </div>
+      {chip.note ? (
+        <div className="mt-1 text-[11px] leading-none text-zinc-500">{chip.note}</div>
+      ) : null}
+    </div>
+  );
+}
+
+function WaterAnalogySketch() {
+  return (
+    <div className="relative overflow-hidden rounded-[20px] bg-white">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/school/water-analogy.png"
+        alt="Насос, труба и кран: напряжение, сопротивление и ток"
+        className="block h-auto w-full select-none"
+        draggable={false}
+      />
+      {WATER_ANALOGY_CHIPS.map((chip) => (
+        <SketchChipLabel key={chip.title} chip={chip} />
+      ))}
+    </div>
+  );
+}
+
 const DIAGRAMS: Record<DiagramId, () => ReactNode> = {
-  "water-analogy": WaterAnalogy,
+  "water-analogy": WaterAnalogySketch,
   "units-trio": UnitsTrio,
   "power-kettle": PowerKettle,
   "three-wires": ThreeWires,
