@@ -2,8 +2,17 @@
 
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, Loader2, Phone, Sparkles, X } from "lucide-react";
+import {
+  ArrowLeft,
+  Loader2,
+  Phone,
+  Sparkles,
+  Wrench,
+  X,
+  Zap,
+} from "lucide-react";
 import { GeminiSparkle } from "@/components/icons/gemini-sparkle";
+import { ApplianceBrandAvatar } from "@/components/ui/appliance-brand-avatar";
 import { Button } from "@/components/ui/button";
 import { Portal } from "@/components/ui/portal";
 import { authHeaders, canUseServerAuth } from "@/lib/client-auth";
@@ -18,7 +27,7 @@ import {
   type HelpLocation,
   type HelpProblemOption,
 } from "@/lib/help-electrical-flow";
-import { equipmentLabelForAppliance } from "@/lib/appliance-line-sync";
+import { applianceDisplayKindLabel } from "@/lib/home-appliances";
 import { formatRub, MASTER_HOME_VISIT_PRICE_RUB } from "@/lib/lead-services";
 import { hapticNotification } from "@/lib/haptics";
 import { getTelegramUserName } from "@/lib/telegram-user";
@@ -27,10 +36,10 @@ import {
   getUserProfile,
   persistUserProfile,
 } from "@/lib/user-profile";
-import type { PanelObject } from "@/types";
+import { cn } from "@/lib/utils";
+import type { HomeAppliance, PanelObject } from "@/types";
 
 type WizardStep =
-  | "panel"
   | "location"
   | "category"
   | "appliance"
@@ -39,10 +48,16 @@ type WizardStep =
   | "ai"
   | "master_confirm";
 
+function panelHelpAddress(panel: PanelObject): string {
+  return (
+    panel.houseSnapshot?.address?.trim() ||
+    panel.address?.trim() ||
+    "Адрес не указан"
+  );
+}
+
 function stepTitle(step: WizardStep): string {
   switch (step) {
-    case "panel":
-      return "Какой щиток?";
     case "location":
       return "Где нужна помощь?";
     case "category":
@@ -60,7 +75,7 @@ function stepTitle(step: WizardStep): string {
   }
 }
 
-function OptionList({
+function DividedOptionList({
   options,
   onPick,
 }: {
@@ -68,20 +83,112 @@ function OptionList({
   onPick: (id: string) => void;
 }) {
   return (
-    <div className="space-y-2">
-      {options.map((option) => (
+    <div className="overflow-hidden rounded-[20px] border border-black/[0.06] bg-white">
+      {options.map((option, index) => (
         <button
           key={option.id}
           type="button"
           onClick={() => onPick(option.id)}
-          className="w-full rounded-[18px] border border-black/8 bg-white px-4 py-3 text-left transition-colors hover:bg-zinc-50"
+          className={cn(
+            "w-full px-4 py-3.5 text-left transition-colors hover:bg-zinc-50",
+            index > 0 && "border-t border-black/[0.06]",
+          )}
         >
           <p className="ty-body text-zinc-900">{option.label}</p>
           {option.hint ? (
-            <p className="mt-0.5 ty-note text-zinc-500">{option.hint}</p>
+            <p className="mt-0.5 truncate ty-note text-zinc-500">{option.hint}</p>
           ) : null}
         </button>
       ))}
+    </div>
+  );
+}
+
+function CategoryChoiceCards({
+  applianceCount,
+  onPick,
+}: {
+  applianceCount: number;
+  onPick: (category: HelpCategory) => void;
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      <button
+        type="button"
+        onClick={() => onPick("electrical")}
+        className="flex flex-col items-center gap-3 rounded-[20px] border border-black/[0.06] bg-white p-4 text-center transition-colors hover:bg-zinc-50"
+      >
+        <div className="flex h-12 w-12 items-center justify-center rounded-[16px] bg-zinc-100 text-zinc-700">
+          <Zap className="h-6 w-6" />
+        </div>
+        <div className="min-w-0">
+          <p className="ty-label font-medium text-zinc-900">Помощь по электрике</p>
+          <p className="mt-1 ty-meta text-zinc-500">Свет, розетки, автоматы</p>
+        </div>
+      </button>
+      <button
+        type="button"
+        onClick={() => onPick("appliance_repair")}
+        className="flex flex-col items-center gap-3 rounded-[20px] border border-black/[0.06] bg-white p-4 text-center transition-colors hover:bg-zinc-50"
+      >
+        <div className="flex h-12 w-12 items-center justify-center rounded-[16px] bg-zinc-100 text-zinc-700">
+          <Wrench className="h-6 w-6" />
+        </div>
+        <div className="min-w-0">
+          <p className="ty-label font-medium text-zinc-900">Ремонт техники</p>
+          <p className="mt-1 ty-meta text-zinc-500">
+            {applianceCount > 0
+              ? `${applianceCount} в карточке щитка`
+              : "Бытовая техника"}
+          </p>
+        </div>
+      </button>
+    </div>
+  );
+}
+
+function WizardApplianceList({
+  appliances,
+  onPick,
+}: {
+  appliances: HomeAppliance[];
+  onPick: (applianceId: string) => void;
+}) {
+  return (
+    <div className="overflow-hidden rounded-[20px] border border-black/[0.06] bg-white">
+      {appliances.map((appliance, index) => {
+        const kindLabel = applianceDisplayKindLabel(appliance);
+        const brand = appliance.brand?.trim();
+        const model = appliance.model?.trim();
+
+        return (
+          <button
+            key={appliance.id}
+            type="button"
+            onClick={() => onPick(appliance.id)}
+            className={cn(
+              "flex w-full items-center gap-2.5 px-4 py-2.5 text-left transition-colors hover:bg-zinc-50",
+              index > 0 && "border-t border-black/[0.06]",
+            )}
+          >
+            <ApplianceBrandAvatar
+              kind={appliance.kind}
+              brandLogoUrl={appliance.brandLogoUrl}
+              brand={brand}
+              size="sm"
+            />
+            <span className="min-w-0 flex-1">
+              <span className="block truncate ty-label">
+                <span className="font-medium text-zinc-500">{kindLabel}</span>
+                {brand ? <> {brand}</> : null}
+              </span>
+              {model ? (
+                <span className="block truncate ty-meta">{model}</span>
+              ) : null}
+            </span>
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -310,12 +417,8 @@ export function HelpElectricalWizardSheet({
     name: string;
   }) => void | Promise<void>;
 }) {
-  const [step, setStep] = useState<WizardStep>(
-    panels.length > 1 ? "panel" : "location",
-  );
-  const [selectedPanelId, setSelectedPanelId] = useState<string | null>(
-    panels.length === 1 ? panels[0]?.id ?? null : null,
-  );
+  const [step, setStep] = useState<WizardStep>("location");
+  const [selectedPanelId, setSelectedPanelId] = useState<string | null>(null);
   const [location, setLocation] = useState<HelpLocation | null>(null);
   const [category, setCategory] = useState<HelpCategory | null>(null);
   const [selectedApplianceId, setSelectedApplianceId] = useState<string | null>(
@@ -342,8 +445,12 @@ export function HelpElectricalWizardSheet({
 
   useEffect(() => {
     if (open && !wasOpenRef.current) {
-      setStep(panels.length > 1 ? "panel" : "location");
-      setSelectedPanelId(panels.length === 1 ? panels[0]?.id ?? null : null);
+      if (panels.length === 0) {
+        onElsewhere();
+        return;
+      }
+      setStep("location");
+      setSelectedPanelId(null);
       setLocation(null);
       setCategory(null);
       setSelectedApplianceId(null);
@@ -353,7 +460,7 @@ export function HelpElectricalWizardSheet({
       setConsultationRequestId(null);
     }
     wasOpenRef.current = open;
-  }, [open, panels.length]);
+  }, [open, panels.length, onElsewhere]);
 
   const handleConsultationReady = useCallback(
     async (context: HelpElectricalContext, aiReply: string) => {
@@ -379,6 +486,32 @@ export function HelpElectricalWizardSheet({
     setStep("ai");
   };
 
+  const handleLocationPick = (value: string) => {
+    if (value === "elsewhere") {
+      onElsewhere();
+      return;
+    }
+    const panel = panels.find((item) => item.id === value);
+    if (!panel) return;
+    setSelectedPanelId(panel.id);
+    setLocation("at_panel");
+    if (panelHasHelpAppliances(panel)) {
+      setStep("category");
+      return;
+    }
+    setCategory("electrical");
+    setStep("problem");
+  };
+
+  const handleCategoryPick = (value: HelpCategory) => {
+    setCategory(value);
+    if (value === "appliance_repair") {
+      setStep("appliance");
+      return;
+    }
+    setStep("problem");
+  };
+
   const handleProblemPick = (problemId: string) => {
     const problems =
       category === "appliance_repair" && selectedAppliance
@@ -396,15 +529,8 @@ export function HelpElectricalWizardSheet({
 
   const handleBack = () => {
     switch (step) {
-      case "panel":
-        onClose();
-        break;
       case "location":
-        if (panels.length > 1) {
-          setStep("panel");
-        } else {
-          onClose();
-        }
+        onClose();
         break;
       case "category":
         setStep("location");
@@ -415,7 +541,7 @@ export function HelpElectricalWizardSheet({
       case "problem":
         if (category === "appliance_repair") {
           setStep("appliance");
-        } else if (panelHasHelpAppliances(selectedPanel!)) {
+        } else if (selectedPanel && panelHasHelpAppliances(selectedPanel)) {
           setStep("category");
         } else {
           setStep("location");
@@ -438,7 +564,28 @@ export function HelpElectricalWizardSheet({
     }
   };
 
-  if (!open) return null;
+  if (!open || panels.length === 0) return null;
+
+  const locationOptions = [
+    ...panels.map((panel) => {
+      const address = panelHelpAddress(panel);
+      return {
+        id: panel.id,
+        label: address,
+        hint: panel.title !== address ? panel.title : undefined,
+      };
+    }),
+    {
+      id: "elsewhere",
+      label: "Другой адрес",
+      hint: "Укажем адрес на следующем шаге",
+    },
+  ];
+
+  const problemOptions =
+    category === "appliance_repair" && selectedAppliance
+      ? getApplianceProblems(selectedAppliance.kind)
+      : PANEL_ELECTRICAL_PROBLEMS;
 
   return (
     <Portal>
@@ -459,7 +606,7 @@ export function HelpElectricalWizardSheet({
         >
           <div className="mb-4 flex items-start justify-between gap-3">
             <div className="flex min-w-0 items-start gap-2">
-              {step !== "panel" || panels.length > 1 ? (
+              {step !== "location" ? (
                 <button
                   type="button"
                   onClick={handleBack}
@@ -484,85 +631,23 @@ export function HelpElectricalWizardSheet({
             </button>
           </div>
 
-          {step === "panel" ? (
-            <OptionList
-              options={panels.map((panel) => ({
-                id: panel.id,
-                label: panel.title,
-                hint: panel.houseSnapshot?.address ?? panel.address,
-              }))}
-              onPick={(panelId) => {
-                setSelectedPanelId(panelId);
-                setStep("location");
-              }}
-            />
-          ) : null}
-
-          {step === "location" && selectedPanel ? (
-            <OptionList
-              options={[
-                {
-                  id: "at_panel",
-                  label: "Там, где этот щиток",
-                  hint:
-                    selectedPanel.houseSnapshot?.address ??
-                    selectedPanel.address ??
-                    "Адрес из карточки щитка",
-                },
-                {
-                  id: "elsewhere",
-                  label: "В другом месте",
-                  hint: "Укажем адрес на следующем шаге",
-                },
-              ]}
-              onPick={(value) => {
-                if (value === "elsewhere") {
-                  onElsewhere();
-                  return;
-                }
-                setLocation("at_panel");
-                if (panelHasHelpAppliances(selectedPanel)) {
-                  setStep("category");
-                  return;
-                }
-                setCategory("electrical");
-                setStep("problem");
-              }}
+          {step === "location" ? (
+            <DividedOptionList
+              options={locationOptions}
+              onPick={handleLocationPick}
             />
           ) : null}
 
           {step === "category" && selectedPanel ? (
-            <OptionList
-              options={[
-                {
-                  id: "electrical",
-                  label: "Помощь по электрике",
-                  hint: "Свет, розетки, автоматы, щиток",
-                },
-                {
-                  id: "appliance_repair",
-                  label: "Помощь с ремонтом техники",
-                  hint: `${selectedPanel.appliances?.length ?? 0} поз. в карточке щитка`,
-                },
-              ]}
-              onPick={(value) => {
-                setCategory(value as HelpCategory);
-                if (value === "appliance_repair") {
-                  setStep("appliance");
-                  return;
-                }
-                setStep("problem");
-              }}
+            <CategoryChoiceCards
+              applianceCount={selectedPanel.appliances?.length ?? 0}
+              onPick={handleCategoryPick}
             />
           ) : null}
 
           {step === "appliance" ? (
-            <OptionList
-              options={appliances.map((appliance) => ({
-                id: appliance.id,
-                label: equipmentLabelForAppliance(appliance),
-                hint: appliance.brand?.trim() || undefined,
-              }))}
+            <WizardApplianceList
+              appliances={appliances}
               onPick={(applianceId) => {
                 setSelectedApplianceId(applianceId);
                 setStep("problem");
@@ -571,12 +656,11 @@ export function HelpElectricalWizardSheet({
           ) : null}
 
           {step === "problem" ? (
-            <OptionList
-              options={
-                category === "appliance_repair" && selectedAppliance
-                  ? getApplianceProblems(selectedAppliance.kind)
-                  : PANEL_ELECTRICAL_PROBLEMS
-              }
+            <DividedOptionList
+              options={problemOptions.map((problem) => ({
+                id: problem.id,
+                label: problem.label,
+              }))}
               onPick={handleProblemPick}
             />
           ) : null}
