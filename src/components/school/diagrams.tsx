@@ -622,15 +622,15 @@ type SketchChip = {
 };
 
 const WATER_ANALOGY_CHIPS: SketchChip[] = [
-  { title: "Насос", note: "U, вольты", x: "22%", y: "62%" },
-  { title: "труба = провод", note: "сопротивление", x: "50%", y: "28%" },
-  { title: "Ток I", note: "амперы", x: "78%", y: "58%" },
+  { title: "Насос = напряжение", note: "U, вольты", x: "22%", y: "64%" },
+  { title: "Труба = сопротивление", note: "R, омы", x: "50%", y: "26%" },
+  { title: "Поток = ток", note: "I, амперы", x: "80%", y: "72%" },
 ];
 
 function SketchChipLabel({ chip }: { chip: SketchChip }) {
   return (
     <div
-      className="absolute z-[1] -translate-x-1/2 -translate-y-1/2 rounded-full border border-black/[0.08] bg-white/92 px-3 py-1.5 text-center shadow-[0_1px_4px_rgba(17,17,19,0.08)] backdrop-blur-sm"
+      className="absolute z-[1] -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-full border border-black/[0.08] bg-white/92 px-3 py-1.5 text-center shadow-[0_1px_4px_rgba(17,17,19,0.08)] backdrop-blur-sm"
       style={{ left: chip.x, top: chip.y }}
     >
       <div className="text-[12px] font-semibold leading-none text-zinc-900">
@@ -649,7 +649,7 @@ function WaterAnalogySketch() {
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src="/school/water-analogy.png"
-        alt="Насос, труба и кран: напряжение, сопротивление и ток"
+        alt="Насос — напряжение, труба — сопротивление, поток воды — ток"
         className="block h-auto w-full select-none"
         draggable={false}
       />
