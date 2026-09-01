@@ -105,31 +105,107 @@ function collectLineLoadLabels(devices: Device[]): Set<string> {
   return labels;
 }
 
+function collectLineLoadsByRoom(devices: Device[]): Map<string, Set<string>> {
+  const byRoom = new Map<string, Set<string>>();
+  for (const device of devices) {
+    const loads = parseLineLoads(device.circuitLabel);
+    for (const [room, items] of Object.entries(loads)) {
+      const roomKey = room.trim().toLowerCase();
+      if (!roomKey) continue;
+      const bucket = byRoom.get(roomKey) ?? new Set<string>();
+      for (const item of items) {
+        bucket.add(item.trim().toLowerCase());
+      }
+      byRoom.set(roomKey, bucket);
+    }
+  }
+  return byRoom;
+}
+
+function labelMatchesLoadSet(label: string, loads: Set<string>): boolean {
+  const normalized = label.trim().toLowerCase();
+  if (!normalized) return false;
+  if (loads.has(normalized)) return true;
+  for (const load of loads) {
+    if (load.includes(normalized) || normalized.includes(load)) return true;
+  }
+  return false;
+}
+
 export function appliancesLinkedToLines(
   devices: Device[],
   appliances: HomeAppliance[],
+  applianceRooms: Record<string, string> = {},
 ): boolean {
   if (appliances.length === 0) return true;
-  const loads = collectLineLoadLabels(devices);
+  const flatLoads = collectLineLoadLabels(devices);
+  const loadsByRoom = collectLineLoadsByRoom(devices);
   return appliances.every((appliance) => {
     const label = equipmentLabelForAppliance(appliance).trim().toLowerCase();
     if (!label) return false;
-    if (loads.has(label)) return true;
-    for (const load of loads) {
-      if (load.includes(label) || label.includes(load)) return true;
-    }
-    return false;
+    if (labelMatchesLoadSet(label, flatLoads)) return true;
+
+    const room = applianceRooms[appliance.id]?.trim().toLowerCase();
+    if (!room) return false;
+    const roomLoads = loadsByRoom.get(room);
+    if (!roomLoads || roomLoads.size === 0) return false;
+    if (labelMatchesLoadSet(label, roomLoads)) return true;
+    // Room already covered on a breaker — stationary appliance is in that room.
+    return true;
   });
+}
+
+export function getLoadsStageBlockers(
+  panel: PanelObject,
+  devices: Device[] = panel.devices ?? [],
+  applianceRooms: Record<string, string> = {},
+): string[] {
+  const blockers: string[] = [];
+  if (
+    !isPanelSchemeStageReady({
+      ...panel,
+      devices,
+    })
+  ) {
+    blockers.push(
+      "Укажите параметры сети: число фаз, выделенную мощность и наличие земли.",
+    );
+  }
+  const rail = railDevices(devices);
+  if (!allPanelLoadsIdentified(rail)) {
+    blockers.push(
+      "Для каждого автомата и дифавтомата на схеме укажите помещения и нагрузки.",
+    );
+  }
+  const unlinked = (panel.appliances ?? []).filter((appliance) => {
+    const label = equipmentLabelForAppliance(appliance).trim().toLowerCase();
+    if (!label) return true;
+    const flatLoads = collectLineLoadLabels(rail);
+    if (labelMatchesLoadSet(label, flatLoads)) return false;
+    const room = applianceRooms[appliance.id]?.trim().toLowerCase();
+    if (!room) return true;
+    const roomLoads = collectLineLoadsByRoom(rail).get(room);
+    return !roomLoads || roomLoads.size === 0;
+  });
+  if (unlinked.length > 0) {
+    blockers.push(
+      unlinked.length === 1
+        ? "Привяжите добавленную технику к линиям: укажите её в нагрузках нужной комнаты или пройдите «Определить линии»."
+        : `Привяжите ${unlinked.length} единицы техники к линиям — укажите их в нагрузках нужных комнат.`,
+    );
+  }
+  return blockers;
 }
 
 export function isPanelLoadsStageReady(
   panel: PanelObject,
   devices: Device[] = panel.devices ?? [],
+  applianceRooms: Record<string, string> = {},
 ): boolean {
   if (!isPanelSchemeStageReady(panel)) return false;
   const rail = railDevices(devices);
   if (!allPanelLoadsIdentified(rail)) return false;
-  return appliancesLinkedToLines(rail, panel.appliances ?? []);
+  return appliancesLinkedToLines(rail, panel.appliances ?? [], applianceRooms);
 }
 
 function parsePowerKw(powerKw?: string): number | undefined {
@@ -151,15 +227,20 @@ function stageScoreBadge(score: number | null) {
 export function buildPanelSafetyStages(input: {
   panel: PanelObject;
   devices?: Device[];
+  applianceRooms?: Record<string, string>;
 }): PanelSafetyStagesSnapshot {
   const devices = input.devices ?? input.panel.devices ?? [];
   const rail = railDevices(devices);
+  const applianceRooms = input.applianceRooms ?? {};
   const powerKw = parsePowerKw(input.panel.powerKw);
   const schemeReady = isPanelSchemeStageReady({
     ...input.panel,
     devices: rail,
   });
-  const loadsReady = isPanelLoadsStageReady(input.panel, rail);
+  const loadsReady = isPanelLoadsStageReady(input.panel, rail, applianceRooms);
+  const loadsBlockers = loadsReady
+    ? []
+    : getLoadsStageBlockers(input.panel, rail, applianceRooms);
   const professionalScore =
     typeof input.panel.professionalSafety === "number"
       ? input.panel.professionalSafety
@@ -227,7 +308,7 @@ export function buildPanelSafetyStages(input: {
             ? "С учётом техники, света, розеток и проверки линий"
             : !schemeReady
               ? "Сначала завершите этап «Схема»"
-              : meta.lockedHint,
+              : loadsBlockers[0] ?? meta.lockedHint,
         analysis: loadsAnalysis,
       };
     }

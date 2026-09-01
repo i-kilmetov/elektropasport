@@ -195,7 +195,8 @@ export function deviceHasSpecifiedLineLoads(device: {
   circuitLabel?: string;
 }): boolean {
   if (!deviceNeedsLineIdentification(device.type)) return false;
-  return deviceHasLineIdentification(device.circuitLabel);
+  const loads = parseLineLoads(device.circuitLabel);
+  return Object.values(loads).some((items) => items.length > 0);
 }
 
 /**

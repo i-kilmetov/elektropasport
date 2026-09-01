@@ -50,6 +50,7 @@ import { applianceNeedsDetails } from "@/lib/appliance-line-sync";
 import {
   buildPanelSafetyStages,
 } from "@/lib/panel-safety-stages";
+import { loadIdentifyContext } from "@/lib/panel-identify";
 import { hapticContextMenu } from "@/lib/haptics";
 import { safetyBadgeColors } from "@/lib/safety-score";
 import {
@@ -352,7 +353,12 @@ function HomeListCard({
 }) {
   const isRequest = item.kind === "install_request";
   const panel = !isRequest && item.kind === "panel" ? item : null;
-  const safetyStages = panel ? buildPanelSafetyStages({ panel }) : null;
+  const safetyStages = panel
+    ? buildPanelSafetyStages({
+        panel,
+        applianceRooms: loadIdentifyContext(panel.id)?.applianceRooms,
+      })
+    : null;
   const [safetyInfoOpen, setSafetyInfoOpen] = useState(false);
   const longPress = useLongPressAction(onContextMenu);
 
@@ -516,7 +522,11 @@ function ExpandableHomeCard({
   const [safetyInfoOpen, setSafetyInfoOpen] = useState(false);
   const [appliancesIntroOpen, setAppliancesIntroOpen] = useState(false);
   const safetyStages = useMemo(
-    () => buildPanelSafetyStages({ panel }),
+    () =>
+      buildPanelSafetyStages({
+        panel,
+        applianceRooms: loadIdentifyContext(panel.id)?.applianceRooms,
+      }),
     [panel],
   );
 

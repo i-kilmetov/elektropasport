@@ -92,6 +92,7 @@ import { persistPanel, restoreDeletedHomeItem } from "@/lib/user-data";
 import {
   buildPanelSafetyStages,
   isPanelLoadsStageReady,
+  isPanelNetworkParamsReady,
 } from "@/lib/panel-safety-stages";
 import {
   analyzePanelSafety,
@@ -1745,7 +1746,11 @@ export function SchemeScreen({
 }) {
   const devices = Array.isArray(devicesProp) ? devicesProp : [];
   const wires = Array.isArray(wiresProp) ? wiresProp : [];
-  const networkParamsFilled = Boolean(phases && powerKw?.trim());
+  const networkParamsFilled = isPanelNetworkParamsReady({
+    phases,
+    powerKw,
+    hasGround,
+  });
 
   const [identifyContext, setIdentifyContext] = useState<IdentifyContext | null>(
     () => loadIdentifyContext(panelId),
@@ -1914,16 +1919,22 @@ export function SchemeScreen({
     ],
   );
   const loadsStageReady = useMemo(
-    () => isPanelLoadsStageReady(safetyPanelStub, allRailDevices),
-    [safetyPanelStub, allRailDevices],
+    () =>
+      isPanelLoadsStageReady(
+        safetyPanelStub,
+        allRailDevices,
+        identifyContext?.applianceRooms,
+      ),
+    [safetyPanelStub, allRailDevices, identifyContext?.applianceRooms],
   );
   const safetyStages = useMemo(
     () =>
       buildPanelSafetyStages({
         panel: safetyPanelStub,
         devices: allRailDevices,
+        applianceRooms: identifyContext?.applianceRooms,
       }),
-    [safetyPanelStub, allRailDevices],
+    [safetyPanelStub, allRailDevices, identifyContext?.applianceRooms],
   );
   const safetyAnalysis = useMemo(() => {
     const powerNum = Number((powerKw ?? "").replace(",", "."));
