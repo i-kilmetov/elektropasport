@@ -70,19 +70,68 @@ export const OTHER_CATALOG_KIND_OPTIONS: CatalogKindOption[] = [
   { id: "sauna", title: "Сауна / инфрокабина" },
 ];
 
-export const CATALOG_KIND_OPTIONS: CatalogKindOption[] = [
+/** Extra home appliances — only in «Все товары» dropdown. */
+export const EXTENDED_CATALOG_KIND_OPTIONS: CatalogKindOption[] = [
+  { id: "hair_dryer", title: "Фен" },
+  { id: "steam_mop", title: "Паровая швабра" },
+  { id: "steam_cleaner", title: "Пароочиститель" },
+  { id: "electric_shaver", title: "Электробритва / триммер" },
+  { id: "electric_toothbrush", title: "Электрическая зубная щётка" },
+  { id: "projector", title: "Проектор" },
+  { id: "soundbar", title: "Саундбар" },
+  { id: "home_theater", title: "Домашний кинотеатр / AV-ресивер" },
+  { id: "router", title: "Wi‑Fi роутер" },
+  { id: "smart_speaker", title: "Умная колонка" },
+  { id: "electric_fireplace", title: "Электрокамин" },
+  { id: "electric_blanket", title: "Электроодеяло" },
+  { id: "towel_warmer", title: "Электрополотенцесушитель" },
+  { id: "chest_freezer", title: "Морозильный ларь" },
+  { id: "minibar", title: "Мини-холодильник" },
+  { id: "waffle_maker", title: "Вафельница / блинница" },
+  { id: "yogurt_maker", title: "Йогуртница" },
+  { id: "electric_knife", title: "Электронож" },
+  { id: "meat_slicer", title: "Ломтерезка" },
+  { id: "garbage_disposal", title: "Измельчитель пищевых отходов" },
+  { id: "warming_drawer", title: "Шкаф для подогрева посуды" },
+  {
+    id: "baby_food_maker",
+    title: "Стерилизатор / подогреватель детского питания",
+  },
+  { id: "scale", title: "Напольные весы" },
+  { id: "massager", title: "Массажёр" },
+];
+
+/** All supported home appliance kinds (cards + extended), sorted for pickers. */
+export const FULL_CATALOG_KIND_OPTIONS: CatalogKindOption[] = [
   ...PRIMARY_CATALOG_KIND_OPTIONS,
   ...OTHER_CATALOG_KIND_OPTIONS,
-];
+  ...EXTENDED_CATALOG_KIND_OPTIONS,
+].sort((a, b) => a.title.localeCompare(b.title, "ru"));
+
+/** @deprecated Use FULL_CATALOG_KIND_OPTIONS or quick-pick lists. */
+export const CATALOG_KIND_OPTIONS: CatalogKindOption[] =
+  FULL_CATALOG_KIND_OPTIONS;
 
 const PRIMARY_KIND_IDS = new Set(
   PRIMARY_CATALOG_KIND_OPTIONS.map((item) => item.id),
+);
+
+const QUICK_PICK_KIND_IDS = new Set(
+  [...PRIMARY_CATALOG_KIND_OPTIONS, ...OTHER_CATALOG_KIND_OPTIONS].map(
+    (item) => item.id,
+  ),
 );
 
 export function isPrimaryCatalogApplianceKind(
   kind: CatalogApplianceKind,
 ): boolean {
   return PRIMARY_KIND_IDS.has(kind);
+}
+
+export function isQuickPickCatalogApplianceKind(
+  kind: CatalogApplianceKind,
+): boolean {
+  return QUICK_PICK_KIND_IDS.has(kind);
 }
 
 function slugPart(value: string): string {
@@ -111,13 +160,13 @@ export const APPLIANCE_CATALOG: ApplianceCatalogModel[] =
 export function isCatalogApplianceKind(
   kind: string,
 ): kind is CatalogApplianceKind {
-  return CATALOG_KIND_OPTIONS.some((item) => item.id === kind);
+  return FULL_CATALOG_KIND_OPTIONS.some((item) => item.id === kind);
 }
 
 export function catalogKindTitle(
   kind: CatalogApplianceKind | HomeApplianceKind,
 ): string {
-  const found = CATALOG_KIND_OPTIONS.find((item) => item.id === kind);
+  const found = FULL_CATALOG_KIND_OPTIONS.find((item) => item.id === kind);
   if (found) return found.title;
   if (kind === "other") return "Другая техника";
   return "Техника";

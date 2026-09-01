@@ -6,6 +6,7 @@ import { ArrowLeft, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Portal } from "@/components/ui/portal";
 import {
+  FULL_CATALOG_KIND_OPTIONS,
   OTHER_CATALOG_KIND_OPTIONS,
   PRIMARY_CATALOG_KIND_OPTIONS,
   applianceKindIcon,
@@ -13,6 +14,7 @@ import {
   formatAppliancePower,
   isCatalogApplianceKind,
   isPrimaryCatalogApplianceKind,
+  isQuickPickCatalogApplianceKind,
   catalogKindTitle,
   type CatalogApplianceKind,
 } from "@/lib/home-appliances";
@@ -98,6 +100,9 @@ export function AddApplianceSheet({
       ? false
       : initialKind != null && !isPrimaryCatalogApplianceKind(initialKind),
   );
+  const [allProductsOpen, setAllProductsOpen] = useState(
+    initialKind != null && !isQuickPickCatalogApplianceKind(initialKind),
+  );
   const [brand, setBrand] = useState<string | null>(
     initialIsCustom
       ? CUSTOM_BRAND
@@ -142,7 +147,10 @@ export function AddApplianceSheet({
   const usingCatalogModel =
     Boolean(modelId) && modelId !== CUSTOM_MODEL && Boolean(selectedModel);
 
-  const selectKind = (nextKind: CatalogApplianceKind) => {
+  const selectKind = (
+    nextKind: CatalogApplianceKind,
+    options?: { fromAllProducts?: boolean },
+  ) => {
     if (kind === nextKind && !customKindMode) return;
     setCustomKindMode(false);
     setCustomKindName("");
@@ -152,8 +160,17 @@ export function AddApplianceSheet({
     setModels([]);
     setDetails(null);
     setError(null);
-    if (isPrimaryCatalogApplianceKind(nextKind)) {
-      setOtherKindsOpen(false);
+    const fromAllProducts = options?.fromAllProducts === true;
+    if (fromAllProducts) {
+      setAllProductsOpen(true);
+      setOtherKindsOpen(true);
+    } else {
+      setAllProductsOpen(false);
+      if (isPrimaryCatalogApplianceKind(nextKind)) {
+        setOtherKindsOpen(false);
+      } else {
+        setOtherKindsOpen(true);
+      }
     }
   };
 
@@ -178,6 +195,7 @@ export function AddApplianceSheet({
     setCustomKindName("");
     setCustomBrandName("");
     setCustomModelName("");
+    setAllProductsOpen(false);
     setError(null);
     setOtherKindsOpen(false);
   };
@@ -585,7 +603,10 @@ export function AddApplianceSheet({
               <div className="space-y-3">
                 <button
                   type="button"
-                  onClick={() => setOtherKindsOpen(false)}
+                  onClick={() => {
+                    setOtherKindsOpen(false);
+                    setAllProductsOpen(false);
+                  }}
                   className="inline-flex items-center gap-1.5 ty-label text-zinc-600 hover:text-zinc-900"
                 >
                   <ArrowLeft className="h-4 w-4" />
@@ -613,6 +634,25 @@ export function AddApplianceSheet({
                   })}
                   <button
                     type="button"
+                    onClick={() => {
+                      setAllProductsOpen(true);
+                      setCustomKindMode(false);
+                      setError(null);
+                    }}
+                    className={kindCardClass(allProductsOpen && !customKindMode)}
+                  >
+                    <span className={kindIconWrapClass(allProductsOpen && !customKindMode)}>
+                      {(() => {
+                        const Icon = applianceKindIcon("all-products-picker");
+                        return <Icon className="h-5 w-5" />;
+                      })()}
+                    </span>
+                    <span className="text-[0.8125rem] font-semibold leading-snug text-zinc-900">
+                      Все товары
+                    </span>
+                  </button>
+                  <button
+                    type="button"
                     onClick={selectCustomKind}
                     className={kindCardClass(customKindMode)}
                   >
@@ -627,6 +667,29 @@ export function AddApplianceSheet({
                     </span>
                   </button>
                 </div>
+                {allProductsOpen && (
+                  <label className="block">
+                    <span className="mb-1.5 block ty-label text-zinc-500">
+                      Выберите тип из полного каталога
+                    </span>
+                    <select
+                      value={kind ?? ""}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        if (!value || !isCatalogApplianceKind(value)) return;
+                        selectKind(value, { fromAllProducts: true });
+                      }}
+                      className={selectClassName}
+                    >
+                      <option value="">Тип техники…</option>
+                      {FULL_CATALOG_KIND_OPTIONS.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.title}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-2.5">
@@ -653,6 +716,7 @@ export function AddApplianceSheet({
                   type="button"
                   onClick={() => {
                     setOtherKindsOpen(true);
+                    setAllProductsOpen(false);
                     setError(null);
                   }}
                   className={kindCardClass(otherKindSelected)}

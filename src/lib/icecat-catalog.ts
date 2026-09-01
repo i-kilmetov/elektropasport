@@ -16,11 +16,90 @@ const REFS_BASE = "https://data.icecat.biz/export/freexml/refs";
 const INDEX_URL =
   "https://data.icecat.biz/export/freexml/EN/files.index.csv.gz";
 
+/** Skip industrial / non-home categories before kind mapping. */
+const INDUSTRIAL_CATEGORY =
+  /\bindustrial\b|\bcommercial grade\b|\bprofessional use\b|\bserver room\b|\bdata center\b|\bdatacenter\b|\brack\s*mount\b|\benterprise switch\b|\bmedical device\b|\blaboratory\b|\bwelding machine\b|\bpos terminal\b|\bcash register\b|\bvending machine\b|\bindustrial vacuum\b|\bfloor scrubber\b|\bpressure washer\b|\bwoodworking router\b/i;
+
 /** Map Icecat category name (EN) → our appliance kind. First match wins. */
 const CATEGORY_KIND_RULES: Array<{
   kind: CatalogApplianceKind;
   match: RegExp;
 }> = [
+  { kind: "hair_dryer", match: /\bhair dryers?\b|\bhairdryers?\b/i },
+  {
+    kind: "steam_mop",
+    match: /\bsteam mops?\b|\bsteam sweepers?\b|\belectric mops?\b/i,
+  },
+  {
+    kind: "steam_cleaner",
+    match: /\bsteam cleaners?\b|\bsteam vacuums?\b/i,
+  },
+  {
+    kind: "electric_shaver",
+    match:
+      /\belectric shavers?\b|\bepilators?\b|\bbeard trimmers?\b|\bbody groomers?\b/i,
+  },
+  {
+    kind: "electric_toothbrush",
+    match: /\belectric toothbrushes?\b|\boral irrigators?\b/i,
+  },
+  { kind: "projector", match: /\bprojectors?\b|\bbeamers?\b/i },
+  { kind: "soundbar", match: /\bsoundbars?\b|\bsound bars?\b/i },
+  {
+    kind: "home_theater",
+    match:
+      /\bhome cinema\b|\bhome theater\b|\bhome theatre\b|\bav receivers?\b|\bhi-fi systems?\b/i,
+  },
+  {
+    kind: "router",
+    match: /\bwifi routers?\b|\bwireless routers?\b|\brouters?\b|\bmesh systems?\b/i,
+  },
+  {
+    kind: "smart_speaker",
+    match: /\bsmart speakers?\b|\bsmart displays?\b|\bvoice assistants?\b/i,
+  },
+  {
+    kind: "electric_fireplace",
+    match: /\belectric fireplaces?\b|\bflame effect fires?\b/i,
+  },
+  { kind: "electric_blanket", match: /\belectric blankets?\b|\bheated throws?\b/i },
+  {
+    kind: "towel_warmer",
+    match: /\btowel warmers?\b|\belectric towel rails?\b/i,
+  },
+  {
+    kind: "chest_freezer",
+    match: /\bchest freezers?\b|\bdeep freezers?\b/i,
+  },
+  {
+    kind: "minibar",
+    match: /\bmini bars?\b|\bmini fridges?\b|\bminibars?\b/i,
+  },
+  {
+    kind: "waffle_maker",
+    match: /\bwaffle makers?\b|\bcrepe makers?\b|\bpancake makers?\b/i,
+  },
+  { kind: "yogurt_maker", match: /\byogurt makers?\b/i },
+  { kind: "electric_knife", match: /\belectric knives?\b/i },
+  { kind: "meat_slicer", match: /\bmeat slicers?\b/i },
+  {
+    kind: "garbage_disposal",
+    match: /\bfood waste disposers?\b|\bgarbage disposals?\b/i,
+  },
+  { kind: "warming_drawer", match: /\bwarming drawers?\b|\bplate warmers?\b/i },
+  {
+    kind: "baby_food_maker",
+    match:
+      /\bbottle warmers?\b|\bbaby food makers?\b|\bsterilisers?\b|\bsterilizers?\b/i,
+  },
+  {
+    kind: "scale",
+    match: /\bbathroom scales?\b|\bbody scales?\b|\bweighing scales?\b/i,
+  },
+  {
+    kind: "massager",
+    match: /\bmassagers?\b|\bmassage devices?\b|\bmassage guns?\b/i,
+  },
   { kind: "robot_vacuum", match: /\brobot(?:ic)? vacuums?\b/i },
   {
     kind: "vacuum",
@@ -250,17 +329,30 @@ function parseCategoriesToKindMap(xml: string): Map<string, CatalogApplianceKind
     ];
     const name = names[0]?.[1]?.trim() ?? "";
     if (!name) continue;
+    if (INDUSTRIAL_CATEGORY.test(name)) continue;
     for (const rule of CATEGORY_KIND_RULES) {
       if (!rule.match.test(name)) continue;
       if (
         rule.kind === "tv" &&
-        /mount|stand|tuner|monitor|set-top|set top|projector/i.test(name)
+        /mount|stand|tuner|monitor|set-top|set top/i.test(name)
       ) {
         continue;
       }
       if (
         rule.kind === "dryer" &&
         /hair|hand|clothes dryer rack|dehumidifier/i.test(name)
+      ) {
+        continue;
+      }
+      if (
+        rule.kind === "router" &&
+        /router table|woodworking|CNC/i.test(name)
+      ) {
+        continue;
+      }
+      if (
+        rule.kind === "electric_shaver" &&
+        /hedge|grass|garden|lawn/i.test(name)
       ) {
         continue;
       }

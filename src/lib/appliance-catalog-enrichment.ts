@@ -32,7 +32,31 @@ export type CatalogApplianceKind =
   | "fan"
   | "pump"
   | "sauna"
-  | "sewing_machine";
+  | "sewing_machine"
+  | "hair_dryer"
+  | "steam_mop"
+  | "steam_cleaner"
+  | "electric_shaver"
+  | "electric_toothbrush"
+  | "projector"
+  | "soundbar"
+  | "home_theater"
+  | "router"
+  | "smart_speaker"
+  | "electric_fireplace"
+  | "electric_blanket"
+  | "towel_warmer"
+  | "chest_freezer"
+  | "minibar"
+  | "waffle_maker"
+  | "yogurt_maker"
+  | "electric_knife"
+  | "meat_slicer"
+  | "garbage_disposal"
+  | "warming_drawer"
+  | "baby_food_maker"
+  | "scale"
+  | "massager";
 
 export type ApplianceSpec = { label: string; value: string };
 

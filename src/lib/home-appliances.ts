@@ -8,6 +8,7 @@ import {
   Fan,
   Flame,
   Heater,
+  LayoutGrid,
   Microwave,
   MoreHorizontal,
   Refrigerator,
@@ -28,6 +29,8 @@ import type { HomeApplianceKind } from "@/types";
 export {
   APPLIANCE_CATALOG,
   CATALOG_KIND_OPTIONS,
+  EXTENDED_CATALOG_KIND_OPTIONS,
+  FULL_CATALOG_KIND_OPTIONS,
   OTHER_CATALOG_KIND_OPTIONS,
   PRIMARY_CATALOG_KIND_OPTIONS,
   catalogBrandsForKind,
@@ -36,6 +39,7 @@ export {
   findCatalogModel,
   isCatalogApplianceKind,
   isPrimaryCatalogApplianceKind,
+  isQuickPickCatalogApplianceKind,
   type ApplianceCatalogModel,
   type CatalogApplianceKind,
   type CatalogKindOption,
@@ -102,7 +106,7 @@ export function applianceDisplayKindLabel(appliance: {
 }
 
 export function applianceKindIcon(
-  kind: HomeApplianceKind | CatalogApplianceKind | "other-picker",
+  kind: HomeApplianceKind | CatalogApplianceKind | "other-picker" | "all-products-picker",
 ): LucideIcon {
   switch (kind) {
     case "fridge":
@@ -116,6 +120,7 @@ export function applianceKindIcon(
     case "pump":
       return Droplets;
     case "dryer":
+    case "hair_dryer":
       return Wind;
     case "microwave":
       return Microwave;
@@ -129,6 +134,7 @@ export function applianceKindIcon(
     case "ac":
       return AirVent;
     case "tv":
+    case "projector":
       return Tv;
     case "heater":
     case "sauna":
@@ -155,8 +161,15 @@ export function applianceKindIcon(
     case "bread_maker":
     case "ice_maker":
       return Sparkles;
+    case "router":
+    case "smart_speaker":
+    case "soundbar":
+    case "home_theater":
+      return Zap;
     case "other-picker":
       return MoreHorizontal;
+    case "all-products-picker":
+      return LayoutGrid;
     default:
       return Zap;
   }
