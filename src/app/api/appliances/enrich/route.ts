@@ -29,6 +29,7 @@ export async function GET(request: Request) {
       hit: result.matched
         ? {
             energyClass: result.energyClass,
+            brandLogoUrl: result.brandLogoUrl ?? null,
             powerW: extractPowerWattsFromSpecs(result.specs) ?? null,
             specs: result.specs,
             manuals: result.manuals,

@@ -15,12 +15,12 @@ import {
 import { AddApplianceSheet } from "@/components/screens/add-appliance-sheet";
 import { AppliancePassportCard } from "@/components/screens/appliance-passport-card";
 import { ApplianceBrandModelPicker } from "@/components/ui/appliance-brand-model-picker";
+import { ApplianceBrandAvatar } from "@/components/ui/appliance-brand-avatar";
 import { GlassCard } from "@/components/ui/glass-card";
 import { InfoDialog } from "@/components/ui/info-dialog";
 import { UndoSnackbarHost } from "@/components/ui/undo-snackbar";
 import { applianceNeedsDetails } from "@/lib/appliance-line-sync";
 import {
-  applianceKindIcon,
   applianceDisplayKindLabel,
   findCatalogModel,
   formatAppliancePower,
@@ -54,7 +54,6 @@ export function ApplianceDetailScreen({
   );
   const [detailsHintOpen, setDetailsHintOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
-  const Icon = applianceKindIcon(appliance.kind);
   const kindLabel = applianceDisplayKindLabel(appliance);
   const needsDetails = applianceNeedsDetails(appliance);
   const brand = appliance.brand?.trim();
@@ -185,9 +184,12 @@ export function ApplianceDetailScreen({
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto pb-4">
         <div className="space-y-4">
           <div className="flex items-center gap-3.5">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[16px] border border-black/8 bg-zinc-100 text-zinc-600">
-              <Icon className="h-7 w-7" />
-            </div>
+            <ApplianceBrandAvatar
+              kind={appliance.kind}
+              brandLogoUrl={appliance.brandLogoUrl}
+              brand={brand}
+              size="md"
+            />
             <div className="min-w-0 flex-1">
               <h2 className="truncate ty-title text-zinc-900">
                 <span className="font-semibold text-zinc-500">{kindLabel}</span>

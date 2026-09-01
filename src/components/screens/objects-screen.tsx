@@ -39,9 +39,9 @@ import { InfoDialog } from "@/components/ui/info-dialog";
 import { ItemActionsSheet } from "@/components/ui/item-actions-sheet";
 import { NameDialog } from "@/components/ui/name-dialog";
 import { PushEnableBanner } from "@/components/ui/push-enable-banner";
+import { ApplianceBrandAvatar } from "@/components/ui/appliance-brand-avatar";
 import { UndoSnackbarHost } from "@/components/ui/undo-snackbar";
 import {
-  applianceKindIcon,
   applianceDisplayKindLabel,
   formatAppliancePower,
 } from "@/lib/home-appliances";
@@ -413,7 +413,6 @@ function ExpandableHomeCard({
           >
             <div className="divide-y divide-black/[0.06] border-t border-black/[0.06] bg-white">
               {appliances.map((appliance) => {
-                const Icon = applianceKindIcon(appliance.kind);
                 const kindLabel = applianceDisplayKindLabel(appliance);
                 const needsDetails = applianceNeedsDetails(appliance);
                 const brand = appliance.brand?.trim();
@@ -425,9 +424,12 @@ function ExpandableHomeCard({
                     onClick={() => onOpenAppliance(appliance.id)}
                     className="flex w-full items-center gap-2.5 rounded-none px-4 py-2 text-left transition-colors hover:bg-zinc-50"
                   >
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] bg-zinc-100 text-zinc-600">
-                      <Icon className="h-4 w-4" />
-                    </span>
+                    <ApplianceBrandAvatar
+                      kind={appliance.kind}
+                      brandLogoUrl={appliance.brandLogoUrl}
+                      brand={brand}
+                      size="sm"
+                    />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate ty-label">
                         <span className="font-medium text-zinc-500">

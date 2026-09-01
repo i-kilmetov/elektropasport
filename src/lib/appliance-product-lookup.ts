@@ -11,6 +11,7 @@ export type ApplianceEnrichmentResult = {
   matched: boolean;
   publicUrl: string | null;
   energyClass?: string;
+  brandLogoUrl?: string;
   specs: ApplianceSpec[];
   manuals: ApplianceManual[];
   icecatStatus?: string;
@@ -46,6 +47,7 @@ export async function enrichApplianceProduct(options: {
       provider: "icecat",
       matched: true,
       publicUrl: icecat.hit.sourceUrl ?? publicUrl,
+      brandLogoUrl: icecat.hit.brandLogoUrl,
       specs: icecat.hit.specs,
       manuals: icecat.hit.manuals,
       icecatStatus: icecat.status,

@@ -700,6 +700,7 @@ export async function loadIcecatProductDetails(options: {
   specs: ApplianceSpec[];
   manuals: ApplianceManual[];
   title?: string;
+  brandLogoUrl?: string;
   matched: boolean;
   status: string;
   statusDetail?: string;
@@ -743,6 +744,7 @@ export async function loadIcecatProductDetails(options: {
     specs: result.hit.specs,
     manuals: result.hit.manuals,
     title: result.hit.title,
+    brandLogoUrl: result.hit.brandLogoUrl,
     matched: true,
     status: result.status,
     statusDetail: result.detail,

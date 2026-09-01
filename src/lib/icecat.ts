@@ -9,6 +9,7 @@ export type IcecatProductHit = {
   brand: string;
   model: string;
   title?: string;
+  brandLogoUrl?: string;
   specs: ApplianceSpec[];
   manuals: ApplianceManual[];
   sourceUrl?: string;
@@ -60,6 +61,15 @@ function localizedString(value: unknown): string | undefined {
     return asString(obj.Value) ?? asString(obj.value) ?? asString(obj.Name);
   }
   return undefined;
+}
+
+function brandLogoFromGeneral(general: Record<string, unknown>): string | undefined {
+  const brandInfo = general.BrandInfo;
+  if (!brandInfo || typeof brandInfo !== "object") return undefined;
+  const logo = asString((brandInfo as Record<string, unknown>).BrandLogo);
+  if (!logo) return undefined;
+  if (/^https?:\/\//i.test(logo)) return logo;
+  return `https://images.icecat.biz${logo.startsWith("/") ? logo : `/${logo}`}`;
 }
 
 function pickFeatureValue(feature: Record<string, unknown>): string | null {
@@ -274,6 +284,7 @@ function hitFromPayload(
 
   const specs = specsFromFeatures(data);
   const manuals = manualsFromData(data);
+  const brandLogoUrl = brandLogoFromGeneral(general);
   const iceCatId =
     asString(general.IcecatId) ||
     asString(data.IcecatId) ||
@@ -294,6 +305,7 @@ function hitFromPayload(
     brand: hitBrand,
     model: hitModel,
     title,
+    brandLogoUrl,
     specs,
     manuals,
     sourceUrl,

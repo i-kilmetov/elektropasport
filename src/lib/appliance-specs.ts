@@ -5,6 +5,7 @@ export type LoadedProductDetails = {
   specs: ApplianceSpec[];
   manuals: ApplianceManual[];
   title: string | null;
+  brandLogoUrl?: string | null;
   matched: boolean;
   status?: string;
   statusDetail?: string | null;

@@ -277,6 +277,7 @@ export function AddApplianceSheet({
             specs: Array.isArray(data.specs) ? data.specs : [],
             manuals: Array.isArray(data.manuals) ? data.manuals : [],
             title: data.title ?? null,
+            brandLogoUrl: data.brandLogoUrl ?? null,
             matched: Boolean(data.matched),
             status: data.status,
             statusDetail: data.statusDetail ?? null,
@@ -322,6 +323,7 @@ export function AddApplianceSheet({
               powerW?: number | null;
               specs?: ProductDetails["specs"];
               manuals?: ProductDetails["manuals"];
+              brandLogoUrl?: string | null;
             } | null;
             icecatStatus?: string;
             icecatDetail?: string;
@@ -337,6 +339,7 @@ export function AddApplianceSheet({
               specs: [],
               manuals: [],
               title: null,
+              brandLogoUrl: null,
               matched: false,
               status: data.icecatStatus,
               statusDetail: data.icecatDetail ?? null,
@@ -348,6 +351,7 @@ export function AddApplianceSheet({
             specs: Array.isArray(hit.specs) ? hit.specs : [],
             manuals: Array.isArray(hit.manuals) ? hit.manuals : [],
             title: null,
+            brandLogoUrl: hit.brandLogoUrl ?? null,
             matched: true,
             status: data.icecatStatus,
             statusDetail: data.icecatDetail ?? null,
@@ -409,6 +413,7 @@ export function AddApplianceSheet({
         title: selectedModel.brand,
         brand: selectedModel.brand,
         model: selectedModel.modelName || selectedModel.productCode,
+        brandLogoUrl: details?.brandLogoUrl ?? undefined,
         powerW,
         catalogId: `icecat:${selectedModel.id}`,
         specs,
@@ -439,6 +444,7 @@ export function AddApplianceSheet({
       title: customKindMode ? customKindName.trim() : resolvedBrand,
       brand: resolvedBrand,
       model: resolvedModel,
+      brandLogoUrl: details?.brandLogoUrl ?? undefined,
       powerW: details?.powerW ?? undefined,
       specs,
       manuals,
