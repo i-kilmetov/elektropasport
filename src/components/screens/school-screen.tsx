@@ -15,6 +15,7 @@ import {
   Wrench,
   type LucideIcon,
 } from "lucide-react";
+import { SchoolDiagram } from "@/components/school/diagrams";
 import { LessonBlocks } from "@/components/school/lesson-blocks";
 import { SchoolPayScreen, SchoolPaySheet } from "@/components/school/school-pay-flow";
 import { QuizFlow, type QuizFinish } from "@/components/school/quiz-flow";
@@ -303,6 +304,16 @@ function SchoolHome({
       <SchoolHeader title="Школа Током" onBack={onBack} />
 
       <div className="space-y-5">
+        <figure>
+          <p className="mb-2 ty-label uppercase tracking-wide text-zinc-400">
+            Пример из первого урока
+          </p>
+          <SchoolDiagram id="water-analogy" />
+          <figcaption className="mt-2 text-center ty-note">
+            Насос — вольты, поток — амперы, труба — сопротивление провода.
+          </figcaption>
+        </figure>
+
         <p className="ty-body">
           Мы сделали электрику еще доступнее: теперь достаточно поступить в
           школу Током, где важные бытовые знания электрики стараемся объяснить
