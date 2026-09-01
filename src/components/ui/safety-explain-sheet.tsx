@@ -1,40 +1,49 @@
 "use client";
 
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { Check, Shield, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GeminiSparkle } from "@/components/icons/gemini-sparkle";
 import { Portal } from "@/components/ui/portal";
+import { PanelSafetyStages } from "@/components/ui/panel-safety-stages";
 import { SafetyAxisMeters } from "@/components/ui/safety-axis-meters";
 import {
+  panelSafetyStagesDisclaimer,
+  type PanelSafetyStagesSnapshot,
+  type SafetyStageId,
+} from "@/lib/panel-safety-stages";
+import {
   SAFETY_AXIS_META,
-  safetyScoreDisclaimer,
   type SafetyAdviceItem,
-  type SafetyAxes,
   type SafetyAxisId,
 } from "@/lib/safety-score";
 import { cn } from "@/lib/utils";
 
 export function SafetyExplainSheet({
-  score,
-  axes,
+  stages,
   advice,
   onClose,
   onEditParams,
   onCallMaster,
 }: {
-  score: number | null;
-  axes?: SafetyAxes | null;
+  stages: PanelSafetyStagesSnapshot;
   advice: SafetyAdviceItem[];
   onClose: () => void;
   onEditParams?: () => void;
   onCallMaster?: () => void;
 }) {
-  const scoreKnown = typeof score === "number" && Boolean(axes);
+  const [selectedStageId, setSelectedStageId] = useState<SafetyStageId>(
+    stages.activeStageId,
+  );
+  const selectedStage =
+    stages.stages.find((stage) => stage.id === selectedStageId) ??
+    stages.stages[0];
+  const improveCount = advice.filter((item) => item.kind === "improve").length;
   const generalImprove = advice.filter(
     (item) => item.kind === "improve" && item.axis === "general",
   );
-  const improveCount = advice.filter((item) => item.kind === "improve").length;
+  const stageAnalysis = selectedStage?.analysis;
 
   return (
     <Portal>
@@ -59,15 +68,7 @@ export function SafetyExplainSheet({
                 <Shield className="h-3.5 w-3.5" />
                 Безопасность щитка
               </div>
-              {scoreKnown ? (
-                <p className="ty-note">
-                  Средняя оценка {score}%
-                </p>
-              ) : (
-                <h3 className="ty-title">
-                  Пока не посчитан
-                </h3>
-              )}
+              <h3 className="ty-title">Три этапа оценки</h3>
             </div>
             <button
               type="button"
@@ -79,54 +80,65 @@ export function SafetyExplainSheet({
             </button>
           </div>
 
-          {scoreKnown && axes && (
-            <div className="mb-4">
-              <SafetyAxisMeters axes={axes} />
+          <PanelSafetyStages
+            snapshot={stages}
+            onStageClick={setSelectedStageId}
+            className="mb-4"
+          />
+
+          <p className="mb-4 ty-note">{panelSafetyStagesDisclaimer}</p>
+
+          {selectedStage?.score != null && stageAnalysis?.axes ? (
+            <div className="mb-4 rounded-[18px] border border-black/8 bg-zinc-50 p-3">
+              <p className="mb-2 ty-label text-zinc-500">
+                Детализация этапа «{selectedStage.title}»
+              </p>
+              <SafetyAxisMeters axes={stageAnalysis.axes} compact />
             </div>
-          )}
+          ) : null}
 
-          <p className="mb-5 ty-note">
-            {safetyScoreDisclaimer}
-          </p>
-
-          {generalImprove.length > 0 && (
+          {generalImprove.length > 0 && selectedStage?.id !== "professional" ? (
             <AdviceList
-              title="Сначала заполните данные"
+              title="Что сделать дальше"
               items={generalImprove}
               kind="improve"
             />
-          )}
+          ) : null}
 
-          {SAFETY_AXIS_META.map((axis) => (
-            <AxisAdvice
-              key={axis.id}
-              axisId={axis.id}
-              title={axis.title}
-              hint={axis.hint}
-              advice={advice}
-            />
-          ))}
+          {selectedStage?.id !== "professional" && stageAnalysis
+            ? SAFETY_AXIS_META.map((axis) => (
+                <AxisAdvice
+                  key={axis.id}
+                  axisId={axis.id}
+                  title={axis.title}
+                  hint={axis.hint}
+                  advice={stageAnalysis.advice}
+                />
+              ))
+            : selectedStage?.id === "professional" &&
+                selectedStage.status !== "done" ? (
+              <div className="mb-5 rounded-[18px] border border-black/8 bg-zinc-50 px-4 py-3 ty-body text-zinc-600">
+                Финальная оценка возможна только после осмотра щитка мастером:
+                как соединены автоматы, УЗО и кабели, и соответствуют ли они
+                реальной проводке в квартире.
+              </div>
+            ) : null}
 
           <div className="flex flex-col gap-2">
-            {onEditParams && (
-              <Button
-                className="w-full"
-                variant={scoreKnown ? "secondary" : "default"}
-                onClick={onEditParams}
-              >
+            {onEditParams && selectedStage?.id === "scheme" ? (
+              <Button className="w-full" variant="secondary" onClick={onEditParams}>
                 Параметры сети
               </Button>
-            )}
-            {onCallMaster && improveCount > 0 && (
-              <Button
-                className="w-full"
-                variant={scoreKnown ? "default" : "secondary"}
-                onClick={onCallMaster}
-              >
+            ) : null}
+            {onCallMaster &&
+            (selectedStage?.id === "professional" || improveCount > 0) ? (
+              <Button className="w-full" onClick={onCallMaster}>
                 <GeminiSparkle className="h-5 w-5" />
-                Помочь с электрикой
+                {selectedStage?.id === "professional"
+                  ? "Вызвать электрика"
+                  : "Помочь с электрикой"}
               </Button>
-            )}
+            ) : null}
             <Button className="w-full" variant="secondary" onClick={onClose}>
               Понятно
             </Button>
@@ -156,9 +168,7 @@ function AxisAdvice({
     <div className="mb-5">
       <h4 className="mb-1 ty-heading">{title}</h4>
       <p className="mb-2 ty-note">Защита {hint}</p>
-      {improve.length > 0 && (
-        <AdviceList items={improve} kind="improve" />
-      )}
+      {improve.length > 0 && <AdviceList items={improve} kind="improve" />}
       {good.length > 0 && (
         <AdviceList className="mt-2" items={good} kind="good" />
       )}
@@ -179,9 +189,7 @@ function AdviceList({
 }) {
   return (
     <div className={cn("mb-5", className, !title && "mb-0")}>
-      {title && (
-        <h4 className="mb-2 ty-heading">{title}</h4>
-      )}
+      {title ? <h4 className="mb-2 ty-heading">{title}</h4> : null}
       <ul className="space-y-2">
         {items.map((item, index) =>
           kind === "improve" ? (
@@ -197,9 +205,7 @@ function AdviceList({
                   <div className="ty-heading leading-snug text-zinc-900">
                     {item.title}
                   </div>
-                  <p className="mt-1 ty-note">
-                    {item.detail}
-                  </p>
+                  <p className="mt-1 ty-note">{item.detail}</p>
                 </div>
               </div>
             </li>
@@ -213,9 +219,7 @@ function AdviceList({
                 <div className="ty-heading leading-snug text-zinc-900">
                   {item.title}
                 </div>
-                <p className="mt-0.5 ty-note">
-                  {item.detail}
-                </p>
+                <p className="mt-0.5 ty-note">{item.detail}</p>
               </div>
             </li>
           ),

@@ -173,8 +173,10 @@ export interface PanelObject {
   address: string;
   lastCheck: string;
   breakers: number;
-  /** null / omitted until user provides phases + power and score is computed */
+  /** Stage 2 score with home loads on lines (null until loads stage is ready) */
   safety: number | null;
+  /** Stage 3 score from electrician inspection */
+  professionalSafety?: number | null;
   devices?: Device[];
   linesCount?: number;
   photoDataUrl?: string;

@@ -47,8 +47,13 @@ import {
   formatAppliancePower,
 } from "@/lib/home-appliances";
 import { applianceNeedsDetails } from "@/lib/appliance-line-sync";
+import {
+  buildPanelSafetyStages,
+  panelSafetyStagesDisclaimer,
+} from "@/lib/panel-safety-stages";
 import { hapticContextMenu } from "@/lib/haptics";
 import { safetyBadgeColors } from "@/lib/safety-score";
+import { PanelSafetyStages } from "@/components/ui/panel-safety-stages";
 import {
   persistInstallRequest,
   persistPanel,
@@ -344,6 +349,7 @@ function HomeListCard({
 }) {
   const isRequest = item.kind === "install_request";
   const panel = !isRequest && item.kind === "panel" ? item : null;
+  const safetyStages = panel ? buildPanelSafetyStages({ panel }) : null;
   const longPress = useLongPressAction(onContextMenu);
 
   return (
@@ -359,60 +365,59 @@ function HomeListCard({
         }}
         className="block w-full touch-manipulation text-left select-none lg:cursor-pointer"
       >
-        <GlassCard className="flex items-center gap-4 rounded-[24px] border p-4 transition-colors hover:bg-zinc-50 lg:p-5">
-          <div
-            className={cn(
-              "flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[18px] bg-zinc-100",
-              isRequest ? "text-zinc-500" : "text-zinc-600",
-            )}
-          >
-            {isRequest ? (
-              <ClipboardList className="h-6 w-6" />
-            ) : panel ? (
-              <PanelListIcon panel={panel} />
-            ) : (
-              <BreakerIcon className="h-7 w-7" />
-            )}
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="mb-0.5 flex items-center justify-between gap-2">
-              <h2 className="truncate ty-heading">
-                {isRequest && item.publicCode ? item.publicCode : item.title}
-              </h2>
+        <GlassCard className="overflow-hidden rounded-[24px] border transition-colors hover:bg-zinc-50">
+          <div className="flex items-center gap-4 p-4 lg:p-5">
+            <div
+              className={cn(
+                "flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[18px] bg-zinc-100",
+                isRequest ? "text-zinc-500" : "text-zinc-600",
+              )}
+            >
               {isRequest ? (
-                <span
-                  className={cn(
-                    "shrink-0 rounded-full px-2 py-0.5 ty-badge",
-                    installStatusTone(item.status).badge,
-                  )}
-                >
-                  {item.statusLabel}
-                </span>
-              ) : panel?.noPanelSetupId ? (
-                <span className="shrink-0 rounded-full bg-zinc-100 px-2 py-0.5 ty-badge text-zinc-600">
-                  нет щитка
-                </span>
+                <ClipboardList className="h-6 w-6" />
+              ) : panel ? (
+                <PanelListIcon panel={panel} />
               ) : (
-                <span className="shrink-0 rounded-full bg-emerald-500/15 px-2 py-0.5 ty-badge text-emerald-700">
-                  {panel?.phases &&
-                  panel.powerKw?.trim() &&
-                  typeof panel.safety === "number"
-                    ? `${panel.safety}%`
-                    : "—"}
-                </span>
+                <BreakerIcon className="h-7 w-7" />
               )}
             </div>
-            <p className="truncate ty-note">
-              {isRequest ? item.subtitle : item.address}
-            </p>
-            <p className="mt-1 ty-meta">
-              {panel
-                ? formatPanelListMeta(panel)
-                : isRequest
-                  ? item.createdAt
-                  : ""}
-            </p>
+            <div className="min-w-0 flex-1">
+              <div className="mb-0.5 flex items-center justify-between gap-2">
+                <h2 className="truncate ty-heading">
+                  {isRequest && item.publicCode ? item.publicCode : item.title}
+                </h2>
+                {isRequest ? (
+                  <span
+                    className={cn(
+                      "shrink-0 rounded-full px-2 py-0.5 ty-badge",
+                      installStatusTone(item.status).badge,
+                    )}
+                  >
+                    {item.statusLabel}
+                  </span>
+                ) : panel?.noPanelSetupId ? (
+                  <span className="shrink-0 rounded-full bg-zinc-100 px-2 py-0.5 ty-badge text-zinc-600">
+                    нет щитка
+                  </span>
+                ) : null}
+              </div>
+              <p className="truncate ty-note">
+                {isRequest ? item.subtitle : item.address}
+              </p>
+              <p className="mt-1 ty-meta">
+                {panel
+                  ? formatPanelListMeta(panel)
+                  : isRequest
+                    ? item.createdAt
+                    : ""}
+              </p>
+            </div>
           </div>
+          {panel && !panel.noPanelSetupId && safetyStages ? (
+            <div className="border-t border-black/[0.06] px-4 py-3">
+              <PanelSafetyStages snapshot={safetyStages} variant="compact" />
+            </div>
+          ) : null}
         </GlassCard>
       </button>
     </div>
@@ -494,17 +499,10 @@ function ExpandableHomeCard({
   const longPress = useLongPressAction(onContextMenu);
   const [safetyInfoOpen, setSafetyInfoOpen] = useState(false);
   const [appliancesIntroOpen, setAppliancesIntroOpen] = useState(false);
-  const hasSafetyScore =
-    Boolean(panel.phases) &&
-    Boolean(panel.powerKw?.trim()) &&
-    typeof panel.safety === "number";
-  const safetyBadge = hasSafetyScore
-    ? safetyBadgeColors(panel.safety!)
-    : {
-        bg: "bg-zinc-100",
-        text: "text-zinc-500",
-        hover: "hover:bg-zinc-200",
-      };
+  const safetyStages = useMemo(
+    () => buildPanelSafetyStages({ panel }),
+    [panel],
+  );
 
   const requestExpand = () => {
     if (!expanded && !hasSeenAppliancesIntro()) {
@@ -551,24 +549,7 @@ function ExpandableHomeCard({
               <span className="shrink-0 rounded-full bg-zinc-100 px-2 py-0.5 ty-badge text-zinc-600">
                 нет щитка
               </span>
-            ) : (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSafetyInfoOpen(true);
-                }}
-                className={cn(
-                  "shrink-0 rounded-full px-2 py-0.5 ty-badge tabular-nums transition-colors",
-                  safetyBadge.bg,
-                  safetyBadge.text,
-                  safetyBadge.hover,
-                )}
-                aria-label="Что значит оценка безопасности"
-              >
-                {hasSafetyScore ? `${panel.safety}%` : "—"}
-              </button>
-            )}
+            ) : null}
             {supportsAppliances ? (
               <button
                 type="button"
@@ -590,6 +571,22 @@ function ExpandableHomeCard({
             ) : null}
           </div>
         </div>
+
+        {!panel.noPanelSetupId ? (
+          <div className="border-t border-black/[0.06] px-4 py-3">
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                setSafetyInfoOpen(true);
+              }}
+              className="w-full text-left"
+              aria-label="Этапы оценки безопасности щитка"
+            >
+              <PanelSafetyStages snapshot={safetyStages} variant="compact" />
+            </button>
+          </div>
+        ) : null}
 
         {supportsAppliances ? (
           <AnimatePresence initial={false}>
@@ -625,17 +622,13 @@ function ExpandableHomeCard({
         ) : null}
 
         <AnimatePresence>
-          {safetyInfoOpen && (
-            <InfoDialog
-              title="Оценка безопасности щитка"
-              description={
-                hasSafetyScore
-                  ? `Сейчас оценка — ${panel.safety}%.\n\nЭто сводный показатель по составу щитка, параметрам сети и нагрузкам: насколько схема защищает человека, дом от пожара и технику.\n\nЧем выше процент, тем спокойнее можно относиться к щитку. Подробный разбор и советы — внутри карточки щитка.`
-                  : "Здесь появится процент безопасности щитка.\n\nЧтобы его посчитать, откройте щиток и укажите фазы, выделенную мощность и наличие земли, а также подпишите линии на схеме.\n\nПока данных мало — стоит «—»."
-              }
-              onClose={() => setSafetyInfoOpen(false)}
-            />
-          )}
+        {safetyInfoOpen && (
+          <InfoDialog
+            title="Безопасность щитка"
+            description={`${panelSafetyStagesDisclaimer}\n\n1. Схема — по составу щитка и параметрам сети.\n2. Нагрузки — после привязки техники, света и розеток к линиям.\n3. Заключение — после проверки электрика на объекте.`}
+            onClose={() => setSafetyInfoOpen(false)}
+          />
+        )}
         </AnimatePresence>
 
         <AnimatePresence>

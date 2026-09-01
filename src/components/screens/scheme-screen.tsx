@@ -61,7 +61,7 @@ import { UndoSnackbarHost } from "@/components/ui/undo-snackbar";
 import { ShareSheet } from "@/components/ui/share-sheet";
 import { SafetyParamsSheet } from "@/components/ui/safety-params-sheet";
 import { SafetyExplainSheet } from "@/components/ui/safety-explain-sheet";
-import { SafetyAxisMeters } from "@/components/ui/safety-axis-meters";
+import { PanelSafetyStages } from "@/components/ui/panel-safety-stages";
 import { EditableSpecCard } from "@/components/ui/editable-spec-card";
 import { InputBreakerDiagnosticsSheet } from "@/components/ui/input-breaker-diagnostics-sheet";
 import { IdentifyLinesGuideSheet } from "@/components/ui/identify-lines-guide-sheet";
@@ -99,6 +99,10 @@ import {
 } from "@/lib/panel-wires";
 import { hapticContextMenu, hapticDelete, hapticImpact, hapticNotification } from "@/lib/haptics";
 import { persistPanel, restoreDeletedHomeItem } from "@/lib/user-data";
+import {
+  buildPanelSafetyStages,
+  isPanelLoadsStageReady,
+} from "@/lib/panel-safety-stages";
 import {
   analyzePanelSafety,
   computePanelSafetyScore,
@@ -2053,6 +2057,45 @@ export function SchemeScreen({
     () => panelHasConfirmedInputBreaker(allRailDevices),
     [allRailDevices],
   );
+  const safetyPanelStub = useMemo(
+    () => ({
+      kind: "panel" as const,
+      id: panelId ?? "panel",
+      type: "apartment" as const,
+      title,
+      address: "",
+      lastCheck: "",
+      breakers: 0,
+      safety: safetyProp ?? null,
+      phases,
+      powerKw,
+      hasGround,
+      devices: allRailDevices,
+      appliances,
+    }),
+    [
+      panelId,
+      title,
+      safetyProp,
+      phases,
+      powerKw,
+      hasGround,
+      allRailDevices,
+      appliances,
+    ],
+  );
+  const loadsStageReady = useMemo(
+    () => isPanelLoadsStageReady(safetyPanelStub, allRailDevices),
+    [safetyPanelStub, allRailDevices],
+  );
+  const safetyStages = useMemo(
+    () =>
+      buildPanelSafetyStages({
+        panel: safetyPanelStub,
+        devices: allRailDevices,
+      }),
+    [safetyPanelStub, allRailDevices],
+  );
   const safetyAnalysis = useMemo(() => {
     const powerNum = Number((powerKw ?? "").replace(",", "."));
     return analyzePanelSafety(
@@ -2062,7 +2105,7 @@ export function SchemeScreen({
       hasGround,
     );
   }, [allRailDevices, phases, powerKw, hasGround]);
-  const safetyKnown = allLoadsIdentified && networkParamsFilled;
+  const safetyKnown = loadsStageReady && networkParamsFilled;
   const safetyScore = safetyKnown ? safetyAnalysis.score : null;
   const safetyAdvice = safetyAnalysis.advice;
   const loadMismatchIds = useMemo(() => {
@@ -2400,7 +2443,7 @@ export function SchemeScreen({
     nextHasGround: boolean;
   }) => {
     setSafetyOpen(false);
-    if (!allLoadsIdentified) {
+    if (!loadsStageReady) {
       onAssessSafety?.({
         phases: nextPhases,
         powerKw: nextPower,
@@ -2456,7 +2499,7 @@ export function SchemeScreen({
 
   useEffect(() => {
     if (sharedPreview || !onAssessSafety || safetyAssessing) return;
-    if (!allLoadsIdentified) {
+    if (!loadsStageReady) {
       if (typeof safetyProp === "number" && phases && powerKw?.trim()) {
         onAssessSafety({
           phases,
@@ -2484,7 +2527,7 @@ export function SchemeScreen({
       safety: next,
     });
   }, [
-    allLoadsIdentified,
+    loadsStageReady,
     allRailDevices,
     hasGround,
     onAssessSafety,
@@ -2611,28 +2654,11 @@ export function SchemeScreen({
         className="min-w-0 text-left transition-transform active:scale-[0.99] lg:cursor-pointer"
       >
         <GlassCard className="flex h-full flex-col p-4 lg:p-5">
-          <div className="mb-1 flex items-center gap-1.5 ty-note">
+          <div className="mb-3 flex items-center gap-1.5 ty-note">
             <Shield className="h-3.5 w-3.5 text-zinc-400" />
             Безопасность щитка
           </div>
-          {safetyKnown && safetyAnalysis.axes ? (
-            <div className="mt-2">
-              <SafetyAxisMeters axes={safetyAnalysis.axes} compact />
-            </div>
-          ) : (
-            <>
-              <div className="ty-heading text-zinc-400">
-                Не посчитан
-              </div>
-              <p className="mt-1 ty-meta text-zinc-400">
-                {!allLoadsIdentified
-                  ? "Сначала определите нагрузки — затем появятся оценки человека, пожара и техники"
-                  : networkParamsFilled
-                    ? "Нажмите, чтобы узнать, как считаются три оценки"
-                    : "Сначала укажите параметры сети"}
-              </p>
-            </>
-          )}
+          <PanelSafetyStages snapshot={safetyStages} />
         </GlassCard>
       </button>
     </>
@@ -3638,8 +3664,7 @@ export function SchemeScreen({
       <AnimatePresence>
         {safetyExplainOpen && (
           <SafetyExplainSheet
-            score={safetyScore}
-            axes={safetyKnown ? safetyAnalysis.axes : null}
+            stages={safetyStages}
             advice={safetyAdvice}
             onClose={() => setSafetyExplainOpen(false)}
             onEditParams={

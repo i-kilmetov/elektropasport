@@ -82,7 +82,9 @@ export function analyzePanelSafety(
   phases?: "1" | "3",
   powerKw?: number,
   hasGround?: boolean,
+  options?: { schemeOnly?: boolean },
 ): PanelSafetyAnalysis {
+  const schemeOnly = options?.schemeOnly ?? false;
   const rail = devices.filter(
     (device) => device.type !== "pe_bus" && device.type !== "n_bus",
   );
@@ -98,7 +100,7 @@ export function analyzePanelSafety(
   const lineProtection = count("breaker") + count("diff_breaker");
   const paramsReady = Boolean(phases && powerKw != null && powerKw > 0);
 
-  if (!loadsComplete) {
+  if (!loadsComplete && !schemeOnly) {
     advice.push({
       id: "line_loads",
       axis: "general",
@@ -246,7 +248,7 @@ export function analyzePanelSafety(
     });
   }
   if (hasLeakage) fire += 8;
-  if (loadsComplete) {
+  if (loadsComplete && !schemeOnly) {
     const mismatched = rail.filter((device) =>
       assessDeviceLineLoadSafety(device),
     );
@@ -526,7 +528,7 @@ export function safetyBadgeColors(score: number): {
 }
 
 export const safetyScoreDisclaimer =
-  "Оценка считается по трём осям: защита человека, пожарная безопасность и защита техники. Сервис не проверяет, насколько корректно приборы расключены внутри щитка.";
+  "Оценка строится в три этапа: схема и параметры сети, затем нагрузки дома на линиях, и финальное заключение электрика после проверки реальной проводки.";
 
 export function isPanelSafetyKnown(panel: {
   phases?: "1" | "3";
