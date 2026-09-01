@@ -164,6 +164,11 @@ import {
   stripPanelShareFromLocation,
   type PanelShareScope,
 } from "@/lib/panel-share";
+import {
+  clearPendingInviteToken,
+  readPendingInviteToken,
+  rememberPendingInviteToken,
+} from "@/lib/invite-pending";
 import { isResearchSurveyLaunch } from "@/lib/research-survey-access";
 import { markMasterApplied } from "@/lib/achievements";
 import type {
@@ -509,6 +514,9 @@ export function AppShell({
 
   useEffect(() => {
     const startParam = getTelegramStartParam();
+    if (isInviteToken(startParam)) {
+      rememberPendingInviteToken(startParam);
+    }
     const intent =
       typeof window !== "undefined"
         ? (() => {
@@ -619,8 +627,10 @@ export function AppShell({
       setItemsError(null);
 
       try {
-        const invite = getTelegramStartParam();
+        const invite =
+          getTelegramStartParam() ?? readPendingInviteToken();
         if (isInviteToken(invite)) {
+          rememberPendingInviteToken(invite);
           void recordInviteLinkOpen(invite);
         }
 
@@ -634,10 +644,15 @@ export function AppShell({
         }
 
         const claimPromise = isInviteToken(invite)
-          ? claimInviteToken(invite).catch((error) => {
-              console.error(error);
-              return null;
-            })
+          ? claimInviteToken(invite)
+              .then((claimed) => {
+                if (claimed) clearPendingInviteToken();
+                return claimed;
+              })
+              .catch((error) => {
+                console.error(error);
+                return null;
+              })
           : Promise.resolve(null);
 
         const [loaded, masterProfile, admin, nextQuota, claimed] =

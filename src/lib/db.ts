@@ -26,6 +26,10 @@ import {
   type SchoolPromoCode,
   type SchoolPromoDiscountType,
 } from "@/lib/school/promo";
+import {
+  isPhoneAuthStorageId,
+  phoneAuthStorageId,
+} from "@/lib/phone-auth";
 import { DbError, dbErrorResponse } from "@/lib/db-error";
 export { DbError, dbErrorResponse } from "@/lib/db-error";
 import { byteaParam, bytesFromBytea, getSql, jsonbParam } from "@/lib/sql-client";
@@ -51,7 +55,7 @@ import { ensureConnectedMoscowMaster } from "@/lib/ensure-moscow-master";
 let schemaReady: Promise<void> | null = null;
 
 /** Bump when DDL below changes so cold starts re-run migrations once. */
-const SCHEMA_VERSION = "2026-09-01-school-promo-codes";
+const SCHEMA_VERSION = "2026-09-02-phone-gateway-auth";
 /** One-shot data wipe flag — never re-run after it is written. */
 const FRESH_START_KEY = "fresh_start_2026_08_25_b";
 /** Bumped on each factory wipe so clients drop localStorage orphans. */
@@ -616,6 +620,22 @@ export async function ensureSchema(): Promise<void> {
           UNIQUE (promo_code_id, telegram_user_id, grade_id)
         )
       `;
+      await sql`
+        CREATE TABLE IF NOT EXISTS phone_auth_challenges (
+          id TEXT PRIMARY KEY,
+          phone_e164 TEXT NOT NULL,
+          phone_digits TEXT NOT NULL,
+          gateway_request_id TEXT NOT NULL,
+          app_env TEXT NOT NULL,
+          expires_at TIMESTAMPTZ NOT NULL,
+          verified_at TIMESTAMPTZ,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+      `;
+      await sql`
+        CREATE INDEX IF NOT EXISTS phone_auth_challenges_phone_idx
+        ON phone_auth_challenges (phone_digits, created_at DESC)
+      `;
 
       // One-time factory reset requested for clean testing.
       const [freshStart] = (await sql`
@@ -868,6 +888,15 @@ export async function updateStoredUserProfile(
       updated_at = NOW()
     WHERE telegram_id = ${telegramUserId}
   `;
+
+  if (phoneDigits && !isPhoneAuthStorageId(telegramUserId)) {
+    try {
+      const { mergePhoneAccountByDigits } = await import("@/lib/account-merge");
+      await mergePhoneAccountByDigits(telegramUserId, phoneDigits);
+    } catch (error) {
+      console.error("mergePhoneAccountByDigits", error);
+    }
+  }
 
   return {
     firstName: firstName ?? undefined,
@@ -3087,4 +3116,124 @@ export async function recordSchoolPromoRedemption(input: {
     WHERE id = ${input.promoCodeId}
   `;
   return true;
+}
+
+export type PhoneAuthChallenge = {
+  id: string;
+  phoneE164: string;
+  phoneDigits: string;
+  gatewayRequestId: string;
+  appEnv: string;
+  expiresAt: string;
+  verifiedAt: string | null;
+  createdAt: string;
+};
+
+type PhoneAuthChallengeRow = {
+  id: string;
+  phone_e164: string;
+  phone_digits: string;
+  gateway_request_id: string;
+  app_env: string;
+  expires_at: string | Date;
+  verified_at: string | Date | null;
+  created_at: string | Date;
+};
+
+function rowToPhoneAuthChallenge(row: PhoneAuthChallengeRow): PhoneAuthChallenge {
+  return {
+    id: row.id,
+    phoneE164: row.phone_e164,
+    phoneDigits: row.phone_digits,
+    gatewayRequestId: row.gateway_request_id,
+    appEnv: row.app_env,
+    expiresAt: new Date(row.expires_at).toISOString(),
+    verifiedAt: row.verified_at ? new Date(row.verified_at).toISOString() : null,
+    createdAt: new Date(row.created_at).toISOString(),
+  };
+}
+
+export async function insertPhoneAuthChallenge(input: {
+  id: string;
+  phoneE164: string;
+  phoneDigits: string;
+  gatewayRequestId: string;
+  appEnv: string;
+  expiresAt: string;
+}): Promise<PhoneAuthChallenge> {
+  const sql = getSql();
+  await ensureSchema();
+  const rows = (await sql`
+    INSERT INTO phone_auth_challenges (
+      id, phone_e164, phone_digits, gateway_request_id, app_env, expires_at
+    ) VALUES (
+      ${input.id},
+      ${input.phoneE164},
+      ${input.phoneDigits},
+      ${input.gatewayRequestId},
+      ${input.appEnv},
+      ${input.expiresAt}
+    )
+    RETURNING *
+  `) as PhoneAuthChallengeRow[];
+  return rowToPhoneAuthChallenge(rows[0]!);
+}
+
+export async function getPhoneAuthChallenge(
+  id: string,
+): Promise<PhoneAuthChallenge | null> {
+  const sql = getSql();
+  await ensureSchema();
+  const rows = (await sql`
+    SELECT * FROM phone_auth_challenges WHERE id = ${id} LIMIT 1
+  `) as PhoneAuthChallengeRow[];
+  return rows[0] ? rowToPhoneAuthChallenge(rows[0]) : null;
+}
+
+export async function markPhoneAuthChallengeVerified(id: string): Promise<void> {
+  const sql = getSql();
+  await ensureSchema();
+  await sql`
+    UPDATE phone_auth_challenges
+    SET verified_at = NOW()
+    WHERE id = ${id}
+  `;
+}
+
+export async function findUserStorageIdByPhoneDigits(
+  phoneDigits: string,
+): Promise<number | null> {
+  const sql = getSql();
+  await ensureSchema();
+  const rows = (await sql`
+    SELECT telegram_id
+    FROM users
+    WHERE phone_digits = ${phoneDigits}
+    ORDER BY
+      CASE WHEN telegram_id >= ${9_000_000_000_000} THEN 1 ELSE 0 END,
+      created_at ASC
+    LIMIT 1
+  `) as Array<{ telegram_id: string | number }>;
+  return rows[0] ? Number(rows[0].telegram_id) : null;
+}
+
+export async function ensurePhoneAuthUser(input: {
+  phoneDigits: string;
+  appEnv: import("@/lib/app-env").AppEnv;
+  firstName?: string;
+}): Promise<{ storageId: number; isNew: boolean }> {
+  const existingId = await findUserStorageIdByPhoneDigits(input.phoneDigits);
+  if (existingId != null && !isPhoneAuthStorageId(existingId)) {
+    await updateStoredUserProfile(existingId, { phoneDigits: input.phoneDigits });
+    return { storageId: existingId, isNew: false };
+  }
+
+  const storageId =
+    existingId ?? phoneAuthStorageId(input.phoneDigits, input.appEnv);
+  const { isNew } = await upsertUser({
+    telegramId: storageId,
+    firstName: input.firstName ?? "Пользователь",
+  });
+  await updateStoredUserProfile(storageId, { phoneDigits: input.phoneDigits });
+  return { storageId, isNew: existingId ? false : isNew };
 }

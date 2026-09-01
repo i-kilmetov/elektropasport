@@ -7,9 +7,8 @@ import {
   applyAppStatusBarTheme,
   applySplashStatusBarTheme,
 } from "@/lib/status-bar-theme";
-import { TelegramAppIcon } from "@/components/icons/telegram-app-icon";
 import { Button } from "@/components/ui/button";
-import { beginTelegramLogin } from "@/lib/pd-consent-client";
+import { PhoneLoginFlow } from "@/components/phone-login-flow";
 import {
   LOGO_FONT_WEIGHT,
   LOGO_INK,
@@ -417,7 +416,6 @@ export function BrandAuthIntro({
   const restRevealed = skipAnimation || flip.restRevealed;
   const stripesPulsing = skipAnimation ? false : flip.stripesPulsing;
   const loginVisible = skipAnimation || flip.ctaVisible;
-  const [starting, setStarting] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [logoWidth, setLogoWidth] = useState(0);
   const logoReady = skipAnimation || logoWidth > 0;
@@ -461,16 +459,9 @@ export function BrandAuthIntro({
     };
   }, [restRevealed]);
 
-  const handleLogin = () => {
+  const handleBeforeLogin = () => {
     setLoginError(null);
-    setStarting(true);
     onLogin();
-    void beginTelegramLogin().catch((error) => {
-      setStarting(false);
-      setLoginError(
-        error instanceof Error ? error.message : "Не удалось начать вход",
-      );
-    });
   };
 
   return (
@@ -510,15 +501,10 @@ export function BrandAuthIntro({
         }}
         transition={{ duration: skipAnimation ? 0 : 0.38, ease: [0.22, 1, 0.36, 1] }}
       >
-        <Button
-          type="button"
-          className="mx-auto flex h-14 min-h-14 w-full gap-2.5 rounded-full bg-[#111113] px-6 text-[16px] text-white hover:bg-zinc-800"
-          disabled={!loginVisible || starting || (!skipAnimation && logoWidth <= 0)}
-          onClick={handleLogin}
-        >
-          <TelegramAppIcon className="h-6 w-6 shrink-0 text-current" />
-          {starting ? "Открываем Telegram…" : "Войти через Telegram"}
-        </Button>
+        <PhoneLoginFlow
+          variant="splash"
+          onBeforeLogin={handleBeforeLogin}
+        />
         {loginError && (
           <p className="mt-3 text-center text-[13px] text-red-700">
             {loginError}

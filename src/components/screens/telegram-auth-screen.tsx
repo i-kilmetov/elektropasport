@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { motion } from "framer-motion";
 import { ArrowLeft } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
-import { TelegramAppIcon } from "@/components/icons/telegram-app-icon";
+import { PhoneLoginFlow } from "@/components/phone-login-flow";
 import { Button } from "@/components/ui/button";
-import { beginTelegramLogin } from "@/lib/pd-consent-client";
 import { GlassCard } from "@/components/ui/glass-card";
 
 export function TelegramAuthScreen({
@@ -20,25 +19,11 @@ export function TelegramAuthScreen({
   minimal?: boolean;
   returnTo?: string;
 }) {
-  const [starting, setStarting] = useState(false);
-  const [loginError, setLoginError] = useState<string | null>(null);
-
   useEffect(() => {
     if (pendingAction) {
       sessionStorage.setItem("ep_pending_auth_action", pendingAction);
     }
   }, [pendingAction]);
-
-  const handleLogin = () => {
-    setLoginError(null);
-    setStarting(true);
-    void beginTelegramLogin(returnTo).catch((error) => {
-      setStarting(false);
-      setLoginError(
-        error instanceof Error ? error.message : "Не удалось начать вход",
-      );
-    });
-  };
 
   return (
     <motion.section
@@ -75,33 +60,14 @@ export function TelegramAuthScreen({
         <GlassCard className="w-full max-w-sm space-y-5 p-6 text-center">
           <BrandLogo className="mx-auto h-10" />
           <div>
-            <h2 className="ty-title text-zinc-900">
-              Войдите через Telegram
-            </h2>
+            <h2 className="ty-title text-zinc-900">Войдите в Током</h2>
             <p className="mt-2 ty-body">
-              Подтвердите вход в своём аккаунте Telegram — так мы сохраним ваши
-              щитки, заявки и данные профиля.
+              Подтвердите номер телефона кодом из Telegram — так мы сохраним
+              ваши щитки, заявки и данные профиля.
             </p>
           </div>
 
-          <Button
-            className="w-full gap-2"
-            disabled={starting}
-            onClick={handleLogin}
-          >
-            {starting ? (
-              "Открываем Telegram…"
-            ) : (
-              <>
-                <TelegramAppIcon className="h-5 w-5 text-current" />
-                Войти
-              </>
-            )}
-          </Button>
-
-          {loginError && (
-            <p className="text-[13px] text-red-600">{loginError}</p>
-          )}
+          <PhoneLoginFlow returnTo={returnTo} />
         </GlassCard>
       </div>
 

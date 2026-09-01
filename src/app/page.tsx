@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import { AppShell } from "@/components/app-shell";
 import { BRAND_YELLOW } from "@/components/brand-logo";
 import { isProductionLaunchWaitlistHost, isTestAppHost } from "@/lib/app-env";
+import { isBrowserLoginEnabled } from "@/lib/phone-auth";
 
 export default async function Home({
   searchParams,
@@ -12,7 +13,8 @@ export default async function Home({
   const host =
     h.get("x-forwarded-host")?.split(",")[0]?.trim() || h.get("host");
   const launchWaitlist =
-    isProductionLaunchWaitlistHost(host) || sp.waitlist === "1";
+    (isProductionLaunchWaitlistHost(host) || sp.waitlist === "1") &&
+    !isBrowserLoginEnabled();
   const skipBootSplash = isTestAppHost(host);
 
   return (
