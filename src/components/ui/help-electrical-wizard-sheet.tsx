@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { motion } from "framer-motion";
 import { ArrowLeft, Loader2, Phone, Sparkles, X } from "lucide-react";
 import { GeminiSparkle } from "@/components/icons/gemini-sparkle";
@@ -104,6 +104,8 @@ function AiAnswerStep({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const consultationSavedRef = useRef(false);
+  const onConsultationReadyRef = useRef(onConsultationReady);
+  onConsultationReadyRef.current = onConsultationReady;
 
   useEffect(() => {
     let cancelled = false;
@@ -154,8 +156,8 @@ function AiAnswerStep({
   useEffect(() => {
     if (!reply || consultationSavedRef.current) return;
     consultationSavedRef.current = true;
-    void onConsultationReady(context, reply);
-  }, [reply, context, onConsultationReady]);
+    void onConsultationReadyRef.current(context, reply);
+  }, [reply, context]);
 
   return (
     <div className="space-y-4">
@@ -326,6 +328,7 @@ export function HelpElectricalWizardSheet({
   const [consultationRequestId, setConsultationRequestId] = useState<
     string | null
   >(null);
+  const wasOpenRef = useRef(false);
 
   const selectedPanel = useMemo(
     () => panels.find((panel) => panel.id === selectedPanelId) ?? null,
@@ -338,27 +341,29 @@ export function HelpElectricalWizardSheet({
   );
 
   useEffect(() => {
-    if (!open) return;
-    setStep(panels.length > 1 ? "panel" : "location");
-    setSelectedPanelId(panels.length === 1 ? panels[0]?.id ?? null : null);
-    setLocation(null);
-    setCategory(null);
-    setSelectedApplianceId(null);
-    setSelectedProblem(null);
-    setCustomProblem("");
-    setAiContext(null);
-    setConsultationRequestId(null);
-  }, [open, panels]);
-
-  const handleConsultationReady = async (
-    context: HelpElectricalContext,
-    aiReply: string,
-  ) => {
-    const id = await onConsultationReady(context, aiReply);
-    if (typeof id === "string") {
-      setConsultationRequestId(id);
+    if (open && !wasOpenRef.current) {
+      setStep(panels.length > 1 ? "panel" : "location");
+      setSelectedPanelId(panels.length === 1 ? panels[0]?.id ?? null : null);
+      setLocation(null);
+      setCategory(null);
+      setSelectedApplianceId(null);
+      setSelectedProblem(null);
+      setCustomProblem("");
+      setAiContext(null);
+      setConsultationRequestId(null);
     }
-  };
+    wasOpenRef.current = open;
+  }, [open, panels.length]);
+
+  const handleConsultationReady = useCallback(
+    async (context: HelpElectricalContext, aiReply: string) => {
+      const id = await onConsultationReady(context, aiReply);
+      if (typeof id === "string") {
+        setConsultationRequestId(id);
+      }
+    },
+    [onConsultationReady],
+  );
 
   const goToAi = (problem: HelpProblemOption, customText?: string) => {
     if (!selectedPanel || !location || !category) return;

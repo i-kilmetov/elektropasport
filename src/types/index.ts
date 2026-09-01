@@ -260,6 +260,10 @@ export interface InstallRequest {
   aiConsultation?: AiConsultationRecord;
 }
 
+export function isAiConsultationRequest(request: InstallRequest): boolean {
+  return Boolean(request.aiConsultation);
+}
+
 export type HomeListItem = PanelObject | InstallRequest;
 
 export type AppScreen =

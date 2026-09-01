@@ -1,4 +1,4 @@
-import type { InstallRequest } from "@/types";
+import { isAiConsultationRequest, type InstallRequest } from "@/types";
 import {
   authErrorResponse,
   requireTelegramUser,
@@ -41,7 +41,7 @@ export async function PATCH(request: Request, context: RouteContext) {
       return Response.json({ error: "Заявка не найдена" }, { status: 404 });
     }
 
-    if (body.status) {
+    if (body.status && !isAiConsultationRequest(item)) {
       try {
         await notifyAdminInstallRequestStatusChangedByUser(
           item,
@@ -77,9 +77,11 @@ export async function DELETE(request: Request, context: RouteContext) {
     }
 
     try {
-      await notifyAdminInstallRequestDeletedByUser(existing, user.telegramId, {
-        username: user.username,
-      });
+      if (!isAiConsultationRequest(existing)) {
+        await notifyAdminInstallRequestDeletedByUser(existing, user.telegramId, {
+          username: user.username,
+        });
+      }
     } catch (error) {
       console.error("Failed to notify admin about deleted request", error);
     }
