@@ -12,6 +12,7 @@ export type ApplianceEnrichmentResult = {
   publicUrl: string | null;
   energyClass?: string;
   brandLogoUrl?: string;
+  productImageUrl?: string;
   specs: ApplianceSpec[];
   manuals: ApplianceManual[];
   icecatStatus?: string;
@@ -48,6 +49,7 @@ export async function enrichApplianceProduct(options: {
       matched: true,
       publicUrl: icecat.hit.sourceUrl ?? publicUrl,
       brandLogoUrl: icecat.hit.brandLogoUrl,
+      productImageUrl: icecat.hit.productImageUrl,
       specs: icecat.hit.specs,
       manuals: icecat.hit.manuals,
       icecatStatus: icecat.status,

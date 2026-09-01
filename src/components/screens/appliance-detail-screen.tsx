@@ -209,6 +209,23 @@ export function ApplianceDetailScreen({
             </div>
           </div>
 
+          {appliance.productImageUrl?.trim() ? (
+            <GlassCard className="overflow-hidden p-0">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={appliance.productImageUrl.trim()}
+                alt={
+                  brand && model
+                    ? `${brand} ${model}`
+                    : brand || model || kindLabel
+                }
+                className="mx-auto block max-h-56 w-full object-contain bg-white p-4"
+                loading="lazy"
+                decoding="async"
+              />
+            </GlassCard>
+          ) : null}
+
           {needsDetails ? (
             <GlassCard className="p-4">
               <ApplianceBrandModelPicker

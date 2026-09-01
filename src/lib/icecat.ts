@@ -10,6 +10,7 @@ export type IcecatProductHit = {
   model: string;
   title?: string;
   brandLogoUrl?: string;
+  productImageUrl?: string;
   specs: ApplianceSpec[];
   manuals: ApplianceManual[];
   sourceUrl?: string;
@@ -67,9 +68,41 @@ function brandLogoFromGeneral(general: Record<string, unknown>): string | undefi
   const brandInfo = general.BrandInfo;
   if (!brandInfo || typeof brandInfo !== "object") return undefined;
   const logo = asString((brandInfo as Record<string, unknown>).BrandLogo);
-  if (!logo) return undefined;
-  if (/^https?:\/\//i.test(logo)) return logo;
-  return `https://images.icecat.biz${logo.startsWith("/") ? logo : `/${logo}`}`;
+  return logo ? normalizeIcecatAssetUrl(logo) : undefined;
+}
+
+function normalizeIcecatAssetUrl(url: string): string {
+  if (/^https?:\/\//i.test(url)) return url;
+  return `https://images.icecat.biz${url.startsWith("/") ? url : `/${url}`}`;
+}
+
+function productImageFromData(data: Record<string, unknown>): string | undefined {
+  const image = data.Image;
+  if (image && typeof image === "object") {
+    const row = image as Record<string, unknown>;
+    const url =
+      asString(row.Pic500x500) ||
+      asString(row.HighPic) ||
+      asString(row.LowPic) ||
+      asString(row.ThumbPic);
+    if (url) return normalizeIcecatAssetUrl(url);
+  }
+
+  const gallery = data.Gallery;
+  if (Array.isArray(gallery)) {
+    for (const item of gallery) {
+      if (!item || typeof item !== "object") continue;
+      const row = item as Record<string, unknown>;
+      const url =
+        asString(row.Pic500x500) ||
+        asString(row.HighPic) ||
+        asString(row.LowPic) ||
+        asString(row.ThumbPic);
+      if (url) return normalizeIcecatAssetUrl(url);
+    }
+  }
+
+  return undefined;
 }
 
 function pickFeatureValue(feature: Record<string, unknown>): string | null {
@@ -285,6 +318,7 @@ function hitFromPayload(
   const specs = specsFromFeatures(data);
   const manuals = manualsFromData(data);
   const brandLogoUrl = brandLogoFromGeneral(general);
+  const productImageUrl = productImageFromData(data);
   const iceCatId =
     asString(general.IcecatId) ||
     asString(data.IcecatId) ||
@@ -306,6 +340,7 @@ function hitFromPayload(
     model: hitModel,
     title,
     brandLogoUrl,
+    productImageUrl,
     specs,
     manuals,
     sourceUrl,

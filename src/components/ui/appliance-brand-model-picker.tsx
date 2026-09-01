@@ -163,6 +163,7 @@ export function ApplianceBrandModelPicker({
               manuals: Array.isArray(data.manuals) ? data.manuals : [],
               title: data.title ?? null,
               brandLogoUrl: data.brandLogoUrl ?? null,
+              productImageUrl: data.productImageUrl ?? null,
               matched: Boolean(data.matched),
               status: data.status,
               statusDetail: data.statusDetail ?? null,
@@ -209,6 +210,7 @@ export function ApplianceBrandModelPicker({
               specs?: ProductDetails["specs"];
               manuals?: ProductDetails["manuals"];
               brandLogoUrl?: string | null;
+              productImageUrl?: string | null;
             } | null;
             icecatStatus?: string;
             icecatDetail?: string;
@@ -224,6 +226,7 @@ export function ApplianceBrandModelPicker({
               manuals: [],
               title: null,
               brandLogoUrl: null,
+              productImageUrl: null,
               matched: false,
               status: data.icecatStatus,
               statusDetail: data.icecatDetail ?? null,
@@ -239,6 +242,7 @@ export function ApplianceBrandModelPicker({
             manuals: Array.isArray(hit.manuals) ? hit.manuals : [],
             title: null,
             brandLogoUrl: hit.brandLogoUrl ?? null,
+            productImageUrl: hit.productImageUrl ?? null,
             matched: true,
             status: data.icecatStatus,
             statusDetail: data.icecatDetail ?? null,
@@ -288,6 +292,7 @@ export function ApplianceBrandModelPicker({
         brand: selectedModel.brand,
         model: selectedModel.modelName || selectedModel.productCode,
         brandLogoUrl: details?.brandLogoUrl ?? undefined,
+        productImageUrl: details?.productImageUrl ?? undefined,
         powerW,
         catalogId: `icecat:${selectedModel.id}`,
         specs,
@@ -303,6 +308,7 @@ export function ApplianceBrandModelPicker({
       brand: resolvedBrand,
       model: resolvedModel,
       brandLogoUrl: details?.brandLogoUrl ?? appliance.brandLogoUrl,
+      productImageUrl: details?.productImageUrl ?? appliance.productImageUrl,
       powerW: details?.powerW ?? undefined,
       specs: details?.matched
         ? buildApplianceSpecsSnapshot({

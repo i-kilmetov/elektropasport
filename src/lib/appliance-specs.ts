@@ -6,6 +6,7 @@ export type LoadedProductDetails = {
   manuals: ApplianceManual[];
   title: string | null;
   brandLogoUrl?: string | null;
+  productImageUrl?: string | null;
   matched: boolean;
   status?: string;
   statusDetail?: string | null;

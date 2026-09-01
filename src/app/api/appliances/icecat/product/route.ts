@@ -32,6 +32,7 @@ export async function GET(request: Request) {
       manuals: details.manuals,
       title: details.title ?? null,
       brandLogoUrl: details.brandLogoUrl ?? null,
+      productImageUrl: details.productImageUrl ?? null,
       matched: details.matched,
       status: details.status,
       statusDetail: details.statusDetail ?? null,

@@ -126,6 +126,8 @@ export interface HomeAppliance {
   model?: string;
   /** Manufacturer logo URL from Icecat — snapshotted at save time */
   brandLogoUrl?: string;
+  /** Product photo URL from Icecat — snapshotted at save time */
+  productImageUrl?: string;
   /** Catalog entry id when picked from the appliance database */
   catalogId?: string;
   photoDataUrl?: string;
