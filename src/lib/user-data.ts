@@ -377,6 +377,34 @@ function applianceUpdatedAtMs(panel?: PanelObject | null): number {
 }
 
 /** Merge appliance lists by id without dropping items from either side. */
+function mergePassportPhotoIds(
+  prev?: string[],
+  next?: string[],
+): string[] | undefined {
+  if (next === undefined) return prev;
+  const prevIds = prev ?? [];
+  if (next.length >= prevIds.length) {
+    return [...new Set([...prevIds, ...next])];
+  }
+  return next;
+}
+
+function mergePassportPhotoTitles(
+  ids: string[] | undefined,
+  prev?: Record<string, string>,
+  next?: Record<string, string>,
+): Record<string, string> | undefined {
+  const merged = { ...(prev ?? {}), ...(next ?? {}) };
+  if (!ids?.length) {
+    return Object.keys(merged).length ? merged : undefined;
+  }
+  const filtered: Record<string, string> = {};
+  for (const id of ids) {
+    if (merged[id]) filtered[id] = merged[id];
+  }
+  return Object.keys(filtered).length ? filtered : undefined;
+}
+
 export function mergeAppliancesUnion(
   a?: HomeAppliance[] | null,
   b?: HomeAppliance[] | null,
@@ -388,21 +416,23 @@ export function mergeAppliancesUnion(
     byId.set(
       item.id,
       prev
-        ? {
-            ...prev,
-            ...item,
-            photoDataUrl: item.photoDataUrl || prev.photoDataUrl,
-            passportPhotoIds: [
-              ...new Set([
-                ...(prev.passportPhotoIds ?? []),
-                ...(item.passportPhotoIds ?? []),
-              ]),
-            ],
-            passportPhotoTitles: {
-              ...(prev.passportPhotoTitles ?? {}),
-              ...(item.passportPhotoTitles ?? {}),
-            },
-          }
+        ? (() => {
+            const passportPhotoIds = mergePassportPhotoIds(
+              prev.passportPhotoIds,
+              item.passportPhotoIds,
+            );
+            return {
+              ...prev,
+              ...item,
+              photoDataUrl: item.photoDataUrl || prev.photoDataUrl,
+              passportPhotoIds,
+              passportPhotoTitles: mergePassportPhotoTitles(
+                passportPhotoIds,
+                prev.passportPhotoTitles,
+                item.passportPhotoTitles,
+              ),
+            };
+          })()
         : item,
     );
   }

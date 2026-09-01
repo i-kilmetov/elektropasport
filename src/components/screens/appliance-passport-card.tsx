@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Camera, ExternalLink, FileText, HelpCircle, ImagePlus, Trash2, X } from "lucide-react";
+import { Camera, FileText, HelpCircle, ImagePlus, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
 import { InfoDialog } from "@/components/ui/info-dialog";
@@ -83,6 +83,7 @@ export function AppliancePassportCard({
   );
   const [urls, setUrls] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [hintOpen, setHintOpen] = useState(false);
   const [viewerId, setViewerId] = useState<string | null>(null);
@@ -97,7 +98,13 @@ export function AppliancePassportCard({
     mutatedRef.current = false;
     setIds(appliance.passportPhotoIds ?? []);
     setTitles(appliance.passportPhotoTitles ?? {});
-  }, [appliance.id, appliance.passportPhotoIds, appliance.passportPhotoTitles]);
+  }, [appliance.id]);
+
+  useEffect(() => {
+    if (mutatedRef.current) return;
+    setIds(appliance.passportPhotoIds ?? []);
+    setTitles(appliance.passportPhotoTitles ?? {});
+  }, [appliance.passportPhotoIds, appliance.passportPhotoTitles]);
 
   useEffect(() => {
     let cancelled = false;
@@ -215,10 +222,19 @@ export function AppliancePassportCard({
   };
 
   const removePhoto = async (id: string) => {
-    setBusy(true);
+    if (deletingId) return;
+    setDeletingId(id);
     setError(null);
     try {
-      await deleteAppliancePassportPhotoClient(id);
+      try {
+        await deleteAppliancePassportPhotoClient(id);
+      } catch (caught) {
+        const message = formatErrorMessage(caught, "Не удалось удалить фото");
+        if (!/404|не найден/i.test(message)) {
+          throw caught;
+        }
+      }
+
       hapticImpact("light");
       const url = urls[id];
       if (url) URL.revokeObjectURL(url);
@@ -234,15 +250,22 @@ export function AppliancePassportCard({
       }
       const nextTitles = { ...titles };
       delete nextTitles[id];
-      commitAppliance(
-        ids.filter((item) => item !== id),
-        nextTitles,
-      );
+      let nextIds = ids.filter((item) => item !== id);
+      try {
+        const photos = await listAppliancePassportPhotosClient(
+          panel.id,
+          appliance.id,
+        );
+        nextIds = photos.map((item) => item.id);
+      } catch {
+        /* keep filtered local ids */
+      }
+      commitAppliance(nextIds, nextTitles);
     } catch (caught) {
       hapticNotification("error");
       setError(formatErrorMessage(caught, "Не удалось удалить фото"));
     } finally {
-      setBusy(false);
+      setDeletingId(null);
     }
   };
 
@@ -285,7 +308,6 @@ export function AppliancePassportCard({
                 <span className="min-w-0 flex-1 truncate ty-heading">
                   {photoTitle(id, index)}
                 </span>
-                <ExternalLink className="h-4 w-4 shrink-0 text-zinc-400" />
               </button>
             ))}
           </div>
@@ -338,12 +360,12 @@ export function AppliancePassportCard({
             <button
               type="button"
               aria-label="Удалить файл"
-              disabled={busy}
+              disabled={deletingId === viewerId}
               onClick={(event) => {
                 event.stopPropagation();
                 void removePhoto(viewerId);
               }}
-              className="flex h-11 w-11 items-center justify-center rounded-full bg-white/15 text-white disabled:opacity-40"
+              className="flex h-11 w-11 items-center justify-center rounded-full bg-white/15 text-white disabled:opacity-60"
             >
               <Trash2 className="h-5 w-5" />
             </button>
@@ -427,21 +449,9 @@ export function AppliancePassportCard({
                     }}
                   />
                 </label>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    className="flex-1"
-                    onClick={() => {
-                      setTitlePromptId(null);
-                      setTitleDraft("");
-                    }}
-                  >
-                    Пропустить
-                  </Button>
-                  <Button className="flex-1" onClick={confirmTitlePrompt}>
-                    Сохранить
-                  </Button>
-                </div>
+                <Button className="w-full" onClick={confirmTitlePrompt}>
+                  Сохранить
+                </Button>
               </motion.div>
             </motion.div>
           </Portal>
