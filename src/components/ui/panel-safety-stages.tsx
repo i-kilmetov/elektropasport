@@ -9,35 +9,99 @@ import {
 } from "@/lib/panel-safety-stages";
 import { cn } from "@/lib/utils";
 
+function safetyBarFill(score: number): string {
+  if (score >= 80) return "bg-emerald-500";
+  if (score >= 65) return "bg-lime-500";
+  if (score >= 50) return "bg-amber-400";
+  if (score >= 35) return "bg-orange-500";
+  return "bg-rose-500";
+}
+
+function SafetyStageBar({
+  snapshot,
+  className,
+}: {
+  snapshot: PanelSafetyStagesSnapshot;
+  className?: string;
+}) {
+  const { stages, headlineScore } = snapshot;
+  const completedCount = stages.filter((stage) => stage.score != null).length;
+  const fillClass =
+    headlineScore != null ? safetyBarFill(headlineScore) : null;
+
+  return (
+    <div
+      className={cn(
+        "relative h-9 w-full overflow-hidden rounded-full bg-zinc-200",
+        className,
+      )}
+      role="img"
+      aria-label={
+        headlineScore != null
+          ? `Безопасность щитка: ${headlineScore}%, этап ${completedCount} из 3`
+          : "Безопасность щитка: оценка ещё не определена"
+      }
+    >
+      {stages.map((stage, index) => {
+        const isCompleted = index < completedCount;
+        return (
+          <div
+            key={stage.id}
+            className="absolute inset-y-0"
+            style={{
+              left: `${(index / stages.length) * 100}%`,
+              width: `${100 / stages.length}%`,
+              zIndex: index + 1,
+            }}
+          >
+            <div
+              className={cn(
+                "absolute inset-0",
+                isCompleted && fillClass ? fillClass : "bg-zinc-200",
+              )}
+            />
+            {!isCompleted ? (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Lock className="h-3.5 w-3.5 text-zinc-400" aria-hidden />
+              </div>
+            ) : null}
+          </div>
+        );
+      })}
+
+      {headlineScore != null && completedCount > 0 ? (
+        <div
+          className="pointer-events-none absolute inset-y-0 left-0 z-10 flex items-center px-3.5"
+          style={{ width: `${(completedCount / stages.length) * 100}%` }}
+        >
+          <span className="text-[13px] font-semibold tabular-nums text-white drop-shadow-sm">
+            {headlineScore}%
+          </span>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function StageScore({
   stage,
-  compact,
 }: {
   stage: SafetyStageSnapshot;
-  compact?: boolean;
 }) {
   const badge = stageScoreBadge(stage.score);
   if (stage.status === "locked") {
     return (
       <span
-        className={cn(
-          "inline-flex items-center justify-center rounded-full bg-zinc-100 text-zinc-400",
-          compact ? "h-6 min-w-[2rem] px-1.5 text-[11px]" : "h-7 min-w-[2.25rem] px-2 text-[12px]",
-        )}
+        className="inline-flex h-7 min-w-[2.25rem] items-center justify-center rounded-full bg-zinc-100 px-2 text-[12px] text-zinc-400"
         aria-hidden
       >
-        <Lock className={compact ? "h-3 w-3" : "h-3.5 w-3.5"} />
+        <Lock className="h-3.5 w-3.5" />
       </span>
     );
   }
   if (stage.score == null) {
     return (
-      <span
-        className={cn(
-          "inline-flex items-center justify-center rounded-full bg-zinc-100 font-semibold tabular-nums text-zinc-500",
-          compact ? "h-6 min-w-[2rem] px-1.5 text-[11px]" : "h-7 min-w-[2.25rem] px-2 text-[12px]",
-        )}
-      >
+      <span className="inline-flex h-7 min-w-[2.25rem] items-center justify-center rounded-full bg-zinc-100 px-2 text-[12px] font-semibold tabular-nums text-zinc-500">
         —
       </span>
     );
@@ -45,10 +109,9 @@ function StageScore({
   return (
     <span
       className={cn(
-        "inline-flex items-center justify-center rounded-full font-semibold tabular-nums",
+        "inline-flex h-7 min-w-[2.5rem] items-center justify-center rounded-full px-2 text-[12px] font-semibold tabular-nums",
         badge.bg,
         badge.text,
-        compact ? "h-6 min-w-[2.25rem] px-1.5 text-[11px]" : "h-7 min-w-[2.5rem] px-2 text-[12px]",
       )}
     >
       {stage.score}%
@@ -75,60 +138,14 @@ export function PanelSafetyStages({
   onStageClick,
 }: {
   snapshot: PanelSafetyStagesSnapshot;
-  variant?: "compact" | "panel";
+  variant?: "bar" | "compact" | "panel";
   className?: string;
   onStageClick?: (stageId: SafetyStageId) => void;
 }) {
   const { stages, activeStageId } = snapshot;
 
-  if (variant === "compact") {
-    return (
-      <div className={cn("flex min-w-0 items-center gap-1", className)}>
-        {stages.map((stage, index) => {
-          const body = (
-            <>
-              <span className="mb-0.5 block text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
-                {stage.step}
-              </span>
-              <StageScore stage={stage} compact />
-            </>
-          );
-          const isInteractive = Boolean(onStageClick);
-          return (
-            <div key={stage.id} className="flex min-w-0 flex-1 items-center gap-1">
-              {isInteractive ? (
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onStageClick?.(stage.id);
-                  }}
-                  className={cn(
-                    "flex min-w-0 flex-1 flex-col items-center rounded-[12px] px-1 py-0.5 transition-colors",
-                    stage.id === activeStageId && "bg-zinc-100",
-                  )}
-                  aria-label={`${stage.title}: ${stage.score != null ? `${stage.score}%` : stage.status === "locked" ? "закрыт" : "не готов"}`}
-                >
-                  {body}
-                </button>
-              ) : (
-                <div
-                  className={cn(
-                    "flex min-w-0 flex-1 flex-col items-center px-1 py-0.5",
-                    stage.id === activeStageId && "rounded-[12px] bg-zinc-100",
-                  )}
-                >
-                  {body}
-                </div>
-              )}
-              {index < stages.length - 1 ? (
-                <StageConnector active={stage.status === "done"} />
-              ) : null}
-            </div>
-          );
-        })}
-      </div>
-    );
+  if (variant === "bar" || variant === "compact") {
+    return <SafetyStageBar snapshot={snapshot} className={className} />;
   }
 
   return (

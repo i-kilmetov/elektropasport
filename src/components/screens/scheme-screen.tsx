@@ -27,7 +27,6 @@ import {
   PenLine,
   Pencil,
   Plus,
-  Shield,
   Trash2,
   Zap,
   X,
@@ -2540,6 +2539,66 @@ export function SchemeScreen({
 
   const networkSafetyCards = (
     <>
+      <button
+        type="button"
+        data-scheme-tour="safety"
+        onClick={() => setSafetyExplainOpen(true)}
+        className="min-w-0 col-span-2 text-left transition-transform active:scale-[0.99] lg:col-span-1 lg:cursor-pointer"
+      >
+        <GlassCard className="flex h-full flex-col justify-center p-4 lg:p-5">
+          <PanelSafetyStages snapshot={safetyStages} variant="bar" />
+        </GlassCard>
+      </button>
+      <button
+        type="button"
+        data-scheme-tour="network"
+        onClick={() => {
+          if (sharedPreview) return;
+          setSafetyOpen(true);
+        }}
+        className="min-w-0 text-left transition-transform active:scale-[0.99] lg:cursor-pointer"
+      >
+        <GlassCard className="flex h-full flex-col p-4 lg:p-5">
+          <div className="mb-2 ty-note">Параметры сети</div>
+          {networkParamsFilled ? (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Zap className="h-4 w-4 shrink-0 text-zinc-400" />
+                <span className="min-w-0 flex-1 ty-heading leading-tight text-zinc-900">
+                  {phases === "3" ? "3 фазы" : "1 фаза"}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Gauge className="h-4 w-4 shrink-0 text-zinc-400" />
+                <span className="ty-heading leading-tight text-zinc-900">
+                  {powerKw?.replace(".", ",")} кВт
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <GroundSymbol className="h-4 w-4 text-zinc-400" />
+                <span className="ty-heading leading-tight text-zinc-900">
+                  {hasGround === true
+                    ? "Есть земля"
+                    : hasGround === false
+                      ? "Нет земли"
+                      : "Земля не указана"}
+                </span>
+              </div>
+              <div className="flex justify-center pt-3">
+                <SupplyCableIcon
+                  phases={phases === "3" ? "3" : "1"}
+                  hasGround={hasGround === true}
+                  className="scale-125"
+                />
+              </div>
+            </div>
+          ) : (
+            <p className="ty-note text-zinc-400">
+              Нажмите, чтобы указать число фаз, мощность и наличие земли
+            </p>
+          )}
+        </GlassCard>
+      </button>
       <div className="min-w-0 col-span-2 lg:col-span-1">
         <GlassCard
           className={cn(
@@ -2597,70 +2656,6 @@ export function SchemeScreen({
           )}
         </GlassCard>
       </div>
-      <button
-        type="button"
-        data-scheme-tour="network"
-        onClick={() => {
-          if (sharedPreview) return;
-          setSafetyOpen(true);
-        }}
-        className="min-w-0 text-left transition-transform active:scale-[0.99] lg:cursor-pointer"
-      >
-        <GlassCard className="flex h-full flex-col p-4 lg:p-5">
-          <div className="mb-2 ty-note">Параметры сети</div>
-          {networkParamsFilled ? (
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <Zap className="h-4 w-4 shrink-0 text-zinc-400" />
-                <span className="min-w-0 flex-1 ty-heading leading-tight text-zinc-900">
-                  {phases === "3" ? "3 фазы" : "1 фаза"}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Gauge className="h-4 w-4 shrink-0 text-zinc-400" />
-                <span className="ty-heading leading-tight text-zinc-900">
-                  {powerKw?.replace(".", ",")} кВт
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <GroundSymbol className="h-4 w-4 text-zinc-400" />
-                <span className="ty-heading leading-tight text-zinc-900">
-                  {hasGround === true
-                    ? "Есть земля"
-                    : hasGround === false
-                      ? "Нет земли"
-                      : "Земля не указана"}
-                </span>
-              </div>
-              <div className="flex justify-center pt-3">
-                <SupplyCableIcon
-                  phases={phases === "3" ? "3" : "1"}
-                  hasGround={hasGround === true}
-                  className="scale-125"
-                />
-              </div>
-            </div>
-          ) : (
-            <p className="ty-note text-zinc-400">
-              Нажмите, чтобы указать число фаз, мощность и наличие земли
-            </p>
-          )}
-        </GlassCard>
-      </button>
-      <button
-        type="button"
-        data-scheme-tour="safety"
-        onClick={() => setSafetyExplainOpen(true)}
-        className="min-w-0 text-left transition-transform active:scale-[0.99] lg:cursor-pointer"
-      >
-        <GlassCard className="flex h-full flex-col p-4 lg:p-5">
-          <div className="mb-3 flex items-center gap-1.5 ty-note">
-            <Shield className="h-3.5 w-3.5 text-zinc-400" />
-            Безопасность щитка
-          </div>
-          <PanelSafetyStages snapshot={safetyStages} />
-        </GlassCard>
-      </button>
     </>
   );
 

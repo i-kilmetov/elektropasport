@@ -415,7 +415,7 @@ function HomeListCard({
           </div>
           {panel && !panel.noPanelSetupId && safetyStages ? (
             <div className="border-t border-black/[0.06] px-4 py-3">
-              <PanelSafetyStages snapshot={safetyStages} variant="compact" />
+              <PanelSafetyStages snapshot={safetyStages} variant="bar" />
             </div>
           ) : null}
         </GlassCard>
@@ -583,7 +583,7 @@ function ExpandableHomeCard({
               className="w-full text-left"
               aria-label="Этапы оценки безопасности щитка"
             >
-              <PanelSafetyStages snapshot={safetyStages} variant="compact" />
+              <PanelSafetyStages snapshot={safetyStages} variant="bar" />
             </button>
           </div>
         ) : null}
