@@ -63,7 +63,7 @@ import { PanelHouseAddressSheet } from "@/components/ui/panel-house-address-shee
 import { PdConsentGate } from "@/components/ui/pd-consent-gate";
 import { SchemeErrorBoundary } from "@/components/ui/scheme-error-boundary";
 import { fetchPdConsentStatus } from "@/lib/pd-consent-client";
-import { clearSchemeTourSeen } from "@/lib/scheme-onboarding";
+import { markHomeExpandPanelForAppliances } from "@/lib/home-expanded";
 import {
   ONBOARDING_SKIP_KEY,
 } from "@/components/screens/welcome-screen";
@@ -357,7 +357,6 @@ export function AppShell({
   const [activeRequestId, setActiveRequestId] = useState<string | null>(null);
   const [objectsTab, setObjectsTab] = useState<0 | 1>(0);
   const [askNameOnBack, setAskNameOnBack] = useState(false);
-  const [schemeTourPending, setSchemeTourPending] = useState(false);
   const [panelHousePromptOpen, setPanelHousePromptOpen] = useState(false);
   const [panelHouseSaving, setPanelHouseSaving] = useState(false);
   const [panelHouseSaved, setPanelHouseSaved] = useState(false);
@@ -893,8 +892,13 @@ export function AppShell({
           result.railCount ?? deriveRailCount(result.devices),
         );
         hapticNotification("success");
-        clearSchemeTourSeen(panelId);
-        setSchemeTourPending(true);
+        const retakenPanel = items.find(
+          (item): item is PanelObject =>
+            item.kind === "panel" && item.id === panelId,
+        );
+        if (!retakenPanel?.houseSnapshot) {
+          setPanelHousePromptOpen(true);
+        }
         setScreen("scheme");
         return;
       }
@@ -954,25 +958,12 @@ export function AppShell({
       setLinesCount(result.linesCount);
       setRailCount(result.railCount ?? deriveRailCount(result.devices));
       hapticNotification("success");
-      clearSchemeTourSeen(id);
-      setSchemeTourPending(true);
+      setPanelHousePromptOpen(true);
       setScreen("scheme");
       void refreshQuota();
     },
     [items, localPanelCount, openPanelLimit, photoDataUrl, quota, refreshQuota, retakePanelId],
   );
-
-  const handleSchemeOnboardingDone = useCallback(() => {
-    setSchemeTourPending(false);
-    if (!activePanelId || sharedPreview) return;
-    const panel = items.find(
-      (item): item is PanelObject =>
-        item.kind === "panel" && item.id === activePanelId,
-    );
-    if (!panel?.houseSnapshot) {
-      setPanelHousePromptOpen(true);
-    }
-  }, [activePanelId, items, sharedPreview]);
 
   const savePanelHouseInsight = useCallback(
     async (payload: {
@@ -1051,7 +1042,6 @@ export function AppShell({
       if (panel.noPanelSetupId) {
         setItemsError(null);
         setSharedPreview(null);
-        setSchemeTourPending(false);
         setActivePanelId(panel.id);
         setNoPanelSetupId(panel.noPanelSetupId);
         setAskNameOnBack(false);
@@ -1087,7 +1077,6 @@ export function AppShell({
       const nextDevices = Array.isArray(panel.devices) ? panel.devices : [];
       setItemsError(null);
       setSharedPreview(null);
-      setSchemeTourPending(false);
       setActivePanelId(panel.id);
       setAskNameOnBack(false);
       setPhotoDataUrl(
@@ -1203,7 +1192,6 @@ export function AppShell({
     (panel: PanelObject, options?: { askName?: boolean }) => {
       if (panel.noPanelSetupId) {
         setSharedPreview(null);
-        setSchemeTourPending(false);
         setActivePanelId(panel.id);
         setNoPanelSetupId(panel.noPanelSetupId);
         setAskNameOnBack(false);
@@ -2770,8 +2758,16 @@ export function AppShell({
                   Boolean(masterViewRequest) ||
                   ((isMaster || isAdmin) && masterMode)
                 }
-                startOnboarding={schemeTourPending && !sharedPreview}
-                onOnboardingDone={handleSchemeOnboardingDone}
+                onGoAddAppliances={
+                  sharedPreview
+                    ? undefined
+                    : () => {
+                        if (activePanelId) {
+                          markHomeExpandPanelForAppliances(activePanelId);
+                        }
+                        go("objects");
+                      }
+                }
                 appliances={
                   sharedPreview && !sharedPreview.includeAppliances
                     ? []

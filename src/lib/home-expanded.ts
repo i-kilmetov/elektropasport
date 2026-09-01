@@ -1,5 +1,26 @@
 const COLLAPSED_KEY = "elektropasport:home-collapsed-panels";
 const LEGACY_EXPANDED_KEY = "elektropasport:home-expanded-panel";
+const EXPAND_FOR_APPLIANCES_KEY = "elektropasport:home-expand-appliances";
+
+export function markHomeExpandPanelForAppliances(panelId: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.setItem(EXPAND_FOR_APPLIANCES_KEY, panelId);
+  } catch {
+    // private mode
+  }
+}
+
+export function consumeHomeExpandPanelForAppliances(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const panelId = sessionStorage.getItem(EXPAND_FOR_APPLIANCES_KEY);
+    sessionStorage.removeItem(EXPAND_FOR_APPLIANCES_KEY);
+    return panelId;
+  } catch {
+    return null;
+  }
+}
 
 export function readHomeCollapsedPanelIds(
   allPanelIds: string[] = [],

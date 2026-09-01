@@ -62,27 +62,18 @@ import { SafetyParamsSheet } from "@/components/ui/safety-params-sheet";
 import { SafetyExplainSheet } from "@/components/ui/safety-explain-sheet";
 import { PanelSafetyStages } from "@/components/ui/panel-safety-stages";
 import { EditableSpecCard } from "@/components/ui/editable-spec-card";
-import { InputBreakerDiagnosticsSheet } from "@/components/ui/input-breaker-diagnostics-sheet";
-import { IdentifyLinesGuideSheet } from "@/components/ui/identify-lines-guide-sheet";
+import { PanelDiagnosticsSheet } from "@/components/ui/panel-diagnostics-sheet";
 import {
   deviceCharacteristicRows,
   displaySpecValue,
 } from "@/lib/device-characteristics";
-import {
-  panelHasConfirmedInputBreaker,
-} from "@/lib/input-breaker-diagnostics";
 import { WireSpecSheet } from "@/components/ui/wire-spec-sheet";
 import { WaitlistSheet } from "@/components/ui/waitlist-sheet";
 import { InfoDialog } from "@/components/ui/info-dialog";
 import type { PanelShareScope } from "@/lib/panel-share";
 import { resolveDeviceSeriesLabel } from "@/lib/device-catalog";
 import { Portal } from "@/components/ui/portal";
-import { SchemeOnboardingTour } from "@/components/ui/scheme-onboarding-tour";
 import { deviceTypeGuide } from "@/lib/panel-device-guide";
-import {
-  markSchemeTourSeen,
-  shouldRunSchemeTour,
-} from "@/lib/scheme-onboarding";
 import {
   formatBuildingYear,
   type PanelHouseSnapshot,
@@ -142,6 +133,12 @@ import {
   type IdentifyObjectType,
 } from "@/lib/panel-identify";
 import {
+  CORE_ROOM_LOAD_OPTIONS,
+  DEFAULT_ROOM_OPTIONS,
+  OBJECT_TYPE_CONFIG,
+  OBJECT_TYPE_OPTIONS,
+} from "@/lib/panel-identify-catalog";
+import {
   isAutoRoleCircuitLabel,
   rcdSchemeCaption,
 } from "@/lib/panel-protection";
@@ -161,18 +158,6 @@ import type {
   PanelWire,
   TerminalRef,
 } from "@/types";
-
-const SCHEME_LINE_HINT_DISMISS_PREFIX = "elektropasport:scheme-line-hint-dismissed:";
-
-function isSchemeLineHintDismissed(panelId?: string | null): boolean {
-  if (typeof window === "undefined" || !panelId) return false;
-  return localStorage.getItem(`${SCHEME_LINE_HINT_DISMISS_PREFIX}${panelId}`) === "1";
-}
-
-function dismissSchemeLineHint(panelId?: string | null) {
-  if (typeof window === "undefined" || !panelId) return;
-  localStorage.setItem(`${SCHEME_LINE_HINT_DISMISS_PREFIX}${panelId}`, "1");
-}
 
 const TERMINAL_HOLD_MS = 320;
 
@@ -403,128 +388,6 @@ function deviceTitle(device: Device): string {
   }
   return deviceTypeGuide[device.type]?.title ?? device.name;
 }
-
-const DEFAULT_ROOM_OPTIONS = [
-  "Кухня",
-  "Коридор",
-  "Ванная",
-  "Туалет",
-  "Спальня",
-  "Гостиная",
-  "Детская",
-  "Балкон",
-  "Прихожая",
-] as const;
-
-const DEFAULT_LOAD_OPTIONS = [
-  "Розетки",
-  "Свет",
-  "Плита",
-  "Стиральная машина",
-  "Бойлер",
-  "Кондиционер",
-  "Тёплый пол",
-] as const;
-
-const CORE_ROOM_LOAD_OPTIONS = ["Розетки", "Свет"] as const;
-
-const OBJECT_TYPE_OPTIONS: Array<{ id: IdentifyObjectType; label: string }> = [
-  { id: "apartment", label: "Квартира" },
-  { id: "house", label: "Дом" },
-  { id: "other", label: "Другое" },
-];
-
-const OBJECT_TYPE_CONFIG: Record<
-  IdentifyObjectType,
-  {
-    wholeLabel: string;
-    roomBase: string[];
-    roomExtra: string[];
-    equipmentBase: string[];
-    equipmentExtra: string[];
-  }
-> = {
-  apartment: {
-    wholeLabel: "Вся квартира",
-    roomBase: ["Кухня", "Коридор", "Ванная", "Туалет", "Гостиная"],
-    roomExtra: [
-      "Спальня",
-      "Детская",
-      "Балкон",
-      "Кладовая",
-      "Гардеробная",
-      "Кабинет",
-    ],
-    equipmentBase: ["Стиральная машина", "Посудомоечная машина", "Бойлер"],
-    equipmentExtra: [
-      "Сушильная машина",
-      "Плита",
-      "Варочная панель",
-      "Духовка",
-      "Микроволновка",
-      "Вытяжка",
-      "Холодильник",
-      "Морозильник",
-      "Кондиционер",
-      "Тёплый пол",
-      "Водонагреватель",
-      "Пылесос",
-      "Утюг",
-    ],
-  },
-  house: {
-    wholeLabel: "Весь дом",
-    roomBase: ["Кухня", "Коридор", "Гостиная", "Спальня", "Ванная"],
-    roomExtra: [
-      "Детская",
-      "Котельная",
-      "Мансарда",
-      "Терраса",
-      "Гараж",
-      "Сарай",
-      "Ворота",
-      "Септик",
-      "Насос",
-    ],
-    equipmentBase: ["Бойлер", "Стиральная машина", "Котёл"],
-    equipmentExtra: [
-      "Сушильная машина",
-      "Посудомоечная машина",
-      "Плита",
-      "Варочная панель",
-      "Духовка",
-      "Микроволновка",
-      "Вытяжка",
-      "Холодильник",
-      "Морозильник",
-      "Кондиционер",
-      "Тёплый пол",
-      "Насос",
-      "Септик",
-      "Ворота",
-      "Тепловой насос",
-      "Газонокосилка",
-      "Зарядка электромобиля",
-    ],
-  },
-  other: {
-    wholeLabel: "Весь объект",
-    roomBase: ["Основное помещение", "Коридор", "Санузел"],
-    roomExtra: ["Склад", "Подсобка", "Мастерская", "Улица"],
-    equipmentBase: ["Вентиляция", "Кондиционер", "Освещение витрин"],
-    equipmentExtra: [
-      "Насос",
-      "Котёл",
-      "Ворота",
-      "Охрана",
-      "Компрессор",
-      "Станки",
-      "Сварка",
-      "Холодильная камера",
-      "Серверная",
-    ],
-  },
-};
 
 const identifyFlowSteps = [
   {
@@ -1817,10 +1680,9 @@ export function SchemeScreen({
   canUseTerminals = false,
   houseSnapshot,
   onEditHouse,
-  startOnboarding = false,
-  onOnboardingDone,
   appliances = [],
   onSyncAppliances,
+  onGoAddAppliances,
 }: {
   title?: string;
   panelId?: string | null;
@@ -1877,11 +1739,9 @@ export function SchemeScreen({
   /** Address / year / kapremont snapshot for this dwelling */
   houseSnapshot?: PanelHouseSnapshot;
   onEditHouse?: () => void;
-  /** After photo analysis — run the section spotlight tour once. */
-  startOnboarding?: boolean;
-  onOnboardingDone?: () => void;
   appliances?: HomeAppliance[];
   onSyncAppliances?: (equipmentLabels: string[]) => void;
+  onGoAddAppliances?: () => void;
 }) {
   const devices = Array.isArray(devicesProp) ? devicesProp : [];
   const wires = Array.isArray(wiresProp) ? wiresProp : [];
@@ -1901,7 +1761,6 @@ export function SchemeScreen({
   const [deleteTarget, setDeleteTarget] = useState<Device | null>(null);
   const [nameOnBackOpen, setNameOnBackOpen] = useState(false);
   const [saveSharedOpen, setSaveSharedOpen] = useState(false);
-  const [tourOpen, setTourOpen] = useState(false);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [shareChoiceOpen, setShareChoiceOpen] = useState(false);
   const [schemeTabMetrics, setSchemeTabMetrics] = useState({
@@ -1916,13 +1775,9 @@ export function SchemeScreen({
   const [safetyExplainOpen, setSafetyExplainOpen] = useState(false);
   const [safetyAssessing, setSafetyAssessing] = useState(false);
   const [safetyProgress, setSafetyProgress] = useState(0);
-  const [inputDiagOpen, setInputDiagOpen] = useState(false);
   const [stickerOpen, setStickerOpen] = useState(false);
   const [stickerBlockedOpen, setStickerBlockedOpen] = useState(false);
-  const [identifyLinesGuideOpen, setIdentifyLinesGuideOpen] = useState(false);
-  const [lineHintDismissed, setLineHintDismissed] = useState(() =>
-    isSchemeLineHintDismissed(panelId),
-  );
+  const [panelDiagnosticsOpen, setPanelDiagnosticsOpen] = useState(false);
   const [terminalsFlashOn, setTerminalsFlashOn] = useState(false);
   const [terminalsWaitlistOpen, setTerminalsWaitlistOpen] = useState(false);
   const [wireDraft, setWireDraft] = useState<{
@@ -1954,28 +1809,7 @@ export function SchemeScreen({
 
   useEffect(() => {
     setIdentifyContext(loadIdentifyContext(panelId));
-    setLineHintDismissed(isSchemeLineHintDismissed(panelId));
   }, [panelId]);
-
-  useEffect(() => {
-    if (sharedPreview || !startOnboarding) return;
-    if (!panelId) return;
-    if (!shouldRunSchemeTour(panelId, true)) {
-      onOnboardingDone?.();
-      return;
-    }
-    const timer = window.setTimeout(() => {
-      setTab("scheme");
-      setTourOpen(true);
-    }, 520);
-    return () => window.clearTimeout(timer);
-  }, [startOnboarding, sharedPreview, panelId, onOnboardingDone]);
-
-  const finishSchemeTour = useCallback(() => {
-    if (panelId) markSchemeTourSeen(panelId);
-    setTourOpen(false);
-    onOnboardingDone?.();
-  }, [panelId, onOnboardingDone]);
 
   useLayoutEffect(() => {
     const schemeBtn = schemeTabRef.current;
@@ -2050,10 +1884,6 @@ export function SchemeScreen({
   );
   const allLoadsIdentified = useMemo(
     () => allPanelLoadsIdentified(allRailDevices),
-    [allRailDevices],
-  );
-  const hasInputBreaker = useMemo(
-    () => panelHasConfirmedInputBreaker(allRailDevices),
     [allRailDevices],
   );
   const safetyPanelStub = useMemo(
@@ -2858,52 +2688,6 @@ export function SchemeScreen({
       <div className="flex min-h-full flex-col lg:flex-row lg:items-start lg:gap-6 lg:px-10">
       {tab === "scheme" ? (
         <div className="px-5 pb-4 lg:min-w-0 lg:flex-1 lg:px-0">
-          {!sharedPreview && !hasInputBreaker && (
-            <GlassCard className="mb-4 space-y-3 p-4">
-              <div>
-                <p className="ty-heading">
-                  Найдите вводной автомат
-                </p>
-                <p className="mt-1 ty-note">
-                  После оцифровки тип «вводной» не ставится автоматически —
-                  подтвердите его диагностикой. Характеристики приборов можно
-                  поправить в карточке (пустые поля — «—»).
-                </p>
-              </div>
-              <Button
-                className="w-full"
-                size="lg"
-                onClick={() => {
-                  setSelectedId(null);
-                  setSheetAnchorY(null);
-                  setInputDiagOpen(true);
-                }}
-              >
-                Запустить диагностику
-              </Button>
-            </GlassCard>
-          )}
-          {!sharedPreview && hasInputBreaker && !lineHintDismissed && (
-            <GlassCard className="mb-4 p-4">
-              <div className="flex items-start gap-3">
-                <p className="min-w-0 flex-1 ty-note">
-                  Вводной автомат подписан. Остальные линии определите в карточке
-                  каждого прибора на схеме.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    dismissSchemeLineHint(panelId);
-                    setLineHintDismissed(true);
-                  }}
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600"
-                  aria-label="Закрыть подсказку"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-            </GlassCard>
-          )}
           <div className={cn(showTerminals && canUseTerminals && "overflow-y-visible")}>
             <GlassCard
               data-scheme-tour="scheme"
@@ -3169,14 +2953,13 @@ export function SchemeScreen({
 
           <button
             type="button"
-            data-scheme-tour="identify-lines"
-            onClick={() => setIdentifyLinesGuideOpen(true)}
+            onClick={() => setPanelDiagnosticsOpen(true)}
             className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-[16px] border border-black/8 bg-white px-4 py-3 ty-subtitle text-zinc-800 shadow-sm transition-colors hover:bg-zinc-50"
           >
             Определить линии
           </button>
 
-          <div data-scheme-tour="guide">
+          <div>
             <PanelDeviceGuideSection
               devices={allRailDevices}
               onCallMaster={onCallMaster}
@@ -3215,9 +2998,13 @@ export function SchemeScreen({
       </div>
 
       <AnimatePresence>
-        {identifyLinesGuideOpen && (
-          <IdentifyLinesGuideSheet
-            onClose={() => setIdentifyLinesGuideOpen(false)}
+        {panelDiagnosticsOpen && (
+          <PanelDiagnosticsSheet
+            appliances={appliances}
+            initialContext={identifyContext}
+            onClose={() => setPanelDiagnosticsOpen(false)}
+            onComplete={persistIdentifyContext}
+            onGoAddAppliances={onGoAddAppliances}
           />
         )}
       </AnimatePresence>
@@ -3235,8 +3022,6 @@ export function SchemeScreen({
           />
         )}
       </AnimatePresence>
-
-      <SchemeOnboardingTour open={tourOpen} onClose={finishSchemeTour} />
 
       <CatalogPickerSheet
         type={null}
@@ -3391,26 +3176,7 @@ export function SchemeScreen({
       </AnimatePresence>
 
       <AnimatePresence>
-        {inputDiagOpen && (
-          <InputBreakerDiagnosticsSheet
-            devices={allRailDevices}
-            onClose={() => {
-              setInputDiagOpen(false);
-              setSelectedId(null);
-            }}
-            onHighlightDevice={(deviceId) => {
-              setSelectedId(deviceId);
-            }}
-            onConfirmInputBreaker={(deviceId) => {
-              onUpdateDeviceIdentity?.(deviceId, { type: "main_breaker" });
-              onAssignCircuit?.(deviceId, "Ввод");
-            }}
-          />
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {selected && tab === "scheme" && !inputDiagOpen && (
+        {selected && tab === "scheme" && (
           <DeviceSheet
             device={selected}
             anchorY={sheetAnchorY}

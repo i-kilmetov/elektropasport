@@ -63,6 +63,7 @@ import {
 } from "@/lib/user-data";
 import { APP_VERSION } from "@/lib/app-version";
 import {
+  consumeHomeExpandPanelForAppliances,
   readHomeCollapsedPanelIds,
   writeHomeCollapsedPanelIds,
 } from "@/lib/home-expanded";
@@ -905,9 +906,12 @@ export function ObjectsScreen({
   useEffect(() => {
     if (collapsedInitRef.current || panels.length === 0) return;
     collapsedInitRef.current = true;
-    setCollapsedPanelIds(
-      readHomeCollapsedPanelIds(panels.map((panel) => panel.id)),
-    );
+    const expandForAppliances = consumeHomeExpandPanelForAppliances();
+    const collapsed = readHomeCollapsedPanelIds(panels.map((panel) => panel.id));
+    if (expandForAppliances) {
+      collapsed.delete(expandForAppliances);
+    }
+    setCollapsedPanelIds(collapsed);
   }, [panels]);
 
   useEffect(() => {

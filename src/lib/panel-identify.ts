@@ -4,6 +4,7 @@ export type IdentifyContext = {
   objectType: IdentifyObjectType;
   rooms: string[];
   equipment: string[];
+  applianceRooms?: Record<string, string>;
 };
 
 const STORAGE_PREFIX = "elektropasport:panel-identify";
@@ -27,12 +28,26 @@ export function loadIdentifyContext(
     ) {
       return null;
     }
+    const applianceRooms =
+      parsed.applianceRooms &&
+      typeof parsed.applianceRooms === "object" &&
+      !Array.isArray(parsed.applianceRooms)
+        ? Object.fromEntries(
+            Object.entries(parsed.applianceRooms).filter(
+              ([key, value]) =>
+                typeof key === "string" &&
+                typeof value === "string" &&
+                value.trim().length > 0,
+            ),
+          )
+        : undefined;
     return {
       objectType: parsed.objectType,
       rooms: Array.isArray(parsed.rooms) ? parsed.rooms.filter(Boolean) : [],
       equipment: Array.isArray(parsed.equipment)
         ? parsed.equipment.filter(Boolean)
         : [],
+      applianceRooms,
     };
   } catch {
     return null;
