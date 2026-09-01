@@ -9,8 +9,7 @@ export default function SchoolSketchPreviewPage() {
     <main className="mx-auto max-w-xl bg-[#f7f7f8] px-4 py-8 text-zinc-900">
       <h1 className="text-xl font-semibold">Подписи на картинках школы</h1>
       <p className="mt-2 text-[14px] text-zinc-500">
-        Одинаковый шаблон: что нарисовано = смысл, ниже буква, единица или как
-        узнать. Оплачивать курс не нужно.
+        Подписи на картинках школы. Оплачивать курс не нужно.
       </p>
       <div className="mt-8 space-y-10">
         {SCHOOL_SKETCH_ORDER.map((item, index) => (

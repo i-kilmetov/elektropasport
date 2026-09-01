@@ -92,8 +92,7 @@ export const grade1: SchoolGrade = {
         {
           type: "diagram",
           id: "units-trio",
-          caption:
-            "Розетка — напряжение (U, вольты); поток — ток (I, амперы); лампа — мощность (P, ватты). Ватты = вольты × амперы.",
+          caption: "Мощность = напряжение × ток. Ватты рождаются из вольт и ампер вместе.",
         },
         {
           type: "formula",
@@ -161,8 +160,7 @@ export const grade1: SchoolGrade = {
         {
           type: "diagram",
           id: "power-kettle",
-          caption:
-            "Чайник — мощность (P, 2,3 кВт). Из розетки он берёт ток: 2300 Вт / 230 В ≈ 10 А.",
+          caption: "Чайник 2,3 кВт при 230 В берёт около 10 А. Два таких на линии 16 А — уже впритык.",
         },
         {
           type: "compare",
@@ -237,8 +235,7 @@ export const grade1: SchoolGrade = {
         {
           type: "diagram",
           id: "three-wires",
-          caption:
-            "Коричневый — фаза (L); синий — ноль (N); жёлто-зелёный — земля (PE).",
+          caption: "Коричневый — фаза, синий — ноль, жёлто-зелёный — защитная земля.",
         },
         {
           type: "compare",
@@ -315,8 +312,7 @@ export const grade1: SchoolGrade = {
         {
           type: "diagram",
           id: "socket-wiring",
-          caption:
-            "Левое гнездо — ноль (N); правое — фаза (L); жёлтые скобы — земля (PE).",
+          caption: "Смотрим на розетку: справа обычно фаза, слева ноль, сверху и по бокам — земля.",
         },
         {
           type: "steps",
@@ -391,8 +387,7 @@ export const grade1: SchoolGrade = {
         {
           type: "diagram",
           id: "switch-wiring",
-          caption:
-            "Выключатель рвёт фазу (L). Ноль (N) идёт к лампе напрямую. Лампа — нагрузка.",
+          caption: "Фаза приходит на выключатель и уходит на лампу. Ноль идёт к лампе напрямую.",
         },
         {
           type: "steps",
@@ -534,8 +529,7 @@ export const grade1: SchoolGrade = {
         {
           type: "diagram",
           id: "overload",
-          caption:
-            "Три прибора — нагрузка (сумма ватт). Колодка — перегрев, когда ток больше 16 А.",
+          caption: "Чайник, утюг и фен в одну колодку. Греется она, а не автомат в щитке.",
         },
         {
           type: "compare",
