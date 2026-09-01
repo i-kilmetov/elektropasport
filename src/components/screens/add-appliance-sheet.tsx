@@ -16,12 +16,14 @@ import {
   catalogKindTitle,
   type CatalogApplianceKind,
 } from "@/lib/home-appliances";
-import type {
-  ApplianceManual,
-  ApplianceSpec,
-  HomeAppliance,
-  PanelObject,
-} from "@/types";
+import {
+  buildApplianceManualsSnapshot,
+  buildApplianceSpecsSnapshot,
+  extractPowerWattsFromSpecs,
+  icecatStatusMessage,
+  type LoadedProductDetails,
+} from "@/lib/appliance-specs";
+import type { HomeAppliance, PanelObject } from "@/types";
 import { cn } from "@/lib/utils";
 
 const selectClassName =
@@ -53,13 +55,7 @@ type IcecatModelOption = {
   modelName: string;
 };
 
-type ProductDetails = {
-  powerW: number | null;
-  specs: ApplianceSpec[];
-  manuals: ApplianceManual[];
-  title: string | null;
-  matched: boolean;
-};
+type ProductDetails = LoadedProductDetails;
 
 export function AddApplianceSheet({
   panels,
@@ -282,6 +278,8 @@ export function AddApplianceSheet({
             manuals: Array.isArray(data.manuals) ? data.manuals : [],
             title: data.title ?? null,
             matched: Boolean(data.matched),
+            status: data.status,
+            statusDetail: data.statusDetail ?? null,
           });
         } catch (err) {
           if (cancelled) return;
@@ -299,6 +297,74 @@ export function AddApplianceSheet({
       window.clearTimeout(timer);
     };
   }, [modelId]);
+
+  useEffect(() => {
+    const enrichKind = customKindMode ? ("other" as const) : kind;
+    if (usingCatalogModel || !enrichKind || !resolvedBrand || !resolvedModel) {
+      return;
+    }
+    let cancelled = false;
+    setDetailsLoading(true);
+    setDetails(null);
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const params = new URLSearchParams({
+            kind: enrichKind,
+            brand: resolvedBrand,
+            model: resolvedModel,
+          });
+          const res = await fetch(`/api/appliances/enrich?${params.toString()}`, {
+            cache: "no-store",
+          });
+          const data = (await res.json()) as {
+            hit?: {
+              powerW?: number | null;
+              specs?: ProductDetails["specs"];
+              manuals?: ProductDetails["manuals"];
+            } | null;
+            icecatStatus?: string;
+            icecatDetail?: string;
+            error?: string;
+          };
+          if (cancelled) return;
+          if (!res.ok) throw new Error(data.error || "Не удалось найти характеристики");
+          const hit = data.hit;
+          if (cancelled) return;
+          if (!hit) {
+            setDetails({
+              powerW: null,
+              specs: [],
+              manuals: [],
+              title: null,
+              matched: false,
+              status: data.icecatStatus,
+              statusDetail: data.icecatDetail ?? null,
+            });
+            return;
+          }
+          setDetails({
+            powerW: hit.powerW ?? extractPowerWattsFromSpecs(hit.specs ?? []) ?? null,
+            specs: Array.isArray(hit.specs) ? hit.specs : [],
+            manuals: Array.isArray(hit.manuals) ? hit.manuals : [],
+            title: null,
+            matched: true,
+            status: data.icecatStatus,
+            statusDetail: data.icecatDetail ?? null,
+          });
+        } catch (err) {
+          if (cancelled) return;
+          setDetails(null);
+        } finally {
+          if (!cancelled) setDetailsLoading(false);
+        }
+      })();
+    }, 400);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [usingCatalogModel, customKindMode, kind, resolvedBrand, resolvedModel]);
 
   const save = () => {
     if (!panelId) {
@@ -328,27 +394,14 @@ export function AddApplianceSheet({
 
     if (usingCatalogModel && selectedModel && kind) {
       const powerW = details?.powerW ?? undefined;
-      const powerSpec: ApplianceSpec | null =
-        powerW != null
-          ? {
-              label: "Максимальная мощность",
-              value: `${Math.round(powerW)} Вт`,
-            }
-          : null;
-      const specs: ApplianceSpec[] = [
-        ...(powerSpec ? [powerSpec] : []),
-        ...(details?.specs ?? []).filter(
-          (spec) => !/мощност|power|watt/i.test(spec.label),
-        ),
-      ];
-
-      const manuals: ApplianceManual[] = [...(details?.manuals ?? [])];
-      if (manuals.length === 0) {
-        manuals.push({
-          title: "Карточка товара",
-          url: `https://icecat.biz/search?query=${encodeURIComponent(`${selectedModel.brand} ${selectedModel.productCode}`)}`,
-        });
-      }
+      const specs = buildApplianceSpecsSnapshot({
+        powerW: details?.powerW ?? null,
+        specs: details?.specs ?? [],
+      });
+      const manuals = buildApplianceManualsSnapshot(
+        { manuals: details?.manuals ?? [] },
+        `${selectedModel.brand} ${selectedModel.productCode}`,
+      );
 
       const appliance: HomeAppliance = {
         id: initialAppliance?.id ?? createApplianceId(),
@@ -367,12 +420,28 @@ export function AddApplianceSheet({
     }
 
     const saveKind = customKindMode ? ("other" as const) : kind!;
+    const specs = details?.matched
+      ? buildApplianceSpecsSnapshot({
+          powerW: details.powerW,
+          specs: details.specs,
+        })
+      : undefined;
+    const manuals =
+      details?.matched && details.manuals.length > 0
+        ? buildApplianceManualsSnapshot(
+            { manuals: details.manuals },
+            `${resolvedBrand} ${resolvedModel}`,
+          )
+        : undefined;
     const appliance: HomeAppliance = {
       id: initialAppliance?.id ?? createApplianceId(),
       kind: saveKind,
       title: customKindMode ? customKindName.trim() : resolvedBrand,
       brand: resolvedBrand,
       model: resolvedModel,
+      powerW: details?.powerW ?? undefined,
+      specs,
+      manuals,
       createdAt: initialAppliance?.createdAt ?? new Date().toISOString(),
     };
     onSave(panelId, appliance);
@@ -733,33 +802,36 @@ export function AddApplianceSheet({
           </div>
 
           <div className="shrink-0 border-t border-black/[0.06] px-5 py-4 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
-            {usingCatalogModel && selectedModel && (
+            {(usingCatalogModel && selectedModel) ||
+            (!usingCatalogModel && !customKindMode && resolvedBrand && resolvedModel) ? (
               <div className="mb-3 space-y-1 text-center ty-note">
                 <p>
-                  {selectedModel.brand}{" "}
-                  {selectedModel.modelName || selectedModel.productCode}
+                  {usingCatalogModel && selectedModel
+                    ? `${selectedModel.brand} ${selectedModel.modelName || selectedModel.productCode}`
+                    : `${resolvedBrand} ${resolvedModel}`}
                 </p>
                 {detailsLoading && <p>Загружаем характеристики…</p>}
-                {!detailsLoading && details?.powerW != null && (
-                  <p>
-                    Мощность:{" "}
-                    <span className="font-semibold text-zinc-800">
-                      {formatAppliancePower(details.powerW)}
-                    </span>
+                {!detailsLoading && details?.matched && details.specs.length > 0 && (
+                  <p className="text-emerald-700">
+                    Найдено характеристик: {details.specs.length}
+                    {details.powerW != null
+                      ? ` · ${formatAppliancePower(details.powerW)}`
+                      : ""}
                   </p>
                 )}
-                {!detailsLoading && details && details.powerW == null && (
-                  <p>Мощность не указана</p>
+                {!detailsLoading &&
+                  details &&
+                  !details.matched &&
+                  icecatStatusMessage(details.status, details.statusDetail) && (
+                    <p className="text-amber-800">
+                      {icecatStatusMessage(details.status, details.statusDetail)}
+                    </p>
+                  )}
+                {!detailsLoading && details?.matched && details.specs.length === 0 && (
+                  <p>Характеристики не указаны в каталоге</p>
                 )}
               </div>
-            )}
-            {!usingCatalogModel && !customKindMode && resolvedBrand && resolvedModel && (
-              <div className="mb-3 text-center ty-note">
-                <p>
-                  {resolvedBrand} {resolvedModel}
-                </p>
-              </div>
-            )}
+            ) : null}
             {customKindMode &&
               customKindName.trim() &&
               resolvedBrand &&

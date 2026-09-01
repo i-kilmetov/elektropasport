@@ -5,14 +5,18 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
+  buildApplianceManualsSnapshot,
+  buildApplianceSpecsSnapshot,
+  extractPowerWattsFromSpecs,
+  icecatStatusMessage,
+  type LoadedProductDetails,
+} from "@/lib/appliance-specs";
+import {
   catalogKindTitle,
+  formatAppliancePower,
   isCatalogApplianceKind,
 } from "@/lib/home-appliances";
-import type {
-  ApplianceManual,
-  ApplianceSpec,
-  HomeAppliance,
-} from "@/types";
+import type { HomeAppliance } from "@/types";
 
 const selectClassName =
   "h-12 w-full rounded-[16px] border border-black/8 bg-zinc-50 px-3 text-[15px] text-zinc-900 outline-none disabled:opacity-50";
@@ -27,13 +31,7 @@ type IcecatModelOption = {
   modelName: string;
 };
 
-type ProductDetails = {
-  powerW: number | null;
-  specs: ApplianceSpec[];
-  manuals: ApplianceManual[];
-  title: string | null;
-  matched: boolean;
-};
+type ProductDetails = LoadedProductDetails;
 
 export function ApplianceBrandModelPicker({
   appliance,
@@ -145,44 +143,115 @@ export function ApplianceBrandModelPicker({
   }, [brand, catalogKind]);
 
   useEffect(() => {
-    if (!usingCatalogModel || !selectedModel) {
+    if (usingCatalogModel && selectedModel) {
+      let cancelled = false;
+      setDetailsLoading(true);
+      setDetails(null);
+      const timer = window.setTimeout(() => {
+        void (async () => {
+          try {
+            const res = await fetch(
+              `/api/appliances/icecat/product?id=${encodeURIComponent(selectedModel.id)}`,
+              { cache: "no-store" },
+            );
+            const data = (await res.json()) as ProductDetails & { error?: string };
+            if (cancelled) return;
+            if (!res.ok) throw new Error(data.error || "Не удалось загрузить характеристики");
+            setDetails({
+              powerW: data.powerW ?? null,
+              specs: Array.isArray(data.specs) ? data.specs : [],
+              manuals: Array.isArray(data.manuals) ? data.manuals : [],
+              title: data.title ?? null,
+              matched: Boolean(data.matched),
+              status: data.status,
+              statusDetail: data.statusDetail ?? null,
+            });
+          } catch (err) {
+            if (cancelled) return;
+            setDetails(null);
+            setError(
+              err instanceof Error ? err.message : "Ошибка загрузки характеристик",
+            );
+          } finally {
+            if (!cancelled) setDetailsLoading(false);
+          }
+        })();
+      }, 160);
+      return () => {
+        cancelled = true;
+        window.clearTimeout(timer);
+      };
+    }
+
+    if (!catalogKind || !resolvedBrand || !resolvedModel) {
       setDetails(null);
       return;
     }
+
     let cancelled = false;
+    setDetailsLoading(true);
+    setDetails(null);
     const timer = window.setTimeout(() => {
-      setDetailsLoading(true);
       void (async () => {
         try {
-          const res = await fetch(
-            `/api/appliances/icecat/product?brand=${encodeURIComponent(selectedModel.brand)}&code=${encodeURIComponent(selectedModel.productCode)}`,
-          );
-          if (!res.ok) throw new Error("Не удалось загрузить характеристики");
-          const data = (await res.json()) as ProductDetails;
-          if (cancelled) return;
-          setDetails({
-            powerW: data.powerW ?? null,
-            specs: Array.isArray(data.specs) ? data.specs : [],
-            manuals: Array.isArray(data.manuals) ? data.manuals : [],
-            title: data.title ?? null,
-            matched: Boolean(data.matched),
+          const params = new URLSearchParams({
+            kind: catalogKind,
+            brand: resolvedBrand,
+            model: resolvedModel,
           });
-        } catch (err) {
+          const res = await fetch(`/api/appliances/enrich?${params.toString()}`, {
+            cache: "no-store",
+          });
+          const data = (await res.json()) as {
+            hit?: {
+              powerW?: number | null;
+              specs?: ProductDetails["specs"];
+              manuals?: ProductDetails["manuals"];
+            } | null;
+            icecatStatus?: string;
+            icecatDetail?: string;
+            error?: string;
+          };
+          if (cancelled) return;
+          if (!res.ok) throw new Error(data.error || "Не удалось найти характеристики");
+          const hit = data.hit;
+          if (!hit) {
+            setDetails({
+              powerW: null,
+              specs: [],
+              manuals: [],
+              title: null,
+              matched: false,
+              status: data.icecatStatus,
+              statusDetail: data.icecatDetail ?? null,
+            });
+            return;
+          }
+          setDetails({
+            powerW:
+              hit.powerW ??
+              extractPowerWattsFromSpecs(hit.specs ?? []) ??
+              null,
+            specs: Array.isArray(hit.specs) ? hit.specs : [],
+            manuals: Array.isArray(hit.manuals) ? hit.manuals : [],
+            title: null,
+            matched: true,
+            status: data.icecatStatus,
+            statusDetail: data.icecatDetail ?? null,
+          });
+        } catch {
           if (cancelled) return;
           setDetails(null);
-          setError(
-            err instanceof Error ? err.message : "Ошибка загрузки характеристик",
-          );
         } finally {
           if (!cancelled) setDetailsLoading(false);
         }
       })();
-    }, 160);
+    }, 400);
     return () => {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [selectedModel, usingCatalogModel]);
+  }, [catalogKind, resolvedBrand, resolvedModel, selectedModel, usingCatalogModel]);
 
   const save = () => {
     if (!resolvedBrand) {
@@ -193,33 +262,21 @@ export function ApplianceBrandModelPicker({
       setError("Укажите модель.");
       return;
     }
-    if (usingCatalogModel && detailsLoading) {
+    if (detailsLoading) {
       setError("Подождите, загружаются характеристики…");
       return;
     }
 
     if (usingCatalogModel && selectedModel && catalogKind) {
       const powerW = details?.powerW ?? undefined;
-      const powerSpec: ApplianceSpec | null =
-        powerW != null
-          ? {
-              label: "Максимальная мощность",
-              value: `${Math.round(powerW)} Вт`,
-            }
-          : null;
-      const specs: ApplianceSpec[] = [
-        ...(powerSpec ? [powerSpec] : []),
-        ...(details?.specs ?? []).filter(
-          (spec) => !/мощност|power|watt/i.test(spec.label),
-        ),
-      ];
-      const manuals: ApplianceManual[] = [...(details?.manuals ?? [])];
-      if (manuals.length === 0) {
-        manuals.push({
-          title: "Карточка товара",
-          url: `https://icecat.biz/search?query=${encodeURIComponent(`${selectedModel.brand} ${selectedModel.productCode}`)}`,
-        });
-      }
+      const specs = buildApplianceSpecsSnapshot({
+        powerW: details?.powerW ?? null,
+        specs: details?.specs ?? [],
+      });
+      const manuals = buildApplianceManualsSnapshot(
+        { manuals: details?.manuals ?? [] },
+        `${selectedModel.brand} ${selectedModel.productCode}`,
+      );
       onSave({
         ...appliance,
         kind: catalogKind,
@@ -240,13 +297,38 @@ export function ApplianceBrandModelPicker({
       title: catalogKind ? catalogKindTitle(catalogKind) : resolvedBrand,
       brand: resolvedBrand,
       model: resolvedModel,
+      powerW: details?.powerW ?? undefined,
+      specs: details?.matched
+        ? buildApplianceSpecsSnapshot({
+            powerW: details.powerW,
+            specs: details.specs,
+          })
+        : appliance.specs,
+      manuals:
+        details?.matched && (details.manuals?.length ?? 0) > 0
+          ? buildApplianceManualsSnapshot(
+              { manuals: details.manuals },
+              `${resolvedBrand} ${resolvedModel}`,
+            )
+          : appliance.manuals,
     });
   };
 
   const canSave =
     Boolean(resolvedBrand) &&
     Boolean(resolvedModel) &&
-    (!usingCatalogModel || !detailsLoading);
+    !detailsLoading;
+
+  const detailsHint =
+    detailsLoading
+      ? "Загружаем характеристики…"
+      : details?.matched && (details.specs?.length ?? 0) > 0
+        ? `Найдено характеристик: ${details.specs.length}${
+            details.powerW != null
+              ? ` · ${formatAppliancePower(details.powerW)}`
+              : ""
+          }`
+        : icecatStatusMessage(details?.status, details?.statusDetail);
 
   if (!catalogKind) {
     return (
@@ -404,6 +486,18 @@ export function ApplianceBrandModelPicker({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {resolvedBrand && resolvedModel && detailsHint ? (
+        <p
+          className={
+            details?.matched && (details.specs?.length ?? 0) > 0
+              ? "ty-note text-emerald-700"
+              : "ty-note text-amber-800"
+          }
+        >
+          {detailsHint}
+        </p>
+      ) : null}
 
       {error && <p className="ty-note text-rose-600">{error}</p>}
 

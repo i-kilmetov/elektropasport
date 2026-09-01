@@ -85,7 +85,7 @@ function specsFromFeatures(data: Record<string, unknown>): ApplianceSpec[] {
       const value = pickFeatureValue(feature);
       if (!label || !value || value.length > 120) continue;
       specs.push({ label, value });
-      if (specs.length >= 10) return specs;
+      if (specs.length >= 20) return specs;
     }
   }
   return specs;
@@ -285,8 +285,9 @@ function hitFromPayload(
 }
 
 async function fetchIcecatOnce(options: {
-  brand: string;
-  model: string;
+  brand?: string;
+  model?: string;
+  icecatId?: string;
   lang: string;
   withTokens: boolean;
 }): Promise<IcecatLookupResult> {
@@ -296,10 +297,17 @@ async function fetchIcecatOnce(options: {
   const params = new URLSearchParams({
     lang: options.lang,
     shopname: user,
-    Brand: options.brand,
-    ProductCode: options.model,
     content: "",
   });
+
+  if (options.icecatId) {
+    params.set("icecat_id", options.icecatId);
+  } else if (options.brand && options.model) {
+    params.set("Brand", options.brand);
+    params.set("ProductCode", options.model);
+  } else {
+    return { configured: true, hit: null, status: "not_found" };
+  }
 
   const headers: Record<string, string> = { Accept: "application/json" };
   if (options.withTokens) {
@@ -333,8 +341,10 @@ async function fetchIcecatOnce(options: {
   }
 
   const data = payload?.data;
+  const fallbackBrand = options.brand ?? "";
+  const fallbackModel = options.model ?? options.icecatId ?? "";
   if (res.ok && data && typeof data === "object") {
-    const hit = hitFromPayload(data, options.brand, options.model);
+    const hit = hitFromPayload(data, fallbackBrand, fallbackModel);
     if (hit) {
       return {
         configured: true,
@@ -423,6 +433,40 @@ export async function searchIcecatProduct(options: {
       });
       if (enNoToken.status === "ok") return enNoToken;
     }
+  }
+
+  return primary;
+}
+
+export async function searchIcecatProductByIcecatId(options: {
+  icecatId: string;
+  lang?: string;
+}): Promise<IcecatLookupResult> {
+  const user = username();
+  if (!user) return { configured: false, hit: null, status: "not_configured" };
+
+  const icecatId = options.icecatId.trim().replace(/\D/g, "");
+  if (!icecatId) {
+    return { configured: true, hit: null, status: "not_found" };
+  }
+
+  const lang = (options.lang || "EN").trim() || "EN";
+  const hasTokens = Boolean(apiToken() || contentToken());
+
+  const primary = await fetchIcecatOnce({
+    icecatId,
+    lang,
+    withTokens: hasTokens,
+  });
+  if (primary.status === "ok") return primary;
+
+  if (hasTokens && primary.status === "auth_error") {
+    const fallback = await fetchIcecatOnce({
+      icecatId,
+      lang,
+      withTokens: false,
+    });
+    if (fallback.status === "ok") return fallback;
   }
 
   return primary;

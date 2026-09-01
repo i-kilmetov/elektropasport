@@ -15,6 +15,7 @@ export async function GET(request: Request) {
       return Response.json({ error: "Модель не найдена в каталоге" }, { status: 404 });
     }
     const details = await loadIcecatProductDetails({
+      icecatId: id,
       brand: product.brand,
       productCode: product.productCode,
     });
@@ -32,6 +33,7 @@ export async function GET(request: Request) {
       title: details.title ?? null,
       matched: details.matched,
       status: details.status,
+      statusDetail: details.statusDetail ?? null,
     });
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);

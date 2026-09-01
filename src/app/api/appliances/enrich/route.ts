@@ -1,5 +1,6 @@
 import { isCatalogApplianceKind } from "@/lib/appliance-catalog";
 import { enrichApplianceProduct } from "@/lib/appliance-product-lookup";
+import { extractPowerWattsFromSpecs } from "@/lib/appliance-specs";
 
 export async function GET(request: Request) {
   try {
@@ -28,6 +29,7 @@ export async function GET(request: Request) {
       hit: result.matched
         ? {
             energyClass: result.energyClass,
+            powerW: extractPowerWattsFromSpecs(result.specs) ?? null,
             specs: result.specs,
             manuals: result.manuals,
           }

@@ -4,7 +4,7 @@ import { createGunzip, gunzipSync } from "node:zlib";
 import type { CatalogApplianceKind } from "@/lib/appliance-catalog-enrichment";
 import { ensureSchema } from "@/lib/db";
 import { getSql } from "@/lib/sql-client";
-import { searchIcecatProduct } from "@/lib/icecat";
+import { searchIcecatProduct, searchIcecatProductByIcecatId } from "@/lib/icecat";
 import type { ApplianceManual, ApplianceSpec } from "@/types";
 
 const REFS_BASE = "https://data.icecat.biz/export/freexml/refs";
@@ -692,8 +692,9 @@ function extractPowerWatts(specs: ApplianceSpec[]): number | undefined {
 }
 
 export async function loadIcecatProductDetails(options: {
-  brand: string;
-  productCode: string;
+  brand?: string;
+  productCode?: string;
+  icecatId?: string;
 }): Promise<{
   powerW?: number;
   specs: ApplianceSpec[];
@@ -701,18 +702,40 @@ export async function loadIcecatProductDetails(options: {
   title?: string;
   matched: boolean;
   status: string;
+  statusDetail?: string;
 }> {
-  const result = await searchIcecatProduct({
-    brand: options.brand,
-    model: options.productCode,
-    lang: "EN",
-  });
+  const byId = options.icecatId
+    ? await searchIcecatProductByIcecatId({
+        icecatId: options.icecatId,
+        lang: "EN",
+      })
+    : null;
+
+  let result = byId;
+  if (!result?.hit && options.brand && options.productCode) {
+    result = await searchIcecatProduct({
+      brand: options.brand,
+      model: options.productCode,
+      lang: "EN",
+    });
+  }
+
+  if (!result) {
+    return {
+      specs: [],
+      manuals: [],
+      matched: false,
+      status: "not_found",
+    };
+  }
+
   if (!result.hit) {
     return {
       specs: [],
       manuals: [],
       matched: false,
       status: result.status,
+      statusDetail: result.detail,
     };
   }
   return {
@@ -722,5 +745,6 @@ export async function loadIcecatProductDetails(options: {
     title: result.hit.title,
     matched: true,
     status: result.status,
+    statusDetail: result.detail,
   };
 }

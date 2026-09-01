@@ -67,15 +67,17 @@ export function ApplianceDetailScreen({
   );
 
   const specs = useMemo(() => {
-    // Prefer snapshot saved on the appliance (may include EPREL enrichment).
     if (appliance.specs?.length) return appliance.specs;
     if (catalog?.specs?.length) return catalog.specs;
-    return [
-      {
-        label: "Максимальная мощность",
-        value: formatAppliancePower(appliance.powerW),
-      },
-    ];
+    if (appliance.powerW != null && appliance.powerW > 0) {
+      return [
+        {
+          label: "Максимальная мощность",
+          value: formatAppliancePower(appliance.powerW),
+        },
+      ];
+    }
+    return [];
   }, [appliance.powerW, appliance.specs, catalog?.specs]);
 
   const instructionUrl =
@@ -218,21 +220,28 @@ export function ApplianceDetailScreen({
             <h3 className="mb-3 ty-label uppercase tracking-wide text-zinc-400">
               Характеристики
             </h3>
-            <div className="divide-y divide-black/[0.06]">
-              {specs.map((spec) => (
-                <div
-                  key={`${spec.label}-${spec.value}`}
-                  className="flex items-start justify-between gap-3 py-2.5 first:pt-0 last:pb-0"
-                >
-                  <div className="min-w-0 ty-body">
-                    {spec.label}
+            {specs.length > 0 ? (
+              <div className="divide-y divide-black/[0.06]">
+                {specs.map((spec) => (
+                  <div
+                    key={`${spec.label}-${spec.value}`}
+                    className="flex items-start justify-between gap-3 py-2.5 first:pt-0 last:pb-0"
+                  >
+                    <div className="min-w-0 ty-body">
+                      {spec.label}
+                    </div>
+                    <div className="max-w-[55%] shrink-0 text-right ty-heading">
+                      {spec.value}
+                    </div>
                   </div>
-                  <div className="max-w-[55%] shrink-0 text-right ty-heading">
-                    {spec.value}
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <p className="ty-body text-zinc-500">
+                Характеристики не найдены. Укажите модель из каталога или
+                проверьте, что на сервере настроен ICECAT_USERNAME.
+              </p>
+            )}
           </GlassCard>
 
           <AppliancePassportCard
