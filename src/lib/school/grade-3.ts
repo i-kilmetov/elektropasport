@@ -23,7 +23,8 @@ export const grade3: SchoolGrade = {
         {
           type: "diagram",
           id: "din-modules",
-          caption: "Рейка, модули, место под кабель сверху и снизу. Запас — не роскошь, а сервис.",
+          caption:
+            "Рейка — DIN. Узкий прибор — 1 модуль (18 мм), средний — 2 (36 мм), широкий — 3 (54 мм).",
         },
         {
           type: "steps",
@@ -87,7 +88,8 @@ export const grade3: SchoolGrade = {
         {
           type: "diagram",
           id: "n-pe-bus",
-          caption: "PE — одна линейка на всех. N — отдельные секции после каждого УЗО.",
+          caption:
+            "Зелёная шина — PE, одна на всех. Синие — N, своя после каждого УЗО.",
         },
         {
           type: "callout",
@@ -154,7 +156,8 @@ export const grade3: SchoolGrade = {
         {
           type: "diagram",
           id: "apt-scheme",
-          caption: "Каркас щитка, который узнают в 8 из 10 новостроек.",
+          caption:
+            "Зелёный — ввод. Цепочка коробок — защита (автомат → реле → УЗО). Три снизу — группы.",
         },
         {
           type: "example",
@@ -211,7 +214,8 @@ export const grade3: SchoolGrade = {
         {
           type: "diagram",
           id: "selectivity",
-          caption: "КЗ на линии C16. Должен щёлкнуть C16, а не вводной C50.",
+          caption:
+            "Верхний — ввод, остаётся включён. Правый — авария, отключилась эта линия. Левая лампа — соседняя, работает.",
         },
         {
           type: "callout",
@@ -268,7 +272,8 @@ export const grade3: SchoolGrade = {
         {
           type: "diagram",
           id: "comb-bar",
-          caption: "Одна гребёнка питает ряд автоматов. Конец — заглушка, жилы — в наконечниках.",
+          caption:
+            "Жёлтая планка — гребёнка: фаза на весь ряд. Низ автоматов — отходящие линии, каждая своя.",
         },
         {
           type: "steps",
@@ -332,7 +337,8 @@ export const grade3: SchoolGrade = {
         {
           type: "diagram",
           id: "assemble-steps",
-          caption: "Восемь шагов от пустого корпуса до подписанных рычагов.",
+          caption:
+            "Стол — сборка без напряжения. Корпус — сначала рейки. Слева — приборы, потом посадка.",
         },
         {
           type: "steps",
@@ -393,7 +399,8 @@ export const grade3: SchoolGrade = {
         {
           type: "diagram",
           id: "common-mistakes",
-          caption: "Слева — как делают в спешке. Справа — как должно быть.",
+          caption:
+            "Слева — как нельзя: свалка жил. Справа — как надо: PE и N на разных шинах.",
         },
         {
           type: "compare",
@@ -458,7 +465,8 @@ export const grade3: SchoolGrade = {
         {
           type: "diagram",
           id: "test-panel",
-          caption: "Прозвонка, визуал, первое включение по одному рычагу, тест УЗО.",
+          caption:
+            "Прибор — прозвонка (нет ли КЗ). Палец — включение по одной линии. Кнопка Т — тест УЗО.",
         },
         {
           type: "steps",
