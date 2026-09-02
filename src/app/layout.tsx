@@ -50,10 +50,7 @@ export const viewport: Viewport = {
   userScalable: false,
   viewportFit: "cover",
   themeColor: "#f7f7f8",
-  // Hint browsers / PWAs to stay in portrait where supported.
-  // @ts-expect-error orientation is supported by Next Viewport in practice
-  orientation: "portrait",
-  // Shrink layout with the keyboard instead of scrolling the page away.
+  // Soft preference only — hard portrait broke barcode scanning on phones.
   interactiveWidget: "resizes-content",
 };
 
