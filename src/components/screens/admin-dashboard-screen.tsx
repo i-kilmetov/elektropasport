@@ -6,6 +6,7 @@ import {
   ArrowLeft,
   Bell,
   ClipboardList,
+  FileCheck,
   LayoutDashboard,
   Loader2,
   MapPin,
@@ -56,6 +57,7 @@ type Section =
   | "requests"
   | "invites"
   | "launch"
+  | "consents"
   | "masters"
   | "admins"
   | "push"
@@ -67,6 +69,7 @@ const SECTIONS: Array<{ id: Section; title: string; icon: typeof Shield }> = [
   { id: "panels", title: "Щитки", icon: Zap },
   { id: "requests", title: "Заявки", icon: ClipboardList },
   { id: "launch", title: "Открытие", icon: Phone },
+  { id: "consents", title: "Согласия", icon: FileCheck },
   { id: "invites", title: "Приглашения", icon: UserPlus },
   { id: "masters", title: "Мастера", icon: Wrench },
   { id: "push", title: "Пуши", icon: Bell },
@@ -290,6 +293,7 @@ export function AdminDashboardScreen({ onBack }: { onBack: () => void }) {
               )}
               {section === "invites" && <InvitesSection data={data} />}
               {section === "launch" && <LaunchWaitlistSection data={data} />}
+              {section === "consents" && <PdConsentsSection data={data} />}
               {section === "masters" && (
                 <MastersSection
                   data={data}
@@ -371,6 +375,12 @@ function Overview({
       icon: Phone,
       section: "launch" as const,
     },
+    {
+      label: "Согласия ПДн",
+      value: data.stats.pdConsentCount,
+      icon: FileCheck,
+      section: "consents" as const,
+    },
   ];
   const maxRequestCity = Math.max(
     ...data.stats.requestsByCity.map((row) => row.count),
@@ -387,7 +397,7 @@ function Overview({
           Сводка по сервису, заявкам и мастерам.
         </p>
       </div>
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5 lg:gap-4">
         {stats.map((item) => (
           <button
             key={item.label}
@@ -860,6 +870,71 @@ function LaunchWaitlistSection({ data }: { data: AdminDashboardData }) {
         </table>
         {data.launchWaitlist.length === 0 && (
           <p className="px-5 py-6 ty-meta">Пока нет заявок на открытие</p>
+        )}
+      </GlassCard>
+    </div>
+  );
+}
+
+function PdConsentsSection({ data }: { data: AdminDashboardData }) {
+  return (
+    <div className="mx-auto w-full max-w-[1200px] space-y-6">
+      <div>
+        <h2 className="ty-display text-zinc-950">Согласия на ПДн</h2>
+        <p className="mt-1 ty-body">
+          Пользователи, подтвердившие согласие на обработку персональных данных
+          и cookies · {data.stats.pdConsentCount}
+        </p>
+      </div>
+
+      <GlassCard className="overflow-x-auto p-0">
+        <table className="w-full min-w-[800px] text-left text-[13px]">
+          <thead className="bg-zinc-50 text-zinc-500">
+            <tr>
+              <th className="px-4 py-3 font-medium">Пользователь</th>
+              <th className="px-4 py-3 font-medium">Телефон</th>
+              <th className="px-4 py-3 font-medium">Версия</th>
+              <th className="px-4 py-3 font-medium">Когда</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.pdConsents.map((row) => (
+              <tr key={row.telegramId} className="border-t border-black/6">
+                <td className="px-4 py-3">
+                  <div className="font-medium text-zinc-900">
+                    {displayName(row.firstName, row.lastName, "Без имени")}
+                  </div>
+                  <div className="tabular-nums text-zinc-400">
+                    {row.telegramId}
+                    {row.username ? ` · @${row.username}` : ""}
+                  </div>
+                </td>
+                <td className="px-4 py-3 text-zinc-600">
+                  {row.phone ? (
+                    <a
+                      href={`tel:+${row.phone.replace(/\D/g, "")}`}
+                      className="tabular-nums text-zinc-900 hover:underline"
+                    >
+                      {row.phone}
+                    </a>
+                  ) : (
+                    <span className="text-zinc-400">—</span>
+                  )}
+                </td>
+                <td className="px-4 py-3 tabular-nums text-zinc-600">
+                  {row.version || "—"}
+                </td>
+                <td className="px-4 py-3 text-zinc-600">
+                  {row.consentedAt
+                    ? new Date(row.consentedAt).toLocaleString("ru-RU")
+                    : "—"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {data.pdConsents.length === 0 && (
+          <p className="px-5 py-6 ty-meta">Пока никто не дал согласие</p>
         )}
       </GlassCard>
     </div>

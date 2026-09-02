@@ -98,6 +98,16 @@ export type AdminLaunchWaitlistRow = {
   createdAt: string;
 };
 
+export type AdminPdConsentRow = {
+  telegramId: number;
+  firstName: string;
+  lastName: string;
+  username: string;
+  phone: string;
+  version: string;
+  consentedAt: string;
+};
+
 export type AdminDashboardData = {
   isOwner: boolean;
   ownerTelegramId: number | null;
@@ -110,6 +120,7 @@ export type AdminDashboardData = {
     creditedInvites: number;
     pendingInviteOpens: number;
     launchWaitlistCount: number;
+    pdConsentCount: number;
     byStatus: Record<string, number>;
     requestsByCity: Array<{ city: string; count: number }>;
     mastersByCity: Array<{ city: string; count: number }>;
@@ -123,6 +134,7 @@ export type AdminDashboardData = {
   inviteEdges: AdminInviteEdge[];
   invitePending: AdminInvitePending[];
   launchWaitlist: AdminLaunchWaitlistRow[];
+  pdConsents: AdminPdConsentRow[];
 };
 
 function personName(first?: string | null, last?: string | null, fallback = "—") {
@@ -159,6 +171,7 @@ export async function getAdminDashboard(
     creditedInvitesRow,
     pendingInviteOpensRow,
     launchWaitlistCountRow,
+    pdConsentCountRow,
     statusRows,
     requestCityRows,
     masterCityRows,
@@ -170,6 +183,7 @@ export async function getAdminDashboard(
     inviteEdgeRows,
     invitePendingRows,
     launchWaitlistRows,
+    pdConsentRows,
   ] = await Promise.all([
     sql`SELECT COUNT(*)::int AS count FROM users` as unknown as Promise<Array<{ count: number }>>,
     sql`SELECT COUNT(*)::int AS count FROM panels` as unknown as Promise<Array<{ count: number }>>,
@@ -186,6 +200,12 @@ export async function getAdminDashboard(
       SELECT COUNT(*)::int AS count
       FROM waitlist
       WHERE list = 'launch'
+    ` as unknown as Promise<Array<{ count: number }>>,
+    sql`
+      SELECT COUNT(*)::int AS count
+      FROM users
+      WHERE pd_consent_version IS NOT NULL
+        AND TRIM(pd_consent_version) <> ''
     ` as unknown as Promise<Array<{ count: number }>>,
     sql`
       SELECT status, COUNT(*)::int AS count
@@ -415,6 +435,31 @@ export async function getAdminDashboard(
         username: string | null;
       }>
     >,
+    sql`
+      SELECT
+        telegram_id,
+        first_name,
+        last_name,
+        username,
+        phone_digits,
+        pd_consent_version,
+        pd_consent_at
+      FROM users
+      WHERE pd_consent_version IS NOT NULL
+        AND TRIM(pd_consent_version) <> ''
+      ORDER BY pd_consent_at DESC NULLS LAST
+      LIMIT 500
+    ` as unknown as Promise<
+      Array<{
+        telegram_id: string | number;
+        first_name: string | null;
+        last_name: string | null;
+        username: string | null;
+        phone_digits: string | null;
+        pd_consent_version: string | null;
+        pd_consent_at: string | null;
+      }>
+    >,
   ]);
 
   const byStatus: Record<string, number> = {
@@ -472,6 +517,7 @@ export async function getAdminDashboard(
       creditedInvites: creditedInvitesRow[0]?.count ?? 0,
       pendingInviteOpens: pendingInviteOpensRow[0]?.count ?? 0,
       launchWaitlistCount: launchWaitlistCountRow[0]?.count ?? 0,
+      pdConsentCount: pdConsentCountRow[0]?.count ?? 0,
       byStatus,
       requestsByCity: requestCityRows,
       mastersByCity: masterCityRows,
@@ -557,6 +603,15 @@ export async function getAdminDashboard(
       userName: personName(row.first_name, row.last_name, ""),
       username: row.username ?? "",
       createdAt: row.created_at,
+    })),
+    pdConsents: pdConsentRows.map((row) => ({
+      telegramId: Number(row.telegram_id),
+      firstName: row.first_name ?? "",
+      lastName: row.last_name ?? "",
+      username: row.username ?? "",
+      phone: row.phone_digits ?? "",
+      version: row.pd_consent_version ?? "",
+      consentedAt: row.pd_consent_at ?? "",
     })),
   };
 }

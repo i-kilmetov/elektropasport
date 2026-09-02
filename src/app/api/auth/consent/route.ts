@@ -19,13 +19,24 @@ import {
 
 export async function GET(request: Request) {
   try {
-    let accepted = isPdConsentCookieValid(readPdConsentCookie(request));
+    const cookieVersion = readPdConsentCookie(request);
+    const cookieOk = isPdConsentCookieValid(cookieVersion);
+    let accepted = cookieOk;
 
     try {
       const user = requireTelegramUser(request);
       await ensureSchema();
       await upsertUser(user);
-      accepted = (await userHasPdConsent(user.telegramId)) || accepted;
+
+      const inDb = await userHasPdConsent(user.telegramId);
+      if (inDb) {
+        accepted = true;
+      } else if (cookieOk) {
+        // Cookie from an earlier gate — persist to the user row so it survives
+        // browser clears and doesn't re-prompt after the short OAuth window.
+        await recordUserPdConsent(user.telegramId, PD_CONSENT_VERSION);
+        accepted = true;
+      }
     } catch (error) {
       if (error instanceof Error && error.name === "AuthError") {
         // Pre-login check — cookie only.

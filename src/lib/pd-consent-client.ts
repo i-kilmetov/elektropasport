@@ -2,6 +2,25 @@
 
 import { POST_AUTH_NEXT_KEY, safeAuthNextPath } from "@/lib/auth-flow";
 import { isTelegramMiniApp } from "@/lib/client-auth";
+import { PD_CONSENT_VERSION } from "@/lib/pd-consent";
+
+const LOCAL_CONSENT_KEY = "elektropasport:pd-consent";
+
+function readLocalPdConsent(): boolean {
+  try {
+    return Boolean(localStorage.getItem(LOCAL_CONSENT_KEY)?.trim());
+  } catch {
+    return false;
+  }
+}
+
+function writeLocalPdConsent(version: string = PD_CONSENT_VERSION): void {
+  try {
+    localStorage.setItem(LOCAL_CONSENT_KEY, version);
+  } catch {
+    // private mode
+  }
+}
 
 /** Open Telegram OAuth. PD / cookie consent is collected after login. */
 export async function beginTelegramLogin(next?: string): Promise<void> {
@@ -47,19 +66,34 @@ export async function acceptPdConsentForSession(): Promise<void> {
   if (!res.ok) {
     throw new Error("Не удалось сохранить согласие");
   }
+  writeLocalPdConsent();
 }
 
 export async function fetchPdConsentStatus(): Promise<boolean> {
+  const localAccepted = readLocalPdConsent();
   try {
     const res = await fetch("/api/auth/consent", {
       credentials: "include",
       headers: authHeadersForConsent(),
     });
-    if (!res.ok) return false;
+    if (!res.ok) return localAccepted;
     const data = (await res.json()) as { accepted?: boolean };
-    return Boolean(data.accepted);
-  } catch {
+    if (data.accepted) {
+      writeLocalPdConsent();
+      return true;
+    }
+    if (localAccepted) {
+      // Local gate was accepted earlier — push it to the server/user row.
+      try {
+        await acceptPdConsentForSession();
+        return true;
+      } catch {
+        return true;
+      }
+    }
     return false;
+  } catch {
+    return localAccepted;
   }
 }
 

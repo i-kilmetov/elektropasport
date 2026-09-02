@@ -3,8 +3,8 @@ export const PD_CONSENT_VERSION = "1.1";
 
 export const PD_CONSENT_COOKIE = "ep_pd_consent";
 
-/** OAuth flow: consent must be given within this window (seconds). */
-export const PD_CONSENT_COOKIE_MAX_AGE = 3600;
+/** Keep consent cookie for a long time; DB row is the source of truth after login. */
+export const PD_CONSENT_COOKIE_MAX_AGE = 60 * 60 * 24 * 400;
 
 export function pdConsentCookieHeader(version: string = PD_CONSENT_VERSION): string {
   return `${PD_CONSENT_COOKIE}=${encodeURIComponent(version)}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${PD_CONSENT_COOKIE_MAX_AGE}`;
