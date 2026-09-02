@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/ean13-example";
 import { Portal } from "@/components/ui/portal";
 import type { BarcodeLookupResponse } from "@/lib/appliance-barcode";
+import { pausePortraitOrientationLock } from "@/lib/portrait-lock";
 import { cn } from "@/lib/utils";
 
 const BARCODE_FORMATS = [
@@ -201,6 +202,8 @@ export function ApplianceBarcodeScanner({
     setTorchBusy(false);
     if (ok) setTorchOn(next);
   };
+
+  useEffect(() => pausePortraitOrientationLock(), []);
 
   useEffect(() => {
     let cancelled = false;
