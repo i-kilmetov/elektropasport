@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { CablePhoneInput } from "@/components/ui/cable-phone-input";
+import { CablePhoneInput, type CablePhoneLiftState } from "@/components/ui/cable-phone-input";
 import { beginTelegramLogin } from "@/lib/pd-consent-client";
 import {
   fetchBrowserLoginEnabled,
@@ -145,11 +145,13 @@ export function PhoneLoginFlow({
   variant = "card",
   className,
   onBeforeLogin,
+  onPhoneLiftChange,
 }: {
   returnTo?: string;
   variant?: "splash" | "card";
   className?: string;
   onBeforeLogin?: () => void;
+  onPhoneLiftChange?: (state: CablePhoneLiftState) => void;
 }) {
   const [enabled, setEnabled] = useState<boolean | null>(null);
   const [step, setStep] = useState<Step>("phone");
@@ -268,6 +270,7 @@ export function PhoneLoginFlow({
           phoneValid={phoneValid}
           ghostTone={isSplash ? "light" : "dark"}
           variant={isSplash ? "splash" : "card"}
+          onLiftChange={onPhoneLiftChange}
           className={
             isSplash
               ? "relative left-1/2 w-screen -translate-x-1/2"

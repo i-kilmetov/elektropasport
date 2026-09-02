@@ -8,12 +8,18 @@ import {
 } from "@/lib/cable-marker-colors";
 import { cn } from "@/lib/utils";
 
-const CLIP_W = 34;
-const CLIP_W_WIDE = 48;
-const CLIP_H = 56;
+const CLIP_W = 32;
+const CLIP_W_WIDE = 46;
+const CLIP_H = 30;
 const CLIP_OVERLAP = 3;
 const DIGIT_SLOTS = 10;
-const CABLE_Y_RATIO = 0.82;
+const ROW_H = 38;
+
+export type CablePhoneLiftState = {
+  open: boolean;
+  bottom: number;
+  height: number;
+};
 
 function clipWidth(label: string): number {
   return label.length > 1 ? CLIP_W_WIDE : CLIP_W;
@@ -91,7 +97,8 @@ function CableMarkerClip({
   const uid = useId().replace(/:/g, "");
   const w = clipWidth(label);
   const colors = style ?? cableMarkerStyleForDigit("7");
-  const fontSize = label.length > 1 ? 14 : 19;
+  const fontSize = label.length > 1 ? 13 : 17;
+  const faceW = w - 7;
   const ghostStroke =
     ghostTone === "light" ? "rgba(255,255,255,0.62)" : "rgba(17,17,19,0.35)";
   const ghostFillTop =
@@ -100,8 +107,6 @@ function CableMarkerClip({
     ghostTone === "light" ? "rgba(255,255,255,0.16)" : "rgba(17,17,19,0.05)";
   const ghostFillBot =
     ghostTone === "light" ? "rgba(255,255,255,0.08)" : "rgba(17,17,19,0.03)";
-  const ghostSide =
-    ghostTone === "light" ? "rgba(255,255,255,0.22)" : "rgba(17,17,19,0.12)";
 
   return (
     <svg
@@ -109,84 +114,70 @@ function CableMarkerClip({
       width={w}
       height={CLIP_H}
       className={cn(
-        "shrink-0 drop-shadow-[0_4px_8px_rgba(0,0,0,0.32)]",
+        "shrink-0 drop-shadow-[0_3px_6px_rgba(0,0,0,0.28)]",
         blinking && "animate-cable-clip-blink",
         className,
       )}
       aria-hidden
     >
       <defs>
-        <linearGradient id={`${uid}-top`} x1="0" y1="0" x2="0" y2="1">
+        <linearGradient id={`${uid}-face`} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={ghost ? ghostFillTop : colors.faceLight} />
           <stop offset="55%" stopColor={ghost ? ghostFillMid : colors.face} />
           <stop offset="100%" stopColor={ghost ? ghostFillBot : colors.side} />
         </linearGradient>
-        <linearGradient id={`${uid}-side-l`} x1="1" y1="0" x2="0" y2="0">
-          <stop
-            offset="0%"
-            stopColor={
-              ghost
-                ? ghostTone === "light"
-                  ? "rgba(255,255,255,0.06)"
-                  : "rgba(17,17,19,0.04)"
-                : colors.side
-            }
-          />
-          <stop offset="100%" stopColor={ghost ? ghostSide : colors.face} />
-        </linearGradient>
-        <linearGradient id={`${uid}-side-r`} x1="0" y1="0" x2="1" y2="0">
-          <stop
-            offset="0%"
-            stopColor={
-              ghost
-                ? ghostTone === "light"
-                  ? "rgba(255,255,255,0.06)"
-                  : "rgba(17,17,19,0.04)"
-                : colors.side
-            }
-          />
-          <stop offset="100%" stopColor={ghost ? ghostSide : colors.face} />
-        </linearGradient>
       </defs>
 
-      <path
-        d={`M5 30 Q2 38 3.5 46 Q6 ${CLIP_H - 2} 10 ${CLIP_H - 1} L10 30 Z`}
-        fill={`url(#${uid}-side-l)`}
-        stroke={ghost ? ghostStroke : "rgba(0,0,0,0.15)"}
-        strokeWidth="0.7"
-      />
-      <path
-        d={`M${w - 5} 30 Q${w - 2} 38 ${w - 3.5} 46 Q${w - 6} ${CLIP_H - 2} ${w - 10} ${CLIP_H - 1} L${w - 10} 30 Z`}
-        fill={`url(#${uid}-side-r)`}
-        stroke={ghost ? ghostStroke : "rgba(0,0,0,0.15)"}
-        strokeWidth="0.7"
+      {/* Left depth edge (front view) */}
+      <rect
+        x="2"
+        y="3"
+        width="2.5"
+        height="24"
+        rx="0.8"
+        fill={ghost ? "rgba(255,255,255,0.14)" : colors.side}
+        opacity={ghost ? 1 : 0.85}
       />
 
+      {/* Colored face */}
       <rect
-        x="3.5"
-        y="2"
-        width={w - 7}
-        height="28"
-        rx="4"
-        fill={`url(#${uid}-top)`}
+        x="4.5"
+        y="3"
+        width={faceW}
+        height="24"
+        rx="3.5"
+        fill={`url(#${uid}-face)`}
         stroke={ghost ? ghostStroke : "rgba(0,0,0,0.16)"}
         strokeWidth="0.9"
       />
+
       {!ghost ? (
         <rect
-          x="6"
-          y="4.5"
-          width={w - 12}
-          height="4"
-          rx="2"
+          x="7"
+          y="5"
+          width={faceW - 5}
+          height="3.5"
+          rx="1.5"
           fill="rgba(255,255,255,0.22)"
         />
       ) : null}
 
+      {/* Side interlock tab */}
+      <rect
+        x={w - 5}
+        y="10"
+        width="3.5"
+        height="10"
+        rx="1.2"
+        fill={ghost ? "rgba(255,255,255,0.18)" : colors.face}
+        stroke={ghost ? ghostStroke : "rgba(0,0,0,0.12)"}
+        strokeWidth="0.5"
+      />
+
       {!ghost ? (
         <text
-          x={w / 2}
-          y="20"
+          x={4.5 + faceW / 2}
+          y="16"
           textAnchor="middle"
           dominantBaseline="middle"
           fill={colors.text}
@@ -201,11 +192,10 @@ function CableMarkerClip({
   );
 }
 
-function CableWire({ cableTop }: { cableTop: number }) {
+function CableWire() {
   return (
     <div
-      className="pointer-events-none absolute inset-x-0 z-0 h-[14px] rounded-full"
-      style={{ top: cableTop - 7 }}
+      className="pointer-events-none absolute inset-x-0 top-1/2 z-0 h-[14px] -translate-y-1/2 rounded-full"
       aria-hidden
     >
       <div className="absolute inset-0 rounded-full bg-[#0c0c0e]" />
@@ -226,6 +216,7 @@ export function CablePhoneInput({
   inputId = "phone-login",
   ghostTone = "light",
   variant = "card",
+  onLiftChange,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -237,6 +228,7 @@ export function CablePhoneInput({
   inputId?: string;
   ghostTone?: "light" | "dark";
   variant?: "splash" | "card";
+  onLiftChange?: (state: CablePhoneLiftState) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const shellRef = useRef<HTMLDivElement>(null);
@@ -254,8 +246,7 @@ export function CablePhoneInput({
 
   const clipCount = 1 + DIGIT_SLOTS;
   const rowWidth = totalClipsWidth(clipCount);
-  const scaledClipHeight = CLIP_H * scale;
-  const cableTop = scaledClipHeight * CABLE_Y_RATIO;
+  const rowHeight = ROW_H * scale;
 
   useEffect(() => {
     const shell = shellRef.current;
@@ -288,6 +279,20 @@ export function CablePhoneInput({
     observer.observe(shell);
     return () => observer.disconnect();
   }, [focused, phoneValid, scale]);
+
+  useEffect(() => {
+    onLiftChange?.({
+      open: keyboardLift.open,
+      bottom: keyboardLift.bottom,
+      height: placeholderHeight || shellRef.current?.offsetHeight || 0,
+    });
+  }, [keyboardLift.open, keyboardLift.bottom, placeholderHeight, onLiftChange]);
+
+  useEffect(() => {
+    if (!focused && !keyboardLift.open) {
+      onLiftChange?.({ open: false, bottom: 0, height: 0 });
+    }
+  }, [focused, keyboardLift.open, onLiftChange]);
 
   const focusInput = () => {
     if (disabled) return;
@@ -338,73 +343,72 @@ export function CablePhoneInput({
             "bg-white/95 backdrop-blur-sm",
           className,
         )}
-      style={
-        keyboardLift.open
-          ? {
-              bottom: `${keyboardLift.bottom}px`,
-              paddingLeft: "max(0.75rem, env(safe-area-inset-left))",
-              paddingRight: "max(0.75rem, env(safe-area-inset-right))",
-            }
-          : undefined
-      }
-    >
-      <div
-        className="relative cursor-text touch-manipulation"
-        style={{ minHeight: scaledClipHeight }}
-        onPointerDown={(event) => {
-          if ((event.target as HTMLElement).closest("button")) return;
-          event.preventDefault();
-          focusInput();
-        }}
+        style={
+          keyboardLift.open
+            ? {
+                bottom: `${keyboardLift.bottom}px`,
+                paddingLeft: "max(0.75rem, env(safe-area-inset-left))",
+                paddingRight: "max(0.75rem, env(safe-area-inset-right))",
+              }
+            : undefined
+        }
       >
-        <CableWire cableTop={cableTop} />
-
         <div
-          className="relative z-[1] flex justify-center"
-          style={{
-            transform: scale < 1 ? `scale(${scale})` : undefined,
-            transformOrigin: "top center",
-            height: CLIP_H,
+          className="relative flex cursor-text touch-manipulation items-center justify-center"
+          style={{ minHeight: rowHeight }}
+          onPointerDown={(event) => {
+            if ((event.target as HTMLElement).closest("button")) return;
+            event.preventDefault();
+            focusInput();
           }}
         >
-          <div className="flex items-start">{clipStack}</div>
-        </div>
+          <CableWire />
 
-        <input
-          ref={inputRef}
-          id={inputId}
-          type="tel"
-          inputMode="tel"
-          autoComplete="tel"
-          value={value}
-          disabled={disabled}
-          onFocus={() => setFocused(true)}
-          onBlur={() => setFocused(false)}
-          onChange={(event) => onChange(event.target.value)}
-          className="absolute inset-0 z-[2] cursor-text opacity-0"
-          aria-label="Номер телефона"
-        />
-      </div>
-
-      {phoneValid ? (
-        <div className="mt-3 flex justify-center">
-          <button
-            type="button"
-            disabled={disabled || submitting}
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={onSubmit}
-            className="flex h-11 w-11 items-center justify-center rounded-full bg-[#111113] text-white shadow-[0_4px_14px_rgba(0,0,0,0.35)] transition-opacity disabled:opacity-50"
-            aria-label="Продолжить"
+          <div
+            className="relative z-[1] flex justify-center"
+            style={{
+              transform: scale < 1 ? `scale(${scale})` : undefined,
+              transformOrigin: "center center",
+            }}
           >
-            {submitting ? (
-              <Loader2 className="h-5 w-5 animate-spin" />
-            ) : (
-              <ArrowRight className="h-5 w-5" />
-            )}
-          </button>
+            <div className="flex items-center">{clipStack}</div>
+          </div>
+
+          <input
+            ref={inputRef}
+            id={inputId}
+            type="tel"
+            inputMode="tel"
+            autoComplete="tel"
+            value={value}
+            disabled={disabled}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
+            onChange={(event) => onChange(event.target.value)}
+            className="absolute inset-0 z-[2] cursor-text opacity-0"
+            aria-label="Номер телефона"
+          />
         </div>
-      ) : null}
-    </div>
+
+        {phoneValid ? (
+          <div className="mt-3 flex justify-center">
+            <button
+              type="button"
+              disabled={disabled || submitting}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={onSubmit}
+              className="flex h-11 w-11 items-center justify-center rounded-full bg-[#111113] text-white shadow-[0_4px_14px_rgba(0,0,0,0.35)] transition-opacity disabled:opacity-50"
+              aria-label="Продолжить"
+            >
+              {submitting ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <ArrowRight className="h-5 w-5" />
+              )}
+            </button>
+          </div>
+        ) : null}
+      </div>
     </>
   );
 }

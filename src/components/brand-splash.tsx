@@ -9,6 +9,7 @@ import {
 } from "@/lib/status-bar-theme";
 import { Button } from "@/components/ui/button";
 import { PhoneLoginFlow } from "@/components/phone-login-flow";
+import type { CablePhoneLiftState } from "@/components/ui/cable-phone-input";
 import {
   LOGO_FONT_WEIGHT,
   LOGO_INK,
@@ -418,6 +419,11 @@ export function BrandAuthIntro({
   const loginVisible = skipAnimation || flip.ctaVisible;
   const [loginError, setLoginError] = useState<string | null>(null);
   const [logoWidth, setLogoWidth] = useState(0);
+  const [phoneLift, setPhoneLift] = useState<CablePhoneLiftState>({
+    open: false,
+    bottom: 0,
+    height: 0,
+  });
   const logoReady = skipAnimation || logoWidth > 0;
   const logoRef = useRef<HTMLDivElement>(null);
 
@@ -475,7 +481,22 @@ export function BrandAuthIntro({
       aria-label="Током — вход"
     >
       <div className="relative min-h-0 flex-1 w-full">
-        <div ref={logoRef} className="absolute top-1/2 left-1/2 w-max -translate-x-1/2 -translate-y-1/2">
+        <div
+          ref={logoRef}
+          className={
+            phoneLift.open
+              ? "fixed left-1/2 z-[301] w-max -translate-x-1/2 transition-[bottom] duration-200 ease-out"
+              : "absolute top-1/2 left-1/2 w-max -translate-x-1/2 -translate-y-1/2 transition-[bottom,top,transform] duration-200 ease-out"
+          }
+          style={
+            phoneLift.open
+              ? {
+                  bottom: phoneLift.bottom + phoneLift.height + 28,
+                  top: "auto",
+                }
+              : undefined
+          }
+        >
           <BrandMark
             tagline=""
             taglineVisible={false}
@@ -501,6 +522,7 @@ export function BrandAuthIntro({
         <PhoneLoginFlow
           variant="splash"
           onBeforeLogin={handleBeforeLogin}
+          onPhoneLiftChange={setPhoneLift}
         />
         {loginError && (
           <p className="mt-3 text-center text-[13px] text-red-700">
