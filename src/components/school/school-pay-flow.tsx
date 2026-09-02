@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, Check, Loader2, Tag } from "lucide-react";
+import { ArrowLeft, Check, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Portal } from "@/components/ui/portal";
@@ -43,6 +43,7 @@ export function SchoolPaySheet({
   const [agreed, setAgreed] = useState(false);
   const [needAgree, setNeedAgree] = useState(false);
   const [promoInput, setPromoInput] = useState("");
+  const [promoExpanded, setPromoExpanded] = useState(false);
   const [appliedPromo, setAppliedPromo] = useState<SchoolPromoPreview | null>(
     null,
   );
@@ -54,6 +55,10 @@ export function SchoolPaySheet({
 
   const payableAmount = appliedPromo?.finalAmountRub ?? price;
   const isFree = payableAmount <= 0;
+
+  useEffect(() => {
+    if (appliedPromo) setPromoExpanded(true);
+  }, [appliedPromo]);
 
   const applyPromo = () => {
     const code = promoInput.trim();
@@ -174,49 +179,60 @@ export function SchoolPaySheet({
           </div>
 
           <GlassCard className="mt-4 space-y-3 p-4">
-            <div className="flex items-center gap-2 ty-label text-zinc-600">
-              <Tag className="h-4 w-4" />
-              Промокод
-            </div>
-            <div className="flex gap-2">
-              <input
-                value={promoInput}
-                onChange={(e) => {
-                  setPromoInput(e.target.value.toUpperCase());
-                  if (promoError) setPromoError(null);
-                }}
-                className="h-12 min-w-0 flex-1 rounded-[16px] border border-black/8 bg-zinc-50 px-4 text-[15px] uppercase outline-none focus:border-zinc-300"
-              />
-              <Button
+            {!promoExpanded ? (
+              <button
                 type="button"
-                variant="secondary"
-                className="h-12 shrink-0 px-4"
-                disabled={promoLoading || !promoInput.trim()}
-                onClick={applyPromo}
+                onClick={() => setPromoExpanded(true)}
+                className="ty-body text-zinc-600 underline underline-offset-2"
               >
-                {promoLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  "Применить"
-                )}
-              </Button>
-            </div>
-            {promoError ? (
-              <p className="ty-meta text-rose-600">{promoError}</p>
-            ) : appliedPromo ? (
-              <div className="flex items-center justify-between gap-3">
-                <p className="ty-meta text-emerald-700">
-                  Скидка: {appliedPromo.discountLabel}
+                Промокод
+              </button>
+            ) : (
+              <>
+                <p className="ty-note text-zinc-600">
+                  Скидка 5% всем учащимся школы Током — промокод ШКОЛЬНИК
                 </p>
-                <button
-                  type="button"
-                  onClick={clearPromo}
-                  className="ty-meta text-zinc-500 underline-offset-2 hover:underline"
-                >
-                  Убрать
-                </button>
-              </div>
-            ) : null}
+                <div className="flex gap-2">
+                  <input
+                    value={promoInput}
+                    onChange={(e) => {
+                      setPromoInput(e.target.value.toUpperCase());
+                      if (promoError) setPromoError(null);
+                    }}
+                    className="h-12 min-w-0 flex-1 rounded-[16px] border border-black/8 bg-zinc-50 px-4 text-[15px] uppercase outline-none focus:border-zinc-300"
+                  />
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="h-12 shrink-0 px-4"
+                    disabled={promoLoading || !promoInput.trim()}
+                    onClick={applyPromo}
+                  >
+                    {promoLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      "Применить"
+                    )}
+                  </Button>
+                </div>
+                {promoError ? (
+                  <p className="ty-meta text-rose-600">{promoError}</p>
+                ) : appliedPromo ? (
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="ty-meta text-emerald-700">
+                      Скидка: {appliedPromo.discountLabel}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={clearPromo}
+                      className="ty-meta text-zinc-500 underline-offset-2 hover:underline"
+                    >
+                      Убрать
+                    </button>
+                  </div>
+                ) : null}
+              </>
+            )}
           </GlassCard>
 
           {!authed ? (

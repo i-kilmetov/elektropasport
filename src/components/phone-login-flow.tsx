@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { ArrowRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { beginTelegramLogin } from "@/lib/pd-consent-client";
 import {
@@ -260,7 +261,7 @@ export function PhoneLoginFlow({
       <div className={cn("space-y-3", className)}>
         <div
           className={cn(
-            "flex h-14 min-h-14 w-full items-center gap-3 rounded-full bg-white px-5",
+            "flex h-14 min-h-14 w-full items-center gap-2 rounded-full bg-white pl-4 pr-2",
             isSplash ? "text-zinc-900" : "border border-black/10 text-zinc-900",
           )}
         >
@@ -277,19 +278,22 @@ export function PhoneLoginFlow({
             aria-label="Номер телефона"
             className="min-w-0 flex-1 bg-transparent text-[16px] outline-none"
           />
+          {phoneValid ? (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void handleSendCode()}
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#111113] text-white transition-opacity disabled:opacity-50"
+              aria-label="Продолжить"
+            >
+              {busy ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <ArrowRight className="h-5 w-5" />
+              )}
+            </button>
+          ) : null}
         </div>
-        <Button
-          type="button"
-          className={cn(
-            "w-full",
-            isSplash &&
-              "h-14 min-h-14 rounded-full bg-[#111113] px-6 text-[16px] text-white hover:bg-zinc-800",
-          )}
-          disabled={!phoneValid || busy}
-          onClick={() => void handleSendCode()}
-        >
-          {busy ? "Входим…" : "Войти"}
-        </Button>
         <TelegramLoginLink
           isSplash={isSplash}
           disabled={busy}
