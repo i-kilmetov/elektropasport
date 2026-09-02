@@ -14,6 +14,7 @@ import {
   verifyPhoneLogin,
   completeBrowserLogin,
 } from "@/lib/phone-auth-client";
+import { PHONE_CODE_NOT_DELIVERED_MESSAGE } from "@/lib/phone-auth";
 import { cn } from "@/lib/utils";
 
 const PHONE_PREFIX = "+7";
@@ -43,10 +44,12 @@ function formatRuPhone(value: string): string {
 function TelegramLoginLink({
   disabled,
   isSplash,
+  emphasized,
   onClick,
 }: {
   disabled?: boolean;
   isSplash?: boolean;
+  emphasized?: boolean;
   onClick: () => void;
 }) {
   return (
@@ -54,7 +57,13 @@ function TelegramLoginLink({
       type="button"
       className={cn(
         "mx-auto block w-full pt-1 text-[14px] underline disabled:opacity-50",
-        isSplash ? "text-zinc-900/70" : "text-zinc-500",
+        emphasized
+          ? isSplash
+            ? "font-medium text-zinc-900"
+            : "font-medium text-zinc-900"
+          : isSplash
+            ? "text-zinc-900/70"
+            : "text-zinc-500",
       )}
       disabled={disabled}
       onClick={onClick}
@@ -170,6 +179,7 @@ export function PhoneLoginFlow({
   const [challengeId, setChallengeId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [suggestTelegram, setSuggestTelegram] = useState(false);
   const verifyingRef = useRef(false);
 
   useEffect(() => {
@@ -188,6 +198,7 @@ export function PhoneLoginFlow({
 
   const handleTelegramLogin = () => {
     setError(null);
+    setSuggestTelegram(false);
     onBeforeLogin?.();
     setBusy(true);
     void beginTelegramLogin(returnTo).catch((err) => {
@@ -196,9 +207,22 @@ export function PhoneLoginFlow({
     });
   };
 
+  const applySendCodeError = (message: string) => {
+    const deliveryFailed =
+      message === PHONE_CODE_NOT_DELIVERED_MESSAGE ||
+      /не доставлен|gateway|telegram gateway|не удалось отправить/i.test(
+        message,
+      );
+    setError(
+      deliveryFailed ? PHONE_CODE_NOT_DELIVERED_MESSAGE : message,
+    );
+    setSuggestTelegram(deliveryFailed);
+  };
+
   const handleSendCode = async () => {
     if (!phoneValid || busy) return;
     setError(null);
+    setSuggestTelegram(false);
     setBusy(true);
     onBeforeLogin?.();
     try {
@@ -207,7 +231,9 @@ export function PhoneLoginFlow({
       setStep("code");
       setCode("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не удалось отправить код");
+      applySendCodeError(
+        err instanceof Error ? err.message : "Не удалось отправить код",
+      );
     } finally {
       setBusy(false);
     }
@@ -258,6 +284,7 @@ export function PhoneLoginFlow({
         </p>
         <TelegramLoginLink
           isSplash={isSplash}
+          emphasized={suggestTelegram}
           disabled={busy}
           onClick={handleTelegramLogin}
         />
@@ -274,7 +301,10 @@ export function PhoneLoginFlow({
         {CABLE_PHONE_INPUT_ENABLED ? (
           <CablePhoneInput
             value={phone}
-            onChange={(next) => setPhone(formatRuPhone(next))}
+            onChange={(next) => {
+              setSuggestTelegram(false);
+              setPhone(formatRuPhone(next));
+            }}
             onSubmit={() => void handleSendCode()}
             disabled={busy}
             submitting={busy}
@@ -305,7 +335,10 @@ export function PhoneLoginFlow({
               inputMode="tel"
               autoComplete="tel"
               value={phone}
-              onChange={(event) => setPhone(formatRuPhone(event.target.value))}
+              onChange={(event) => {
+                setSuggestTelegram(false);
+                setPhone(formatRuPhone(event.target.value));
+              }}
               placeholder="+7 900 123-45-67"
               aria-label="Номер телефона"
               className="min-w-0 flex-1 bg-transparent text-[16px] outline-none"
@@ -327,14 +360,15 @@ export function PhoneLoginFlow({
             ) : null}
           </div>
         )}
-        <TelegramLoginLink
-          isSplash={isSplash}
-          disabled={busy}
-          onClick={handleTelegramLogin}
-        />
         {error && (
           <p className="text-center text-[13px] text-red-600">{error}</p>
         )}
+        <TelegramLoginLink
+          isSplash={isSplash}
+          emphasized={suggestTelegram}
+          disabled={busy}
+          onClick={handleTelegramLogin}
+        />
       </div>
     );
   }
@@ -347,6 +381,7 @@ export function PhoneLoginFlow({
         isSplash={isSplash}
         onChange={(next) => {
           setError(null);
+          setSuggestTelegram(false);
           setCode(next);
         }}
         onComplete={(value) => void handleVerify(value)}
@@ -363,17 +398,19 @@ export function PhoneLoginFlow({
           setChallengeId(null);
           setCode("");
           setError(null);
+          setSuggestTelegram(false);
           verifyingRef.current = false;
         }}
       >
         Изменить номер
       </button>
+      {error && <p className="text-center text-[13px] text-red-600">{error}</p>}
       <TelegramLoginLink
         isSplash={isSplash}
+        emphasized={suggestTelegram}
         disabled={busy}
         onClick={handleTelegramLogin}
       />
-      {error && <p className="text-center text-[13px] text-red-600">{error}</p>}
     </div>
   );
 }

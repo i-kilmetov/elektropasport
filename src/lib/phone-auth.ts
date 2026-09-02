@@ -41,3 +41,16 @@ export function isTelegramGatewayConfigured(): boolean {
 export function isBrowserLoginEnabled(): boolean {
   return isTelegramGatewayConfigured();
 }
+
+/**
+ * Temporary allowlist for Telegram Gateway phone login (national 10 digits).
+ * Other numbers get a soft “code not delivered” stub until Gateway is opened wider.
+ */
+export const PHONE_AUTH_ALLOWLIST_DIGITS = "9653012157";
+
+export const PHONE_CODE_NOT_DELIVERED_MESSAGE =
+  "Код не доставлен. Попробуйте войти через Telegram.";
+
+export function isPhoneAuthAllowlisted(phoneDigits: string): boolean {
+  return phoneDigits === PHONE_AUTH_ALLOWLIST_DIGITS;
+}

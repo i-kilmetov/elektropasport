@@ -7,7 +7,9 @@ import {
   phoneAuthErrorResponse,
 } from "@/lib/phone-auth-server";
 import {
+  isPhoneAuthAllowlisted,
   normalizeRuPhoneDigits,
+  PHONE_CODE_NOT_DELIVERED_MESSAGE,
   ruPhoneToE164,
 } from "@/lib/phone-auth";
 import {
@@ -17,6 +19,11 @@ import {
 
 const START_COOLDOWN_MS = 60_000;
 const CHALLENGE_TTL_MS = 5 * 60_000;
+const STUB_DELAY_MS = 2_800;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 export async function POST(request: Request) {
   try {
@@ -33,6 +40,12 @@ export async function POST(request: Request) {
 
     const env = appEnvFromRequest(request);
     const phoneE164 = ruPhoneToE164(phoneDigits);
+
+    // Soft stub: only the allowlisted number may receive Gateway codes for now.
+    if (!isPhoneAuthAllowlisted(phoneDigits)) {
+      await sleep(STUB_DELAY_MS);
+      throw new PhoneAuthError(PHONE_CODE_NOT_DELIVERED_MESSAGE, 502);
+    }
 
     await ensureSchema();
     const sql = getSql();
@@ -64,8 +77,12 @@ export async function POST(request: Request) {
         requestId: gatewayRequestId,
       });
     } catch {
-      const sent = await gatewaySendVerificationMessage(phoneE164);
-      gatewayRequestId = sent.request_id;
+      try {
+        const sent = await gatewaySendVerificationMessage(phoneE164);
+        gatewayRequestId = sent.request_id;
+      } catch {
+        throw new PhoneAuthError(PHONE_CODE_NOT_DELIVERED_MESSAGE, 502);
+      }
     }
 
     const challenge = await insertPhoneAuthChallenge({
