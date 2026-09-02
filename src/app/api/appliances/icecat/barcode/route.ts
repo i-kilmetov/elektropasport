@@ -55,9 +55,8 @@ export async function GET(request: Request) {
     const kindFromCategory = resolveApplianceKindFromIcecatCategory(
       hit.categoryName,
     );
-    const kind: CatalogApplianceKind =
-      kindFromCatalog ?? kindFromCategory ?? "other";
-    const kindMatched = Boolean(kindFromCatalog || kindFromCategory);
+    const kind = kindFromCatalog ?? kindFromCategory;
+    const kindMatched = Boolean(kind);
 
     const productCode = hit.model;
     const modelName =

@@ -3,7 +3,7 @@ import type { ApplianceManual, ApplianceSpec } from "@/types";
 
 export type BarcodeLookupResponse = {
   gtin: string;
-  kind: CatalogApplianceKind;
+  kind: CatalogApplianceKind | null;
   kindMatched: boolean;
   product: {
     id: string;

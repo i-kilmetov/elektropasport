@@ -211,9 +211,8 @@ export function AddApplianceSheet({
   const applyBarcodeResult = (result: BarcodeLookupResponse) => {
     skipModelsReloadRef.current = true;
     skipDetailsReloadRef.current = true;
-    const nextKind = isCatalogApplianceKind(result.kind)
-      ? result.kind
-      : ("other" as const);
+    const nextKind =
+      result.kind && isCatalogApplianceKind(result.kind) ? result.kind : null;
     const modelOption: IcecatModelOption = {
       id: result.product.id,
       brand: result.product.brand,
@@ -221,15 +220,7 @@ export function AddApplianceSheet({
       modelName: result.product.modelName,
     };
 
-    setCustomKindMode(false);
-    setCustomKindName("");
-    setCustomBrandName("");
-    setCustomModelName("");
-    setKind(nextKind);
-    setBrand(result.product.brand);
-    setModelId(result.product.id);
-    setModels([modelOption]);
-    setDetails({
+    const detailsPayload: ProductDetails = {
       powerW: result.powerW,
       specs: result.specs,
       manuals: result.manuals,
@@ -239,13 +230,42 @@ export function AddApplianceSheet({
       matched: true,
       status: result.status,
       statusDetail: result.statusDetail,
-    });
+    };
+
+    if (!nextKind) {
+      setCustomKindMode(true);
+      setKind(null);
+      setCustomKindName(result.categoryName?.trim() || "Техника");
+      setCustomBrandName(result.product.brand);
+      setCustomModelName(result.product.modelName || result.product.productCode);
+      setBrand(CUSTOM_BRAND);
+      setModelId(CUSTOM_MODEL);
+      setModels([]);
+      setDetails(detailsPayload);
+      setDetailsLoading(false);
+      setOtherKindsOpen(false);
+      setAllProductsOpen(false);
+      setError(null);
+      setBarcodeBanner(
+        `Найдено: ${result.product.brand} ${result.product.modelName}. Уточните тип техники.`,
+      );
+      setScannerOpen(false);
+      return;
+    }
+
+    setCustomKindMode(false);
+    setCustomKindName("");
+    setCustomBrandName("");
+    setCustomModelName("");
+    setKind(nextKind);
+    setBrand(result.product.brand);
+    setModelId(result.product.id);
+    setModels([modelOption]);
+    setDetails(detailsPayload);
     setDetailsLoading(false);
     setError(null);
     setBarcodeBanner(
-      result.kindMatched
-        ? `Найдено: ${result.product.brand} ${result.product.modelName}`
-        : `Найдено: ${result.product.brand} ${result.product.modelName}. Тип выбран приблизительно — проверьте.`,
+      `Найдено: ${result.product.brand} ${result.product.modelName}`,
     );
     if (isPrimaryCatalogApplianceKind(nextKind)) {
       setOtherKindsOpen(false);
