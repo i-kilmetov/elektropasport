@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { CablePhoneInput } from "@/components/ui/cable-phone-input";
 import { beginTelegramLogin } from "@/lib/pd-consent-client";
 import {
   fetchBrowserLoginEnabled,
@@ -259,41 +259,20 @@ export function PhoneLoginFlow({
   if (step === "phone") {
     return (
       <div className={cn("space-y-3", className)}>
-        <div
-          className={cn(
-            "flex h-14 min-h-14 w-full items-center gap-2 rounded-full bg-white pl-4 pr-2",
-            isSplash ? "text-zinc-900" : "border border-black/10 text-zinc-900",
-          )}
-        >
-          <span className="shrink-0 text-[22px] leading-none" aria-hidden>
-            🇷🇺
-          </span>
-          <input
-            id="phone-login"
-            inputMode="tel"
-            autoComplete="tel"
-            value={phone}
-            onChange={(event) => setPhone(formatRuPhone(event.target.value))}
-            placeholder="+7 900 123-45-67"
-            aria-label="Номер телефона"
-            className="min-w-0 flex-1 bg-transparent text-[16px] outline-none"
-          />
-          {phoneValid ? (
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => void handleSendCode()}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#111113] text-white transition-opacity disabled:opacity-50"
-              aria-label="Продолжить"
-            >
-              {busy ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
-              ) : (
-                <ArrowRight className="h-5 w-5" />
-              )}
-            </button>
-          ) : null}
-        </div>
+        <CablePhoneInput
+          value={phone}
+          onChange={(next) => setPhone(formatRuPhone(next))}
+          onSubmit={() => void handleSendCode()}
+          disabled={busy}
+          submitting={busy}
+          phoneValid={phoneValid}
+          ghostTone={isSplash ? "light" : "dark"}
+          className={
+            isSplash
+              ? "-mx-5 w-[calc(100%+2.5rem)]"
+              : "-mx-6 w-[calc(100%+3rem)]"
+          }
+        />
         <TelegramLoginLink
           isSplash={isSplash}
           disabled={busy}

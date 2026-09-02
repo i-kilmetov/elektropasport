@@ -159,6 +159,20 @@ body {
   }
 }
 
+@keyframes cable-clip-blink {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.animate-cable-clip-blink {
+  animation: cable-clip-blink 1s ease-in-out infinite;
+}
+
 ::selection {
   background: color-mix(in srgb, var(--accent) 28%, transparent);
 }
