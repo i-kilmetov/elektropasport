@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 
-/** Sample Russian-looking EAN-13 used only as a visual guide (not for lookup). */
-export const EXAMPLE_EAN13 = "4601234567893";
+/** Real retail EAN-13 (Bosch fridge-freezer KFN96APEAG, from Bosch datasheet). */
+export const EXAMPLE_EAN13 = "4242005273317";
 
 const L_CODES: Record<string, string> = {
   "0": "0001101",
@@ -89,25 +89,27 @@ export function Ean13Example({
   const height = compact ? 44 : 88;
   const quiet = compact ? 10 : 14;
   const width = quiet * 2 + bits.length * barWidth;
-  const textSize = compact ? 14 : 18;
-  const textY = height + (compact ? 16 : 24);
+  const textSize = compact ? 11 : 14;
+  const textY = height + (compact ? 15 : 22);
+  const digits = /^\d{13}$/.test(code) ? code : EXAMPLE_EAN13;
+  const caption = `EAN ${digits}`;
 
   return (
     <div className={className}>
       <svg
-        viewBox={`0 0 ${width} ${height + (compact ? 22 : 32)}`}
+        viewBox={`0 0 ${width} ${height + (compact ? 20 : 28)}`}
         className={cn(
           "mx-auto h-auto w-full bg-white",
-          compact ? "max-w-[240px] rounded-[8px]" : "max-w-[280px] rounded-[12px]",
+          compact ? "max-w-[260px] rounded-[8px]" : "max-w-[300px] rounded-[12px]",
         )}
         role="img"
-        aria-label="Пример штрихкода EAN-13"
+        aria-label={`Пример штрихкода ${caption}`}
       >
         <rect
           x={0}
           y={0}
           width={width}
-          height={height + (compact ? 22 : 32)}
+          height={height + (compact ? 20 : 28)}
           fill="#fff"
         />
         {bits.split("").map((bit, index) =>
@@ -128,11 +130,10 @@ export function Ean13Example({
           textAnchor="middle"
           fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace"
           fontSize={textSize}
-          fontWeight="600"
-          letterSpacing="1"
+          letterSpacing="0.5"
           fill="#111113"
         >
-          EAN-13
+          {caption}
         </text>
       </svg>
     </div>
