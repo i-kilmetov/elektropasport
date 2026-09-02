@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Camera, Check, Loader2, X } from "lucide-react";
+import { Camera, Check, Flashlight, FlashlightOff, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Ean13Example,
@@ -32,6 +32,47 @@ type LookupState =
   | { status: "found"; code: string; result: BarcodeLookupResponse }
   | { status: "missing"; code: string; message: string }
   | { status: "error"; code: string; message: string };
+
+type MediaTrackCapabilitiesWithTorch = MediaTrackCapabilities & {
+  torch?: boolean;
+};
+
+function getVideoTrack(stream: MediaStream | null): MediaStreamTrack | null {
+  return stream?.getVideoTracks()?.[0] ?? null;
+}
+
+function trackSupportsTorch(track: MediaStreamTrack | null): boolean {
+  if (!track || typeof track.getCapabilities !== "function") return false;
+  try {
+    const caps = track.getCapabilities() as MediaTrackCapabilitiesWithTorch;
+    return Boolean(caps.torch);
+  } catch {
+    return false;
+  }
+}
+
+async function setTrackTorch(
+  track: MediaStreamTrack | null,
+  on: boolean,
+): Promise<boolean> {
+  if (!track || !trackSupportsTorch(track)) return false;
+  try {
+    await track.applyConstraints({
+      // Chrome Android accepts torch via advanced constraints.
+      advanced: [{ torch: on } as MediaTrackConstraintSet],
+    });
+    return true;
+  } catch {
+    try {
+      await track.applyConstraints({
+        torch: on,
+      } as MediaTrackConstraints);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+}
 
 function getNativeBarcodeDetector():
   | (new (options?: { formats?: string[] }) => BarcodeDetectorLike)
@@ -87,6 +128,9 @@ export function ApplianceBarcodeScanner({
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [lookup, setLookup] = useState<LookupState>({ status: "idle" });
+  const [torchSupported, setTorchSupported] = useState(false);
+  const [torchOn, setTorchOn] = useState(false);
+  const [torchBusy, setTorchBusy] = useState(false);
 
   const lookupGtin = async (raw: string) => {
     const code = normalizeDetectedCode(raw);
@@ -148,6 +192,16 @@ export function ApplianceBarcodeScanner({
     setManualCode("");
   };
 
+  const toggleTorch = async () => {
+    const track = getVideoTrack(streamRef.current);
+    if (!track || torchBusy) return;
+    setTorchBusy(true);
+    const next = !torchOn;
+    const ok = await setTrackTorch(track, next);
+    setTorchBusy(false);
+    if (ok) setTorchOn(next);
+  };
+
   useEffect(() => {
     let cancelled = false;
     let raf = 0;
@@ -155,7 +209,11 @@ export function ApplianceBarcodeScanner({
     let frame = 0;
 
     const stopStream = () => {
-      streamRef.current?.getTracks().forEach((track) => track.stop());
+      const track = getVideoTrack(streamRef.current);
+      if (track) {
+        void setTrackTorch(track, false);
+      }
+      streamRef.current?.getTracks().forEach((item) => item.stop());
       streamRef.current = null;
     };
 
@@ -194,7 +252,12 @@ export function ApplianceBarcodeScanner({
         if (!video) return;
         video.srcObject = stream;
         await video.play();
-        if (!cancelled) setCameraReady(true);
+        if (!cancelled) {
+          const track = getVideoTrack(stream);
+          setTorchSupported(trackSupportsTorch(track));
+          setTorchOn(false);
+          setCameraReady(true);
+        }
       } catch {
         if (!cancelled) {
           setCameraError("Нет доступа к камере — введите код вручную");
@@ -302,6 +365,27 @@ export function ApplianceBarcodeScanner({
                 </div>
               ) : null}
               <div className="pointer-events-none absolute inset-y-3 inset-x-8 rounded-[12px] border-2 border-white/80" />
+              {cameraReady && torchSupported ? (
+                <button
+                  type="button"
+                  onClick={() => void toggleTorch()}
+                  disabled={torchBusy}
+                  className={cn(
+                    "absolute right-2 top-2 z-10 flex h-10 w-10 items-center justify-center rounded-full border shadow-sm transition-colors",
+                    torchOn
+                      ? "border-amber-300 bg-amber-400 text-zinc-950"
+                      : "border-white/30 bg-black/55 text-white",
+                  )}
+                  aria-label={torchOn ? "Выключить фонарик" : "Включить фонарик"}
+                  aria-pressed={torchOn}
+                >
+                  {torchOn ? (
+                    <Flashlight className="h-4 w-4" />
+                  ) : (
+                    <FlashlightOff className="h-4 w-4" />
+                  )}
+                </button>
+              ) : null}
             </div>
 
             <div className="shrink-0 rounded-[14px] border border-black/8 bg-zinc-50 px-3 py-2">
