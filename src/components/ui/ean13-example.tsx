@@ -1,3 +1,5 @@
+import { cn } from "@/lib/utils";
+
 /** Sample Russian-looking EAN-13 used only as a visual guide (not for lookup). */
 export const EXAMPLE_EAN13 = "4601234567893";
 
@@ -76,31 +78,44 @@ function ean13Bits(digits: string): string {
 export function Ean13Example({
   code = EXAMPLE_EAN13,
   className,
+  compact = false,
 }: {
   code?: string;
   className?: string;
+  compact?: boolean;
 }) {
   const bits = ean13Bits(code);
-  const barWidth = 2;
-  const height = 88;
-  const quiet = 14;
+  const barWidth = compact ? 1.5 : 2;
+  const height = compact ? 36 : 88;
+  const quiet = compact ? 8 : 14;
   const width = quiet * 2 + bits.length * barWidth;
+  const textSize = compact ? 11 : 16;
+  const textY = height + (compact ? 14 : 22);
 
   return (
     <div className={className}>
       <svg
-        viewBox={`0 0 ${width} ${height + 28}`}
-        className="mx-auto h-auto w-full max-w-[280px] rounded-[12px] bg-white"
+        viewBox={`0 0 ${width} ${height + (compact ? 18 : 28)}`}
+        className={cn(
+          "mx-auto h-auto w-full bg-white",
+          compact ? "max-w-[220px] rounded-[8px]" : "max-w-[280px] rounded-[12px]",
+        )}
         role="img"
         aria-label={`Пример штрихкода EAN-13 ${code}`}
       >
-        <rect x={0} y={0} width={width} height={height + 28} fill="#fff" />
+        <rect
+          x={0}
+          y={0}
+          width={width}
+          height={height + (compact ? 18 : 28)}
+          fill="#fff"
+        />
         {bits.split("").map((bit, index) =>
           bit === "1" ? (
             <rect
               key={index}
               x={quiet + index * barWidth}
-              y={8}
+              y={compact ? 4 : 8}
               width={barWidth}
               height={height}
               fill="#111113"
@@ -109,11 +124,11 @@ export function Ean13Example({
         )}
         <text
           x={width / 2}
-          y={height + 22}
+          y={textY}
           textAnchor="middle"
           fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace"
-          fontSize="16"
-          letterSpacing="2"
+          fontSize={textSize}
+          letterSpacing="1.5"
           fill="#111113"
         >
           {code}

@@ -133,6 +133,7 @@ export function AddApplianceSheet({
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [barcodeBanner, setBarcodeBanner] = useState<string | null>(null);
+  const [barcodeCatalogPick, setBarcodeCatalogPick] = useState(false);
   const skipModelsReloadRef = useRef(false);
   const skipDetailsReloadRef = useRef(false);
 
@@ -165,13 +166,13 @@ export function AddApplianceSheet({
     setModelId(null);
     setModels([]);
     setDetails(null);
-    setBarcodeBanner(null);
+    if (!barcodeCatalogPick) setBarcodeBanner(null);
     setError(null);
     const fromAllProducts = options?.fromAllProducts === true;
     if (fromAllProducts) {
       setAllProductsOpen(true);
       setOtherKindsOpen(true);
-    } else {
+    } else if (!barcodeCatalogPick) {
       setAllProductsOpen(false);
       if (isPrimaryCatalogApplianceKind(nextKind)) {
         setOtherKindsOpen(false);
@@ -193,6 +194,7 @@ export function AddApplianceSheet({
   };
 
   const selectCustomKind = () => {
+    setBarcodeCatalogPick(false);
     setCustomKindMode(true);
     setKind(null);
     setBrand(null);
@@ -210,24 +212,26 @@ export function AddApplianceSheet({
 
   const applyBarcodeNotFound = (gtin: string) => {
     setScannerOpen(false);
-    setCustomKindMode(true);
-    setKind(null);
+    setCustomKindMode(false);
     setCustomKindName("");
     setCustomBrandName("");
-    setCustomModelName(gtin);
-    setBrand(CUSTOM_BRAND);
-    setModelId(CUSTOM_MODEL);
+    setCustomModelName("");
+    setKind(null);
+    setBrand(null);
+    setModelId(null);
     setModels([]);
     setDetails(null);
     setOtherKindsOpen(false);
     setAllProductsOpen(false);
+    setBarcodeCatalogPick(true);
     setError(null);
     setBarcodeBanner(
-      `Штрихкод ${gtin} не найден в каталоге. Укажите тип, бренд и модель вручную.`,
+      `Штрихкод ${gtin} не найден в каталоге. Выберите тип, производителя и модель.`,
     );
   };
 
   const applyBarcodeResult = (result: BarcodeLookupResponse) => {
+    setBarcodeCatalogPick(false);
     skipModelsReloadRef.current = true;
     skipDetailsReloadRef.current = true;
     const nextKind =
@@ -661,12 +665,53 @@ export function AddApplianceSheet({
             ) : null}
 
             {barcodeBanner ? (
-              <div className="mb-4 rounded-[16px] border border-emerald-200 bg-emerald-50 px-3 py-2 ty-note text-emerald-800">
+              <div
+                className={
+                  barcodeCatalogPick
+                    ? "mb-4 rounded-[16px] border border-amber-200 bg-amber-50 px-3 py-2 ty-note text-amber-900"
+                    : "mb-4 rounded-[16px] border border-emerald-200 bg-emerald-50 px-3 py-2 ty-note text-emerald-800"
+                }
+              >
                 {barcodeBanner}
               </div>
             ) : null}
 
-            {customKindMode ? (
+            {barcodeCatalogPick ? (
+              <div className="space-y-4">
+                <label className="block">
+                  <span className="mb-1.5 block ty-label text-zinc-500">
+                    Тип техники
+                  </span>
+                  <select
+                    value={kind ?? ""}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (!value || !isCatalogApplianceKind(value)) return;
+                      selectKind(value, { fromAllProducts: true });
+                    }}
+                    className={selectClassName}
+                  >
+                    <option value="">Выберите тип…</option>
+                    {FULL_CATALOG_KIND_OPTIONS.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.title}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBarcodeCatalogPick(false);
+                    setBarcodeBanner(null);
+                  }}
+                  className="inline-flex items-center gap-1.5 ty-label text-zinc-600 hover:text-zinc-900"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  К обычному выбору
+                </button>
+              </div>
+            ) : customKindMode ? (
               <div className="space-y-4">
                 <button
                   type="button"
@@ -866,6 +911,8 @@ export function AddApplianceSheet({
                 </button>
               </div>
             )}
+              </>
+            )}
 
             <AnimatePresence initial={false}>
               {!customKindMode && typeSelected && (
@@ -1002,8 +1049,6 @@ export function AddApplianceSheet({
                 </motion.div>
               )}
             </AnimatePresence>
-              </>
-            )}
           </div>
 
           <div className="shrink-0 border-t border-black/[0.06] px-5 py-4 pb-[max(1.25rem,env(safe-area-inset-bottom))]">

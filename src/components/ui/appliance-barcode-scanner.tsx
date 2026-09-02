@@ -157,9 +157,7 @@ export function ApplianceBarcodeScanner({
         detector = await createBarcodeDetector();
       } catch {
         if (!cancelled) {
-          setCameraError(
-            "Не удалось загрузить сканер — введите код вручную ниже",
-          );
+          setCameraError("Сканер недоступен — введите код вручную");
         }
         return;
       }
@@ -167,9 +165,7 @@ export function ApplianceBarcodeScanner({
       if (cancelled) return;
 
       if (!navigator.mediaDevices?.getUserMedia) {
-        setCameraError(
-          "Камера недоступна в этом браузере — введите код вручную ниже",
-        );
+        setCameraError("Камера недоступна — введите код вручную");
         return;
       }
 
@@ -194,9 +190,7 @@ export function ApplianceBarcodeScanner({
         if (!cancelled) setCameraReady(true);
       } catch {
         if (!cancelled) {
-          setCameraError(
-            "Нет доступа к камере — введите штрихкод вручную ниже",
-          );
+          setCameraError("Нет доступа к камере — введите код вручную");
         }
         return;
       }
@@ -259,51 +253,58 @@ export function ApplianceBarcodeScanner({
     lookup.status === "looking" || lookup.status === "detected";
   const shownCode =
     lookup.status === "idle" ? null : "code" in lookup ? lookup.code : null;
+  const hasResult =
+    lookup.status === "found" ||
+    lookup.status === "missing" ||
+    lookup.status === "error";
 
   return (
     <Portal>
-      <div className="fixed inset-0 z-[120] flex items-end bg-black/70 backdrop-blur-sm lg:items-center lg:justify-center lg:p-6">
-        <div className="mx-auto flex max-h-[92dvh] w-full max-w-[430px] flex-col overflow-hidden rounded-t-[28px] bg-[#111113] text-white shadow-2xl lg:max-w-md lg:rounded-[28px]">
-          <div className="flex items-center justify-between gap-3 px-5 pt-5">
-            <div className="w-10" />
+      <div className="fixed inset-0 z-[120] flex items-end justify-center bg-black/70 backdrop-blur-sm lg:items-center lg:p-6">
+        <div className="flex h-[min(100dvh,720px)] w-full max-w-[430px] flex-col overflow-hidden rounded-t-[28px] bg-[#111113] text-white shadow-2xl lg:h-auto lg:max-h-[min(92dvh,640px)] lg:rounded-[28px]">
+          <div className="flex shrink-0 items-center justify-between gap-3 px-4 pt-4">
+            <div className="w-9" />
             <h2 className="ty-heading text-white">Штрихкод</h2>
             <button
               type="button"
               onClick={onClose}
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white"
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white"
               aria-label="Закрыть"
             >
               <X className="h-4 w-4" />
             </button>
           </div>
 
-          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4">
-            <div className="relative overflow-hidden rounded-[20px] bg-black">
+          <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden px-4 py-3">
+            <div className="relative h-[72px] shrink-0 overflow-hidden rounded-[16px] bg-black sm:h-[80px]">
               <video
                 ref={videoRef}
                 muted
                 playsInline
                 className={cn(
-                  "aspect-[3/4] w-full object-cover",
+                  "h-full w-full object-cover",
                   !cameraReady && "opacity-0",
                 )}
               />
               {!cameraReady ? (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-zinc-900 px-6 text-center">
-                  <Camera className="h-8 w-8 text-zinc-400" />
+                <div className="absolute inset-0 flex items-center justify-center gap-2 bg-zinc-900 px-4 text-center">
+                  <Camera className="h-4 w-4 shrink-0 text-zinc-400" />
                   <p className="ty-note text-zinc-300">
                     {cameraError ?? "Включаем камеру…"}
                   </p>
                 </div>
               ) : null}
-              <div className="pointer-events-none absolute inset-x-8 top-1/2 h-24 -translate-y-1/2 rounded-[16px] border-2 border-white/70" />
+              <div className="pointer-events-none absolute inset-y-2 inset-x-10 rounded-[10px] border border-white/70" />
+            </div>
+
+            <div className="shrink-0 rounded-[14px] border border-white/10 bg-white/5 px-3 py-2">
               {shownCode ? (
-                <div className="absolute inset-x-3 bottom-3 rounded-[14px] bg-black/75 px-3 py-2.5 backdrop-blur-sm">
-                  <p className="ty-label text-zinc-400">Распознан код</p>
-                  <p className="mt-0.5 font-mono text-[18px] tracking-wide text-white">
+                <>
+                  <p className="ty-label text-zinc-400">Код</p>
+                  <p className="font-mono text-[17px] tracking-wide text-white">
                     {shownCode}
                   </p>
-                  <p className="mt-1 ty-note text-zinc-300">
+                  <p className="mt-0.5 ty-note text-zinc-300">
                     {lookup.status === "detected" || lookup.status === "looking"
                       ? "Проверяем каталог…"
                       : lookup.status === "found"
@@ -314,31 +315,28 @@ export function ApplianceBarcodeScanner({
                             ? lookup.message
                             : null}
                   </p>
-                </div>
-              ) : cameraReady ? (
-                <div className="pointer-events-none absolute inset-x-3 bottom-3 rounded-[14px] bg-black/55 px-3 py-2 text-center ty-note text-zinc-200">
-                  Наведите рамку на штрихкод
-                </div>
-              ) : null}
+                </>
+              ) : (
+                <p className="ty-note text-zinc-300">
+                  {cameraReady
+                    ? "Наведите полоску камеры на штрихкод"
+                    : "Камера нужна только для узкой полоски скана"}
+                </p>
+              )}
             </div>
 
             {lookup.status === "found" ? (
-              <div className="space-y-3 rounded-[16px] border border-emerald-400/30 bg-emerald-500/10 px-3.5 py-3">
+              <div className="shrink-0 space-y-2 rounded-[14px] border border-emerald-400/30 bg-emerald-500/10 px-3 py-2.5">
                 <div className="flex items-start gap-2">
-                  <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-300">
+                  <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-300">
                     <Check className="h-3.5 w-3.5" />
                   </span>
-                  <div>
+                  <div className="min-w-0">
                     <p className="ty-label text-emerald-200">Товар найден</p>
-                    <p className="mt-1 text-[15px] text-white">
+                    <p className="truncate text-[14px] text-white">
                       {lookup.result.product.brand}{" "}
                       {lookup.result.product.modelName}
                     </p>
-                    {lookup.result.categoryName ? (
-                      <p className="mt-0.5 ty-note text-zinc-400">
-                        {lookup.result.categoryName}
-                      </p>
-                    ) : null}
                   </div>
                 </div>
                 <Button
@@ -350,42 +348,40 @@ export function ApplianceBarcodeScanner({
                 <button
                   type="button"
                   onClick={resumeScan}
-                  className="w-full text-center ty-note text-zinc-400 underline-offset-2 hover:text-zinc-200 hover:underline"
+                  className="w-full text-center ty-note text-zinc-400"
                 >
-                  Сканировать другой код
+                  Сканировать другой
                 </button>
               </div>
             ) : null}
 
             {lookup.status === "missing" ? (
-              <div className="space-y-3 rounded-[16px] border border-amber-400/30 bg-amber-500/10 px-3.5 py-3">
-                <div>
-                  <p className="ty-label text-amber-200">Товара нет в каталоге</p>
-                  <p className="mt-1 ty-note text-zinc-300">{lookup.message}</p>
-                </div>
+              <div className="shrink-0 space-y-2 rounded-[14px] border border-amber-400/30 bg-amber-500/10 px-3 py-2.5">
+                <p className="ty-label text-amber-200">Товара нет в каталоге</p>
+                <p className="ty-note text-zinc-300">{lookup.message}</p>
                 <Button
                   className="w-full"
                   onClick={() => onAddManually(lookup.code)}
                 >
-                  Добавить вручную
+                  Выбрать из каталога
                 </Button>
                 <button
                   type="button"
                   onClick={resumeScan}
-                  className="w-full text-center ty-note text-zinc-400 underline-offset-2 hover:text-zinc-200 hover:underline"
+                  className="w-full text-center ty-note text-zinc-400"
                 >
-                  Сканировать другой код
+                  Сканировать другой
                 </button>
               </div>
             ) : null}
 
             {lookup.status === "error" ? (
-              <div className="space-y-2 rounded-[16px] border border-rose-400/30 bg-rose-500/10 px-3.5 py-3">
+              <div className="shrink-0 space-y-1.5 rounded-[14px] border border-rose-400/30 bg-rose-500/10 px-3 py-2.5">
                 <p className="ty-note text-rose-200">{lookup.message}</p>
                 <button
                   type="button"
                   onClick={resumeScan}
-                  className="ty-note text-zinc-400 underline-offset-2 hover:text-zinc-200 hover:underline"
+                  className="ty-note text-zinc-400"
                 >
                   Попробовать снова
                 </button>
@@ -393,67 +389,59 @@ export function ApplianceBarcodeScanner({
             ) : null}
 
             {looking ? (
-              <div className="flex items-center justify-center gap-2 ty-note text-zinc-400">
+              <div className="flex shrink-0 items-center justify-center gap-2 ty-note text-zinc-400">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Ищем модель по штрихкоду…
+                Ищем модель…
               </div>
             ) : null}
 
-            <div className="space-y-3 rounded-[16px] border border-white/10 bg-white/5 px-3.5 py-3">
-              <p className="ty-label text-zinc-200">Как сканировать</p>
-              <ul className="list-disc space-y-1.5 pl-4 ty-note text-zinc-400">
-                <li>
-                  Линейный код с полосками и цифрами (не QR) — чаще EAN-13, 13
-                  цифр.
-                </li>
-                <li>
-                  У товаров из РФ код часто начинается с{" "}
-                  <span className="text-zinc-200">460–469</span>.
-                </li>
-                <li>Держите код в рамке ровно, без бликов — распознавание само.</li>
-              </ul>
-              <div className="rounded-[14px] bg-white px-3 py-3">
-                <p className="mb-2 text-center ty-label text-zinc-500">
-                  Пример EAN-13
+            {!hasResult && !looking ? (
+              <div className="min-h-0 flex-1 space-y-2 overflow-hidden">
+                <p className="ty-note text-zinc-400">
+                  Линейный код с полосками и цифрами (не QR), чаще EAN-13. В РФ
+                  часто начинается с 460–469.
                 </p>
-                <Ean13Example code={EXAMPLE_EAN13} />
+                <div className="rounded-[12px] bg-white px-2 py-1.5">
+                  <Ean13Example code={EXAMPLE_EAN13} compact />
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="min-h-0 flex-1" />
+            )}
 
-            <label className="block">
-              <span className="mb-1.5 block ty-label text-zinc-400">
+            <label className="block shrink-0">
+              <span className="mb-1 block ty-label text-zinc-400">
                 Или введите код вручную
               </span>
-              <input
-                inputMode="numeric"
-                value={manualCode}
-                disabled={looking}
-                onChange={(event) => {
-                  setManualCode(
-                    event.target.value.replace(/\D/g, "").slice(0, 14),
-                  );
-                }}
-                placeholder={EXAMPLE_EAN13}
-                className="h-12 w-full rounded-[16px] border border-white/10 bg-white/5 px-4 text-[16px] text-white outline-none placeholder:text-zinc-500 disabled:opacity-50"
-              />
+              <div className="flex gap-2">
+                <input
+                  inputMode="numeric"
+                  value={manualCode}
+                  disabled={looking}
+                  onChange={(event) => {
+                    setManualCode(
+                      event.target.value.replace(/\D/g, "").slice(0, 14),
+                    );
+                  }}
+                  placeholder={EXAMPLE_EAN13}
+                  className="h-11 min-w-0 flex-1 rounded-[14px] border border-white/10 bg-white/5 px-3 text-[16px] text-white outline-none placeholder:text-zinc-500 disabled:opacity-50"
+                />
+                <Button
+                  className="h-11 shrink-0 px-3"
+                  disabled={looking || manualCode.replace(/\D/g, "").length < 8}
+                  onClick={() => void lookupGtin(manualCode)}
+                >
+                  {looking ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    "Найти"
+                  )}
+                </Button>
+              </div>
             </label>
           </div>
 
-          <div className="shrink-0 space-y-2 border-t border-white/10 px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-            <Button
-              className="w-full"
-              disabled={looking || manualCode.replace(/\D/g, "").length < 8}
-              onClick={() => void lookupGtin(manualCode)}
-            >
-              {looking ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Ищем…
-                </>
-              ) : (
-                "Найти по коду"
-              )}
-            </Button>
+          <div className="shrink-0 border-t border-white/10 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
             <Button className="w-full" variant="secondary" onClick={onClose}>
               Отмена
             </Button>
