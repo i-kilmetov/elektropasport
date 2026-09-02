@@ -1349,7 +1349,7 @@ export function ObjectsScreen({
                   </button>
                 )}
                 <Button
-                  className="h-11 rounded-full px-5"
+                  className="h-11 rounded-full px-5 text-[2.125rem] font-semibold leading-none"
                   onClick={addPanel}
                   aria-label="Добавить щиток"
                 >
@@ -1438,7 +1438,7 @@ export function ObjectsScreen({
         {page === 0 ? (
           <div className="space-y-3">
             <Button
-              className="w-full rounded-full"
+              className="w-full rounded-full text-[2.125rem] font-semibold leading-none"
               onClick={addPanel}
               aria-label="Добавить щиток"
             >

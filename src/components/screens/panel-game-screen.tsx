@@ -7,7 +7,6 @@ import { ArrowLeft, Check, Grid3x3, UserPlus, Zap } from "lucide-react";
 import { DeviceFaceStatic, MODULE_PX } from "@/components/icons/device-face";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { PixelButton } from "@/components/ui/pixel-button";
 import { PanelLimitSheet } from "@/components/screens/panel-limit-sheet";
 import { Panel2048Board, MergeStyleToggle } from "@/components/screens/panel-2048-board";
 import { PanelPuzzleBoard } from "@/components/screens/panel-puzzle-board";
@@ -726,7 +725,9 @@ export function PanelGameScreen({
           <div className="min-h-[56px] flex-1" aria-hidden />
 
           <div className="flex w-full flex-col items-center gap-4 pb-2">
-            <PixelButton onClick={startMain2048}>Играть</PixelButton>
+            <Button className="w-full rounded-full" onClick={startMain2048}>
+              Играть
+            </Button>
             <button
               type="button"
               onClick={goHub}
