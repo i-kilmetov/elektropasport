@@ -61,7 +61,6 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${manrope.variable} ${geologica.variable} h-full antialiased`}
     >
       <head>
-        <meta name="screen-orientation" content="portrait" />
         <script src="https://telegram.org/js/telegram-web-app.js" defer />
       </head>
       <body className="min-h-[var(--app-height,100dvh)] w-full bg-[#f7f7f8] font-sans text-[var(--foreground)]">
