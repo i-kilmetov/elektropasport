@@ -102,13 +102,13 @@ function CableMarkerClip({
   const faceH = 36;
   const faceY = 4;
   const ghostStroke =
-    ghostTone === "light" ? "rgba(255,255,255,0.62)" : "rgba(17,17,19,0.35)";
+    ghostTone === "light" ? "rgba(255,255,255,0.88)" : "rgba(17,17,19,0.45)";
   const ghostFillTop =
-    ghostTone === "light" ? "rgba(255,255,255,0.42)" : "rgba(17,17,19,0.08)";
+    ghostTone === "light" ? "rgba(255,255,255,0.78)" : "rgba(17,17,19,0.12)";
   const ghostFillMid =
-    ghostTone === "light" ? "rgba(255,255,255,0.16)" : "rgba(17,17,19,0.05)";
+    ghostTone === "light" ? "rgba(255,255,255,0.62)" : "rgba(17,17,19,0.08)";
   const ghostFillBot =
-    ghostTone === "light" ? "rgba(255,255,255,0.08)" : "rgba(17,17,19,0.03)";
+    ghostTone === "light" ? "rgba(255,255,255,0.48)" : "rgba(17,17,19,0.05)";
 
   return (
     <svg
@@ -136,7 +136,7 @@ function CableMarkerClip({
         width="3"
         height={faceH}
         rx="1"
-        fill={ghost ? "rgba(255,255,255,0.14)" : colors.side}
+        fill={ghost ? "rgba(255,255,255,0.42)" : colors.side}
         opacity={ghost ? 1 : 0.85}
       />
 
@@ -168,7 +168,7 @@ function CableMarkerClip({
         width="4"
         height="14"
         rx="1.2"
-        fill={ghost ? "rgba(255,255,255,0.18)" : colors.face}
+        fill={ghost ? "rgba(255,255,255,0.58)" : colors.face}
         stroke={ghost ? ghostStroke : "rgba(0,0,0,0.12)"}
         strokeWidth="0.5"
       />
@@ -194,13 +194,9 @@ function CableMarkerClip({
 function CableWire() {
   return (
     <div
-      className="pointer-events-none absolute inset-x-0 top-1/2 z-0 h-[16px] -translate-y-1/2 rounded-full"
+      className="pointer-events-none absolute inset-x-0 top-1/2 z-0 h-[16px] -translate-y-1/2 bg-[#0c0c0e]"
       aria-hidden
-    >
-      <div className="absolute inset-0 rounded-full bg-[#0c0c0e]" />
-      <div className="absolute inset-x-[1%] top-[2px] h-[5px] rounded-full bg-white/[0.12]" />
-      <div className="absolute inset-x-0 bottom-0 h-[4px] rounded-full bg-black/50" />
-    </div>
+    />
   );
 }
 

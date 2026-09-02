@@ -491,6 +491,18 @@ export function BrandAuthIntro({
     onLogin();
   };
 
+  const logoStatic = skipAnimation || restRevealed || phoneFocused;
+  const authLogoProps = {
+    tagline: "",
+    taglineVisible: false,
+    stripesPulsing: logoStatic ? false : stripesPulsing,
+    restRevealed: logoStatic ? true : restRevealed,
+    tUpright: logoStatic ? true : skipAnimation || flip.tUpright,
+    tInstantUpright: logoStatic ? true : skipAnimation,
+    instantReveal: logoStatic ? true : skipAnimation,
+    collapseRest: logoStatic ? false : !skipAnimation,
+  };
+
   return (
     <div
       className="fixed inset-0 z-[200] flex touch-none flex-col items-center overflow-hidden"
@@ -509,16 +521,7 @@ export function BrandAuthIntro({
             ref={logoRef}
             className="absolute top-1/2 left-1/2 w-max -translate-x-1/2 -translate-y-1/2"
           >
-            <BrandMark
-              tagline=""
-              taglineVisible={false}
-              stripesPulsing={stripesPulsing}
-              restRevealed={restRevealed}
-              tUpright={skipAnimation || flip.tUpright}
-              tInstantUpright={skipAnimation}
-              instantReveal={skipAnimation}
-              collapseRest={!skipAnimation}
-            />
+            <BrandMark {...authLogoProps} />
           </div>
         </div>
       ) : (
@@ -552,16 +555,7 @@ export function BrandAuthIntro({
       >
         {phoneFocused ? (
           <div className="mb-8 flex w-full justify-center">
-            <BrandMark
-              tagline=""
-              taglineVisible={false}
-              stripesPulsing={stripesPulsing}
-              restRevealed={restRevealed}
-              tUpright={skipAnimation || flip.tUpright}
-              tInstantUpright={skipAnimation}
-              instantReveal={skipAnimation}
-              collapseRest={!skipAnimation}
-            />
+            <BrandMark {...authLogoProps} />
           </div>
         ) : null}
 
