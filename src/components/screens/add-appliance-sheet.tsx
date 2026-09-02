@@ -208,6 +208,25 @@ export function AddApplianceSheet({
     setOtherKindsOpen(false);
   };
 
+  const applyBarcodeNotFound = (gtin: string) => {
+    setScannerOpen(false);
+    setCustomKindMode(true);
+    setKind(null);
+    setCustomKindName("");
+    setCustomBrandName("");
+    setCustomModelName(gtin);
+    setBrand(CUSTOM_BRAND);
+    setModelId(CUSTOM_MODEL);
+    setModels([]);
+    setDetails(null);
+    setOtherKindsOpen(false);
+    setAllProductsOpen(false);
+    setError(null);
+    setBarcodeBanner(
+      `Штрихкод ${gtin} не найден в каталоге. Укажите тип, бренд и модель вручную.`,
+    );
+  };
+
   const applyBarcodeResult = (result: BarcodeLookupResponse) => {
     skipModelsReloadRef.current = true;
     skipDetailsReloadRef.current = true;
@@ -635,8 +654,8 @@ export function AddApplianceSheet({
                   Сканировать штрихкод
                 </button>
                 <p className="px-1 ty-note text-zinc-500">
-                  Сфотографируйте линейный штрихкод с упаковки (полоски и
-                  цифры, чаще EAN-13) — как при съёмке щитка.
+                  Наведите камеру на линейный штрихкод с упаковки — код
+                  определится сам. Можно ввести цифры вручную.
                 </p>
               </div>
             ) : null}
@@ -1049,6 +1068,7 @@ export function AddApplianceSheet({
       <ApplianceBarcodeScanner
         onClose={() => setScannerOpen(false)}
         onFound={applyBarcodeResult}
+        onAddManually={applyBarcodeNotFound}
       />
     ) : null}
     </Portal>
