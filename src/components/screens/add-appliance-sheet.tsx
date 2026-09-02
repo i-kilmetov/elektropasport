@@ -226,7 +226,7 @@ export function AddApplianceSheet({
     setBarcodeCatalogPick(true);
     setError(null);
     setBarcodeBanner(
-      `Штрихкод ${gtin} не найден в каталоге. Выберите тип, производителя и модель.`,
+      `Штрихкод ${gtin}: товар не найден. Выберите тип, производителя и модель.`,
     );
   };
 

@@ -113,11 +113,18 @@ export function ApplianceBarcodeScanner({
         error?: string;
       };
       if (!res.ok) {
-        const message = data.error || "Товар не найден";
         if (res.status === 404 || res.status === 403) {
-          setLookup({ status: "missing", code, message });
+          setLookup({
+            status: "missing",
+            code,
+            message: "Товар не найден",
+          });
         } else {
-          setLookup({ status: "error", code, message });
+          setLookup({
+            status: "error",
+            code,
+            message: data.error || "Не удалось проверить код",
+          });
           pauseDetectRef.current = false;
         }
         return;
@@ -310,7 +317,7 @@ export function ApplianceBarcodeScanner({
                       : lookup.status === "found"
                         ? `Найдено: ${lookup.result.product.brand} ${lookup.result.product.modelName}`
                         : lookup.status === "missing"
-                          ? "В каталоге нет"
+                          ? "Товар не найден"
                           : lookup.status === "error"
                             ? lookup.message
                             : null}
@@ -357,8 +364,9 @@ export function ApplianceBarcodeScanner({
 
             {lookup.status === "missing" ? (
               <div className="shrink-0 space-y-2 rounded-[14px] border border-amber-200 bg-amber-50 px-3 py-2.5">
-                <p className="ty-label text-amber-900">Товара нет в каталоге</p>
-                <p className="ty-note text-zinc-600">{lookup.message}</p>
+                <p className="text-center ty-label text-amber-900">
+                  Товар не найден
+                </p>
                 <Button
                   className="w-full"
                   onClick={() => onAddManually(lookup.code)}
@@ -402,9 +410,6 @@ export function ApplianceBarcodeScanner({
                   QR-код. В РФ часто начинается с 460–469.
                 </p>
                 <div className="rounded-[14px] border border-black/8 bg-zinc-50 px-3 py-2.5">
-                  <p className="mb-1.5 text-center ty-label text-zinc-500">
-                    Пример EAN-13
-                  </p>
                   <Ean13Example code={EXAMPLE_EAN13} compact />
                 </div>
               </div>

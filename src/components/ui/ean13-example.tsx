@@ -89,28 +89,25 @@ export function Ean13Example({
   const height = compact ? 44 : 88;
   const quiet = compact ? 10 : 14;
   const width = quiet * 2 + bits.length * barWidth;
-  const textSize = compact ? 12 : 16;
-  const textY = height + (compact ? 15 : 22);
-  const label = /^\d{13}$/.test(code)
-    ? `${code.slice(0, 1)} ${code.slice(1, 7)} ${code.slice(7)}`
-    : code;
+  const textSize = compact ? 14 : 18;
+  const textY = height + (compact ? 16 : 24);
 
   return (
     <div className={className}>
       <svg
-        viewBox={`0 0 ${width} ${height + (compact ? 20 : 28)}`}
+        viewBox={`0 0 ${width} ${height + (compact ? 22 : 32)}`}
         className={cn(
           "mx-auto h-auto w-full bg-white",
           compact ? "max-w-[240px] rounded-[8px]" : "max-w-[280px] rounded-[12px]",
         )}
         role="img"
-        aria-label={`Пример штрихкода EAN-13 ${code}`}
+        aria-label="Пример штрихкода EAN-13"
       >
         <rect
           x={0}
           y={0}
           width={width}
-          height={height + (compact ? 20 : 28)}
+          height={height + (compact ? 22 : 32)}
           fill="#fff"
         />
         {bits.split("").map((bit, index) =>
@@ -131,10 +128,11 @@ export function Ean13Example({
           textAnchor="middle"
           fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace"
           fontSize={textSize}
-          letterSpacing="0.5"
+          fontWeight="600"
+          letterSpacing="1"
           fill="#111113"
         >
-          {label}
+          EAN-13
         </text>
       </svg>
     </div>
