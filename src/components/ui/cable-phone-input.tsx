@@ -8,12 +8,69 @@ import {
 } from "@/lib/cable-marker-colors";
 import { cn } from "@/lib/utils";
 
-const CLIP_W = 36;
-const CLIP_W_WIDE = 50;
-const CLIP_H = 58;
+const CLIP_W = 34;
+const CLIP_W_WIDE = 48;
+const CLIP_H = 56;
+const CLIP_OVERLAP = 3;
+const DIGIT_SLOTS = 10;
+const CABLE_Y_RATIO = 0.82;
 
 function clipWidth(label: string): number {
   return label.length > 1 ? CLIP_W_WIDE : CLIP_W;
+}
+
+function totalClipsWidth(count: number, firstWide = true): number {
+  if (count <= 0) return 0;
+  const first = firstWide ? CLIP_W_WIDE : CLIP_W;
+  if (count === 1) return first;
+  return first + (count - 1) * (CLIP_W - CLIP_OVERLAP);
+}
+
+function useKeyboardLift(active: boolean) {
+  const [lift, setLift] = useState({ open: false, bottom: 0 });
+
+  useEffect(() => {
+    if (!active) {
+      setLift({ open: false, bottom: 0 });
+      return;
+    }
+
+    const sync = () => {
+      const vv = window.visualViewport;
+      const height = vv?.height ?? window.innerHeight;
+      const offsetTop = vv?.offsetTop ?? 0;
+      const keyboardOpen =
+        window.innerHeight - height > 80 || offsetTop > 0;
+
+      if (keyboardOpen) {
+        const gap = 12;
+        setLift({
+          open: true,
+          bottom: Math.max(
+            gap,
+            window.innerHeight - height - offsetTop + gap,
+          ),
+        });
+        window.scrollTo(0, 0);
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
+      } else {
+        setLift({ open: false, bottom: 0 });
+      }
+    };
+
+    sync();
+    window.visualViewport?.addEventListener("resize", sync);
+    window.visualViewport?.addEventListener("scroll", sync);
+    window.addEventListener("resize", sync);
+    return () => {
+      window.visualViewport?.removeEventListener("resize", sync);
+      window.visualViewport?.removeEventListener("scroll", sync);
+      window.removeEventListener("resize", sync);
+    };
+  }, [active]);
+
+  return lift;
 }
 
 function CableMarkerClip({
@@ -67,27 +124,39 @@ function CableMarkerClip({
         <linearGradient id={`${uid}-side-l`} x1="1" y1="0" x2="0" y2="0">
           <stop
             offset="0%"
-            stopColor={ghost ? (ghostTone === "light" ? "rgba(255,255,255,0.06)" : "rgba(17,17,19,0.04)") : colors.side}
+            stopColor={
+              ghost
+                ? ghostTone === "light"
+                  ? "rgba(255,255,255,0.06)"
+                  : "rgba(17,17,19,0.04)"
+                : colors.side
+            }
           />
           <stop offset="100%" stopColor={ghost ? ghostSide : colors.face} />
         </linearGradient>
         <linearGradient id={`${uid}-side-r`} x1="0" y1="0" x2="1" y2="0">
           <stop
             offset="0%"
-            stopColor={ghost ? (ghostTone === "light" ? "rgba(255,255,255,0.06)" : "rgba(17,17,19,0.04)") : colors.side}
+            stopColor={
+              ghost
+                ? ghostTone === "light"
+                  ? "rgba(255,255,255,0.06)"
+                  : "rgba(17,17,19,0.04)"
+                : colors.side
+            }
           />
           <stop offset="100%" stopColor={ghost ? ghostSide : colors.face} />
         </linearGradient>
       </defs>
 
       <path
-        d={`M5 32 Q2 40 3.5 48 Q6 ${CLIP_H - 2} 10 ${CLIP_H - 1} L10 32 Z`}
+        d={`M5 30 Q2 38 3.5 46 Q6 ${CLIP_H - 2} 10 ${CLIP_H - 1} L10 30 Z`}
         fill={`url(#${uid}-side-l)`}
         stroke={ghost ? ghostStroke : "rgba(0,0,0,0.15)"}
         strokeWidth="0.7"
       />
       <path
-        d={`M${w - 5} 32 Q${w - 2} 40 ${w - 3.5} 48 Q${w - 6} ${CLIP_H - 2} ${w - 10} ${CLIP_H - 1} L${w - 10} 32 Z`}
+        d={`M${w - 5} 30 Q${w - 2} 38 ${w - 3.5} 46 Q${w - 6} ${CLIP_H - 2} ${w - 10} ${CLIP_H - 1} L${w - 10} 30 Z`}
         fill={`url(#${uid}-side-r)`}
         stroke={ghost ? ghostStroke : "rgba(0,0,0,0.15)"}
         strokeWidth="0.7"
@@ -97,7 +166,7 @@ function CableMarkerClip({
         x="3.5"
         y="2"
         width={w - 7}
-        height="30"
+        height="28"
         rx="4"
         fill={`url(#${uid}-top)`}
         stroke={ghost ? ghostStroke : "rgba(0,0,0,0.16)"}
@@ -114,21 +183,10 @@ function CableMarkerClip({
         />
       ) : null}
 
-      <rect
-        x={w - 5.5}
-        y="15"
-        width="3.5"
-        height="11"
-        rx="1.2"
-        fill={ghost ? (ghostTone === "light" ? "rgba(255,255,255,0.18)" : "rgba(17,17,19,0.06)") : colors.face}
-        stroke={ghost ? ghostStroke : "rgba(0,0,0,0.12)"}
-        strokeWidth="0.5"
-      />
-
       {!ghost ? (
         <text
           x={w / 2}
-          y="21"
+          y="20"
           textAnchor="middle"
           dominantBaseline="middle"
           fill={colors.text}
@@ -143,18 +201,16 @@ function CableMarkerClip({
   );
 }
 
-function CableWire({ className }: { className?: string }) {
+function CableWire({ cableTop }: { cableTop: number }) {
   return (
     <div
-      className={cn(
-        "pointer-events-none absolute inset-x-0 bottom-[7px] h-[15px] rounded-full",
-        className,
-      )}
+      className="pointer-events-none absolute inset-x-0 z-0 h-[14px] rounded-full"
+      style={{ top: cableTop - 7 }}
       aria-hidden
     >
       <div className="absolute inset-0 rounded-full bg-[#0c0c0e]" />
-      <div className="absolute inset-x-[1%] top-[2px] h-[5px] rounded-full bg-white/[0.12]" />
-      <div className="absolute inset-x-0 bottom-0 h-[4px] rounded-full bg-black/50" />
+      <div className="absolute inset-x-[1%] top-[2px] h-[4px] rounded-full bg-white/[0.12]" />
+      <div className="absolute inset-x-0 bottom-0 h-[3px] rounded-full bg-black/50" />
     </div>
   );
 }
@@ -169,6 +225,7 @@ export function CablePhoneInput({
   className,
   inputId = "phone-login",
   ghostTone = "light",
+  variant = "card",
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -179,10 +236,14 @@ export function CablePhoneInput({
   className?: string;
   inputId?: string;
   ghostTone?: "light" | "dark";
+  variant?: "splash" | "card";
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const rowRef = useRef<HTMLDivElement>(null);
+  const shellRef = useRef<HTMLDivElement>(null);
   const [focused, setFocused] = useState(false);
+  const [scale, setScale] = useState(1);
+  const [placeholderHeight, setPlaceholderHeight] = useState(0);
+  const keyboardLift = useKeyboardLift(focused);
   const prefixStyle = cableMarkerStyleForDigit("7");
 
   const digits = value
@@ -191,50 +252,122 @@ export function CablePhoneInput({
     .replace(/^8/, "")
     .slice(0, 10);
 
+  const clipCount = 1 + DIGIT_SLOTS;
+  const rowWidth = totalClipsWidth(clipCount);
+  const scaledClipHeight = CLIP_H * scale;
+  const cableTop = scaledClipHeight * CABLE_Y_RATIO;
+
   useEffect(() => {
-    const row = rowRef.current;
-    if (!row) return;
-    row.scrollLeft = row.scrollWidth;
-  }, [digits.length]);
+    const shell = shellRef.current;
+    if (!shell) return;
+
+    const measure = () => {
+      const available = shell.clientWidth;
+      const nextScale =
+        rowWidth > available ? Math.max(0.72, available / rowWidth) : 1;
+      setScale(nextScale);
+    };
+
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(shell);
+    window.addEventListener("resize", measure);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [rowWidth]);
+
+  useEffect(() => {
+    if (!focused) return;
+    const shell = shellRef.current;
+    if (!shell) return;
+    const measure = () => setPlaceholderHeight(shell.offsetHeight);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(shell);
+    return () => observer.disconnect();
+  }, [focused, phoneValid, scale]);
 
   const focusInput = () => {
     if (disabled) return;
-    inputRef.current?.focus();
+    inputRef.current?.focus({ preventScroll: true });
   };
 
+  const clipStack = (
+    <>
+      <CableMarkerClip label="+7" style={prefixStyle} />
+      {digits.split("").map((digit, index) => (
+        <CableMarkerClip
+          key={`${index}-${digit}`}
+          label={digit}
+          style={cableMarkerStyleForDigit(digit)}
+          className="-ml-[3px]"
+        />
+      ))}
+      {Array.from({ length: DIGIT_SLOTS - digits.length }, (_, index) => (
+        <CableMarkerClip
+          key={`ghost-${digits.length + index}`}
+          label=""
+          ghost
+          ghostTone={ghostTone}
+          blinking={focused && index === 0}
+          className="-ml-[3px]"
+        />
+      ))}
+    </>
+  );
+
   return (
-    <div className={cn("relative w-full", className)}>
+    <>
+      {keyboardLift.open ? (
+        <div
+          aria-hidden
+          className="w-full"
+          style={{ height: placeholderHeight }}
+        />
+      ) : null}
       <div
-        className="relative min-h-[92px] cursor-text touch-manipulation"
+        ref={shellRef}
+        className={cn(
+          "w-full transition-[transform,opacity] duration-200",
+          keyboardLift.open && "fixed inset-x-0 z-[300] pt-2",
+          keyboardLift.open && variant === "splash" && "bg-[#D3DA00]",
+          keyboardLift.open &&
+            variant === "card" &&
+            "bg-white/95 backdrop-blur-sm",
+          className,
+        )}
+      style={
+        keyboardLift.open
+          ? {
+              bottom: `${keyboardLift.bottom}px`,
+              paddingLeft: "max(0.75rem, env(safe-area-inset-left))",
+              paddingRight: "max(0.75rem, env(safe-area-inset-right))",
+            }
+          : undefined
+      }
+    >
+      <div
+        className="relative cursor-text touch-manipulation"
+        style={{ minHeight: scaledClipHeight }}
         onPointerDown={(event) => {
+          if ((event.target as HTMLElement).closest("button")) return;
           event.preventDefault();
           focusInput();
         }}
       >
-        <CableWire />
+        <CableWire cableTop={cableTop} />
 
         <div
-          ref={rowRef}
-          className="relative z-[1] flex items-end gap-0 overflow-x-auto px-4 pb-[11px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className="relative z-[1] flex justify-center"
+          style={{
+            transform: scale < 1 ? `scale(${scale})` : undefined,
+            transformOrigin: "top center",
+            height: CLIP_H,
+          }}
         >
-          <CableMarkerClip label="+7" style={prefixStyle} />
-          {digits.split("").map((digit, index) => (
-            <CableMarkerClip
-              key={`${index}-${digit}`}
-              label={digit}
-              style={cableMarkerStyleForDigit(digit)}
-              className="-ml-[4px]"
-            />
-          ))}
-          {focused && digits.length < 10 ? (
-            <CableMarkerClip
-              ghost
-              blinking
-              ghostTone={ghostTone}
-              className="-ml-[4px]"
-              label=""
-            />
-          ) : null}
+          <div className="flex items-start">{clipStack}</div>
         </div>
 
         <input
@@ -254,20 +387,24 @@ export function CablePhoneInput({
       </div>
 
       {phoneValid ? (
-        <button
-          type="button"
-          disabled={disabled || submitting}
-          onClick={onSubmit}
-          className="absolute right-3 bottom-[22px] z-[3] flex h-11 w-11 items-center justify-center rounded-full bg-[#111113] text-white shadow-[0_4px_14px_rgba(0,0,0,0.35)] transition-opacity disabled:opacity-50"
-          aria-label="Продолжить"
-        >
-          {submitting ? (
-            <Loader2 className="h-5 w-5 animate-spin" />
-          ) : (
-            <ArrowRight className="h-5 w-5" />
-          )}
-        </button>
+        <div className="mt-3 flex justify-center">
+          <button
+            type="button"
+            disabled={disabled || submitting}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={onSubmit}
+            className="flex h-11 w-11 items-center justify-center rounded-full bg-[#111113] text-white shadow-[0_4px_14px_rgba(0,0,0,0.35)] transition-opacity disabled:opacity-50"
+            aria-label="Продолжить"
+          >
+            {submitting ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : (
+              <ArrowRight className="h-5 w-5" />
+            )}
+          </button>
+        </div>
       ) : null}
     </div>
+    </>
   );
 }

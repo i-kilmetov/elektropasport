@@ -267,9 +267,10 @@ export function PhoneLoginFlow({
           submitting={busy}
           phoneValid={phoneValid}
           ghostTone={isSplash ? "light" : "dark"}
+          variant={isSplash ? "splash" : "card"}
           className={
             isSplash
-              ? "-mx-5 w-[calc(100%+2.5rem)]"
+              ? "relative left-1/2 w-screen -translate-x-1/2"
               : "-mx-6 w-[calc(100%+3rem)]"
           }
         />
