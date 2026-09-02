@@ -427,7 +427,9 @@ export function BrandAuthIntro({
   });
   const [phoneFocused, setPhoneFocused] = useState(false);
   const [authPanelHeight, setAuthPanelHeight] = useState(0);
+  const [initialRevealDone, setInitialRevealDone] = useState(skipAnimation);
   const logoReady = skipAnimation || logoWidth > 0;
+  const showPhone = loginVisible && (initialRevealDone || phoneFocused);
   const logoRef = useRef<HTMLDivElement>(null);
   const authPanelRef = useRef<HTMLDivElement>(null);
   const keyboardActive = phoneLift.open;
@@ -471,6 +473,10 @@ export function BrandAuthIntro({
   }, [restRevealed]);
 
   useEffect(() => {
+    if (logoWidth > 0) setInitialRevealDone(true);
+  }, [logoWidth]);
+
+  useEffect(() => {
     const panel = authPanelRef.current;
     if (!panel) return;
     const measure = () => setAuthPanelHeight(panel.offsetHeight);
@@ -485,60 +491,6 @@ export function BrandAuthIntro({
     onLogin();
   };
 
-  const brandMark = (
-    <BrandMark
-      tagline=""
-      taglineVisible={false}
-      stripesPulsing={stripesPulsing}
-      restRevealed={restRevealed}
-      tUpright={skipAnimation || flip.tUpright}
-      tInstantUpright={skipAnimation}
-      instantReveal={skipAnimation}
-      collapseRest={!skipAnimation}
-    />
-  );
-
-  const phoneSection = (
-    <motion.div
-      className="mx-auto w-full max-w-xl shrink-0 px-5 pb-2"
-      initial={false}
-      animate={{
-        opacity: loginVisible && logoReady ? 1 : 0,
-        y: loginVisible && logoReady ? 0 : 12,
-      }}
-      transition={{ duration: skipAnimation ? 0 : 0.38, ease: [0.22, 1, 0.36, 1] }}
-    >
-      <PhoneLoginFlow
-        variant="splash"
-        onBeforeLogin={handleBeforeLogin}
-        onPhoneLiftChange={setPhoneLift}
-        onPhoneFocusChange={setPhoneFocused}
-      />
-      {loginError && (
-        <p className="mt-3 text-center text-[13px] text-red-700">
-          {loginError}
-        </p>
-      )}
-    </motion.div>
-  );
-
-  const authPanel = (
-    <div
-      ref={authPanelRef}
-      className="flex w-full flex-col items-center"
-    >
-      {phoneFocused ? (
-        <div
-          ref={logoRef}
-          className="mb-8 flex w-full justify-center transition-transform duration-200 ease-out"
-        >
-          {brandMark}
-        </div>
-      ) : null}
-      {phoneSection}
-    </div>
-  );
-
   return (
     <div
       className="fixed inset-0 z-[200] flex touch-none flex-col items-center overflow-hidden"
@@ -551,42 +503,90 @@ export function BrandAuthIntro({
       }}
       aria-label="Током — вход"
     >
+      {!phoneFocused ? (
+        <div className="relative min-h-0 w-full flex-1">
+          <div
+            ref={logoRef}
+            className="absolute top-1/2 left-1/2 w-max -translate-x-1/2 -translate-y-1/2"
+          >
+            <BrandMark
+              tagline=""
+              taglineVisible={false}
+              stripesPulsing={stripesPulsing}
+              restRevealed={restRevealed}
+              tUpright={skipAnimation || flip.tUpright}
+              tInstantUpright={skipAnimation}
+              instantReveal={skipAnimation}
+              collapseRest={!skipAnimation}
+            />
+          </div>
+        </div>
+      ) : (
+        <div className="min-h-0 w-full flex-1" aria-hidden />
+      )}
+
       {keyboardActive ? (
         <div
           aria-hidden
           className="w-full shrink-0"
           style={{ height: authPanelHeight }}
         />
-      ) : (
-        <>
-          {!phoneFocused ? (
-            <div className="relative min-h-0 w-full flex-1">
-              <div
-                ref={logoRef}
-                className="absolute top-1/2 left-1/2 w-max -translate-x-1/2 -translate-y-1/2"
-              >
-                {brandMark}
-              </div>
-            </div>
-          ) : (
-            <div className="min-h-0 w-full flex-1" aria-hidden />
-          )}
-          {authPanel}
-        </>
-      )}
-
-      {keyboardActive ? (
-        <div
-          className="fixed inset-x-0 z-[300] bg-[#D3DA00] px-0 pt-3 pb-2"
-          style={{
-            bottom: `${phoneLift.bottom}px`,
-            paddingLeft: "max(0.75rem, env(safe-area-inset-left))",
-            paddingRight: "max(0.75rem, env(safe-area-inset-right))",
-          }}
-        >
-          {authPanel}
-        </div>
       ) : null}
+
+      <div
+        ref={authPanelRef}
+        className={
+          keyboardActive
+            ? "fixed inset-x-0 z-[300] flex w-full flex-col items-center bg-[#D3DA00] px-0 pt-3 pb-2"
+            : "flex w-full shrink-0 flex-col items-center"
+        }
+        style={
+          keyboardActive
+            ? {
+                bottom: `${phoneLift.bottom}px`,
+                paddingLeft: "max(0.75rem, env(safe-area-inset-left))",
+                paddingRight: "max(0.75rem, env(safe-area-inset-right))",
+              }
+            : undefined
+        }
+      >
+        {phoneFocused ? (
+          <div className="mb-8 flex w-full justify-center">
+            <BrandMark
+              tagline=""
+              taglineVisible={false}
+              stripesPulsing={stripesPulsing}
+              restRevealed={restRevealed}
+              tUpright={skipAnimation || flip.tUpright}
+              tInstantUpright={skipAnimation}
+              instantReveal={skipAnimation}
+              collapseRest={!skipAnimation}
+            />
+          </div>
+        ) : null}
+
+        <motion.div
+          className="mx-auto w-full max-w-xl shrink-0 px-5 pb-2"
+          initial={false}
+          animate={{
+            opacity: showPhone ? 1 : 0,
+            y: showPhone ? 0 : 12,
+          }}
+          transition={{ duration: skipAnimation ? 0 : 0.38, ease: [0.22, 1, 0.36, 1] }}
+        >
+          <PhoneLoginFlow
+            variant="splash"
+            onBeforeLogin={handleBeforeLogin}
+            onPhoneLiftChange={setPhoneLift}
+            onPhoneFocusChange={setPhoneFocused}
+          />
+          {loginError && (
+            <p className="mt-3 text-center text-[13px] text-red-700">
+              {loginError}
+            </p>
+          )}
+        </motion.div>
+      </div>
     </div>
   );
 }

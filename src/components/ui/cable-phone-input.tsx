@@ -46,8 +46,7 @@ function useKeyboardLift(active: boolean) {
       const vv = window.visualViewport;
       const height = vv?.height ?? window.innerHeight;
       const offsetTop = vv?.offsetTop ?? 0;
-      const keyboardOpen =
-        window.innerHeight - height > 80 || offsetTop > 0;
+      const keyboardOpen = window.innerHeight - height > 80;
 
       if (keyboardOpen) {
         const gap = 12;
