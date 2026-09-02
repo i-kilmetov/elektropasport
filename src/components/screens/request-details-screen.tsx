@@ -172,6 +172,33 @@ function DetailItem({
   );
 }
 
+function CollapsibleAiReply({ text }: { text: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const previewLimit = 240;
+  const trimmed = text.trim();
+  const needsCollapse = trimmed.length > previewLimit;
+  const preview = needsCollapse
+    ? `${trimmed.slice(0, previewLimit).trimEnd()}…`
+    : trimmed;
+
+  return (
+    <>
+      <p className="whitespace-pre-wrap ty-body text-zinc-800">
+        {expanded || !needsCollapse ? trimmed : preview}
+      </p>
+      {needsCollapse ? (
+        <button
+          type="button"
+          onClick={() => setExpanded((value) => !value)}
+          className="mt-2 ty-note text-zinc-600 underline underline-offset-2"
+        >
+          {expanded ? "Свернуть" : "Показать полностью"}
+        </button>
+      ) : null}
+    </>
+  );
+}
+
 function AiConsultationSection({
   request,
 }: {
@@ -197,9 +224,7 @@ function AiConsultationSection({
       </div>
       <div className="mt-4 rounded-[16px] border border-black/8 bg-zinc-50 px-4 py-3">
         <div className="mb-2 ty-meta text-zinc-500">Ответ ИИ-консультанта</div>
-        <p className="whitespace-pre-wrap ty-body text-zinc-800">
-          {request.aiConsultation.aiReply}
-        </p>
+        <CollapsibleAiReply text={request.aiConsultation.aiReply} />
       </div>
     </GlassCard>
   );

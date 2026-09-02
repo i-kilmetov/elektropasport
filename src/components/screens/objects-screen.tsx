@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { BreakerIcon } from "@/components/icons/breaker-icon";
 import { ConsultationIcon } from "@/components/icons/consultation-icon";
+import { RequestListAvatar } from "@/components/ui/request-list-avatar";
 import { GeminiSparkle } from "@/components/icons/gemini-sparkle";
 import { AddApplianceSheet } from "@/components/screens/add-appliance-sheet";
 import {
@@ -461,20 +462,21 @@ function RequestListCard({
   item,
   onOpen,
   onContextMenu,
+  showDivider = false,
 }: {
   item: InstallRequest;
   onOpen: () => void;
   onContextMenu: () => void;
+  showDivider?: boolean;
 }) {
   const isConsultation = isStandaloneAiConsultation(item);
   const longPress = useLongPressAction(onContextMenu);
+
   return (
-    <GlassCard
-      className="relative flex items-center gap-2 rounded-[24px] border p-4 transition-colors hover:bg-zinc-50 lg:gap-4 lg:p-5"
-      {...longPress.bind}
-    >
+    <div className="relative">
       <button
         type="button"
+        {...longPress.bind}
         onClick={() => {
           if (longPress.longPressedRef.current) {
             longPress.longPressedRef.current = false;
@@ -482,24 +484,13 @@ function RequestListCard({
           }
           onOpen();
         }}
-        className="flex min-w-0 flex-1 items-center gap-4 text-left touch-manipulation select-none lg:cursor-pointer"
+        className="flex w-full items-stretch gap-3 px-4 py-3 text-left touch-manipulation select-none transition-colors hover:bg-zinc-50 active:bg-zinc-100 lg:cursor-pointer"
       >
-        <div
-          className={cn(
-            "flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[18px] bg-zinc-100",
-            isConsultation ? "text-zinc-900" : "text-zinc-500",
-          )}
-        >
-          {isConsultation ? (
-            <ConsultationIcon className="h-6 w-6" />
-          ) : (
-            <ClipboardList className="h-6 w-6" />
-          )}
-        </div>
+        <RequestListAvatar request={item} className="mt-0.5" />
         <div className="min-w-0 flex-1">
-          <div className="mb-0.5 flex items-center justify-between gap-2">
-            <h2 className="truncate ty-heading">
-              {item.publicCode ? item.publicCode : item.title}
+          <div className="flex items-start justify-between gap-2">
+            <h2 className="truncate ty-heading text-zinc-900">
+              {item.publicCode ?? item.title}
             </h2>
             {!isConsultation ? (
               <span
@@ -512,11 +503,22 @@ function RequestListCard({
               </span>
             ) : null}
           </div>
-          <p className="truncate ty-note">{item.subtitle}</p>
-          <p className="mt-1 ty-meta">{item.createdAt}</p>
+          <div className="mt-0.5 flex items-end justify-between gap-3">
+            <p className="min-w-0 flex-1 truncate ty-note text-zinc-600">
+              {item.subtitle}
+            </p>
+            {item.createdAt ? (
+              <span className="shrink-0 ty-meta text-zinc-400">
+                {item.createdAt}
+              </span>
+            ) : null}
+          </div>
         </div>
       </button>
-    </GlassCard>
+      {showDivider ? (
+        <div className="ml-[4.75rem] border-b border-black/[0.06]" />
+      ) : null}
+    </div>
   );
 }
 
@@ -1003,7 +1005,7 @@ export function ObjectsScreen({
     text: panelEmptyText,
     framed: true,
     imageSrc: "/empty-states/panels.png",
-    imageAlt: "Электрический щиток в квартире",
+    imageAlt: "Бытовая техника вокруг электрического щитка",
   };
   const requestEmpty = {
     icon: <ClipboardList className="h-10 w-10" />,
@@ -1100,13 +1102,54 @@ export function ObjectsScreen({
   const pagerDragConstraints =
     pagerWidth > 0 ? { left: -pagerWidth, right: 0 } : { left: 0, right: 0 };
 
-  const renderRequestItem = (request: InstallRequest) => (
+  const renderRequestItem = (
+    request: InstallRequest,
+    options?: { showDivider?: boolean },
+  ) => (
     <RequestListCard
       item={request}
       onOpen={() => onOpenRequest(request.id)}
       onContextMenu={() => setActionsItemId(request.id)}
+      showDivider={options?.showDivider}
     />
   );
+
+  const renderRequestsList = (
+    requests: InstallRequest[],
+    empty: {
+      icon: ReactNode;
+      text: string;
+      framed?: boolean;
+      imageSrc?: string;
+      imageAlt?: string;
+    },
+  ) => {
+    if (loading) {
+      return <HomeListSkeleton count={3} />;
+    }
+    if (requests.length === 0) {
+      return (
+        <EmptyState
+          icon={empty.icon}
+          text={empty.text}
+          framed={empty.framed}
+          imageSrc={empty.imageSrc}
+          imageAlt={empty.imageAlt}
+        />
+      );
+    }
+    return (
+      <div className="overflow-hidden rounded-[20px] border border-black/[0.06] bg-white">
+        {requests.map((request, index) => (
+          <div key={request.id}>
+            {renderRequestItem(request, {
+              showDivider: index < requests.length - 1,
+            })}
+          </div>
+        ))}
+      </div>
+    );
+  };
 
   const renderList = (
     list: HomeListItem[],
@@ -1352,7 +1395,7 @@ export function ObjectsScreen({
       <div className="hidden min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-none px-10 pb-10 lg:flex lg:flex-col">
         {page === 0
           ? renderList(panels, panelEmpty)
-          : renderList(visibleRequests, requestEmpty)}
+          : renderRequestsList(visibleRequests, requestEmpty)}
       </div>
 
       <div
@@ -1382,7 +1425,7 @@ export function ObjectsScreen({
             className="flex h-full min-h-0 flex-col overflow-y-auto overscroll-none px-5 pb-2"
             style={{ width: pagerWidth || "50%", WebkitOverflowScrolling: "touch" }}
           >
-            {renderList(visibleRequests, requestEmpty)}
+            {renderRequestsList(visibleRequests, requestEmpty)}
           </div>
         </motion.div>
       </div>
