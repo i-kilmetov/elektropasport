@@ -43,10 +43,13 @@ export function isAtPanelLimit(
   quota: PanelQuota | null | undefined,
   localPanelCount?: number,
 ): boolean {
-  // No quota loaded yet / caller forgot to pass it — do not invent a limit.
-  // Authenticated creates are enforced by the API; local-only callers pass
-  // an explicit localPanelQuota(...).
-  if (!quota) return false;
+  // Until quota loads, still enforce the free-tier ceiling from the live list.
+  // Otherwise a second “add panel” opens while /api/invites is slow or failed.
+  if (!quota) {
+    return (
+      typeof localPanelCount === "number" && localPanelCount >= BASE_PANEL_LIMIT
+    );
+  }
   if (quota.unlimited || hasUnlockedPanelLimit(quota.creditedInvites)) {
     return false;
   }

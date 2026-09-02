@@ -254,6 +254,28 @@ export function ApplianceBarcodeScanner({
 
             <p className="text-center ty-note text-zinc-300">{hint}</p>
 
+            <div className="space-y-2 rounded-[16px] border border-white/10 bg-white/5 px-3.5 py-3 text-left">
+              <p className="ty-label text-zinc-200">Что сканировать</p>
+              <ul className="list-disc space-y-1.5 pl-4 ty-note text-zinc-400">
+                <li>
+                  Линейный штрихкод на коробке или шильдике прибора — полоски
+                  с цифрами под ними (не QR-код).
+                </li>
+                <li>
+                  Обычно это EAN-13: 13 цифр. У товаров из РФ часто начинается с{" "}
+                  <span className="text-zinc-200">460–469</span>.
+                </li>
+                <li>
+                  Подойдут также EAN-8, UPC (12 цифр) и GTIN из 14 цифр — только
+                  цифры, без букв.
+                </li>
+                <li>
+                  Фотографировать не нужно: наведите камеру на код и держите
+                  ровно — распознавание идёт само, в рамке по центру.
+                </li>
+              </ul>
+            </div>
+
             <label className="block">
               <span className="mb-1.5 block ty-label text-zinc-400">
                 Или введите код вручную

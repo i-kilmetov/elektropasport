@@ -109,6 +109,7 @@ import {
   fetchMasterRequestPanel,
   fetchPanelQuota,
   getCachedHomeItems,
+  localPanelQuota,
   persistDeleteInstallRequest,
   persistDeletePanel,
   persistInstallRequest,
@@ -509,8 +510,12 @@ export function AppShell({
 
   const openPanelLimit = useCallback(() => {
     setLimitOpen(true);
-    void refreshQuota();
-  }, [refreshQuota]);
+    void refreshQuota().then((next) => {
+      if (!next) {
+        setQuota((prev) => prev ?? localPanelQuota(items));
+      }
+    });
+  }, [items, refreshQuota]);
 
   useEffect(() => {
     const startParam = getTelegramStartParam();
@@ -1046,6 +1051,7 @@ export function AppShell({
       setItemsError(null);
       void persistPanel(panel)
         .then(() => {
+          setQuota((prev) => adjustPanelQuotaCount(prev, 1));
           if (photoDataUrl) {
             return uploadPanelPhoto({ panelId: id, photoDataUrl });
           }
@@ -1360,6 +1366,9 @@ export function AppShell({
     hapticNotification("success");
     go("objects");
     void persistPanel(panel)
+      .then(() => {
+        setQuota((prev) => adjustPanelQuotaCount(prev, 1));
+      })
       .catch((error) => {
         console.error(error);
         setItems((prev) => prev.filter((item) => item.id !== id));

@@ -622,17 +622,23 @@ export function AddApplianceSheet({
 
           <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
             {!editing ? (
-              <button
-                type="button"
-                onClick={() => {
-                  setScannerOpen(true);
-                  setError(null);
-                }}
-                className="mb-4 flex w-full items-center justify-center gap-2 rounded-[18px] border border-black/8 bg-zinc-50 px-4 py-3 ty-label text-zinc-800 transition-colors hover:bg-zinc-100"
-              >
-                <ScanBarcode className="h-5 w-5" />
-                Сканировать штрихкод
-              </button>
+              <div className="mb-4 space-y-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setScannerOpen(true);
+                    setError(null);
+                  }}
+                  className="flex w-full items-center justify-center gap-2 rounded-[18px] border border-black/8 bg-zinc-50 px-4 py-3 ty-label text-zinc-800 transition-colors hover:bg-zinc-100"
+                >
+                  <ScanBarcode className="h-5 w-5" />
+                  Сканировать штрихкод
+                </button>
+                <p className="px-1 ty-note text-zinc-500">
+                  Наведите камеру на штрихкод с упаковки (полоски и цифры, чаще
+                  всего 13 цифр). Снимать кадр не нужно — код определится сам.
+                </p>
+              </div>
             ) : null}
 
             {barcodeBanner ? (
