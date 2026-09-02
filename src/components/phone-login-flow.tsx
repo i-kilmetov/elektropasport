@@ -1,8 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { ArrowRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { CablePhoneInput, type CablePhoneLiftState } from "@/components/ui/cable-phone-input";
+import {
+  CablePhoneInput,
+  type CablePhoneLiftState,
+} from "@/components/ui/cable-phone-input";
 import { beginTelegramLogin } from "@/lib/pd-consent-client";
 import {
   fetchBrowserLoginEnabled,
@@ -14,6 +18,10 @@ import { cn } from "@/lib/utils";
 
 const PHONE_PREFIX = "+7";
 const CODE_LENGTH = 6;
+
+/** Cable marker UI — flip to true to use clips-on-wire phone input. */
+export const CABLE_PHONE_INPUT_ENABLED = false;
+// When enabling, also restore the cable-aware layout in BrandAuthIntro (see git bb7ef3f).
 
 function ruNationalDigits(value: string): string {
   let digits = value.replace(/\D/g, "");
@@ -263,24 +271,62 @@ export function PhoneLoginFlow({
   if (step === "phone") {
     return (
       <div className={cn("space-y-3", className)}>
-        <CablePhoneInput
-          value={phone}
-          onChange={(next) => setPhone(formatRuPhone(next))}
-          onSubmit={() => void handleSendCode()}
-          disabled={busy}
-          submitting={busy}
-          phoneValid={phoneValid}
-          ghostTone={isSplash ? "light" : "dark"}
-          variant={isSplash ? "splash" : "card"}
-          embeddedLift={isSplash}
-          onLiftChange={onPhoneLiftChange}
-          onFocusChange={onPhoneFocusChange}
-          className={
-            isSplash
-              ? "relative left-1/2 w-screen -translate-x-1/2"
-              : "-mx-6 w-[calc(100%+3rem)]"
-          }
-        />
+        {CABLE_PHONE_INPUT_ENABLED ? (
+          <CablePhoneInput
+            value={phone}
+            onChange={(next) => setPhone(formatRuPhone(next))}
+            onSubmit={() => void handleSendCode()}
+            disabled={busy}
+            submitting={busy}
+            phoneValid={phoneValid}
+            ghostTone={isSplash ? "light" : "dark"}
+            variant={isSplash ? "splash" : "card"}
+            embeddedLift={isSplash}
+            onLiftChange={onPhoneLiftChange}
+            onFocusChange={onPhoneFocusChange}
+            className={
+              isSplash
+                ? "relative left-1/2 w-screen -translate-x-1/2"
+                : "-mx-6 w-[calc(100%+3rem)]"
+            }
+          />
+        ) : (
+          <div
+            className={cn(
+              "flex h-14 min-h-14 w-full items-center gap-2 rounded-full bg-white pl-4 pr-2",
+              isSplash ? "text-zinc-900" : "border border-black/10 text-zinc-900",
+            )}
+          >
+            <span className="shrink-0 text-[22px] leading-none" aria-hidden>
+              🇷🇺
+            </span>
+            <input
+              id="phone-login"
+              inputMode="tel"
+              autoComplete="tel"
+              value={phone}
+              onChange={(event) => setPhone(formatRuPhone(event.target.value))}
+              placeholder="+7 900 123-45-67"
+              aria-label="Номер телефона"
+              className="min-w-0 flex-1 bg-transparent text-[16px] outline-none"
+            />
+            {phoneValid ? (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void handleSendCode()}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#111113] text-white transition-opacity disabled:opacity-50"
+                aria-label="Продолжить"
+              >
+                {busy ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <ArrowRight className="h-5 w-5" />
+                )}
+              </button>
+            ) : null}
+          </div>
+        )}
         <TelegramLoginLink
           isSplash={isSplash}
           disabled={busy}
