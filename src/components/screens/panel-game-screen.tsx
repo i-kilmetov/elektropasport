@@ -641,9 +641,9 @@ export function PanelGameScreen({
       : playingSnake
         ? `Собрано ${collectedCount} из ${totalModules}`
           : viewPhase === "landing"
-            ? "Играя, учимся электрике"
+            ? "Электрика, в которую хочется играть"
             : viewPhase === "hub"
-              ? "Пятнашки и змейка по схеме щитка"
+              ? "Пятнашки и змейка по вашему щитку"
             : viewPhase === "pick"
               ? gameTitle(gameKind)
               : "Соберите схему своего щитка";
@@ -719,8 +719,8 @@ export function PanelGameScreen({
           />
 
           <p className="mt-5 max-w-sm text-center ty-body">
-            Играя, мы научим вас лучше разбираться в электрике. Сдвигайте
-            плитки и складывайте одинаковые — от розетки до мастер-уровня.
+            Сдвигайте плитки, складывайте одинаковые — и по дороге запомните,
+            что к чему в домашней электрике: от розетки до мастер-уровня.
           </p>
 
           <div className="min-h-[56px] flex-1" aria-hidden />
@@ -795,8 +795,8 @@ export function PanelGameScreen({
       {viewPhase === "hub" && (
         <div className="flex flex-1 flex-col gap-3">
           <p className="ty-body">
-            Эти игры собираются по схеме вашего щитка — так проще запомнить,
-            где стоят автоматы, УЗО и другие приборы.
+            Пятнашки и змейка собираются по вашему щитку — играете и попутно
+            запоминаете, где автоматы, УЗО и остальные приборы.
           </p>
           {GAME_CARDS.map((item) => (
             <button

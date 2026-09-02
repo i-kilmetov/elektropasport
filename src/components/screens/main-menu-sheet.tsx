@@ -45,13 +45,13 @@ const items: Array<{
   {
     id: "game",
     title: "Игра",
-    description: "Лови правильно — и другие игры",
+    description: "Собери щиток плитками — и ещё пара мини-игр",
     icon: Gamepad2,
   },
   {
     id: "school",
     title: "Школа",
-    description: "Три класса: от розетки до щитка",
+    description: "Электрика без скуки: от розетки до щитка",
     icon: GraduationCap,
   },
   {
