@@ -20,8 +20,8 @@ export function PixelButton({
     <button
       type="button"
       className={cn(
-        "relative w-full max-w-[280px] border-4 border-zinc-900 px-6 py-4",
-        "font-mono text-[15px] font-bold uppercase tracking-[0.18em]",
+        "relative w-full max-w-[300px] border-4 border-zinc-900 px-8 py-5",
+        "font-mono text-[22px] font-bold uppercase tracking-[0.22em]",
         "transition-transform duration-75 select-none",
         primary,
         className,

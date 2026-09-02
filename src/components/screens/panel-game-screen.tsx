@@ -3,15 +3,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { motion } from "framer-motion";
-import { ArrowLeft, Check, Grid3x3, Hash, UserPlus, Zap } from "lucide-react";
+import { ArrowLeft, Check, Grid3x3, UserPlus, Zap } from "lucide-react";
 import { DeviceFaceStatic, MODULE_PX } from "@/components/icons/device-face";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { PixelButton } from "@/components/ui/pixel-button";
 import { PanelLimitSheet } from "@/components/screens/panel-limit-sheet";
-import { Panel2048Board } from "@/components/screens/panel-2048-board";
+import { Panel2048Board, MergeStyleToggle } from "@/components/screens/panel-2048-board";
 import { PanelPuzzleBoard } from "@/components/screens/panel-puzzle-board";
-import { EggCatchBoard } from "@/components/screens/egg-catch-board";
 import { hapticImpact, hapticNotification } from "@/lib/haptics";
 import {
   collectedDeviceIds,
@@ -47,26 +46,19 @@ import {
   type PuzzleState,
 } from "@/lib/panel-puzzle";
 import {
-  createMergeGame,
-  mergeDeviceIds,
-  moveMergeGame,
+  createElectrical2048Game,
+  moveElectrical2048Game,
   type MergeState,
+  type MergeVisualStyle,
 } from "@/lib/panel-2048";
 import { hasUnlockedPanelLimit, type PanelQuota } from "@/lib/invites";
-import {
-  createEggCatchGame,
-  EGG_TICK_MS,
-  setEggWolfSide,
-  stepEggCatchGame,
-  type EggCatchState,
-} from "@/lib/egg-catch-game";
 import { cn } from "@/lib/utils";
 import type { Device, PanelObject } from "@/types";
 
 const MINI_SCALE = 0.42;
 
-type Phase = "landing" | "egg" | "hub" | "gate" | "pick" | "play";
-type GameKind = "puzzle" | "snake" | "merge";
+type Phase = "landing" | "main2048" | "hub" | "gate" | "pick" | "play";
+type GameKind = "puzzle" | "snake";
 
 const GAME_CARDS: Array<{
   id: GameKind;
@@ -86,18 +78,11 @@ const GAME_CARDS: Array<{
     hint: "Соберите приборы щитка змейкой",
     icon: Zap,
   },
-  {
-    id: "merge",
-    title: "2048",
-    hint: "Сдвигайте и складывайте приборы щитка",
-    icon: Hash,
-  },
 ];
 
 function gameTitle(kind: GameKind | null): string {
   if (kind === "puzzle") return "Пятнашки";
   if (kind === "snake") return "Змейка";
-  if (kind === "merge") return "2048";
   return "Игра";
 }
 
@@ -266,10 +251,10 @@ export function PanelGameScreen({
   const [phase, setPhase] = useState<Phase>("landing");
   const [panelId, setPanelId] = useState<string | null>(null);
   const [gameKind, setGameKind] = useState<GameKind | null>(null);
-  const [egg, setEgg] = useState<EggCatchState | null>(null);
+  const [mainMerge, setMainMerge] = useState<MergeState | null>(null);
+  const [mergeVisual, setMergeVisual] = useState<MergeVisualStyle>("retro");
   const [state, setState] = useState<SnakeGameState | null>(null);
   const [puzzle, setPuzzle] = useState<PuzzleState | null>(null);
-  const [merge, setMerge] = useState<MergeState | null>(null);
   const [pickingHole, setPickingHole] = useState(false);
   const [confirmLeave, setConfirmLeave] = useState(false);
   const [lifeSheetOpen, setLifeSheetOpen] = useState(false);
@@ -289,10 +274,9 @@ export function PanelGameScreen({
     [devices],
   );
   const collectedIds = useMemo(() => {
-    if (merge) return mergeDeviceIds(merge);
     if (puzzle) return placedDeviceIds(puzzle, devices);
     return collectedDeviceIds(state?.collected ?? [], devices);
-  }, [devices, merge, puzzle, state?.collected]);
+  }, [devices, puzzle, state?.collected]);
   const collectedCount = state?.collected.length ?? 0;
   const totalModules = moduleTotal(devices);
   const puzzlePlaced = puzzle ? placedModuleCount(puzzle) : 0;
@@ -304,45 +288,37 @@ export function PanelGameScreen({
   );
   const viewPhase: Phase =
     phase === "pick" && playable.length === 0 ? "gate" : phase;
-  const playingEgg = viewPhase === "egg";
+  const playingMain2048 = viewPhase === "main2048";
   const playingSnake = viewPhase === "play" && gameKind === "snake";
   const playingPuzzle = viewPhase === "play" && gameKind === "puzzle";
-  const playingMerge = viewPhase === "play" && gameKind === "merge";
   const puzzleInProgress = Boolean(
     playingPuzzle && puzzle && puzzle.moves > 0 && !puzzle.won,
   );
   const snakeInProgress = Boolean(
     playingSnake && state && state.alive && !state.won,
   );
-  const mergeInProgress = Boolean(
-    playingMerge && merge && merge.moves > 0 && !merge.won && !merge.lost,
-  );
-
-  const eggInProgress = Boolean(
-    playingEgg && egg && egg.tick > 0 && !egg.gameOver,
+  const main2048InProgress = Boolean(
+    playingMain2048 && mainMerge && mainMerge.moves > 0 && !mainMerge.won && !mainMerge.lost,
   );
 
   const stateRef = useRef(state);
   const puzzleRef = useRef(puzzle);
-  const mergeRef = useRef(merge);
-  const eggRef = useRef(egg);
+  const mainMergeRef = useRef(mainMerge);
   const devicesRef = useRef(devices);
   const pointer = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     stateRef.current = state;
     puzzleRef.current = puzzle;
-    mergeRef.current = merge;
-    eggRef.current = egg;
+    mainMergeRef.current = mainMerge;
     devicesRef.current = devices;
-  }, [devices, egg, merge, puzzle, state]);
+  }, [devices, mainMerge, puzzle, state]);
 
   const resetBoards = useCallback(() => {
     setState(null);
     setPuzzle(null);
-    setMerge(null);
     setPickingHole(false);
-  }, [setMerge, setPickingHole, setPuzzle, setState]);
+  }, [setPickingHole, setPuzzle, setState]);
 
   const startSelected = useCallback(
     (selected: PanelObject, kind: GameKind) => {
@@ -353,23 +329,16 @@ export function PanelGameScreen({
       setPickingHole(false);
       if (kind === "puzzle") {
         setState(null);
-        setMerge(null);
         setPuzzle(createPanelPuzzle(list, selected.railCount));
-      } else if (kind === "snake") {
-        setPuzzle(null);
-        setMerge(null);
-        setState(createSnakeGame(list));
       } else {
         setPuzzle(null);
-        setState(null);
-        setMerge(createMergeGame(list, selected.railCount));
+        setState(createSnakeGame(list));
       }
       setPhase("play");
       hapticImpact("soft");
     },
     [
       setGameKind,
-      setMerge,
       setPanelId,
       setPhase,
       setPickingHole,
@@ -396,53 +365,30 @@ export function PanelGameScreen({
 
   const goLanding = useCallback(() => {
     resetBoards();
-    setEgg(null);
+    setMainMerge(null);
     setPanelId(null);
     setGameKind(null);
     setPhase("landing");
   }, [resetBoards, setGameKind, setPanelId, setPhase]);
 
-  const startEggGame = useCallback(() => {
-    setEgg(createEggCatchGame());
-    setPhase("egg");
+  const startMain2048 = useCallback(() => {
+    setMainMerge(createElectrical2048Game());
+    setPhase("main2048");
     hapticImpact("soft");
   }, [setPhase]);
 
-  const restartEgg = useCallback(() => {
-    setEgg(createEggCatchGame());
+  const restartMain2048 = useCallback(() => {
+    setMainMerge(createElectrical2048Game());
     hapticImpact("soft");
   }, []);
 
   const goHub = useCallback(() => {
     resetBoards();
-    setEgg(null);
+    setMainMerge(null);
     setPanelId(null);
     setGameKind(null);
     setPhase("hub");
   }, [resetBoards, setGameKind, setPanelId, setPhase]);
-
-  useEffect(() => {
-    if (!playingEgg || !egg || egg.gameOver) return;
-    const id = window.setInterval(() => {
-      const current = eggRef.current;
-      if (!current || current.gameOver) return;
-      const next = stepEggCatchGame(current);
-      if (next === current) return;
-      setEgg(next);
-      if (next.gameOver) {
-        hapticNotification("error");
-      } else if (next.feedback && next.feedback !== current.feedback) {
-        if (next.feedback.ok) hapticImpact("medium");
-        else hapticNotification("warning");
-      }
-    }, EGG_TICK_MS);
-    return () => window.clearInterval(id);
-  }, [egg, playingEgg]);
-
-  const onEggSide = useCallback((side: 0 | 1) => {
-    setEgg((prev) => (prev ? setEggWolfSide(prev, side) : prev));
-    hapticImpact("light");
-  }, [setEgg]);
 
   useEffect(() => {
     if (!playingSnake || !state?.alive || state.won) return;
@@ -510,7 +456,7 @@ export function PanelGameScreen({
   }, [pickingHole, playingPuzzle]);
 
   useEffect(() => {
-    if (!playingMerge) return;
+    if (!playingMain2048) return;
     const onKey = (event: KeyboardEvent) => {
       const map: Record<string, SwipeDir> = {
         ArrowLeft: "left",
@@ -521,24 +467,18 @@ export function PanelGameScreen({
       const dir = map[event.key];
       if (!dir) return;
       event.preventDefault();
-      const current = mergeRef.current;
-      const selected = panel;
-      if (!current || !selected || current.lost || current.won) return;
-      const next = moveMergeGame(
-        current,
-        dir,
-        playDevices(selected),
-        selected.railCount,
-      );
+      const current = mainMergeRef.current;
+      if (!current || current.lost || current.won) return;
+      const next = moveElectrical2048Game(current, dir);
       if (next === current) return;
-      setMerge(next);
+      setMainMerge(next);
       if (next.won && !current.won) hapticNotification("success");
       else if (next.lost) hapticNotification("error");
       else hapticImpact("soft");
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [panel, playingMerge]);
+  }, [playingMain2048]);
 
   const restart = () => {
     if (!panel || !gameKind) return;
@@ -560,22 +500,17 @@ export function PanelGameScreen({
     [pickingHole, puzzle, setPuzzle],
   );
 
-  const onMergeSwipe = useCallback(
+  const onMainMergeSwipe = useCallback(
     (dir: SwipeDir) => {
-      if (!merge || !panel || merge.lost || merge.won) return;
-      const next = moveMergeGame(
-        merge,
-        dir,
-        playDevices(panel),
-        panel.railCount,
-      );
-      if (next === merge) return;
-      setMerge(next);
-      if (next.won && !merge.won) hapticNotification("success");
+      if (!mainMerge || mainMerge.lost || mainMerge.won) return;
+      const next = moveElectrical2048Game(mainMerge, dir);
+      if (next === mainMerge) return;
+      setMainMerge(next);
+      if (next.won && !mainMerge.won) hapticNotification("success");
       else if (next.lost) hapticNotification("error");
       else hapticImpact("medium");
     },
-    [merge, panel, setMerge],
+    [mainMerge, setMainMerge],
   );
 
   const onPuzzleTile = useCallback(
@@ -682,8 +617,8 @@ export function PanelGameScreen({
   const title =
     viewPhase === "landing"
       ? "Игра"
-      : viewPhase === "egg"
-        ? "Лови правильно"
+      : viewPhase === "main2048"
+        ? "2048"
       : viewPhase === "hub"
         ? "Другие игры"
       : viewPhase === "gate"
@@ -693,22 +628,22 @@ export function PanelGameScreen({
           : gameTitle(gameKind);
 
   const subtitle =
-    playingEgg && egg
-      ? egg.gameOver
-        ? `Игра окончена · ${egg.score} очков`
-        : `Очки ${egg.score} · жизней ${egg.lives}`
+    playingMain2048 && mainMerge
+      ? mainMerge.lost
+        ? `Игра окончена · счёт ${mainMerge.score}`
+        : mainMerge.won
+          ? `Победа · счёт ${mainMerge.score}`
+          : `Счёт ${mainMerge.score}`
       : playingPuzzle && puzzle
       ? pickingHole
         ? "Нажмите пустую плитку, чтобы убрать её"
         : `На месте ${puzzlePlaced} из ${puzzleTotal}`
       : playingSnake
         ? `Собрано ${collectedCount} из ${totalModules}`
-        : playingMerge && merge
-          ? `Счёт ${merge.score}`
           : viewPhase === "landing"
             ? "Играя, учимся электрике"
             : viewPhase === "hub"
-              ? "Пятнашки, змейка и 2048"
+              ? "Пятнашки и змейка по схеме щитка"
             : viewPhase === "pick"
               ? gameTitle(gameKind)
               : "Соберите схему своего щитка";
@@ -724,7 +659,7 @@ export function PanelGameScreen({
         <button
           type="button"
           onClick={() => {
-            if (snakeInProgress || puzzleInProgress || mergeInProgress || eggInProgress) {
+            if (snakeInProgress || puzzleInProgress || main2048InProgress) {
               setConfirmLeave(true);
               return;
             }
@@ -740,7 +675,7 @@ export function PanelGameScreen({
               goHub();
               return;
             }
-            if (viewPhase === "hub" || viewPhase === "egg") {
+            if (viewPhase === "hub" || viewPhase === "main2048") {
               goLanding();
               return;
             }
@@ -757,11 +692,11 @@ export function PanelGameScreen({
           </h1>
           <p className="ty-note">{subtitle}</p>
         </div>
-        {(viewPhase === "play" || viewPhase === "egg") && (
+        {(viewPhase === "play" || viewPhase === "main2048") && (
           <button
             type="button"
             onClick={() => {
-              if (viewPhase === "egg") restartEgg();
+              if (viewPhase === "main2048") restartMain2048();
               else restart();
             }}
             className="rounded-full px-3 py-2 ty-label text-zinc-600"
@@ -773,25 +708,22 @@ export function PanelGameScreen({
 
       {viewPhase === "landing" && (
         <div className="flex flex-1 flex-col items-center">
-          <div className="relative w-full max-w-[360px] overflow-hidden rounded-[24px] bg-zinc-900 shadow-[0_16px_40px_rgba(17,17,19,0.18)]">
-            <Image
-              src="/games/tokom-handheld.jpg"
-              alt="Током — портативная игра про электрику"
-              width={900}
-              height={900}
-              className="h-auto w-full object-cover"
-              priority
-            />
-          </div>
+          <Image
+            src="/games/tokom-handheld.jpg"
+            alt="Током — портативная игра про электрику"
+            width={900}
+            height={900}
+            className="h-auto w-full max-w-[360px] object-contain"
+            priority
+          />
 
           <p className="mt-5 max-w-sm text-center ty-body">
-            Играя, мы научим вас лучше разбираться в электрике. Ловите
-            безопасные решения, пропускайте опасные — и запоминайте, что можно
-            делать с током, а что нельзя.
+            Играя, мы научим вас лучше разбираться в электрике. Сдвигайте
+            плитки и складывайте одинаковые — от розетки до мастер-уровня.
           </p>
 
-          <div className="mt-auto flex w-full flex-col items-center gap-4 pt-8">
-            <PixelButton onClick={startEggGame}>Играть</PixelButton>
+          <div className="mt-5 flex w-full flex-col items-center gap-4">
+            <PixelButton onClick={startMain2048}>Играть</PixelButton>
             <button
               type="button"
               onClick={goHub}
@@ -803,27 +735,56 @@ export function PanelGameScreen({
         </div>
       )}
 
-      {viewPhase === "egg" && egg && (
+      {viewPhase === "main2048" && mainMerge && (
         <div className="flex flex-1 flex-col">
-          <EggCatchBoard state={egg} onSide={onEggSide} />
+          <MergeStyleToggle value={mergeVisual} onChange={setMergeVisual} />
 
-          {egg.gameOver && (
-            <div className="mt-6 space-y-3">
-              <div className="rounded-[24px] border border-black/8 bg-white px-4 py-5 text-center">
-                <h2 className="ty-title">Игра окончена</h2>
-                <p className="mt-2 ty-body">
-                  Счёт: {egg.score}. Поймано безопасных решений: {egg.caught}.
-                </p>
+          <div className="relative mx-auto w-full max-w-[420px]">
+            <Panel2048Board
+              state={mainMerge}
+              visualStyle={mergeVisual}
+              onSwipe={onMainMergeSwipe}
+            />
+
+            {(mainMerge.won || mainMerge.lost) && (
+              <div className="absolute inset-0 flex items-center justify-center rounded-[24px] bg-white/90 p-5 text-center backdrop-blur-sm">
+                <div>
+                  {mainMerge.won ? (
+                    <>
+                      <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[#D3DA00]">
+                        <Check className="h-6 w-6 text-zinc-900" />
+                      </div>
+                      <h2 className="ty-title">2048 собрано</h2>
+                      <p className="mt-3 ty-body">
+                        Вы дошли до мастер-уровня. Счёт: {mainMerge.score}.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <h2 className="ty-title">Ходов нет</h2>
+                      <p className="mt-3 ty-body">
+                        Поле заполнено. Можно начать заново.
+                      </p>
+                    </>
+                  )}
+                  <div className="mt-5 flex gap-3">
+                    <Button className="flex-1" variant="secondary" onClick={goLanding}>
+                      На главную
+                    </Button>
+                    <Button className="flex-1" onClick={restartMain2048}>
+                      Ещё раз
+                    </Button>
+                  </div>
+                </div>
               </div>
-              <div className="flex gap-3">
-                <Button className="flex-1" variant="secondary" onClick={goLanding}>
-                  На главную
-                </Button>
-                <Button className="flex-1" onClick={restartEgg}>
-                  Ещё раз
-                </Button>
-              </div>
-            </div>
+            )}
+          </div>
+
+          {!mainMerge.won && !mainMerge.lost && (
+            <p className="mx-auto mt-4 max-w-[420px] ty-note">
+              Свайпните по полю. Одинаковые плитки складываются — розетка,
+              автомат, УЗО и дальше по цепочке электрики.
+            </p>
           )}
         </div>
       )}
@@ -1017,66 +978,6 @@ export function PanelGameScreen({
         </div>
       )}
 
-      {playingMerge && panel && merge && (
-        <div className="flex flex-1 flex-col">
-          <PanelMiniature
-            devices={devices}
-            railCount={panel.railCount}
-            collectedIds={collectedIds}
-            className="mb-4"
-          />
-
-          <div className="relative mx-auto w-full max-w-[420px]">
-            <Panel2048Board state={merge} onSwipe={onMergeSwipe} />
-
-            {(merge.won || merge.lost) && (
-              <div className="absolute inset-0 flex items-center justify-center rounded-[24px] bg-white/90 p-5 text-center backdrop-blur-sm">
-                <div>
-                  {merge.won ? (
-                    <>
-                      <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[#D3DA00]">
-                        <Check className="h-6 w-6 text-zinc-900" />
-                      </div>
-                      <h2 className="ty-title">2048 собрано</h2>
-                      <p className="mt-3 ty-body">
-                        Плитки приборов с «{panel.title}» сложились до 2048.
-                        Счёт: {merge.score}.
-                      </p>
-                    </>
-                  ) : (
-                    <>
-                      <h2 className="ty-title">Ходов нет</h2>
-                      <p className="mt-3 ty-body">
-                        Поле заполнено. Можно начать заново на том же щитке.
-                      </p>
-                    </>
-                  )}
-                  <div className="mt-5 flex gap-3">
-                    <Button
-                      className="flex-1"
-                      variant="secondary"
-                      onClick={leavePlay}
-                    >
-                      Другой щиток
-                    </Button>
-                    <Button className="flex-1" onClick={restart}>
-                      Ещё раз
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {!merge.won && !merge.lost && (
-            <p className="mx-auto mt-4 max-w-[420px] ty-note">
-              Свайпните по полю. Одинаковые числа складываются. На плитке —
-              номинал прибора и его номер в схеме щитка.
-            </p>
-          )}
-        </div>
-      )}
-
       {playingSnake && panel && state && (
         <div className="flex flex-1 flex-col">
           <PanelMiniature
@@ -1220,7 +1121,7 @@ export function PanelGameScreen({
           onCancel={() => setConfirmLeave(false)}
           onConfirm={() => {
             setConfirmLeave(false);
-            if (playingEgg) goLanding();
+            if (playingMain2048) goLanding();
             else leavePlay();
           }}
         />

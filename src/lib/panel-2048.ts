@@ -7,6 +7,8 @@ import {
 export const MERGE_SIZE = 4;
 export const MERGE_WIN = 2048;
 
+export type MergeVisualStyle = "retro" | "flat";
+
 export type MergeTile = {
   id: string;
   value: number;
@@ -27,6 +29,46 @@ export type MergeState = {
   seq: number;
 };
 
+export type MergeSpawnSpec = {
+  deviceId: number;
+  typeLabel: string;
+  rating: string;
+  order: number;
+};
+
+const ELECTRICAL_TIERS: Array<{ value: number; typeLabel: string; rating: string }> = [
+  { value: 2, typeLabel: "Розетка", rating: "220 В" },
+  { value: 4, typeLabel: "Автомат", rating: "16 А" },
+  { value: 8, typeLabel: "УЗО", rating: "30 mA" },
+  { value: 16, typeLabel: "Диф", rating: "20 А" },
+  { value: 32, typeLabel: "УЗИП", rating: "класс III" },
+  { value: 64, typeLabel: "РН", rating: "170–265 В" },
+  { value: 128, typeLabel: "PE", rating: "заземление" },
+  { value: 256, typeLabel: "Ввод", rating: "63 А" },
+  { value: 512, typeLabel: "Щиток", rating: "сборка" },
+  { value: 1024, typeLabel: "Схема", rating: "готова" },
+  { value: 2048, typeLabel: "Мастер", rating: "уровень" },
+];
+
+const ELECTRICAL_SPAWN: MergeSpawnSpec[] = [
+  { deviceId: 1, typeLabel: "Розетка", rating: "220 В", order: 1 },
+  { deviceId: 2, typeLabel: "Автомат", rating: "10 А", order: 2 },
+  { deviceId: 3, typeLabel: "УЗО", rating: "30 mA", order: 3 },
+  { deviceId: 4, typeLabel: "Свет", rating: "LED", order: 4 },
+  { deviceId: 5, typeLabel: "Кабель", rating: "2.5 мм²", order: 5 },
+  { deviceId: 6, typeLabel: "УЗИП", rating: "класс III", order: 6 },
+  { deviceId: 7, typeLabel: "РН", rating: "защита", order: 7 },
+  { deviceId: 8, typeLabel: "PE", rating: "заземл.", order: 8 },
+];
+
+export function mergeLabelForValue(value: number): Pick<MergeTile, "typeLabel" | "rating"> {
+  let pick = ELECTRICAL_TIERS[0]!;
+  for (const tier of ELECTRICAL_TIERS) {
+    if (value >= tier.value) pick = tier;
+  }
+  return { typeLabel: pick.typeLabel, rating: pick.rating };
+}
+
 function emptyBoard(size: number): Array<MergeTile | null> {
   return Array.from({ length: size * size }, () => null);
 }
@@ -40,16 +82,87 @@ function emptyIndices(cells: Array<MergeTile | null>): number[] {
 }
 
 function pickSpec(
-  specs: PanelModuleSpec[],
+  specs: MergeSpawnSpec[],
   rnd: () => number,
-): PanelModuleSpec | null {
+): MergeSpawnSpec | null {
   if (specs.length === 0) return null;
   return specs[Math.floor(rnd() * specs.length)] ?? null;
 }
 
-function spawnTile(
+function panelSpecs(devices: Device[], railCount?: number): MergeSpawnSpec[] {
+  return listPanelModules(devices, railCount).map((spec) => ({
+    deviceId: spec.deviceId,
+    typeLabel: spec.typeLabel,
+    rating: spec.rating,
+    order: spec.order,
+  }));
+}
+
+function buildMergeGame(
+  specs: MergeSpawnSpec[],
+  rnd: () => number = Math.random,
+): MergeState {
+  const size = MERGE_SIZE;
+  let cells = emptyBoard(size);
+  let seq = 1;
+  const first = spawnTileFromSpecs(cells, specs, seq, rnd);
+  cells = first.cells;
+  seq = first.seq;
+  const second = spawnTileFromSpecs(cells, specs, seq, rnd);
+  cells = second.cells;
+  seq = second.seq;
+  return {
+    size,
+    cells,
+    score: 0,
+    won: false,
+    lost: false,
+    moves: 0,
+    seq,
+  };
+}
+
+function stepMergeGame(
+  state: MergeState,
+  dir: "up" | "down" | "left" | "right",
+  specs: MergeSpawnSpec[],
+  rnd: () => number = Math.random,
+): MergeState {
+  if (state.lost) return state;
+
+  const size = state.size;
+  const cells = state.cells.slice();
+  let score = state.score;
+  let moved = false;
+
+  for (let i = 0; i < size; i += 1) {
+    const line = readLine(cells, size, dir, i);
+    const result = slideLine(line);
+    if (result.moved) moved = true;
+    score += result.score;
+    writeLine(cells, size, dir, i, result.line);
+  }
+
+  if (!moved) return state;
+
+  const spawned = spawnTileFromSpecs(cells, specs, state.seq, rnd);
+  const won = spawned.cells.some((tile) => (tile?.value ?? 0) >= MERGE_WIN);
+  const lost = !won && !hasMove(spawned.cells, size);
+
+  return {
+    ...state,
+    cells: spawned.cells,
+    seq: spawned.seq,
+    score,
+    moves: state.moves + 1,
+    won: state.won || won,
+    lost,
+  };
+}
+
+function spawnTileFromSpecs(
   cells: Array<MergeTile | null>,
-  specs: PanelModuleSpec[],
+  specs: MergeSpawnSpec[],
   seq: number,
   rnd: () => number,
 ): { cells: Array<MergeTile | null>; seq: number } {
@@ -57,17 +170,28 @@ function spawnTile(
   if (slots.length === 0) return { cells, seq };
   const spec = pickSpec(specs, rnd);
   if (!spec) return { cells, seq };
+  const value = rnd() < 0.9 ? 2 : 4;
+  const labels = mergeLabelForValue(value);
   const index = slots[Math.floor(rnd() * slots.length)]!;
   const next = cells.slice();
   next[index] = {
     id: `t-${seq}`,
-    value: rnd() < 0.9 ? 2 : 4,
+    value,
     deviceId: spec.deviceId,
-    typeLabel: spec.typeLabel,
-    rating: spec.rating,
+    typeLabel: labels.typeLabel,
+    rating: labels.rating,
     order: spec.order,
   };
   return { cells: next, seq: seq + 1 };
+}
+
+function spawnTile(
+  cells: Array<MergeTile | null>,
+  specs: MergeSpawnSpec[],
+  seq: number,
+  rnd: () => number,
+): { cells: Array<MergeTile | null>; seq: number } {
+  return spawnTileFromSpecs(cells, specs, seq, rnd);
 }
 
 function slideLine(line: Array<MergeTile | null>): {
@@ -83,9 +207,13 @@ function slideLine(line: Array<MergeTile | null>): {
     const a = tiles[i]!;
     const b = tiles[i + 1];
     if (b && a.value === b.value) {
+      const value = a.value * 2;
+      const labels = mergeLabelForValue(value);
       merged.push({
         ...a,
-        value: a.value * 2,
+        value,
+        typeLabel: labels.typeLabel,
+        rating: labels.rating,
         merged: true,
       });
       score += a.value * 2;
@@ -165,30 +293,26 @@ export function mergeDeviceIds(state: MergeState): Set<number> {
   return ids;
 }
 
+export function createElectrical2048Game(
+  rnd: () => number = Math.random,
+): MergeState {
+  return buildMergeGame(ELECTRICAL_SPAWN, rnd);
+}
+
+export function moveElectrical2048Game(
+  state: MergeState,
+  dir: "up" | "down" | "left" | "right",
+  rnd: () => number = Math.random,
+): MergeState {
+  return stepMergeGame(state, dir, ELECTRICAL_SPAWN, rnd);
+}
+
 export function createMergeGame(
   devices: Device[],
   railCount?: number,
   rnd: () => number = Math.random,
 ): MergeState {
-  const specs = listPanelModules(devices, railCount);
-  const size = MERGE_SIZE;
-  let cells = emptyBoard(size);
-  let seq = 1;
-  const first = spawnTile(cells, specs, seq, rnd);
-  cells = first.cells;
-  seq = first.seq;
-  const second = spawnTile(cells, specs, seq, rnd);
-  cells = second.cells;
-  seq = second.seq;
-  return {
-    size,
-    cells,
-    score: 0,
-    won: false,
-    lost: false,
-    moves: 0,
-    seq,
-  };
+  return buildMergeGame(panelSpecs(devices, railCount), rnd);
 }
 
 export function moveMergeGame(
@@ -198,35 +322,5 @@ export function moveMergeGame(
   railCount?: number,
   rnd: () => number = Math.random,
 ): MergeState {
-  if (state.lost) return state;
-
-  const size = state.size;
-  const cells = state.cells.slice();
-  let score = state.score;
-  let moved = false;
-
-  for (let i = 0; i < size; i += 1) {
-    const line = readLine(cells, size, dir, i);
-    const result = slideLine(line);
-    if (result.moved) moved = true;
-    score += result.score;
-    writeLine(cells, size, dir, i, result.line);
-  }
-
-  if (!moved) return state;
-
-  const specs = listPanelModules(devices, railCount);
-  const spawned = spawnTile(cells, specs, state.seq, rnd);
-  const won = spawned.cells.some((tile) => (tile?.value ?? 0) >= MERGE_WIN);
-  const lost = !won && !hasMove(spawned.cells, size);
-
-  return {
-    ...state,
-    cells: spawned.cells,
-    seq: spawned.seq,
-    score,
-    moves: state.moves + 1,
-    won: state.won || won,
-    lost,
-  };
+  return stepMergeGame(state, dir, panelSpecs(devices, railCount), rnd);
 }
