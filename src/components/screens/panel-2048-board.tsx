@@ -1,10 +1,34 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, type CSSProperties, type ReactNode } from "react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { dirFromSwipe, type SwipeDir } from "@/lib/panel-game";
 import type { MergeState, MergeTile, MergeVisualStyle } from "@/lib/panel-2048";
+
+const RETRO_PIXELS = 10;
+
+function retroPixelStyle(base: string, edge: string): CSSProperties {
+  const step = `${100 / RETRO_PIXELS}%`;
+  return {
+    backgroundColor: base,
+    backgroundImage: `
+      linear-gradient(to right, ${edge} 1px, transparent 1px),
+      linear-gradient(to bottom, ${edge} 1px, transparent 1px)
+    `,
+    backgroundSize: `${step} ${step}`,
+    imageRendering: "pixelated",
+  };
+}
+
+function retroCellColors(value: number | null): { base: string; edge: string } {
+  if (value == null) return { base: "#6d716d", edge: "rgba(20,24,20,0.42)" };
+  if (value >= 512) return { base: "#1a1c1a", edge: "rgba(211,218,0,0.35)" };
+  if (value >= 128) return { base: "#3a3e3a", edge: "rgba(255,255,255,0.22)" };
+  if (value >= 32) return { base: "#868a86", edge: "rgba(20,24,20,0.38)" };
+  if (value >= 8) return { base: "#c4c8c4", edge: "rgba(20,24,20,0.34)" };
+  return { base: "#e0e4e0", edge: "rgba(20,24,20,0.3)" };
+}
 
 function flatTileTone(value: number): string {
   if (value >= 512) return "bg-zinc-900 text-white";
@@ -14,12 +38,34 @@ function flatTileTone(value: number): string {
   return "bg-white text-zinc-900";
 }
 
-function retroTileTone(value: number): string {
-  if (value >= 512) return "bg-zinc-900 text-[#D3DA00]";
-  if (value >= 128) return "bg-zinc-800 text-white";
-  if (value >= 32) return "bg-[#8a8e8a] text-zinc-900 border-zinc-700";
-  if (value >= 8) return "bg-[#c8ccc8] text-zinc-900 border-zinc-600";
-  return "bg-[#e4e8e4] text-zinc-900 border-zinc-500";
+function RetroPixelCell({
+  value,
+  className,
+  children,
+}: {
+  value: number | null;
+  className?: string;
+  children?: ReactNode;
+}) {
+  const { base, edge } = retroCellColors(value);
+  return (
+    <div
+      className={cn("relative h-full w-full overflow-hidden rounded-none", className)}
+      style={retroPixelStyle(base, edge)}
+    >
+      {children ? (
+        <div className="relative z-[1] flex h-full w-full items-center justify-center">
+          {children}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function retroTileText(value: number): string {
+  if (value >= 512) return "text-[#D3DA00]";
+  if (value >= 128) return "text-white";
+  return "text-zinc-900";
 }
 
 function TileFace({
@@ -122,9 +168,14 @@ export function Panel2048Board({
       className={cn(
         "relative aspect-square w-full touch-none overflow-hidden p-1.5",
         retro
-          ? "rounded-[8px] border-4 border-zinc-800 bg-[#9a9e9a] shadow-[inset_0_0_0_3px_#7a7e7a,0_8px_0_0_#52525b] [image-rendering:pixelated]"
+          ? "rounded-none border-4 border-zinc-800 shadow-[inset_0_0_0_3px_#7a7e7a,0_8px_0_0_#52525b]"
           : "rounded-[24px] bg-zinc-300/70",
       )}
+      style={
+        retro
+          ? retroPixelStyle("#959995", "rgba(20,24,20,0.38)")
+          : undefined
+      }
       onPointerDown={(event) => {
         pointer.current = { x: event.clientX, y: event.clientY };
       }}
@@ -147,14 +198,14 @@ export function Panel2048Board({
         style={gridStyle}
       >
         {state.cells.map((_, index) => (
-          <div
-            key={`slot-${index}`}
-            className={cn(
-              retro
-                ? "border border-zinc-600/80 bg-[#7a7e7a]"
-                : "rounded-[14px] bg-zinc-400/35",
-            )}
-          />
+          retro ? (
+            <RetroPixelCell key={`slot-${index}`} value={null} />
+          ) : (
+            <div
+              key={`slot-${index}`}
+              className="rounded-[14px] bg-zinc-400/35"
+            />
+          )
         ))}
       </div>
 
@@ -180,19 +231,24 @@ export function Panel2048Board({
               className="min-h-0 min-w-0"
               style={{ gridColumn: x + 1, gridRow: y + 1 }}
             >
-              <div
-                className={cn(
-                  "flex h-full w-full items-center justify-center overflow-hidden border-2",
-                  retro
-                    ? cn("rounded-none shadow-none", retroTileTone(tile.value))
-                    : cn(
-                        "rounded-[14px] border-transparent shadow-[0_4px_12px_rgba(17,17,19,0.08)]",
-                        flatTileTone(tile.value),
-                      ),
-                )}
-              >
-                <TileFace tile={tile} visualStyle={visualStyle} />
-              </div>
+              {retro ? (
+                <RetroPixelCell
+                  value={tile.value}
+                  className={retroTileText(tile.value)}
+                >
+                  <TileFace tile={tile} visualStyle={visualStyle} />
+                </RetroPixelCell>
+              ) : (
+                <div
+                  className={cn(
+                    "flex h-full w-full items-center justify-center overflow-hidden border-2",
+                    "rounded-[14px] border-transparent shadow-[0_4px_12px_rgba(17,17,19,0.08)]",
+                    flatTileTone(tile.value),
+                  )}
+                >
+                  <TileFace tile={tile} visualStyle={visualStyle} />
+                </div>
+              )}
             </motion.div>
           );
         })}

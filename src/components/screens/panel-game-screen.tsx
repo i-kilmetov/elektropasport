@@ -709,12 +709,13 @@ export function PanelGameScreen({
       {viewPhase === "landing" && (
         <div className="flex flex-1 flex-col items-center">
           <Image
-            src="/games/tokom-handheld.jpg"
+            src="/games/tokom-handheld.png"
             alt="Током — портативная игра про электрику"
-            width={900}
-            height={900}
+            width={1024}
+            height={682}
             className="h-auto w-full max-w-[360px] object-contain"
             priority
+            unoptimized
           />
 
           <p className="mt-5 max-w-sm text-center ty-body">
@@ -722,7 +723,9 @@ export function PanelGameScreen({
             плитки и складывайте одинаковые — от розетки до мастер-уровня.
           </p>
 
-          <div className="mt-5 flex w-full flex-col items-center gap-4">
+          <div className="min-h-[56px] flex-1" aria-hidden />
+
+          <div className="flex w-full flex-col items-center gap-4 pb-2">
             <PixelButton onClick={startMain2048}>Играть</PixelButton>
             <button
               type="button"
