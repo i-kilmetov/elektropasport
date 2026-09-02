@@ -3400,12 +3400,7 @@ export function AppShell({
               onOpenAdmin={() => go("admin")}
               onBack={() => go("objects")}
               onLoggedOut={() => {
-                setItems([]);
-                setActivePanelId(null);
-                setActiveRequestId(null);
-                setPendingAuthAction(null);
-                setMainMenuOpen(false);
-                go("telegram-auth");
+                window.location.assign("/");
               }}
             />
           )}

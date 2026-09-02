@@ -466,7 +466,7 @@ export function BrandAuthIntro({
 
   return (
     <div
-      className="fixed inset-0 z-[200] flex touch-none flex-col items-center overflow-hidden px-3 sm:px-5"
+      className="fixed inset-0 z-[200] flex touch-none flex-col items-center overflow-hidden"
       style={{
         backgroundColor: BRAND_YELLOW,
         height: "var(--app-height, 100dvh)",
@@ -490,7 +490,7 @@ export function BrandAuthIntro({
       </div>
 
       <motion.div
-        className="mx-auto w-full shrink-0 pb-2"
+        className="mx-auto w-full max-w-xl shrink-0 px-5 pb-2"
         initial={false}
         animate={{
           opacity: loginVisible && logoReady ? 1 : 0,

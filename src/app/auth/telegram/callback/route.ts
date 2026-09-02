@@ -63,13 +63,14 @@ function escapeJsString(value: string): string {
     .replace(/</g, "\\u003c");
 }
 
-function sessionHtml(user: ValidatedTelegramUser, token: string): string {
+function sessionHtml(user: ValidatedTelegramUser, token: string, origin: string): string {
   const userJson = JSON.stringify({
     telegramId: user.telegramId,
     firstName: user.firstName,
     lastName: user.lastName,
     username: user.username,
   });
+  const safeOrigin = escapeJsString(origin.replace(/\/$/, ""));
 
   return `<!DOCTYPE html>
 <html lang="ru">
@@ -80,21 +81,23 @@ function sessionHtml(user: ValidatedTelegramUser, token: string): string {
 </head>
 <body>
   <script>
-    var next = '/';
+    var origin = '${safeOrigin}';
+    var next = origin + '/';
     try {
       localStorage.setItem('elektropasport:auth-token', '${escapeJsString(token)}');
       localStorage.setItem('elektropasport:auth-user', '${escapeJsString(userJson)}');
       sessionStorage.setItem('${POST_AUTH_SKIP_SPLASH_KEY}', '1');
-      next = sessionStorage.getItem('${POST_AUTH_NEXT_KEY}') || '/';
+      var stored = sessionStorage.getItem('${POST_AUTH_NEXT_KEY}') || '/';
       sessionStorage.removeItem('${POST_AUTH_NEXT_KEY}');
       if (
-        next.charAt(0) !== '/' ||
-        next.charAt(1) === '/' ||
-        next.indexOf('\\\\') !== -1 ||
-        next.indexOf('://') !== -1
+        stored.charAt(0) !== '/' ||
+        stored.charAt(1) === '/' ||
+        stored.indexOf('\\\\') !== -1 ||
+        stored.indexOf('://') !== -1
       ) {
-        next = '/';
+        stored = '/';
       }
+      next = origin + stored;
     } catch (e) {}
     window.location.replace(next);
   </script>
@@ -156,9 +159,12 @@ async function finishLogin(
     username: user.username,
     appEnv: env,
   };
-  const response = new NextResponse(sessionHtml(displayUser, token), {
-    headers: { "Content-Type": "text/html; charset=utf-8" },
-  });
+  const response = new NextResponse(
+    sessionHtml(displayUser, token, resolveRequestOrigin(request)),
+    {
+      headers: { "Content-Type": "text/html; charset=utf-8" },
+    },
+  );
   response.headers.append(
     "Set-Cookie",
     oauthCookieHeader(null, {
