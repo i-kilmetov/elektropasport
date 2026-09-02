@@ -12,6 +12,8 @@ export type IcecatProductHit = {
   brand: string;
   model: string;
   title?: string;
+  icecatId?: string;
+  categoryName?: string;
   brandLogoUrl?: string;
   productImageUrl?: string;
   specs: ApplianceSpec[];
@@ -326,6 +328,14 @@ function hitFromPayload(
     asString(general.IcecatId) ||
     asString(data.IcecatId) ||
     asString(general.IcecatID);
+  const category =
+    general.Category && typeof general.Category === "object"
+      ? (general.Category as Record<string, unknown>)
+      : null;
+  const categoryName =
+    localizedString(category?.Name) ||
+    localizedString(category?.CategoryName) ||
+    localizedString(general.CategoryName);
   const sourceUrl = iceCatId
     ? `https://icecat.biz/ru/p/-/-/${encodeURIComponent(iceCatId)}.html`
     : `https://icecat.biz/search?query=${encodeURIComponent(`${hitBrand} ${hitModel}`)}`;
@@ -342,6 +352,8 @@ function hitFromPayload(
     brand: hitBrand,
     model: hitModel,
     title,
+    icecatId: iceCatId,
+    categoryName,
     brandLogoUrl,
     productImageUrl,
     specs,
@@ -354,6 +366,7 @@ async function fetchIcecatOnce(options: {
   brand?: string;
   model?: string;
   icecatId?: string;
+  gtin?: string;
   lang: string;
   withTokens: boolean;
 }): Promise<IcecatLookupResult> {
@@ -366,7 +379,9 @@ async function fetchIcecatOnce(options: {
     content: "",
   });
 
-  if (options.icecatId) {
+  if (options.gtin) {
+    params.set("GTIN", options.gtin);
+  } else if (options.icecatId) {
     params.set("icecat_id", options.icecatId);
   } else if (options.brand && options.model) {
     params.set("Brand", options.brand);
@@ -545,6 +560,65 @@ export async function searchIcecatProductByIcecatId(options: {
     if (hasTokens && en.status === "auth_error") {
       const enNoToken = await fetchIcecatOnce({
         icecatId,
+        lang: "EN",
+        withTokens: false,
+      });
+      if (enNoToken.status === "ok") return enNoToken;
+    }
+  }
+
+  return primary;
+}
+
+/** Normalize retail barcode / GTIN to digits only (EAN-8/12/13/14). */
+export function normalizeGtin(raw: string): string | null {
+  const digits = raw.replace(/\D/g, "");
+  if (![8, 12, 13, 14].includes(digits.length)) return null;
+  return digits;
+}
+
+export async function searchIcecatProductByGtin(options: {
+  gtin: string;
+  lang?: string;
+}): Promise<IcecatLookupResult> {
+  const user = username();
+  if (!user) return { configured: false, hit: null, status: "not_configured" };
+
+  const gtin = normalizeGtin(options.gtin);
+  if (!gtin) {
+    return { configured: true, hit: null, status: "not_found" };
+  }
+
+  const lang =
+    (options.lang || ICECAT_APPLIANCE_LANG).trim() || ICECAT_APPLIANCE_LANG;
+  const hasTokens = Boolean(apiToken() || contentToken());
+
+  const primary = await fetchIcecatOnce({
+    gtin,
+    lang,
+    withTokens: hasTokens,
+  });
+  if (primary.status === "ok") return primary;
+
+  if (hasTokens && primary.status === "auth_error") {
+    const fallback = await fetchIcecatOnce({
+      gtin,
+      lang,
+      withTokens: false,
+    });
+    if (fallback.status === "ok") return fallback;
+  }
+
+  if (primary.status === "not_found" && lang.toUpperCase() !== "EN") {
+    const en = await fetchIcecatOnce({
+      gtin,
+      lang: "EN",
+      withTokens: hasTokens,
+    });
+    if (en.status === "ok") return en;
+    if (hasTokens && en.status === "auth_error") {
+      const enNoToken = await fetchIcecatOnce({
+        gtin,
         lang: "EN",
         withTokens: false,
       });

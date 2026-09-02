@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, Check, X } from "lucide-react";
+import { ArrowLeft, Check, ScanBarcode, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ApplianceBarcodeScanner } from "@/components/ui/appliance-barcode-scanner";
 import { Portal } from "@/components/ui/portal";
+import type { BarcodeLookupResponse } from "@/lib/appliance-barcode";
 import {
   FULL_CATALOG_KIND_OPTIONS,
   OTHER_CATALOG_KIND_OPTIONS,
@@ -129,6 +131,10 @@ export function AddApplianceSheet({
   const [modelsLoading, setModelsLoading] = useState(false);
   const [details, setDetails] = useState<ProductDetails | null>(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [barcodeBanner, setBarcodeBanner] = useState<string | null>(null);
+  const skipModelsReloadRef = useRef(false);
+  const skipDetailsReloadRef = useRef(false);
 
   const selectedModel = models.find((m) => m.id === modelId) ?? null;
   const otherKindSelected =
@@ -159,6 +165,7 @@ export function AddApplianceSheet({
     setModelId(null);
     setModels([]);
     setDetails(null);
+    setBarcodeBanner(null);
     setError(null);
     const fromAllProducts = options?.fromAllProducts === true;
     if (fromAllProducts) {
@@ -196,8 +203,61 @@ export function AddApplianceSheet({
     setCustomBrandName("");
     setCustomModelName("");
     setAllProductsOpen(false);
+    setBarcodeBanner(null);
     setError(null);
     setOtherKindsOpen(false);
+  };
+
+  const applyBarcodeResult = (result: BarcodeLookupResponse) => {
+    skipModelsReloadRef.current = true;
+    skipDetailsReloadRef.current = true;
+    const nextKind = isCatalogApplianceKind(result.kind)
+      ? result.kind
+      : ("other" as const);
+    const modelOption: IcecatModelOption = {
+      id: result.product.id,
+      brand: result.product.brand,
+      productCode: result.product.productCode,
+      modelName: result.product.modelName,
+    };
+
+    setCustomKindMode(false);
+    setCustomKindName("");
+    setCustomBrandName("");
+    setCustomModelName("");
+    setKind(nextKind);
+    setBrand(result.product.brand);
+    setModelId(result.product.id);
+    setModels([modelOption]);
+    setDetails({
+      powerW: result.powerW,
+      specs: result.specs,
+      manuals: result.manuals,
+      title: result.title,
+      brandLogoUrl: result.brandLogoUrl,
+      productImageUrl: result.productImageUrl,
+      matched: true,
+      status: result.status,
+      statusDetail: result.statusDetail,
+    });
+    setDetailsLoading(false);
+    setError(null);
+    setBarcodeBanner(
+      result.kindMatched
+        ? `Найдено: ${result.product.brand} ${result.product.modelName}`
+        : `Найдено: ${result.product.brand} ${result.product.modelName}. Тип выбран приблизительно — проверьте.`,
+    );
+    if (isPrimaryCatalogApplianceKind(nextKind)) {
+      setOtherKindsOpen(false);
+      setAllProductsOpen(false);
+    } else if (isQuickPickCatalogApplianceKind(nextKind)) {
+      setOtherKindsOpen(true);
+      setAllProductsOpen(false);
+    } else {
+      setOtherKindsOpen(true);
+      setAllProductsOpen(true);
+    }
+    setScannerOpen(false);
   };
 
   useEffect(() => {
@@ -242,6 +302,10 @@ export function AddApplianceSheet({
       setModels([]);
       return;
     }
+    if (skipModelsReloadRef.current) {
+      skipModelsReloadRef.current = false;
+      return;
+    }
     let cancelled = false;
     setModelsLoading(true);
     void (async () => {
@@ -275,6 +339,10 @@ export function AddApplianceSheet({
     if (!modelId || modelId === CUSTOM_MODEL) {
       setDetails(null);
       setDetailsLoading(false);
+      return;
+    }
+    if (skipDetailsReloadRef.current) {
+      skipDetailsReloadRef.current = false;
       return;
     }
     let cancelled = false;
@@ -533,6 +601,26 @@ export function AddApplianceSheet({
           )}
 
           <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+            {!editing ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setScannerOpen(true);
+                  setError(null);
+                }}
+                className="mb-4 flex w-full items-center justify-center gap-2 rounded-[18px] border border-black/8 bg-zinc-50 px-4 py-3 ty-label text-zinc-800 transition-colors hover:bg-zinc-100"
+              >
+                <ScanBarcode className="h-5 w-5" />
+                Сканировать штрихкод
+              </button>
+            ) : null}
+
+            {barcodeBanner ? (
+              <div className="mb-4 rounded-[16px] border border-emerald-200 bg-emerald-50 px-3 py-2 ty-note text-emerald-800">
+                {barcodeBanner}
+              </div>
+            ) : null}
+
             {customKindMode ? (
               <div className="space-y-4">
                 <button
@@ -931,6 +1019,12 @@ export function AddApplianceSheet({
           </div>
         </motion.div>
       </motion.div>
+    {scannerOpen ? (
+      <ApplianceBarcodeScanner
+        onClose={() => setScannerOpen(false)}
+        onFound={applyBarcodeResult}
+      />
+    ) : null}
     </Portal>
   );
 }

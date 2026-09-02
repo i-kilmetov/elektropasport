@@ -311,6 +311,82 @@ export function getLastMatchedCategorySample() {
   return lastMatchedCategorySample;
 }
 
+function matchCategoryNameToKind(
+  name: string,
+): CatalogApplianceKind | null {
+  if (!name.trim()) return null;
+  if (INDUSTRIAL_CATEGORY.test(name)) return null;
+  for (const rule of CATEGORY_KIND_RULES) {
+    if (!rule.match.test(name)) continue;
+    if (
+      rule.kind === "tv" &&
+      /mount|stand|tuner|monitor|set-top|set top/i.test(name)
+    ) {
+      continue;
+    }
+    if (
+      rule.kind === "dryer" &&
+      /hair|hand|clothes dryer rack|dehumidifier/i.test(name)
+    ) {
+      continue;
+    }
+    if (
+      rule.kind === "router" &&
+      /router table|woodworking|CNC/i.test(name)
+    ) {
+      continue;
+    }
+    if (
+      rule.kind === "electric_shaver" &&
+      /hedge|grass|garden|lawn/i.test(name)
+    ) {
+      continue;
+    }
+    if (
+      rule.kind === "fan" &&
+      /fan heater|heat fan|heater fan|exhaust fan kit|cpu fan|case fan/i.test(
+        name,
+      )
+    ) {
+      continue;
+    }
+    if (
+      rule.kind === "grill" &&
+      /accessories|cover|spare|cleaning|brush/i.test(name)
+    ) {
+      continue;
+    }
+    if (
+      rule.kind === "kettle" &&
+      /whistle|stovetop|gas kettle|travel mug/i.test(name)
+    ) {
+      continue;
+    }
+    if (
+      rule.kind === "iron" &&
+      /ironing board|ironing cover|ironing mat/i.test(name)
+    ) {
+      continue;
+    }
+    if (
+      rule.kind === "vacuum" &&
+      /robot|accessories|bags|filters|parts/i.test(name)
+    ) {
+      continue;
+    }
+    return rule.kind;
+  }
+  return null;
+}
+
+/** Map Icecat category label (usually EN) to our appliance kind. */
+export function resolveApplianceKindFromIcecatCategory(
+  categoryName: string | null | undefined,
+): CatalogApplianceKind | null {
+  if (!categoryName?.trim()) return null;
+  return matchCategoryNameToKind(categoryName.trim());
+}
+
 function parseCategoriesToKindMap(xml: string): Map<string, CatalogApplianceKind> {
   const map = new Map<string, CatalogApplianceKind>();
   const categoryBlocks = xml.match(/<Category\b[\s\S]*?<\/Category>/gi) ?? [];
@@ -329,71 +405,12 @@ function parseCategoriesToKindMap(xml: string): Map<string, CatalogApplianceKind
     ];
     const name = names[0]?.[1]?.trim() ?? "";
     if (!name) continue;
-    if (INDUSTRIAL_CATEGORY.test(name)) continue;
-    for (const rule of CATEGORY_KIND_RULES) {
-      if (!rule.match.test(name)) continue;
-      if (
-        rule.kind === "tv" &&
-        /mount|stand|tuner|monitor|set-top|set top/i.test(name)
-      ) {
-        continue;
-      }
-      if (
-        rule.kind === "dryer" &&
-        /hair|hand|clothes dryer rack|dehumidifier/i.test(name)
-      ) {
-        continue;
-      }
-      if (
-        rule.kind === "router" &&
-        /router table|woodworking|CNC/i.test(name)
-      ) {
-        continue;
-      }
-      if (
-        rule.kind === "electric_shaver" &&
-        /hedge|grass|garden|lawn/i.test(name)
-      ) {
-        continue;
-      }
-      if (
-        rule.kind === "fan" &&
-        /fan heater|heat fan|heater fan|exhaust fan kit|cpu fan|case fan/i.test(
-          name,
-        )
-      ) {
-        continue;
-      }
-      if (
-        rule.kind === "grill" &&
-        /accessories|cover|spare|cleaning|brush/i.test(name)
-      ) {
-        continue;
-      }
-      if (
-        rule.kind === "kettle" &&
-        /whistle|stovetop|gas kettle|travel mug/i.test(name)
-      ) {
-        continue;
-      }
-      if (
-        rule.kind === "iron" &&
-        /ironing board|ironing cover|ironing mat/i.test(name)
-      ) {
-        continue;
-      }
-      if (
-        rule.kind === "vacuum" &&
-        /robot|accessories|bags|filters|parts/i.test(name)
-      ) {
-        continue;
-      }
-      map.set(id, rule.kind);
-      byId.set(id, { name, kind: rule.kind });
-      if (matchedNames.length < 40) {
-        matchedNames.push({ id, name, kind: rule.kind });
-      }
-      break;
+    const kind = matchCategoryNameToKind(name);
+    if (!kind) continue;
+    map.set(id, kind);
+    byId.set(id, { name, kind });
+    if (matchedNames.length < 40) {
+      matchedNames.push({ id, name, kind });
     }
   }
   lastMatchedCategorySample = matchedNames;
