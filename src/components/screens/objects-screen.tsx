@@ -21,7 +21,6 @@ import {
   ClipboardList,
   HelpCircle,
   Menu,
-  Plus,
   Wrench,
 } from "lucide-react";
 import { BreakerIcon } from "@/components/icons/breaker-icon";
@@ -1349,9 +1348,12 @@ export function ObjectsScreen({
                     У меня нет щитка
                   </button>
                 )}
-                <Button className="h-11 rounded-full px-5" onClick={addPanel}>
-                  <Plus className="h-5 w-5" />
-                  Добавить щиток
+                <Button
+                  className="h-11 rounded-full px-5"
+                  onClick={addPanel}
+                  aria-label="Добавить щиток"
+                >
+                  +
                 </Button>
               </>
             ) : (
@@ -1435,9 +1437,12 @@ export function ObjectsScreen({
       <div className="shrink-0 border-t border-black/[0.06] bg-[var(--bg)] px-5 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))] lg:hidden">
         {page === 0 ? (
           <div className="space-y-3">
-            <Button className="w-full rounded-full" onClick={addPanel}>
-              <Plus className="h-5 w-5" />
-              Добавить щиток
+            <Button
+              className="w-full rounded-full"
+              onClick={addPanel}
+              aria-label="Добавить щиток"
+            >
+              +
             </Button>
             {onNoPanel && (
               <button

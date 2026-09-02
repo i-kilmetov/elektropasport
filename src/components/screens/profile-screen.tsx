@@ -15,10 +15,8 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Portal } from "@/components/ui/portal";
-import { UndoSnackbarHost } from "@/components/ui/undo-snackbar";
 import { PushNotificationsCard } from "@/components/ui/push-notifications-card";
 import {
-  authHeaders,
   clearLocalAppData,
   isTelegramMiniApp,
 } from "@/lib/client-auth";
@@ -96,9 +94,6 @@ export function ProfileScreen({
   const [draft, setDraft] = useState<ProfileDraft>(initialDraft);
   const [baseline, setBaseline] = useState<ProfileDraft>(initialDraft);
   const [logoutOpen, setLogoutOpen] = useState(false);
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const [deleteArmed, setDeleteArmed] = useState(false);
-  const [deleting, setDeleting] = useState(false);
   const [saveFlash, setSaveFlash] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -190,38 +185,6 @@ export function ProfileScreen({
     window.location.assign("/");
   };
 
-  const deleteAccount = async () => {
-    if (deleting) return;
-    setDeleting(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/profile", {
-        method: "DELETE",
-        headers: authHeaders(),
-      });
-      if (!res.ok) {
-        const data = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(data.error || "Не удалось удалить аккаунт");
-      }
-      clearLocalAppData();
-      hapticNotification("success");
-      setDeleteArmed(false);
-      if (onLoggedOut) {
-        onLoggedOut();
-        return;
-      }
-      window.location.assign("/");
-    } catch (err) {
-      hapticNotification("error");
-      setError(
-        err instanceof Error ? err.message : "Не удалось удалить аккаунт",
-      );
-      setDeleteArmed(false);
-    } finally {
-      setDeleting(false);
-    }
-  };
-
   return (
     <motion.section
       initial={{ opacity: 0, x: 40 }}
@@ -233,7 +196,7 @@ export function ProfileScreen({
         <button
           type="button"
           onClick={onBack}
-          disabled={saving || deleting}
+          disabled={saving}
           className="flex h-11 w-11 items-center justify-center rounded-full border border-black/8 bg-zinc-100 text-zinc-900 disabled:opacity-40"
           aria-label="Назад"
         >
@@ -440,7 +403,7 @@ export function ProfileScreen({
         {dirty && (
           <Button
             className="w-full"
-            disabled={saving || loading || deleting}
+            disabled={saving || loading}
             onClick={() => void save()}
           >
             {saving ? "Сохраняем…" : "Сохранить"}
@@ -449,7 +412,7 @@ export function ProfileScreen({
         {isAdmin && onOpenAdmin && (
           <button
             type="button"
-            disabled={saving || deleting}
+            disabled={saving}
             onClick={onOpenAdmin}
             className="flex w-full items-center gap-3 rounded-[20px] border border-black/8 bg-zinc-50 px-4 py-3.5 text-left transition-colors hover:bg-zinc-100 disabled:opacity-40"
           >
@@ -470,20 +433,12 @@ export function ProfileScreen({
           <Button
             className="w-full"
             variant="secondary"
-            disabled={saving || deleting}
+            disabled={saving}
             onClick={() => setLogoutOpen(true)}
           >
             Выйти из аккаунта
           </Button>
         )}
-        <Button
-          className="w-full text-rose-600 hover:bg-rose-50"
-          variant="secondary"
-          disabled={saving || deleting}
-          onClick={() => setDeleteOpen(true)}
-        >
-          Удалить аккаунт
-        </Button>
       </div>
 
       <AnimatePresence>
@@ -502,38 +457,6 @@ export function ProfileScreen({
           />
         )}
       </AnimatePresence>
-
-      <AnimatePresence>
-        {deleteOpen && (
-          <ConfirmDialog
-            title="Удалить аккаунт?"
-            description="После удаления аккаунта все ваши данные, включая добавленные щитки и заявки, будут безвозвратно удалены на этом сайте."
-            confirmLabel="Удалить"
-            cancelLabel="Отмена"
-            danger
-            onCancel={() => setDeleteOpen(false)}
-            onConfirm={() => {
-              setDeleteOpen(false);
-              setDeleteArmed(true);
-            }}
-          />
-        )}
-      </AnimatePresence>
-
-      <UndoSnackbarHost
-        action={
-          deleteArmed
-            ? {
-                key: "delete-account",
-                message: "Аккаунт будет удалён",
-                onUndo: () => setDeleteArmed(false),
-                onCommit: () => {
-                  void deleteAccount();
-                },
-              }
-            : null
-        }
-      />
 
       <AnimatePresence>
         {saveFlash && (
