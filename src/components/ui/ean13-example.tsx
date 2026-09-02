@@ -85,20 +85,23 @@ export function Ean13Example({
   compact?: boolean;
 }) {
   const bits = ean13Bits(code);
-  const barWidth = compact ? 1.5 : 2;
-  const height = compact ? 36 : 88;
-  const quiet = compact ? 8 : 14;
+  const barWidth = compact ? 1.6 : 2;
+  const height = compact ? 44 : 88;
+  const quiet = compact ? 10 : 14;
   const width = quiet * 2 + bits.length * barWidth;
-  const textSize = compact ? 11 : 16;
-  const textY = height + (compact ? 14 : 22);
+  const textSize = compact ? 12 : 16;
+  const textY = height + (compact ? 15 : 22);
+  const label = /^\d{13}$/.test(code)
+    ? `${code.slice(0, 1)} ${code.slice(1, 7)} ${code.slice(7)}`
+    : code;
 
   return (
     <div className={className}>
       <svg
-        viewBox={`0 0 ${width} ${height + (compact ? 18 : 28)}`}
+        viewBox={`0 0 ${width} ${height + (compact ? 20 : 28)}`}
         className={cn(
           "mx-auto h-auto w-full bg-white",
-          compact ? "max-w-[220px] rounded-[8px]" : "max-w-[280px] rounded-[12px]",
+          compact ? "max-w-[240px] rounded-[8px]" : "max-w-[280px] rounded-[12px]",
         )}
         role="img"
         aria-label={`Пример штрихкода EAN-13 ${code}`}
@@ -107,7 +110,7 @@ export function Ean13Example({
           x={0}
           y={0}
           width={width}
-          height={height + (compact ? 18 : 28)}
+          height={height + (compact ? 20 : 28)}
           fill="#fff"
         />
         {bits.split("").map((bit, index) =>
@@ -128,10 +131,10 @@ export function Ean13Example({
           textAnchor="middle"
           fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace"
           fontSize={textSize}
-          letterSpacing="1.5"
+          letterSpacing="0.5"
           fill="#111113"
         >
-          {code}
+          {label}
         </text>
       </svg>
     </div>

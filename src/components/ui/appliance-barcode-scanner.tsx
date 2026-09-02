@@ -260,15 +260,15 @@ export function ApplianceBarcodeScanner({
 
   return (
     <Portal>
-      <div className="fixed inset-0 z-[120] flex items-end justify-center bg-black/70 backdrop-blur-sm lg:items-center lg:p-6">
-        <div className="flex h-[min(100dvh,720px)] w-full max-w-[430px] flex-col overflow-hidden rounded-t-[28px] bg-[#111113] text-white shadow-2xl lg:h-auto lg:max-h-[min(92dvh,640px)] lg:rounded-[28px]">
+      <div className="fixed inset-0 z-[120] flex items-end justify-center bg-black/40 backdrop-blur-sm lg:items-center lg:p-6">
+        <div className="flex h-[min(100dvh,720px)] w-full max-w-[430px] flex-col overflow-hidden rounded-t-[28px] bg-white text-zinc-900 shadow-2xl lg:h-auto lg:max-h-[min(92dvh,680px)] lg:rounded-[28px]">
           <div className="flex shrink-0 items-center justify-between gap-3 px-4 pt-4">
             <div className="w-9" />
-            <h2 className="ty-heading text-white">Штрихкод</h2>
+            <h2 className="ty-heading text-zinc-950">Штрихкод</h2>
             <button
               type="button"
               onClick={onClose}
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white"
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-zinc-100 text-zinc-700"
               aria-label="Закрыть"
             >
               <X className="h-4 w-4" />
@@ -276,7 +276,7 @@ export function ApplianceBarcodeScanner({
           </div>
 
           <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden px-4 py-3">
-            <div className="relative h-[72px] shrink-0 overflow-hidden rounded-[16px] bg-black sm:h-[80px]">
+            <div className="relative h-[144px] shrink-0 overflow-hidden rounded-[16px] bg-zinc-900 sm:h-[160px]">
               <video
                 ref={videoRef}
                 muted
@@ -287,24 +287,24 @@ export function ApplianceBarcodeScanner({
                 )}
               />
               {!cameraReady ? (
-                <div className="absolute inset-0 flex items-center justify-center gap-2 bg-zinc-900 px-4 text-center">
-                  <Camera className="h-4 w-4 shrink-0 text-zinc-400" />
-                  <p className="ty-note text-zinc-300">
+                <div className="absolute inset-0 flex items-center justify-center gap-2 bg-zinc-100 px-4 text-center">
+                  <Camera className="h-4 w-4 shrink-0 text-zinc-500" />
+                  <p className="ty-note text-zinc-600">
                     {cameraError ?? "Включаем камеру…"}
                   </p>
                 </div>
               ) : null}
-              <div className="pointer-events-none absolute inset-y-2 inset-x-10 rounded-[10px] border border-white/70" />
+              <div className="pointer-events-none absolute inset-y-3 inset-x-8 rounded-[12px] border-2 border-white/80" />
             </div>
 
-            <div className="shrink-0 rounded-[14px] border border-white/10 bg-white/5 px-3 py-2">
+            <div className="shrink-0 rounded-[14px] border border-black/8 bg-zinc-50 px-3 py-2">
               {shownCode ? (
                 <>
-                  <p className="ty-label text-zinc-400">Код</p>
-                  <p className="font-mono text-[17px] tracking-wide text-white">
+                  <p className="ty-label text-zinc-500">Код</p>
+                  <p className="font-mono text-[17px] tracking-wide text-zinc-950">
                     {shownCode}
                   </p>
-                  <p className="mt-0.5 ty-note text-zinc-300">
+                  <p className="mt-0.5 ty-note text-zinc-600">
                     {lookup.status === "detected" || lookup.status === "looking"
                       ? "Проверяем каталог…"
                       : lookup.status === "found"
@@ -317,23 +317,23 @@ export function ApplianceBarcodeScanner({
                   </p>
                 </>
               ) : (
-                <p className="ty-note text-zinc-300">
+                <p className="ty-note text-zinc-600">
                   {cameraReady
-                    ? "Наведите полоску камеры на штрихкод"
-                    : "Камера нужна только для узкой полоски скана"}
+                    ? "Наведите камеру на штрихкод EAN-13"
+                    : "Нужен доступ к камере для сканирования"}
                 </p>
               )}
             </div>
 
             {lookup.status === "found" ? (
-              <div className="shrink-0 space-y-2 rounded-[14px] border border-emerald-400/30 bg-emerald-500/10 px-3 py-2.5">
+              <div className="shrink-0 space-y-2 rounded-[14px] border border-emerald-200 bg-emerald-50 px-3 py-2.5">
                 <div className="flex items-start gap-2">
-                  <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-300">
+                  <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-600">
                     <Check className="h-3.5 w-3.5" />
                   </span>
                   <div className="min-w-0">
-                    <p className="ty-label text-emerald-200">Товар найден</p>
-                    <p className="truncate text-[14px] text-white">
+                    <p className="ty-label text-emerald-800">Товар найден</p>
+                    <p className="truncate text-[14px] text-zinc-900">
                       {lookup.result.product.brand}{" "}
                       {lookup.result.product.modelName}
                     </p>
@@ -348,7 +348,7 @@ export function ApplianceBarcodeScanner({
                 <button
                   type="button"
                   onClick={resumeScan}
-                  className="w-full text-center ty-note text-zinc-400"
+                  className="w-full text-center ty-note text-zinc-500"
                 >
                   Сканировать другой
                 </button>
@@ -356,9 +356,9 @@ export function ApplianceBarcodeScanner({
             ) : null}
 
             {lookup.status === "missing" ? (
-              <div className="shrink-0 space-y-2 rounded-[14px] border border-amber-400/30 bg-amber-500/10 px-3 py-2.5">
-                <p className="ty-label text-amber-200">Товара нет в каталоге</p>
-                <p className="ty-note text-zinc-300">{lookup.message}</p>
+              <div className="shrink-0 space-y-2 rounded-[14px] border border-amber-200 bg-amber-50 px-3 py-2.5">
+                <p className="ty-label text-amber-900">Товара нет в каталоге</p>
+                <p className="ty-note text-zinc-600">{lookup.message}</p>
                 <Button
                   className="w-full"
                   onClick={() => onAddManually(lookup.code)}
@@ -368,7 +368,7 @@ export function ApplianceBarcodeScanner({
                 <button
                   type="button"
                   onClick={resumeScan}
-                  className="w-full text-center ty-note text-zinc-400"
+                  className="w-full text-center ty-note text-zinc-500"
                 >
                   Сканировать другой
                 </button>
@@ -376,12 +376,12 @@ export function ApplianceBarcodeScanner({
             ) : null}
 
             {lookup.status === "error" ? (
-              <div className="shrink-0 space-y-1.5 rounded-[14px] border border-rose-400/30 bg-rose-500/10 px-3 py-2.5">
-                <p className="ty-note text-rose-200">{lookup.message}</p>
+              <div className="shrink-0 space-y-1.5 rounded-[14px] border border-rose-200 bg-rose-50 px-3 py-2.5">
+                <p className="ty-note text-rose-700">{lookup.message}</p>
                 <button
                   type="button"
                   onClick={resumeScan}
-                  className="ty-note text-zinc-400"
+                  className="ty-note text-zinc-500"
                 >
                   Попробовать снова
                 </button>
@@ -389,7 +389,7 @@ export function ApplianceBarcodeScanner({
             ) : null}
 
             {looking ? (
-              <div className="flex shrink-0 items-center justify-center gap-2 ty-note text-zinc-400">
+              <div className="flex shrink-0 items-center justify-center gap-2 ty-note text-zinc-500">
                 <Loader2 className="h-4 w-4 animate-spin" />
                 Ищем модель…
               </div>
@@ -397,11 +397,14 @@ export function ApplianceBarcodeScanner({
 
             {!hasResult && !looking ? (
               <div className="min-h-0 flex-1 space-y-2 overflow-hidden">
-                <p className="ty-note text-zinc-400">
-                  Линейный код с полосками и цифрами (не QR), чаще EAN-13. В РФ
-                  часто начинается с 460–469.
+                <p className="ty-note text-zinc-600">
+                  Нужен линейный штрихкод EAN-13 (13 цифр под полосками), не
+                  QR-код. В РФ часто начинается с 460–469.
                 </p>
-                <div className="rounded-[12px] bg-white px-2 py-1.5">
+                <div className="rounded-[14px] border border-black/8 bg-zinc-50 px-3 py-2.5">
+                  <p className="mb-1.5 text-center ty-label text-zinc-500">
+                    Пример EAN-13
+                  </p>
                   <Ean13Example code={EXAMPLE_EAN13} compact />
                 </div>
               </div>
@@ -410,8 +413,8 @@ export function ApplianceBarcodeScanner({
             )}
 
             <label className="block shrink-0">
-              <span className="mb-1 block ty-label text-zinc-400">
-                Или введите код вручную
+              <span className="mb-1 block ty-label text-zinc-500">
+                Или введите EAN-13 вручную
               </span>
               <div className="flex gap-2">
                 <input
@@ -424,7 +427,7 @@ export function ApplianceBarcodeScanner({
                     );
                   }}
                   placeholder={EXAMPLE_EAN13}
-                  className="h-11 min-w-0 flex-1 rounded-[14px] border border-white/10 bg-white/5 px-3 text-[16px] text-white outline-none placeholder:text-zinc-500 disabled:opacity-50"
+                  className="h-11 min-w-0 flex-1 rounded-[14px] border border-black/8 bg-zinc-50 px-3 text-[16px] text-zinc-900 outline-none placeholder:text-zinc-400 disabled:opacity-50"
                 />
                 <Button
                   className="h-11 shrink-0 px-3"
@@ -441,7 +444,7 @@ export function ApplianceBarcodeScanner({
             </label>
           </div>
 
-          <div className="shrink-0 border-t border-white/10 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+          <div className="shrink-0 border-t border-black/6 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
             <Button className="w-full" variant="secondary" onClick={onClose}>
               Отмена
             </Button>
