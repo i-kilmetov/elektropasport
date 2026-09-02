@@ -1,11 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Camera, Loader2, X } from "lucide-react";
+import { useState } from "react";
+import { Camera, Check, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Ean13Example,
+  EXAMPLE_EAN13,
+} from "@/components/ui/ean13-example";
 import { Portal } from "@/components/ui/portal";
 import type { BarcodeLookupResponse } from "@/lib/appliance-barcode";
-import { cn } from "@/lib/utils";
 
 const BARCODE_FORMATS = [
   "ean_13",
@@ -14,6 +17,12 @@ const BARCODE_FORMATS = [
   "upc_e",
   "code_128",
 ] as const;
+
+const TIPS = [
+  "Линейный код с полосками и цифрами — не QR",
+  "Чаще всего EAN-13: 13 цифр (в РФ часто 460–469…)",
+  "Держите код ровно в кадре, без бликов",
+];
 
 type BarcodeDetectorLike = {
   detect: (
@@ -53,6 +62,62 @@ async function createBarcodeDetector(): Promise<BarcodeDetectorLike> {
   }
 }
 
+/** Same path as panel photo — native camera app, no live getUserMedia stream. */
+function pickImageFile(options: {
+  accept: string;
+  capture?: boolean;
+}): Promise<File | null> {
+  return new Promise((resolve) => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = options.accept;
+    if (options.capture) {
+      input.setAttribute("capture", "environment");
+    }
+    input.style.position = "fixed";
+    input.style.left = "-9999px";
+    input.style.width = "1px";
+    input.style.height = "1px";
+    input.style.opacity = "0";
+
+    let settled = false;
+    const finish = (file: File | null) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(cleanupTimer);
+      input.remove();
+      resolve(file);
+    };
+
+    input.addEventListener("change", () => {
+      finish(input.files?.[0] ?? null);
+    });
+    input.addEventListener("cancel", () => finish(null));
+
+    document.body.appendChild(input);
+    input.click();
+
+    const cleanupTimer = window.setTimeout(() => {
+      if (!settled && document.body.contains(input) && !input.files?.length) {
+        finish(null);
+      }
+    }, 120_000);
+  });
+}
+
+async function detectBarcodeFromFile(file: File): Promise<string | null> {
+  const detector = await createBarcodeDetector();
+  let bitmap: ImageBitmap | null = null;
+  try {
+    bitmap = await createImageBitmap(file);
+    const codes = await detector.detect(bitmap);
+    const value = codes.find((item) => item.rawValue?.trim())?.rawValue;
+    return value?.replace(/\D/g, "") || null;
+  } finally {
+    bitmap?.close();
+  }
+}
+
 export function ApplianceBarcodeScanner({
   onClose,
   onFound,
@@ -60,19 +125,13 @@ export function ApplianceBarcodeScanner({
   onClose: () => void;
   onFound: (result: BarcodeLookupResponse) => void;
 }) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const scanningRef = useRef(false);
   const [manualCode, setManualCode] = useState("");
-  const [cameraReady, setCameraReady] = useState(false);
-  const [cameraError, setCameraError] = useState<string | null>(null);
   const [lookupError, setLookupError] = useState<string | null>(null);
   const [lookingUp, setLookingUp] = useState(false);
-  const [hint, setHint] = useState("Открываем камеру…");
+  const [capturing, setCapturing] = useState(false);
 
   const lookupGtin = async (raw: string) => {
-    if (lookingUp || scanningRef.current) return;
-    scanningRef.current = true;
+    if (lookingUp) return;
     setLookingUp(true);
     setLookupError(null);
     try {
@@ -91,216 +150,145 @@ export function ApplianceBarcodeScanner({
       setLookupError(
         err instanceof Error ? err.message : "Не удалось найти товар",
       );
-      scanningRef.current = false;
     } finally {
       setLookingUp(false);
     }
   };
 
-  useEffect(() => {
-    let cancelled = false;
-    let raf = 0;
-    let detector: BarcodeDetectorLike | null = null;
-    let frame = 0;
-
-    const stopStream = () => {
-      streamRef.current?.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
-    };
-
-    const start = async () => {
-      try {
-        detector = await createBarcodeDetector();
-      } catch {
-        if (!cancelled) {
-          setCameraError(
-            "Не удалось загрузить сканер — введите код вручную",
-          );
-          setHint("Введите EAN с упаковки");
-        }
-        return;
-      }
-
-      if (cancelled) return;
-
-      if (!navigator.mediaDevices?.getUserMedia) {
-        setCameraError(
-          "Камера недоступна в этом браузере — введите код вручную",
-        );
-        setHint("Введите EAN с упаковки");
-        return;
-      }
-
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: false,
-          video: {
-            facingMode: { ideal: "environment" },
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-          },
-        });
-        if (cancelled) {
-          stream.getTracks().forEach((track) => track.stop());
-          return;
-        }
-        streamRef.current = stream;
-        const video = videoRef.current;
-        if (!video) return;
-        video.srcObject = stream;
-        await video.play();
-        setCameraReady(true);
-        setHint("Наведите камеру на штрихкод");
-      } catch {
-        setCameraError("Нет доступа к камере — введите штрихкод вручную");
-        setHint("Введите EAN с упаковки");
-        return;
-      }
-
-      const tick = async () => {
-        if (cancelled || scanningRef.current || !detector) return;
-        const video = videoRef.current;
-        if (!video || video.readyState < 2) {
-          raf = window.requestAnimationFrame(() => {
-            void tick();
-          });
-          return;
-        }
-
-        // Polyfill is heavier than native — skip most frames.
-        frame += 1;
-        if (frame % 3 !== 0) {
-          raf = window.requestAnimationFrame(() => {
-            void tick();
-          });
-          return;
-        }
-
-        try {
-          const codes = await detector.detect(video);
-          const value = codes.find((item) => item.rawValue?.trim())?.rawValue;
-          if (value) {
-            setHint("Ищем модель…");
-            await lookupGtin(value);
-            if (!cancelled && scanningRef.current === false) {
-              setHint("Наведите камеру на штрихкод");
-              raf = window.requestAnimationFrame(() => {
-                void tick();
-              });
-            }
-            return;
-          }
-        } catch {
-          // keep scanning
-        }
-        raf = window.requestAnimationFrame(() => {
-          void tick();
-        });
-      };
-
-      raf = window.requestAnimationFrame(() => {
-        void tick();
+  const openCamera = async () => {
+    setLookupError(null);
+    setCapturing(true);
+    try {
+      const file = await pickImageFile({
+        accept: "image/*",
+        capture: true,
       });
-    };
+      if (!file) return;
 
-    void start();
+      let code: string | null = null;
+      try {
+        code = await detectBarcodeFromFile(file);
+      } catch {
+        setLookupError(
+          "Не удалось разобрать снимок. Попробуйте ещё раз или введите код вручную.",
+        );
+        return;
+      }
 
-    return () => {
-      cancelled = true;
-      window.cancelAnimationFrame(raf);
-      stopStream();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+      if (!code || code.length < 8) {
+        setLookupError(
+          "Штрихкод на фото не найден. Снимите ближе и ровнее или введите цифры вручную.",
+        );
+        return;
+      }
+
+      await lookupGtin(code);
+    } finally {
+      setCapturing(false);
+    }
+  };
+
+  const busy = lookingUp || capturing;
 
   return (
     <Portal>
       <div className="fixed inset-0 z-[120] flex items-end bg-black/70 backdrop-blur-sm lg:items-center lg:justify-center lg:p-6">
-        <div className="mx-auto flex max-h-[92dvh] w-full max-w-[430px] flex-col overflow-hidden rounded-t-[28px] bg-[#111113] text-white shadow-2xl lg:max-w-md lg:rounded-[28px]">
+        <div className="mx-auto flex max-h-[92dvh] w-full max-w-[430px] flex-col overflow-hidden rounded-t-[28px] bg-white text-zinc-900 shadow-2xl lg:max-w-md lg:rounded-[28px]">
           <div className="flex items-center justify-between gap-3 px-5 pt-5">
             <div className="w-10" />
-            <h2 className="ty-heading text-white">Штрихкод</h2>
+            <h2 className="ty-heading">Штрихкод</h2>
             <button
               type="button"
               onClick={onClose}
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white"
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-zinc-100 text-zinc-700"
               aria-label="Закрыть"
+              disabled={busy}
             >
               <X className="h-4 w-4" />
             </button>
           </div>
 
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4">
-            <div className="relative overflow-hidden rounded-[20px] bg-black">
-              <video
-                ref={videoRef}
-                muted
-                playsInline
-                className={cn(
-                  "aspect-[3/4] w-full object-cover",
-                  !cameraReady && "opacity-0",
-                )}
-              />
-              {!cameraReady ? (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-zinc-900 px-6 text-center">
-                  <Camera className="h-8 w-8 text-zinc-400" />
-                  <p className="ty-note text-zinc-300">
-                    {cameraError ?? "Открываем камеру…"}
-                  </p>
-                </div>
-              ) : null}
-              <div className="pointer-events-none absolute inset-x-8 top-1/2 h-24 -translate-y-1/2 rounded-[16px] border-2 border-white/70" />
+            <div>
+              <h3 className="ty-title text-zinc-950">
+                Сфотографируйте штрихкод
+              </h3>
+              <p className="mt-1.5 ty-body text-zinc-600">
+                Как при съёмке щитка: сначала подсказка, потом системная камера.
+              </p>
             </div>
 
-            <p className="text-center ty-note text-zinc-300">{hint}</p>
-
-            <div className="space-y-2 rounded-[16px] border border-white/10 bg-white/5 px-3.5 py-3 text-left">
-              <p className="ty-label text-zinc-200">Что сканировать</p>
-              <ul className="list-disc space-y-1.5 pl-4 ty-note text-zinc-400">
-                <li>
-                  Линейный штрихкод на коробке или шильдике прибора — полоски
-                  с цифрами под ними (не QR-код).
-                </li>
-                <li>
-                  Обычно это EAN-13: 13 цифр. У товаров из РФ часто начинается с{" "}
-                  <span className="text-zinc-200">460–469</span>.
-                </li>
-                <li>
-                  Подойдут также EAN-8, UPC (12 цифр) и GTIN из 14 цифр — только
-                  цифры, без букв.
-                </li>
-                <li>
-                  Фотографировать не нужно: наведите камеру на код и держите
-                  ровно — распознавание идёт само, в рамке по центру.
-                </li>
-              </ul>
+            <div className="rounded-[20px] border border-black/8 bg-zinc-50 px-4 py-4">
+              <p className="mb-3 text-center ty-label text-zinc-500">
+                Как выглядит код (пример EAN-13)
+              </p>
+              <Ean13Example code={EXAMPLE_EAN13} />
+              <p className="mt-3 text-center ty-note text-zinc-500">
+                Полоски + цифры под ними. QR-код не подойдёт.
+              </p>
             </div>
+
+            <ul className="space-y-2.5">
+              {TIPS.map((tip) => (
+                <li
+                  key={tip}
+                  className="flex items-start gap-3 text-[14px] text-zinc-700"
+                >
+                  <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-600">
+                    <Check className="h-3.5 w-3.5" />
+                  </span>
+                  <span>{tip}</span>
+                </li>
+              ))}
+            </ul>
 
             <label className="block">
-              <span className="mb-1.5 block ty-label text-zinc-400">
+              <span className="mb-1.5 block ty-label text-zinc-500">
                 Или введите код вручную
               </span>
               <input
                 inputMode="numeric"
                 value={manualCode}
+                disabled={busy}
                 onChange={(event) => {
-                  setManualCode(event.target.value.replace(/\D/g, "").slice(0, 14));
+                  setManualCode(
+                    event.target.value.replace(/\D/g, "").slice(0, 14),
+                  );
                   setLookupError(null);
                 }}
-                placeholder="4601234567890"
-                className="h-12 w-full rounded-[16px] border border-white/10 bg-white/5 px-4 text-[16px] text-white outline-none placeholder:text-zinc-500"
+                placeholder={EXAMPLE_EAN13}
+                className="h-12 w-full rounded-[16px] border border-black/8 bg-zinc-50 px-4 text-[16px] text-zinc-900 outline-none placeholder:text-zinc-400"
               />
             </label>
 
             {lookupError ? (
-              <p className="ty-note text-rose-300">{lookupError}</p>
+              <p className="ty-note text-rose-600">{lookupError}</p>
             ) : null}
           </div>
 
-          <div className="shrink-0 space-y-2 border-t border-white/10 px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+          <div className="shrink-0 space-y-2 border-t border-black/6 px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
             <Button
               className="w-full"
-              disabled={lookingUp || manualCode.replace(/\D/g, "").length < 8}
+              size="lg"
+              disabled={busy}
+              onClick={() => void openCamera()}
+            >
+              {busy ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  {lookingUp ? "Ищем модель…" : "Открываем камеру…"}
+                </>
+              ) : (
+                <>
+                  <Camera className="h-5 w-5" />
+                  Сфотографировать штрихкод
+                </>
+              )}
+            </Button>
+            <Button
+              className="w-full"
+              variant="secondary"
+              disabled={busy || manualCode.replace(/\D/g, "").length < 8}
               onClick={() => void lookupGtin(manualCode)}
             >
               {lookingUp ? (
@@ -312,9 +300,14 @@ export function ApplianceBarcodeScanner({
                 "Найти по коду"
               )}
             </Button>
-            <Button className="w-full" variant="secondary" onClick={onClose}>
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={busy}
+              className="w-full py-2 text-center ty-subtitle text-zinc-500 transition-colors hover:text-zinc-800 disabled:opacity-40"
+            >
               Отмена
-            </Button>
+            </button>
           </div>
         </div>
       </div>
