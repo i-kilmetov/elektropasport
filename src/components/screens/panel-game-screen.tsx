@@ -1,14 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
 import { motion } from "framer-motion";
 import { ArrowLeft, Check, Grid3x3, Hash, UserPlus, Zap } from "lucide-react";
 import { DeviceFaceStatic, MODULE_PX } from "@/components/icons/device-face";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { PixelButton } from "@/components/ui/pixel-button";
 import { PanelLimitSheet } from "@/components/screens/panel-limit-sheet";
 import { Panel2048Board } from "@/components/screens/panel-2048-board";
 import { PanelPuzzleBoard } from "@/components/screens/panel-puzzle-board";
+import { EggCatchBoard } from "@/components/screens/egg-catch-board";
 import { hapticImpact, hapticNotification } from "@/lib/haptics";
 import {
   collectedDeviceIds,
@@ -50,12 +53,19 @@ import {
   type MergeState,
 } from "@/lib/panel-2048";
 import { hasUnlockedPanelLimit, type PanelQuota } from "@/lib/invites";
+import {
+  createEggCatchGame,
+  EGG_TICK_MS,
+  setEggWolfSide,
+  stepEggCatchGame,
+  type EggCatchState,
+} from "@/lib/egg-catch-game";
 import { cn } from "@/lib/utils";
 import type { Device, PanelObject } from "@/types";
 
 const MINI_SCALE = 0.42;
 
-type Phase = "hub" | "gate" | "pick" | "play";
+type Phase = "landing" | "egg" | "hub" | "gate" | "pick" | "play";
 type GameKind = "puzzle" | "snake" | "merge";
 
 const GAME_CARDS: Array<{
@@ -253,9 +263,10 @@ export function PanelGameScreen({
     (panel) => playDevices(panel).length > 0,
   );
 
-  const [phase, setPhase] = useState<Phase>("hub");
+  const [phase, setPhase] = useState<Phase>("landing");
   const [panelId, setPanelId] = useState<string | null>(null);
   const [gameKind, setGameKind] = useState<GameKind | null>(null);
+  const [egg, setEgg] = useState<EggCatchState | null>(null);
   const [state, setState] = useState<SnakeGameState | null>(null);
   const [puzzle, setPuzzle] = useState<PuzzleState | null>(null);
   const [merge, setMerge] = useState<MergeState | null>(null);
@@ -293,6 +304,7 @@ export function PanelGameScreen({
   );
   const viewPhase: Phase =
     phase === "pick" && playable.length === 0 ? "gate" : phase;
+  const playingEgg = viewPhase === "egg";
   const playingSnake = viewPhase === "play" && gameKind === "snake";
   const playingPuzzle = viewPhase === "play" && gameKind === "puzzle";
   const playingMerge = viewPhase === "play" && gameKind === "merge";
@@ -306,9 +318,14 @@ export function PanelGameScreen({
     playingMerge && merge && merge.moves > 0 && !merge.won && !merge.lost,
   );
 
+  const eggInProgress = Boolean(
+    playingEgg && egg && egg.tick > 0 && !egg.gameOver,
+  );
+
   const stateRef = useRef(state);
   const puzzleRef = useRef(puzzle);
   const mergeRef = useRef(merge);
+  const eggRef = useRef(egg);
   const devicesRef = useRef(devices);
   const pointer = useRef<{ x: number; y: number } | null>(null);
 
@@ -316,8 +333,9 @@ export function PanelGameScreen({
     stateRef.current = state;
     puzzleRef.current = puzzle;
     mergeRef.current = merge;
+    eggRef.current = egg;
     devicesRef.current = devices;
-  }, [devices, merge, puzzle, state]);
+  }, [devices, egg, merge, puzzle, state]);
 
   const resetBoards = useCallback(() => {
     setState(null);
@@ -376,12 +394,55 @@ export function PanelGameScreen({
     setPhase(playable.length === 0 ? "hub" : "pick");
   }, [playable.length, resetBoards, setPhase]);
 
+  const goLanding = useCallback(() => {
+    resetBoards();
+    setEgg(null);
+    setPanelId(null);
+    setGameKind(null);
+    setPhase("landing");
+  }, [resetBoards, setGameKind, setPanelId, setPhase]);
+
+  const startEggGame = useCallback(() => {
+    setEgg(createEggCatchGame());
+    setPhase("egg");
+    hapticImpact("soft");
+  }, [setPhase]);
+
+  const restartEgg = useCallback(() => {
+    setEgg(createEggCatchGame());
+    hapticImpact("soft");
+  }, []);
+
   const goHub = useCallback(() => {
     resetBoards();
+    setEgg(null);
     setPanelId(null);
     setGameKind(null);
     setPhase("hub");
   }, [resetBoards, setGameKind, setPanelId, setPhase]);
+
+  useEffect(() => {
+    if (!playingEgg || !egg || egg.gameOver) return;
+    const id = window.setInterval(() => {
+      const current = eggRef.current;
+      if (!current || current.gameOver) return;
+      const next = stepEggCatchGame(current);
+      if (next === current) return;
+      setEgg(next);
+      if (next.gameOver) {
+        hapticNotification("error");
+      } else if (next.feedback && next.feedback !== current.feedback) {
+        if (next.feedback.ok) hapticImpact("medium");
+        else hapticNotification("warning");
+      }
+    }, EGG_TICK_MS);
+    return () => window.clearInterval(id);
+  }, [egg, playingEgg]);
+
+  const onEggSide = useCallback((side: 0 | 1) => {
+    setEgg((prev) => (prev ? setEggWolfSide(prev, side) : prev));
+    hapticImpact("light");
+  }, [setEgg]);
 
   useEffect(() => {
     if (!playingSnake || !state?.alive || state.won) return;
@@ -619,8 +680,12 @@ export function PanelGameScreen({
   ]);
 
   const title =
-    viewPhase === "hub"
+    viewPhase === "landing"
       ? "Игра"
+      : viewPhase === "egg"
+        ? "Лови правильно"
+      : viewPhase === "hub"
+        ? "Другие игры"
       : viewPhase === "gate"
         ? "Игра"
         : viewPhase === "pick"
@@ -628,7 +693,11 @@ export function PanelGameScreen({
           : gameTitle(gameKind);
 
   const subtitle =
-    playingPuzzle && puzzle
+    playingEgg && egg
+      ? egg.gameOver
+        ? `Игра окончена · ${egg.score} очков`
+        : `Очки ${egg.score} · жизней ${egg.lives}`
+      : playingPuzzle && puzzle
       ? pickingHole
         ? "Нажмите пустую плитку, чтобы убрать её"
         : `На месте ${puzzlePlaced} из ${puzzleTotal}`
@@ -636,8 +705,10 @@ export function PanelGameScreen({
         ? `Собрано ${collectedCount} из ${totalModules}`
         : playingMerge && merge
           ? `Счёт ${merge.score}`
-          : viewPhase === "hub"
-            ? "Электрика — не игрушки"
+          : viewPhase === "landing"
+            ? "Играя, учимся электрике"
+            : viewPhase === "hub"
+              ? "Пятнашки, змейка и 2048"
             : viewPhase === "pick"
               ? gameTitle(gameKind)
               : "Соберите схему своего щитка";
@@ -653,7 +724,7 @@ export function PanelGameScreen({
         <button
           type="button"
           onClick={() => {
-            if (snakeInProgress || puzzleInProgress || mergeInProgress) {
+            if (snakeInProgress || puzzleInProgress || mergeInProgress || eggInProgress) {
               setConfirmLeave(true);
               return;
             }
@@ -669,6 +740,10 @@ export function PanelGameScreen({
               goHub();
               return;
             }
+            if (viewPhase === "hub" || viewPhase === "egg") {
+              goLanding();
+              return;
+            }
             onBack();
           }}
           className="flex h-11 w-11 items-center justify-center rounded-full border border-black/8 bg-zinc-100 text-zinc-900"
@@ -682,10 +757,13 @@ export function PanelGameScreen({
           </h1>
           <p className="ty-note">{subtitle}</p>
         </div>
-        {viewPhase === "play" && (
+        {(viewPhase === "play" || viewPhase === "egg") && (
           <button
             type="button"
-            onClick={restart}
+            onClick={() => {
+              if (viewPhase === "egg") restartEgg();
+              else restart();
+            }}
             className="rounded-full px-3 py-2 ty-label text-zinc-600"
           >
             Заново
@@ -693,12 +771,68 @@ export function PanelGameScreen({
         )}
       </header>
 
+      {viewPhase === "landing" && (
+        <div className="flex flex-1 flex-col items-center">
+          <div className="relative w-full max-w-[360px] overflow-hidden rounded-[24px] bg-zinc-900 shadow-[0_16px_40px_rgba(17,17,19,0.18)]">
+            <Image
+              src="/games/tokom-handheld.jpg"
+              alt="Током — портативная игра про электрику"
+              width={900}
+              height={900}
+              className="h-auto w-full object-cover"
+              priority
+            />
+          </div>
+
+          <p className="mt-5 max-w-sm text-center ty-body">
+            Играя, мы научим вас лучше разбираться в электрике. Ловите
+            безопасные решения, пропускайте опасные — и запоминайте, что можно
+            делать с током, а что нельзя.
+          </p>
+
+          <div className="mt-auto flex w-full flex-col items-center gap-4 pt-8">
+            <PixelButton onClick={startEggGame}>Играть</PixelButton>
+            <button
+              type="button"
+              onClick={goHub}
+              className="ty-label text-zinc-500 underline decoration-zinc-300 underline-offset-4 transition hover:text-zinc-800"
+            >
+              Другие игры
+            </button>
+          </div>
+        </div>
+      )}
+
+      {viewPhase === "egg" && egg && (
+        <div className="flex flex-1 flex-col">
+          <EggCatchBoard state={egg} onSide={onEggSide} />
+
+          {egg.gameOver && (
+            <div className="mt-6 space-y-3">
+              <div className="rounded-[24px] border border-black/8 bg-white px-4 py-5 text-center">
+                <h2 className="ty-title">Игра окончена</h2>
+                <p className="mt-2 ty-body">
+                  Счёт: {egg.score}. Поймано безопасных решений: {egg.caught}.
+                </p>
+              </div>
+              <div className="flex gap-3">
+                <Button className="flex-1" variant="secondary" onClick={goLanding}>
+                  На главную
+                </Button>
+                <Button className="flex-1" onClick={restartEgg}>
+                  Ещё раз
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {viewPhase === "hub" && (
         <div className="flex flex-1 flex-col gap-3">
           <p className="ty-body">
-            Электрика — не игрушки. Но игры — хороший способ разобраться и
-            запомнить информацию. Этими играми вы как минимум запомните
-            расположение приборов в вашем щитке.
+            Эти игры собираются по схеме вашего щитка — так проще запомнить,
+            где стоят автоматы, УЗО и другие приборы.
           </p>
           {GAME_CARDS.map((item) => (
             <button
@@ -1086,7 +1220,8 @@ export function PanelGameScreen({
           onCancel={() => setConfirmLeave(false)}
           onConfirm={() => {
             setConfirmLeave(false);
-            leavePlay();
+            if (playingEgg) goLanding();
+            else leavePlay();
           }}
         />
       )}

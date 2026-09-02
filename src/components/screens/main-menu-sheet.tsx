@@ -45,7 +45,7 @@ const items: Array<{
   {
     id: "game",
     title: "Игра",
-    description: "Пятнашки, змейка и 2048",
+    description: "Лови правильно — и другие игры",
     icon: Gamepad2,
   },
   {
