@@ -146,12 +146,14 @@ export function PhoneLoginFlow({
   className,
   onBeforeLogin,
   onPhoneLiftChange,
+  onPhoneFocusChange,
 }: {
   returnTo?: string;
   variant?: "splash" | "card";
   className?: string;
   onBeforeLogin?: () => void;
   onPhoneLiftChange?: (state: CablePhoneLiftState) => void;
+  onPhoneFocusChange?: (focused: boolean) => void;
 }) {
   const [enabled, setEnabled] = useState<boolean | null>(null);
   const [step, setStep] = useState<Step>("phone");
@@ -270,7 +272,9 @@ export function PhoneLoginFlow({
           phoneValid={phoneValid}
           ghostTone={isSplash ? "light" : "dark"}
           variant={isSplash ? "splash" : "card"}
+          embeddedLift={isSplash}
           onLiftChange={onPhoneLiftChange}
+          onFocusChange={onPhoneFocusChange}
           className={
             isSplash
               ? "relative left-1/2 w-screen -translate-x-1/2"

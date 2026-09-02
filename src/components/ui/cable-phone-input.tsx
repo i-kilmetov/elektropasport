@@ -8,14 +8,15 @@ import {
 } from "@/lib/cable-marker-colors";
 import { cn } from "@/lib/utils";
 
-const CLIP_W = 32;
-const CLIP_W_WIDE = 46;
-const CLIP_H = 30;
+const CLIP_W = 40;
+const CLIP_W_WIDE = 54;
+const CLIP_H = 44;
 const CLIP_OVERLAP = 3;
 const DIGIT_SLOTS = 10;
-const ROW_H = 38;
+const ROW_H = 52;
 
 export type CablePhoneLiftState = {
+  focused: boolean;
   open: boolean;
   bottom: number;
   height: number;
@@ -97,8 +98,10 @@ function CableMarkerClip({
   const uid = useId().replace(/:/g, "");
   const w = clipWidth(label);
   const colors = style ?? cableMarkerStyleForDigit("7");
-  const fontSize = label.length > 1 ? 13 : 17;
-  const faceW = w - 7;
+  const fontSize = label.length > 1 ? 15 : 20;
+  const faceW = w - 8;
+  const faceH = 36;
+  const faceY = 4;
   const ghostStroke =
     ghostTone === "light" ? "rgba(255,255,255,0.62)" : "rgba(17,17,19,0.35)";
   const ghostFillTop =
@@ -114,7 +117,7 @@ function CableMarkerClip({
       width={w}
       height={CLIP_H}
       className={cn(
-        "shrink-0 drop-shadow-[0_3px_6px_rgba(0,0,0,0.28)]",
+        "shrink-0 drop-shadow-[0_4px_8px_rgba(0,0,0,0.3)]",
         blinking && "animate-cable-clip-blink",
         className,
       )}
@@ -128,24 +131,22 @@ function CableMarkerClip({
         </linearGradient>
       </defs>
 
-      {/* Left depth edge (front view) */}
       <rect
-        x="2"
-        y="3"
-        width="2.5"
-        height="24"
-        rx="0.8"
+        x="2.5"
+        y={faceY}
+        width="3"
+        height={faceH}
+        rx="1"
         fill={ghost ? "rgba(255,255,255,0.14)" : colors.side}
         opacity={ghost ? 1 : 0.85}
       />
 
-      {/* Colored face */}
       <rect
-        x="4.5"
-        y="3"
+        x="5.5"
+        y={faceY}
         width={faceW}
-        height="24"
-        rx="3.5"
+        height={faceH}
+        rx="4"
         fill={`url(#${uid}-face)`}
         stroke={ghost ? ghostStroke : "rgba(0,0,0,0.16)"}
         strokeWidth="0.9"
@@ -153,21 +154,20 @@ function CableMarkerClip({
 
       {!ghost ? (
         <rect
-          x="7"
-          y="5"
-          width={faceW - 5}
-          height="3.5"
-          rx="1.5"
+          x="8.5"
+          y={faceY + 2}
+          width={faceW - 6}
+          height="4.5"
+          rx="2"
           fill="rgba(255,255,255,0.22)"
         />
       ) : null}
 
-      {/* Side interlock tab */}
       <rect
-        x={w - 5}
-        y="10"
-        width="3.5"
-        height="10"
+        x={w - 5.5}
+        y={faceY + 10}
+        width="4"
+        height="14"
         rx="1.2"
         fill={ghost ? "rgba(255,255,255,0.18)" : colors.face}
         stroke={ghost ? ghostStroke : "rgba(0,0,0,0.12)"}
@@ -176,8 +176,8 @@ function CableMarkerClip({
 
       {!ghost ? (
         <text
-          x={4.5 + faceW / 2}
-          y="16"
+          x={5.5 + faceW / 2}
+          y={faceY + faceH / 2}
           textAnchor="middle"
           dominantBaseline="middle"
           fill={colors.text}
@@ -195,12 +195,12 @@ function CableMarkerClip({
 function CableWire() {
   return (
     <div
-      className="pointer-events-none absolute inset-x-0 top-1/2 z-0 h-[14px] -translate-y-1/2 rounded-full"
+      className="pointer-events-none absolute inset-x-0 top-1/2 z-0 h-[16px] -translate-y-1/2 rounded-full"
       aria-hidden
     >
       <div className="absolute inset-0 rounded-full bg-[#0c0c0e]" />
-      <div className="absolute inset-x-[1%] top-[2px] h-[4px] rounded-full bg-white/[0.12]" />
-      <div className="absolute inset-x-0 bottom-0 h-[3px] rounded-full bg-black/50" />
+      <div className="absolute inset-x-[1%] top-[2px] h-[5px] rounded-full bg-white/[0.12]" />
+      <div className="absolute inset-x-0 bottom-0 h-[4px] rounded-full bg-black/50" />
     </div>
   );
 }
@@ -216,7 +216,9 @@ export function CablePhoneInput({
   inputId = "phone-login",
   ghostTone = "light",
   variant = "card",
+  embeddedLift = false,
   onLiftChange,
+  onFocusChange,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -228,15 +230,19 @@ export function CablePhoneInput({
   inputId?: string;
   ghostTone?: "light" | "dark";
   variant?: "splash" | "card";
+  /** Parent owns fixed positioning above the keyboard (splash auth). */
+  embeddedLift?: boolean;
   onLiftChange?: (state: CablePhoneLiftState) => void;
+  onFocusChange?: (focused: boolean) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const shellRef = useRef<HTMLDivElement>(null);
   const [focused, setFocused] = useState(false);
   const [scale, setScale] = useState(1);
-  const [placeholderHeight, setPlaceholderHeight] = useState(0);
+  const [shellHeight, setShellHeight] = useState(0);
   const keyboardLift = useKeyboardLift(focused);
   const prefixStyle = cableMarkerStyleForDigit("7");
+  const selfLift = !embeddedLift && keyboardLift.open;
 
   const digits = value
     .replace(/\D/g, "")
@@ -270,10 +276,9 @@ export function CablePhoneInput({
   }, [rowWidth]);
 
   useEffect(() => {
-    if (!focused) return;
     const shell = shellRef.current;
     if (!shell) return;
-    const measure = () => setPlaceholderHeight(shell.offsetHeight);
+    const measure = () => setShellHeight(shell.offsetHeight);
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(shell);
@@ -282,17 +287,22 @@ export function CablePhoneInput({
 
   useEffect(() => {
     onLiftChange?.({
+      focused,
       open: keyboardLift.open,
       bottom: keyboardLift.bottom,
-      height: placeholderHeight || shellRef.current?.offsetHeight || 0,
+      height: shellHeight,
     });
-  }, [keyboardLift.open, keyboardLift.bottom, placeholderHeight, onLiftChange]);
+  }, [
+    focused,
+    keyboardLift.open,
+    keyboardLift.bottom,
+    shellHeight,
+    onLiftChange,
+  ]);
 
   useEffect(() => {
-    if (!focused && !keyboardLift.open) {
-      onLiftChange?.({ open: false, bottom: 0, height: 0 });
-    }
-  }, [focused, keyboardLift.open, onLiftChange]);
+    onFocusChange?.(focused);
+  }, [focused, onFocusChange]);
 
   const focusInput = () => {
     if (disabled) return;
@@ -325,26 +335,20 @@ export function CablePhoneInput({
 
   return (
     <>
-      {keyboardLift.open ? (
-        <div
-          aria-hidden
-          className="w-full"
-          style={{ height: placeholderHeight }}
-        />
+      {selfLift ? (
+        <div aria-hidden className="w-full" style={{ height: shellHeight }} />
       ) : null}
       <div
         ref={shellRef}
         className={cn(
           "w-full transition-[transform,opacity] duration-200",
-          keyboardLift.open && "fixed inset-x-0 z-[300] pt-2",
-          keyboardLift.open && variant === "splash" && "bg-[#D3DA00]",
-          keyboardLift.open &&
-            variant === "card" &&
-            "bg-white/95 backdrop-blur-sm",
+          selfLift && "fixed inset-x-0 z-[300] pt-2",
+          selfLift && variant === "splash" && "bg-[#D3DA00]",
+          selfLift && variant === "card" && "bg-white/95 backdrop-blur-sm",
           className,
         )}
         style={
-          keyboardLift.open
+          selfLift
             ? {
                 bottom: `${keyboardLift.bottom}px`,
                 paddingLeft: "max(0.75rem, env(safe-area-inset-left))",

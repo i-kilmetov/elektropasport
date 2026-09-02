@@ -420,12 +420,17 @@ export function BrandAuthIntro({
   const [loginError, setLoginError] = useState<string | null>(null);
   const [logoWidth, setLogoWidth] = useState(0);
   const [phoneLift, setPhoneLift] = useState<CablePhoneLiftState>({
+    focused: false,
     open: false,
     bottom: 0,
     height: 0,
   });
+  const [phoneFocused, setPhoneFocused] = useState(false);
+  const [authPanelHeight, setAuthPanelHeight] = useState(0);
   const logoReady = skipAnimation || logoWidth > 0;
   const logoRef = useRef<HTMLDivElement>(null);
+  const authPanelRef = useRef<HTMLDivElement>(null);
+  const keyboardActive = phoneLift.open;
 
   useEffect(() => {
     applySplashStatusBarTheme();
@@ -465,10 +470,74 @@ export function BrandAuthIntro({
     };
   }, [restRevealed]);
 
+  useEffect(() => {
+    const panel = authPanelRef.current;
+    if (!panel) return;
+    const measure = () => setAuthPanelHeight(panel.offsetHeight);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(panel);
+    return () => observer.disconnect();
+  }, [phoneFocused, keyboardActive, loginVisible, logoReady, phoneLift.height]);
+
   const handleBeforeLogin = () => {
     setLoginError(null);
     onLogin();
   };
+
+  const brandMark = (
+    <BrandMark
+      tagline=""
+      taglineVisible={false}
+      stripesPulsing={stripesPulsing}
+      restRevealed={restRevealed}
+      tUpright={skipAnimation || flip.tUpright}
+      tInstantUpright={skipAnimation}
+      instantReveal={skipAnimation}
+      collapseRest={!skipAnimation}
+    />
+  );
+
+  const phoneSection = (
+    <motion.div
+      className="mx-auto w-full max-w-xl shrink-0 px-5 pb-2"
+      initial={false}
+      animate={{
+        opacity: loginVisible && logoReady ? 1 : 0,
+        y: loginVisible && logoReady ? 0 : 12,
+      }}
+      transition={{ duration: skipAnimation ? 0 : 0.38, ease: [0.22, 1, 0.36, 1] }}
+    >
+      <PhoneLoginFlow
+        variant="splash"
+        onBeforeLogin={handleBeforeLogin}
+        onPhoneLiftChange={setPhoneLift}
+        onPhoneFocusChange={setPhoneFocused}
+      />
+      {loginError && (
+        <p className="mt-3 text-center text-[13px] text-red-700">
+          {loginError}
+        </p>
+      )}
+    </motion.div>
+  );
+
+  const authPanel = (
+    <div
+      ref={authPanelRef}
+      className="flex w-full flex-col items-center"
+    >
+      {phoneFocused ? (
+        <div
+          ref={logoRef}
+          className="mb-8 flex w-full justify-center transition-transform duration-200 ease-out"
+        >
+          {brandMark}
+        </div>
+      ) : null}
+      {phoneSection}
+    </div>
+  );
 
   return (
     <div
@@ -476,60 +545,48 @@ export function BrandAuthIntro({
       style={{
         backgroundColor: BRAND_YELLOW,
         height: "var(--app-height, 100dvh)",
-        paddingBottom: "max(1.75rem, env(safe-area-inset-bottom))",
+        paddingBottom: keyboardActive
+          ? "0.75rem"
+          : "max(1.75rem, env(safe-area-inset-bottom))",
       }}
       aria-label="Током — вход"
     >
-      <div className="relative min-h-0 flex-1 w-full">
+      {keyboardActive ? (
         <div
-          ref={logoRef}
-          className={
-            phoneLift.open
-              ? "fixed left-1/2 z-[301] w-max -translate-x-1/2 transition-[bottom] duration-200 ease-out"
-              : "absolute top-1/2 left-1/2 w-max -translate-x-1/2 -translate-y-1/2 transition-[bottom,top,transform] duration-200 ease-out"
-          }
-          style={
-            phoneLift.open
-              ? {
-                  bottom: phoneLift.bottom + phoneLift.height + 28,
-                  top: "auto",
-                }
-              : undefined
-          }
-        >
-          <BrandMark
-            tagline=""
-            taglineVisible={false}
-            stripesPulsing={stripesPulsing}
-            restRevealed={restRevealed}
-            tUpright={skipAnimation || flip.tUpright}
-            tInstantUpright={skipAnimation}
-            instantReveal={skipAnimation}
-            collapseRest={!skipAnimation}
-          />
-        </div>
-      </div>
-
-      <motion.div
-        className="mx-auto w-full max-w-xl shrink-0 px-5 pb-2"
-        initial={false}
-        animate={{
-          opacity: loginVisible && logoReady ? 1 : 0,
-          y: loginVisible && logoReady ? 0 : 12,
-        }}
-        transition={{ duration: skipAnimation ? 0 : 0.38, ease: [0.22, 1, 0.36, 1] }}
-      >
-        <PhoneLoginFlow
-          variant="splash"
-          onBeforeLogin={handleBeforeLogin}
-          onPhoneLiftChange={setPhoneLift}
+          aria-hidden
+          className="w-full shrink-0"
+          style={{ height: authPanelHeight }}
         />
-        {loginError && (
-          <p className="mt-3 text-center text-[13px] text-red-700">
-            {loginError}
-          </p>
-        )}
-      </motion.div>
+      ) : (
+        <>
+          {!phoneFocused ? (
+            <div className="relative min-h-0 w-full flex-1">
+              <div
+                ref={logoRef}
+                className="absolute top-1/2 left-1/2 w-max -translate-x-1/2 -translate-y-1/2"
+              >
+                {brandMark}
+              </div>
+            </div>
+          ) : (
+            <div className="min-h-0 w-full flex-1" aria-hidden />
+          )}
+          {authPanel}
+        </>
+      )}
+
+      {keyboardActive ? (
+        <div
+          className="fixed inset-x-0 z-[300] bg-[#D3DA00] px-0 pt-3 pb-2"
+          style={{
+            bottom: `${phoneLift.bottom}px`,
+            paddingLeft: "max(0.75rem, env(safe-area-inset-left))",
+            paddingRight: "max(0.75rem, env(safe-area-inset-right))",
+          }}
+        >
+          {authPanel}
+        </div>
+      ) : null}
     </div>
   );
 }
