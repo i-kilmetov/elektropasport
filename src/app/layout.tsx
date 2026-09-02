@@ -50,7 +50,10 @@ export const viewport: Viewport = {
   userScalable: false,
   viewportFit: "cover",
   themeColor: "#f7f7f8",
-  // Soft preference only — hard portrait broke barcode scanning on phones.
+  // Prefer portrait; Screen Orientation API enforces it where supported.
+  // @ts-expect-error orientation is supported by Next Viewport in practice
+  orientation: "portrait",
+  // Shrink layout with the keyboard instead of scrolling the page away.
   interactiveWidget: "resizes-content",
 };
 
@@ -61,6 +64,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${manrope.variable} ${geologica.variable} h-full antialiased`}
     >
       <head>
+        <meta name="screen-orientation" content="portrait" />
         <script src="https://telegram.org/js/telegram-web-app.js" defer />
       </head>
       <body className="min-h-[var(--app-height,100dvh)] w-full bg-[#f7f7f8] font-sans text-[var(--foreground)]">

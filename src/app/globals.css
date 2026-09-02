@@ -356,8 +356,8 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   animation-delay: -0.27s;
 }
 
-/* Landscape is allowed: portrait lock is best-effort via screen.orientation.
-   A hard CSS overlay made barcode scanning awkward when the phone tipped. */
+/* Portrait is preferred via PWA manifest + Screen Orientation lock.
+   No full-screen “Поверните телефон…” overlay. */
 
 .master-search-map {
   position: relative;

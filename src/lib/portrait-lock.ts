@@ -5,17 +5,14 @@ type OrientationApi = ScreenOrientation & {
   unlock?: () => void;
 };
 
-let pauseCount = 0;
-let activeTryLock: (() => void) | null = null;
-
 function getOrientation(): OrientationApi | null {
   if (typeof window === "undefined" || !screen.orientation) return null;
   return screen.orientation as OrientationApi;
 }
 
 /**
- * Best-effort portrait lock for phones (PWA / supported browsers).
- * Soft only — no full-screen “rotate back” overlay (that blocked barcode scanning).
+ * Keep the app in portrait whenever the browser allows it.
+ * No full-screen “rotate back” overlay — only Screen Orientation API + PWA manifest.
  */
 export function lockPortraitOrientation(): () => void {
   if (typeof window === "undefined") return () => undefined;
@@ -23,19 +20,21 @@ export function lockPortraitOrientation(): () => void {
   const orientation = getOrientation();
 
   const tryLock = () => {
-    if (pauseCount > 0) return;
     if (typeof orientation?.lock !== "function") return;
     void orientation.lock("portrait").catch(() => {
       void orientation.lock?.("portrait-primary").catch(() => undefined);
     });
   };
 
-  activeTryLock = tryLock;
   tryLock();
-  // Re-try after a user gesture — some browsers only allow lock then.
-  const onGesture = () => tryLock();
-  window.addEventListener("pointerdown", onGesture, { once: true });
-  window.addEventListener("touchstart", onGesture, { once: true });
+
+  // Many browsers only allow lock after a user gesture.
+  window.addEventListener("pointerdown", tryLock);
+  window.addEventListener("touchstart", tryLock, { passive: true });
+  window.addEventListener("click", tryLock);
+  document.addEventListener("visibilitychange", tryLock);
+  window.addEventListener("focus", tryLock);
+  window.addEventListener("pageshow", tryLock);
 
   const onChange = () => {
     const type = orientation?.type ?? "";
@@ -48,33 +47,13 @@ export function lockPortraitOrientation(): () => void {
   window.addEventListener("orientationchange", tryLock);
 
   return () => {
-    if (activeTryLock === tryLock) activeTryLock = null;
     orientation?.removeEventListener?.("change", onChange);
     window.removeEventListener("orientationchange", tryLock);
-    window.removeEventListener("pointerdown", onGesture);
-    window.removeEventListener("touchstart", onGesture);
-    try {
-      orientation?.unlock?.();
-    } catch {
-      // ignore
-    }
-  };
-}
-
-/** Temporarily allow any orientation (e.g. barcode scan). Nested-safe. */
-export function pausePortraitOrientationLock(): () => void {
-  pauseCount += 1;
-  const orientation = getOrientation();
-  try {
-    orientation?.unlock?.();
-  } catch {
-    // ignore
-  }
-
-  return () => {
-    pauseCount = Math.max(0, pauseCount - 1);
-    if (pauseCount === 0) {
-      activeTryLock?.();
-    }
+    window.removeEventListener("pointerdown", tryLock);
+    window.removeEventListener("touchstart", tryLock);
+    window.removeEventListener("click", tryLock);
+    document.removeEventListener("visibilitychange", tryLock);
+    window.removeEventListener("focus", tryLock);
+    window.removeEventListener("pageshow", tryLock);
   };
 }
