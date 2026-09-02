@@ -7,13 +7,21 @@ import { Portal } from "@/components/ui/portal";
 import type { BarcodeLookupResponse } from "@/lib/appliance-barcode";
 import { cn } from "@/lib/utils";
 
+const BARCODE_FORMATS = [
+  "ean_13",
+  "ean_8",
+  "upc_a",
+  "upc_e",
+  "code_128",
+] as const;
+
 type BarcodeDetectorLike = {
   detect: (
     source: ImageBitmapSource,
   ) => Promise<Array<{ rawValue?: string }>>;
 };
 
-function getBarcodeDetector():
+function getNativeBarcodeDetector():
   | (new (options?: { formats?: string[] }) => BarcodeDetectorLike)
   | null {
   if (typeof window === "undefined") return null;
@@ -25,6 +33,24 @@ function getBarcodeDetector():
     }
   ).BarcodeDetector;
   return ctor ?? null;
+}
+
+async function createBarcodeDetector(): Promise<BarcodeDetectorLike> {
+  const Native = getNativeBarcodeDetector();
+  if (Native) {
+    try {
+      return new Native({ formats: [...BARCODE_FORMATS] });
+    } catch {
+      return new Native();
+    }
+  }
+
+  const { BarcodeDetector } = await import("barcode-detector/ponyfill");
+  try {
+    return new BarcodeDetector({ formats: [...BARCODE_FORMATS] });
+  } catch {
+    return new BarcodeDetector();
+  }
 }
 
 export function ApplianceBarcodeScanner({
@@ -42,7 +68,7 @@ export function ApplianceBarcodeScanner({
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [lookupError, setLookupError] = useState<string | null>(null);
   const [lookingUp, setLookingUp] = useState(false);
-  const [hint, setHint] = useState("Наведите камеру на штрихкод");
+  const [hint, setHint] = useState("Открываем камеру…");
 
   const lookupGtin = async (raw: string) => {
     if (lookingUp || scanningRef.current) return;
@@ -75,6 +101,7 @@ export function ApplianceBarcodeScanner({
     let cancelled = false;
     let raf = 0;
     let detector: BarcodeDetectorLike | null = null;
+    let frame = 0;
 
     const stopStream = () => {
       streamRef.current?.getTracks().forEach((track) => track.stop());
@@ -82,21 +109,26 @@ export function ApplianceBarcodeScanner({
     };
 
     const start = async () => {
-      const Detector = getBarcodeDetector();
-      if (!Detector) {
-        setCameraError(
-          "Сканер камеры недоступен в этом браузере — введите код вручную",
-        );
-        setHint("Введите EAN с упаковки");
+      try {
+        detector = await createBarcodeDetector();
+      } catch {
+        if (!cancelled) {
+          setCameraError(
+            "Не удалось загрузить сканер — введите код вручную",
+          );
+          setHint("Введите EAN с упаковки");
+        }
         return;
       }
 
-      try {
-        detector = new Detector({
-          formats: ["ean_13", "ean_8", "upc_a", "upc_e", "code_128"],
-        });
-      } catch {
-        detector = new Detector();
+      if (cancelled) return;
+
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setCameraError(
+          "Камера недоступна в этом браузере — введите код вручную",
+        );
+        setHint("Введите EAN с упаковки");
+        return;
       }
 
       try {
@@ -120,9 +152,7 @@ export function ApplianceBarcodeScanner({
         setCameraReady(true);
         setHint("Наведите камеру на штрихкод");
       } catch {
-        setCameraError(
-          "Нет доступа к камере — введите штрихкод вручную",
-        );
+        setCameraError("Нет доступа к камере — введите штрихкод вручную");
         setHint("Введите EAN с упаковки");
         return;
       }
@@ -136,6 +166,16 @@ export function ApplianceBarcodeScanner({
           });
           return;
         }
+
+        // Polyfill is heavier than native — skip most frames.
+        frame += 1;
+        if (frame % 3 !== 0) {
+          raf = window.requestAnimationFrame(() => {
+            void tick();
+          });
+          return;
+        }
+
         try {
           const codes = await detector.detect(video);
           const value = codes.find((item) => item.rawValue?.trim())?.rawValue;
