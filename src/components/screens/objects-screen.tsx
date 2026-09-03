@@ -619,7 +619,14 @@ function ExpandableHomeCard({
               <PanelListIcon panel={panel} />
             </div>
             <div className="min-w-0 flex-1">
-              <h2 className="truncate ty-heading">{panel.title}</h2>
+              <div className="mb-0.5 flex items-center justify-between gap-2">
+                <h2 className="truncate ty-heading">{panel.title}</h2>
+                {areAllSafetyStagesDone(safetyStages) ? (
+                  <span className="shrink-0 rounded-full bg-emerald-500/15 px-2 py-0.5 ty-badge text-emerald-700">
+                    Проверен
+                  </span>
+                ) : null}
+              </div>
               <p className="truncate ty-note">{panel.address}</p>
               <p className="mt-1 ty-meta">{formatPanelListMeta(panel)}</p>
             </div>
