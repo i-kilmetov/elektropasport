@@ -1,4 +1,8 @@
-import type { AddressSuggestion, GeolocatedAddress } from "@/lib/dadata";
+import type {
+  AddressSuggestion,
+  CitySuggestion,
+  GeolocatedAddress,
+} from "@/lib/dadata";
 import { authHeaders, canUseServerAuth } from "@/lib/client-auth";
 
 const SUGGEST_TIMEOUT_MS = 12_000;
@@ -13,7 +17,7 @@ async function parseError(res: Response): Promise<string> {
   }
 }
 
-/** DaData address suggestions via /api/address-suggest (kept out of user-data bundle weight). */
+/** Address suggestions via /api/address-suggest. */
 export async function suggestAddresses(
   query: string,
   city: string,
@@ -49,6 +53,45 @@ export async function suggestAddresses(
     }
 
     const data = (await res.json()) as { suggestions?: AddressSuggestion[] };
+    return Array.isArray(data.suggestions) ? data.suggestions : [];
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error("Сервер долго не отвечает — попробуйте ещё раз");
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
+}
+
+/** City / settlement suggestions across Russia via /api/city-suggest. */
+export async function suggestCities(query: string): Promise<CitySuggestion[]> {
+  if (!canUseServerAuth()) {
+    throw new Error("Подсказки городов доступны после входа через Telegram");
+  }
+
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(
+    () => controller.abort(),
+    SUGGEST_TIMEOUT_MS,
+  );
+
+  try {
+    const res = await fetch("/api/city-suggest", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeaders(),
+      },
+      body: JSON.stringify({ query }),
+      signal: controller.signal,
+    });
+
+    if (!res.ok) {
+      throw new Error(await parseError(res));
+    }
+
+    const data = (await res.json()) as { suggestions?: CitySuggestion[] };
     return Array.isArray(data.suggestions) ? data.suggestions : [];
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {

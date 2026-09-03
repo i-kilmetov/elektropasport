@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Loader2, MapPin, Navigation, X } from "lucide-react";
 import { AddressSuggestField } from "@/components/ui/address-suggest-field";
@@ -10,12 +10,22 @@ import {
   geolocateAddress,
   isGeolocationAbortError,
   requestUserGeolocation,
+  suggestCities,
 } from "@/lib/address-suggest-client";
 import { filterCities } from "@/lib/cities";
-import { hasHouse, type AddressSuggestion, type GeolocatedAddress } from "@/lib/dadata";
+import {
+  hasHouse,
+  type AddressSuggestion,
+  type CitySuggestion,
+  type GeolocatedAddress,
+} from "@/lib/dadata";
 import { isMoscow, normalizeCityName } from "@/lib/lead-services";
 
 type Phase = "requesting" | "resolving" | "confirm" | "error" | "manual";
+
+function localCityFallback(query: string): CitySuggestion[] {
+  return filterCities(query, 8).map((name) => ({ name, label: name }));
+}
 
 export function PanelHouseAddressSheet({
   open,
@@ -44,22 +54,22 @@ export function PanelHouseAddressSheet({
   const [geoError, setGeoError] = useState<string | null>(null);
   const [geoAddress, setGeoAddress] = useState<GeolocatedAddress | null>(null);
   const [cityQuery, setCityQuery] = useState("");
-  const [citySelected, setCitySelected] = useState<string | null>(null);
+  const [citySelected, setCitySelected] = useState<CitySuggestion | null>(null);
+  const [citySuggestions, setCitySuggestions] = useState<CitySuggestion[]>([]);
+  const [cityLoading, setCityLoading] = useState(false);
   const [addressQuery, setAddressQuery] = useState("");
   const [addressSelected, setAddressSelected] = useState<AddressSuggestion | null>(
     null,
   );
+  const cityRequestId = useRef(0);
 
   const cityTrimmed = cityQuery.trim();
-  const citySuggestions = useMemo(
-    () => (cityTrimmed.length >= 2 ? filterCities(cityTrimmed) : []),
-    [cityTrimmed],
-  );
-  const cityExact = citySuggestions.find(
-    (city) => city.toLowerCase() === cityTrimmed.toLowerCase(),
-  );
+  const cityExact =
+    citySuggestions.find(
+      (item) => item.name.toLowerCase() === cityTrimmed.toLowerCase(),
+    ) ?? null;
   const city = citySelected ?? cityExact ?? null;
-  const cityLabel = city ? normalizeCityName(city) : "";
+  const cityLabel = city ? normalizeCityName(city.name) : "";
   const useMoscow = isMoscow(cityLabel);
   const addressTrimmed = addressQuery.trim();
   const addressReady =
@@ -69,6 +79,37 @@ export function PanelHouseAddressSheet({
   const canSubmitManual = Boolean(city && addressReady && !saving);
   const geoCity = geoAddress ? normalizeCityName(geoAddress.city) : "";
   const locateAbortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    if (phase !== "manual" || cityTrimmed.length < 2 || citySelected) {
+      if (citySelected || cityTrimmed.length < 2) {
+        setCitySuggestions([]);
+        setCityLoading(false);
+      }
+      return;
+    }
+
+    const id = ++cityRequestId.current;
+    const timer = window.setTimeout(() => {
+      setCityLoading(true);
+      void suggestCities(cityTrimmed)
+        .then((next) => {
+          if (cityRequestId.current !== id) return;
+          setCitySuggestions(
+            next.length > 0 ? next : localCityFallback(cityTrimmed),
+          );
+        })
+        .catch(() => {
+          if (cityRequestId.current !== id) return;
+          setCitySuggestions(localCityFallback(cityTrimmed));
+        })
+        .finally(() => {
+          if (cityRequestId.current === id) setCityLoading(false);
+        });
+    }, 200);
+
+    return () => window.clearTimeout(timer);
+  }, [phase, cityTrimmed, citySelected]);
 
   const runLocate = useCallback(async () => {
     locateAbortRef.current?.abort();
@@ -98,6 +139,7 @@ export function PanelHouseAddressSheet({
     if (!open || saved) return;
     setCityQuery("");
     setCitySelected(null);
+    setCitySuggestions([]);
     setAddressQuery("");
     setAddressSelected(null);
     void runLocate();
@@ -121,7 +163,7 @@ export function PanelHouseAddressSheet({
   const goManual = (prefillFromGeo = false) => {
     locateAbortRef.current?.abort();
     if (prefillFromGeo && geoAddress) {
-      setCitySelected(geoCity);
+      setCitySelected({ name: geoCity, label: geoCity });
       setCityQuery(geoCity);
       setAddressQuery(geoAddress.value);
       setAddressSelected(null);
@@ -273,22 +315,37 @@ export function PanelHouseAddressSheet({
                 />
               </label>
 
-              {citySuggestions.length > 0 && !city && (
+              {cityTrimmed.length >= 2 && !city && (
                 <ul className="mb-4 max-h-36 overflow-y-auto rounded-[16px] border border-black/6 bg-zinc-50">
-                  {citySuggestions.slice(0, 8).map((item) => (
-                    <li key={item}>
-                      <button
-                        type="button"
-                        className="w-full px-4 py-2.5 text-left text-[14px] text-zinc-800 hover:bg-white"
-                        onClick={() => {
-                          setCitySelected(item);
-                          setCityQuery(item);
-                        }}
-                      >
-                        {item}
-                      </button>
+                  {cityLoading && citySuggestions.length === 0 ? (
+                    <li className="px-4 py-2.5 text-[14px] text-zinc-500">
+                      Ищем город…
                     </li>
-                  ))}
+                  ) : citySuggestions.length === 0 ? (
+                    <li className="px-4 py-2.5 text-[14px] text-zinc-500">
+                      Город не найден
+                    </li>
+                  ) : (
+                    citySuggestions.slice(0, 8).map((item) => (
+                      <li key={`${item.kladrId ?? item.fiasId ?? item.label}`}>
+                        <button
+                          type="button"
+                          className="w-full px-4 py-2.5 text-left text-[14px] text-zinc-800 hover:bg-white"
+                          onClick={() => {
+                            setCitySelected(item);
+                            setCityQuery(item.name);
+                          }}
+                        >
+                          <span className="block">{item.name}</span>
+                          {item.region && item.label !== item.name && (
+                            <span className="mt-0.5 block text-[12px] text-zinc-400">
+                              {item.region}
+                            </span>
+                          )}
+                        </button>
+                      </li>
+                    ))
+                  )}
                 </ul>
               )}
 

@@ -104,7 +104,10 @@ async function suggestHouse(
   const normalizedCity = normalizeCityName(city);
   const locations = isMoscow(normalizedCity)
     ? [{ kladr_id: MOSCOW_KLADR_ID }]
-    : [{ city: normalizedCity }];
+    : [
+        { city: normalizedCity, country_iso_code: "RU" },
+        { settlement: normalizedCity, country_iso_code: "RU" },
+      ];
 
   return dadataPost(DADATA_SUGGEST_URL, {
     query,

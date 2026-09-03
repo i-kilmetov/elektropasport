@@ -1,21 +1,27 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { ArrowLeft, Check, MapPin } from "lucide-react";
 import { MASTER_YELLOW_BTN } from "@/components/master-apply/master-apply-frame";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
 import { hapticImpact } from "@/lib/haptics";
+import { suggestCities } from "@/lib/address-suggest-client";
 import { filterCities } from "@/lib/cities";
+import type { CitySuggestion } from "@/lib/dadata";
 import { isMoscow } from "@/lib/lead-services";
 import { cn } from "@/lib/utils";
+
+function localFallback(query: string): CitySuggestion[] {
+  return filterCities(query, 10).map((name) => ({ name, label: name }));
+}
 
 export function CitySelectScreen({
   onBack,
   onConfirm,
   title = "Ваш город",
-  description = "Начните вводить название — подскажем города.",
+  description = "Начните вводить название — подскажем города по всей России.",
   moscowHint,
   tone = "light",
 }: {
@@ -27,25 +33,56 @@ export function CitySelectScreen({
   tone?: "light" | "dark";
 }) {
   const [query, setQuery] = useState("");
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selected, setSelected] = useState<CitySuggestion | null>(null);
+  const [suggestions, setSuggestions] = useState<CitySuggestion[]>([]);
+  const [loading, setLoading] = useState(false);
+  const requestId = useRef(0);
   const dark = tone === "dark";
 
   const trimmed = query.trim();
   const showSuggestions = trimmed.length >= 2;
 
-  const suggestions = useMemo(
-    () => (showSuggestions ? filterCities(trimmed) : []),
-    [showSuggestions, trimmed],
-  );
-  const exactMatch = suggestions.find(
-    (city) => city.toLowerCase() === trimmed.toLowerCase(),
-  );
+  useEffect(() => {
+    if (!showSuggestions) {
+      setSuggestions([]);
+      setLoading(false);
+      return;
+    }
+
+    const id = ++requestId.current;
+    const timer = window.setTimeout(() => {
+      setLoading(true);
+      void suggestCities(trimmed)
+        .then((next) => {
+          if (requestId.current !== id) return;
+          setSuggestions(next.length > 0 ? next : localFallback(trimmed));
+        })
+        .catch(() => {
+          if (requestId.current !== id) return;
+          setSuggestions(localFallback(trimmed));
+        })
+        .finally(() => {
+          if (requestId.current === id) setLoading(false);
+        });
+    }, 200);
+
+    return () => window.clearTimeout(timer);
+  }, [showSuggestions, trimmed]);
+
+  const exactMatch =
+    suggestions.find(
+      (city) => city.name.toLowerCase() === trimmed.toLowerCase(),
+    ) ??
+    suggestions.find(
+      (city) => city.label.toLowerCase() === trimmed.toLowerCase(),
+    ) ??
+    null;
   const chosen = selected ?? exactMatch ?? null;
 
-  const pickCity = (city: string) => {
+  const pickCity = (city: CitySuggestion) => {
     hapticImpact("light");
     setSelected(city);
-    setQuery(city);
+    setQuery(city.name);
   };
 
   return (
@@ -138,57 +175,82 @@ export function CitySelectScreen({
               dark && "border-white/10 bg-white/[0.06] shadow-none",
             )}
           >
-            <ul className="max-h-[46vh] overflow-y-auto">
-              {suggestions.length === 0 ? (
-                <li
-                  className={cn(
-                    "px-4 py-5 text-[14px]",
-                    dark ? "text-white/45" : "text-zinc-500",
-                  )}
-                >
-                  Город пока не найден. Проверьте написание или попробуйте другой.
-                </li>
-              ) : (
-                suggestions.map((city) => {
-                  const active = chosen === city;
-                  return (
-                    <li key={city}>
-                      <button
-                        type="button"
-                        onPointerDown={(event) => {
-                          event.preventDefault();
-                          pickCity(city);
-                        }}
-                        className={cn(
-                          "flex w-full items-center justify-between px-4 py-3.5 text-left text-[16px] transition-colors",
-                          active
-                            ? dark
-                              ? "bg-white/10 text-white"
-                              : "bg-zinc-100 text-zinc-900"
-                            : dark
-                              ? "text-white/75 hover:bg-white/5"
-                              : "text-zinc-700 hover:bg-zinc-50",
-                        )}
-                      >
-                        <span>{city}</span>
-                        {active && (
-                          <Check
-                            className={cn(
-                              "h-4 w-4",
-                              dark ? "text-[#D3DA00]" : "text-zinc-700",
+            {loading && suggestions.length === 0 ? (
+              <p
+                className={cn(
+                  "px-4 py-5 text-[14px]",
+                  dark ? "text-white/45" : "text-zinc-500",
+                )}
+              >
+                Ищем город…
+              </p>
+            ) : (
+              <ul className="max-h-[46vh] overflow-y-auto">
+                {suggestions.length === 0 ? (
+                  <li
+                    className={cn(
+                      "px-4 py-5 text-[14px]",
+                      dark ? "text-white/45" : "text-zinc-500",
+                    )}
+                  >
+                    Город пока не найден. Проверьте написание или попробуйте другой.
+                  </li>
+                ) : (
+                  suggestions.map((city) => {
+                    const active = chosen?.name === city.name &&
+                      chosen?.region === city.region &&
+                      chosen?.kladrId === city.kladrId;
+                    return (
+                      <li key={`${city.kladrId ?? city.fiasId ?? city.label}`}>
+                        <button
+                          type="button"
+                          onPointerDown={(event) => {
+                            event.preventDefault();
+                            pickCity(city);
+                          }}
+                          className={cn(
+                            "flex w-full items-center justify-between px-4 py-3.5 text-left text-[16px] transition-colors",
+                            active
+                              ? dark
+                                ? "bg-white/10 text-white"
+                                : "bg-zinc-100 text-zinc-900"
+                              : dark
+                                ? "text-white/75 hover:bg-white/5"
+                                : "text-zinc-700 hover:bg-zinc-50",
+                          )}
+                        >
+                          <span className="min-w-0">
+                            <span className="block truncate">{city.name}</span>
+                            {city.region && city.label !== city.name && (
+                              <span
+                                className={cn(
+                                  "mt-0.5 block truncate text-[12px]",
+                                  dark ? "text-white/40" : "text-zinc-400",
+                                )}
+                              >
+                                {city.region}
+                              </span>
                             )}
-                          />
-                        )}
-                      </button>
-                    </li>
-                  );
-                })
-              )}
-            </ul>
+                          </span>
+                          {active && (
+                            <Check
+                              className={cn(
+                                "h-4 w-4 shrink-0",
+                                dark ? "text-[#D3DA00]" : "text-zinc-700",
+                              )}
+                            />
+                          )}
+                        </button>
+                      </li>
+                    );
+                  })
+                )}
+              </ul>
+            )}
           </GlassCard>
         )}
 
-        {chosen && isMoscow(chosen) && moscowHint && (
+        {chosen && isMoscow(chosen.name) && moscowHint && (
           <p
             className={cn(
               "mb-4 ty-body",
@@ -204,7 +266,7 @@ export function CitySelectScreen({
             className={cn("w-full", dark && MASTER_YELLOW_BTN)}
             size="lg"
             disabled={!chosen}
-            onClick={() => chosen && onConfirm(chosen)}
+            onClick={() => chosen && onConfirm(chosen.name)}
           >
             Продолжить
           </Button>

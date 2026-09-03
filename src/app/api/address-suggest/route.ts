@@ -43,7 +43,10 @@ async function suggestFromDaData(query: string, city: string) {
 
   const locations = isMoscow(city)
     ? [{ kladr_id: MOSCOW_KLADR_ID }]
-    : [{ city }];
+    : [
+        { city, country_iso_code: "RU" },
+        { settlement: city, country_iso_code: "RU" },
+      ];
 
   const res = await fetch(DADATA_URL, {
     method: "POST",
@@ -64,7 +67,7 @@ async function suggestFromDaData(query: string, city: string) {
   });
 
   if (!res.ok) {
-    console.error("DaData suggest failed", res.status, await res.text());
+    console.error("Address suggest failed", res.status, await res.text());
     return Response.json(
       { error: "Не удалось получить адреса" },
       { status: 502 },
