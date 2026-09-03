@@ -95,6 +95,7 @@ import {
   isPanelLoadsStageReady,
   isPanelNetworkParamsReady,
 } from "@/lib/panel-safety-stages";
+import { analyzeProfessionalWiringSafety } from "@/lib/professional-wiring-safety";
 import {
   analyzePanelSafety,
   computePanelSafetyScore,
@@ -1925,6 +1926,31 @@ export function SchemeScreen({
     () => allPanelLoadsIdentified(allRailDevices),
     [allRailDevices],
   );
+  const showMasterProfessionalScore =
+    masterWiringMode &&
+    (masterWiringSaved || typeof professionalSafetyProp === "number") &&
+    wires.length > 0;
+  const masterProfessionalAnalysis = useMemo(() => {
+    if (!showMasterProfessionalScore) return null;
+    const powerNum = Number((powerKw ?? "").replace(",", "."));
+    return analyzeProfessionalWiringSafety({
+      devices,
+      wires,
+      phases,
+      powerKw:
+        Number.isFinite(powerNum) && powerNum > 0 ? powerNum : undefined,
+      hasGround,
+      loadsScore: safetyProp,
+    });
+  }, [
+    showMasterProfessionalScore,
+    devices,
+    wires,
+    phases,
+    powerKw,
+    hasGround,
+    safetyProp,
+  ]);
   const safetyPanelStub = useMemo(
     () => ({
       kind: "panel" as const,
@@ -1936,10 +1962,11 @@ export function SchemeScreen({
       breakers: 0,
       safety: safetyProp ?? null,
       professionalSafety:
-        typeof professionalSafetyProp === "number"
+        masterProfessionalAnalysis?.score ??
+        (typeof professionalSafetyProp === "number"
           ? professionalSafetyProp
-          : null,
-      wires: savedWires,
+          : null),
+      wires: masterWiringMode ? wires : savedWires,
       phases,
       powerKw,
       hasGround,
@@ -1950,7 +1977,10 @@ export function SchemeScreen({
       panelId,
       title,
       safetyProp,
+      masterProfessionalAnalysis?.score,
       professionalSafetyProp,
+      masterWiringMode,
+      wires,
       savedWires,
       phases,
       powerKw,
@@ -2118,12 +2148,37 @@ export function SchemeScreen({
   }, [canUseTerminals]);
 
   useEffect(() => {
-    if (!showTerminals) return;
-    const id = window.requestAnimationFrame(() => {
-      setWiresLayoutTick((v) => v + 1);
+    if (!showTerminals || !canUseTerminals) return;
+    let cancelled = false;
+    const bump = () => {
+      if (!cancelled) setWiresLayoutTick((v) => v + 1);
+    };
+
+    bump();
+    const raf1 = window.requestAnimationFrame(() => {
+      bump();
+      window.requestAnimationFrame(bump);
     });
-    return () => window.cancelAnimationFrame(id);
-  }, [showTerminals, wires.length, devices, numRails]);
+    const t1 = window.setTimeout(bump, 40);
+    const t2 = window.setTimeout(bump, 120);
+    const t3 = window.setTimeout(bump, 280);
+
+    const el = schemeCanvasRef.current;
+    let ro: ResizeObserver | null = null;
+    if (el && typeof ResizeObserver !== "undefined") {
+      ro = new ResizeObserver(() => bump());
+      ro.observe(el);
+    }
+
+    return () => {
+      cancelled = true;
+      window.cancelAnimationFrame(raf1);
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+      window.clearTimeout(t3);
+      ro?.disconnect();
+    };
+  }, [showTerminals, canUseTerminals, wires.length, devices, numRails, schemeCanvasEl]);
 
   useEffect(() => {
     const onResize = () => setWiresLayoutTick((v) => v + 1);
@@ -2865,9 +2920,10 @@ export function SchemeScreen({
               style={{ minWidth: railMinWidth }}
             >              {showTerminals && canUseTerminals && (
                 <PanelWiresSvg
-                  key={wiresLayoutTick}
+                  key={`wires-${wiresLayoutTick}`}
                   container={schemeCanvasEl}
                   wires={wires}
+                  layoutTick={wiresLayoutTick}
                   draft={wireDraft}
                   onWireClick={
                     !canEditWires
@@ -3076,6 +3132,28 @@ export function SchemeScreen({
             </div>
           </GlassCard>
           </div>
+
+          {masterWiringMode &&
+          masterWiringSaved &&
+          masterProfessionalAnalysis ? (
+            <div className="mt-4 rounded-[16px] border border-black/8 bg-white px-4 py-3 shadow-sm">
+              <p className="ty-label text-zinc-500">Оценка расключения</p>
+              <p className="mt-1 ty-heading text-zinc-900">
+                {masterProfessionalAnalysis.score}%
+              </p>
+              <p className="mt-1 ty-note text-zinc-600">
+                Используйте оценку, чтобы на месте дать заказчику рекомендации
+                по исправлению и повышению безопасности.
+              </p>
+              <button
+                type="button"
+                onClick={() => setSafetyExplainOpen(true)}
+                className="mt-2 ty-label text-zinc-700 transition-colors hover:text-zinc-900"
+              >
+                Подробнее об оценке
+              </button>
+            </div>
+          ) : null}
 
           {masterWiringMode &&
           masterWiringSaved &&

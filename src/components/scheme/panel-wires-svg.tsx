@@ -108,6 +108,7 @@ export function PanelWiresSvg({
   container,
   wires,
   draft,
+  layoutTick = 0,
   onWireClick,
 }: {
   container: HTMLElement | null;
@@ -117,10 +118,13 @@ export function PanelWiresSvg({
     x: number;
     y: number;
   } | null;
+  /** Bump after layout changes (terminals toggle, resize) to remeasure anchors. */
+  layoutTick?: number;
   onWireClick?: (wire: PanelWire) => void;
 }) {
   const geometry = useMemo(() => {
     if (!container) return [] as Array<{ wire: PanelWire; d: string }>;
+    void layoutTick;
     return wires
       .map((wire) => {
         const from = terminalAnchor(container, wire.from);
@@ -129,10 +133,11 @@ export function PanelWiresSvg({
         return { wire, d: wirePath(from, to) };
       })
       .filter((item): item is { wire: PanelWire; d: string } => Boolean(item));
-  }, [container, wires]);
+  }, [container, wires, layoutTick]);
 
   const draftGeometry = useMemo(() => {
     if (!container || !draft) return null;
+    void layoutTick;
     const from = terminalAnchor(container, draft.from);
     if (!from) return null;
     const c = container.getBoundingClientRect();
@@ -141,7 +146,7 @@ export function PanelWiresSvg({
       y: draft.y - c.top + container.scrollTop,
     };
     return { d: draftWirePath(from, cursor) };
-  }, [container, draft]);
+  }, [container, draft, layoutTick]);
 
   if (!container) return null;
 
