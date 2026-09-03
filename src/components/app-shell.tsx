@@ -98,9 +98,11 @@ import {
   MASTER_HOME_VISIT_PRICE_RUB,
   payableAmountRub,
   resolveRequestTypeCodeForService,
+  wiringCheckVisitPriceRub,
   isMoscow,
   type LeadServiceType,
 } from "@/lib/lead-services";
+import { findWiringCheckRequestForPanel } from "@/lib/wiring-check-request";
 import {
   AuthSessionExpiredError,
   allocateRequestPublicCode,
@@ -2204,7 +2206,10 @@ export function AppShell({
         tbankPaymentId: payload.tbankPaymentId,
         panelId:
           payload.panelId ??
-          (leadBackScreen === "scheme" || activePanel?.noPanelSetupId
+          (payload.serviceType === "master_wiring_check" ||
+          selectedLeadService === "master_wiring_check" ||
+          leadBackScreen === "scheme" ||
+          activePanel?.noPanelSetupId
             ? activePanelId ?? undefined
             : undefined),
         aiConsultation: payload.aiConsultation,
@@ -2239,11 +2244,13 @@ export function AppShell({
         );
       }
 
-      const isMasterHomeVisit =
+      const startsMasterSearch =
         payload.serviceType === "master_home_visit" ||
-        selectedLeadService === "master_home_visit";
+        payload.serviceType === "master_wiring_check" ||
+        selectedLeadService === "master_home_visit" ||
+        selectedLeadService === "master_wiring_check";
 
-      if (isMasterHomeVisit) {
+      if (startsMasterSearch) {
         setSearchRequestId(id);
         setFoundMaster(null);
         setScreen("master-search");
@@ -2429,6 +2436,40 @@ export function AppShell({
       activePanel?.noPanelSetupId,
       activePanelId,
       leadBackScreen,
+      leadPanelModules,
+      selectedAddress,
+      selectedCity,
+      submitLead,
+    ],
+  );
+
+  const submitWiringCheckVisit = useCallback(
+    async ({ phone, name }: { phone: string; name: string }) => {
+      setSelectedLeadService("master_wiring_check");
+      const typeCode = resolveRequestTypeCodeForService("master_wiring_check");
+      const publicCode = await allocateRequestPublicCode(typeCode);
+      const modules = leadPanelModules ?? 0;
+      const estimatedPriceRub = wiringCheckVisitPriceRub(modules);
+      await submitLead({
+        contactMethod: "phone",
+        phone,
+        name,
+        city: selectedCity ?? undefined,
+        exactAddress: selectedAddress ?? undefined,
+        serviceType: "master_wiring_check",
+        estimatedPriceRub,
+        panelModules: modules > 0 ? modules : undefined,
+        setupTitle: buildLeadServiceSetupTitle({
+          serviceType: "master_wiring_check",
+          panelModules: modules > 0 ? modules : undefined,
+          estimatedPriceRub,
+        }),
+        publicCode,
+        panelId: activePanelId ?? undefined,
+      });
+    },
+    [
+      activePanelId,
       leadPanelModules,
       selectedAddress,
       selectedCity,
@@ -2703,6 +2744,12 @@ export function AppShell({
               showMaintenance={showMaintenanceMenu}
               homeAppliancesMode={homeAppliancesEnabled}
               onCallWiringCheckMaster={startWiringCheckMaster}
+              onOpenWiringRequest={(requestId) => {
+                setMasterViewRequest(null);
+                setObjectsTab(1);
+                setActiveRequestId(requestId);
+                go("request-details");
+              }}
               onAddAppliance={
                 homeAppliancesEnabled
                   ? (panelId, appliance) => {
@@ -3126,6 +3173,22 @@ export function AppShell({
                 onCallWiringCheckMaster={() =>
                   startWiringCheckMaster(activePanelId)
                 }
+                linkedWiringRequest={findWiringCheckRequestForPanel(
+                  items,
+                  activePanelId,
+                )}
+                onOpenWiringRequest={() => {
+                  const request = findWiringCheckRequestForPanel(
+                    items,
+                    activePanelId,
+                  );
+                  if (!request) return;
+                  setSharedPreview(null);
+                  setMasterViewRequest(null);
+                  setObjectsTab(1);
+                  setActiveRequestId(request.id);
+                  go("request-details");
+                }}
                 devices={devices ?? undefined}
                 wires={activePanel?.wires}
                 safetyScore={safetyScore}
@@ -3438,7 +3501,7 @@ export function AppShell({
                 }
                 go("geo-address");
               }}
-              onContinue={() => go("lead-contact")}
+              onConfirm={submitWiringCheckVisit}
             />
           )}
           {screen === "lead-service" && selectedCity && (

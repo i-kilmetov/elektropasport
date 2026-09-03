@@ -52,6 +52,7 @@ import {
   buildPanelSafetyStages,
 } from "@/lib/panel-safety-stages";
 import { loadIdentifyContext } from "@/lib/panel-identify";
+import { findWiringCheckRequestForPanel } from "@/lib/wiring-check-request";
 import { hapticContextMenu } from "@/lib/haptics";
 import { safetyBadgeColors } from "@/lib/safety-score";
 import {
@@ -348,11 +349,15 @@ function HomeListCard({
   onOpen,
   onContextMenu,
   onCallWiringCheckMaster,
+  linkedWiringRequest,
+  onOpenWiringRequest,
 }: {
   item: HomeListItem;
   onOpen: () => void;
   onContextMenu: () => void;
   onCallWiringCheckMaster?: (panelId: string) => void;
+  linkedWiringRequest?: InstallRequest | null;
+  onOpenWiringRequest?: (requestId: string) => void;
 }) {
   const isRequest = item.kind === "install_request";
   const isConsultationRequest =
@@ -455,8 +460,14 @@ function HomeListCard({
         snapshot={safetyStages}
         onClose={() => setSafetyInfoOpen(false)}
         onCallMaster={
-          panel && onCallWiringCheckMaster
+          panel && onCallWiringCheckMaster && !linkedWiringRequest
             ? () => onCallWiringCheckMaster(panel.id)
+            : undefined
+        }
+        linkedWiringRequest={linkedWiringRequest}
+        onOpenWiringRequest={
+          linkedWiringRequest && onOpenWiringRequest
+            ? () => onOpenWiringRequest(linkedWiringRequest.id)
             : undefined
         }
       />
@@ -538,6 +549,8 @@ function ExpandableHomeCard({
   onApplianceContextMenu,
   onContextMenu,
   onCallWiringCheckMaster,
+  linkedWiringRequest,
+  onOpenWiringRequest,
 }: {
   panel: PanelObject;
   expanded: boolean;
@@ -548,6 +561,8 @@ function ExpandableHomeCard({
   onApplianceContextMenu: (appliance: HomeAppliance) => void;
   onContextMenu: () => void;
   onCallWiringCheckMaster?: (panelId: string) => void;
+  linkedWiringRequest?: InstallRequest | null;
+  onOpenWiringRequest?: (requestId: string) => void;
 }) {
   const appliances = panel.appliances ?? [];
   const supportsAppliances = panelSupportsHomeAppliances(panel);
@@ -685,8 +700,14 @@ function ExpandableHomeCard({
           snapshot={safetyStages}
           onClose={() => setSafetyInfoOpen(false)}
           onCallMaster={
-            onCallWiringCheckMaster
+            onCallWiringCheckMaster && !linkedWiringRequest
               ? () => onCallWiringCheckMaster(panel.id)
+              : undefined
+          }
+          linkedWiringRequest={linkedWiringRequest}
+          onOpenWiringRequest={
+            linkedWiringRequest && onOpenWiringRequest
+              ? () => onOpenWiringRequest(linkedWiringRequest.id)
               : undefined
           }
         />
@@ -869,6 +890,7 @@ export function ObjectsScreen({
   onDeleteAppliance,
   onRestoreAppliance,
   onCallWiringCheckMaster,
+  onOpenWiringRequest,
   initialPage = 0,
   onPageChange,
 }: {
@@ -905,6 +927,7 @@ export function ObjectsScreen({
     index: number,
   ) => void;
   onCallWiringCheckMaster?: (panelId: string) => void;
+  onOpenWiringRequest?: (requestId: string) => void;
   initialPage?: 0 | 1;
   onPageChange?: (page: 0 | 1) => void;
 }) {
@@ -1205,6 +1228,11 @@ export function ObjectsScreen({
                   onOpen={() => onOpenPanel(obj.id)}
                   onContextMenu={() => setActionsItemId(obj.id)}
                   onCallWiringCheckMaster={onCallWiringCheckMaster}
+                  linkedWiringRequest={findWiringCheckRequestForPanel(
+                    items,
+                    obj.id,
+                  )}
+                  onOpenWiringRequest={onOpenWiringRequest}
                 />
               )
             ) : obj.kind === "install_request" ? (
@@ -1228,6 +1256,11 @@ export function ObjectsScreen({
                 }
                 onContextMenu={() => setActionsItemId(obj.id)}
                 onCallWiringCheckMaster={onCallWiringCheckMaster}
+                linkedWiringRequest={findWiringCheckRequestForPanel(
+                  items,
+                  obj.id,
+                )}
+                onOpenWiringRequest={onOpenWiringRequest}
               />
             )}
           </div>

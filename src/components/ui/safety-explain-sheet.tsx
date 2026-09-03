@@ -21,7 +21,9 @@ import {
   type SafetyAdviceItem,
   type SafetyAxisId,
 } from "@/lib/safety-score";
+import type { InstallRequest } from "@/types";
 import { cn } from "@/lib/utils";
+import { WiringCheckRequestStatus } from "@/components/ui/wiring-check-request-status";
 
 export function SafetyExplainSheet({
   stages,
@@ -29,12 +31,16 @@ export function SafetyExplainSheet({
   onClose,
   onEditParams,
   onCallMaster,
+  linkedWiringRequest,
+  onOpenWiringRequest,
 }: {
   stages: PanelSafetyStagesSnapshot;
   advice: SafetyAdviceItem[];
   onClose: () => void;
   onEditParams?: () => void;
   onCallMaster?: () => void;
+  linkedWiringRequest?: InstallRequest | null;
+  onOpenWiringRequest?: () => void;
 }) {
   const [selectedStageId, setSelectedStageId] = useState<SafetyStageId>(
     stages.activeStageId,
@@ -132,11 +138,26 @@ export function SafetyExplainSheet({
               ))
             : bothStagesDone &&
                 selectedStage?.id === "professional" &&
-                selectedStage.status !== "done" ? (
+                selectedStage.status !== "done" &&
+                !linkedWiringRequest ? (
               <div className="mb-5 space-y-3 rounded-[18px] border border-black/8 bg-zinc-50 px-4 py-3 ty-body text-zinc-600">
                 <p>{wiringCheckMasterExplanation}</p>
               </div>
             ) : null}
+
+          {linkedWiringRequest ? (
+            <WiringCheckRequestStatus
+              request={linkedWiringRequest}
+              onOpenRequest={
+                onOpenWiringRequest
+                  ? () => {
+                      onClose();
+                      onOpenWiringRequest();
+                    }
+                  : undefined
+              }
+            />
+          ) : null}
 
           <div className="flex flex-col gap-2">
             {onEditParams && selectedStage?.id === "scheme" ? (
@@ -144,7 +165,7 @@ export function SafetyExplainSheet({
                 Параметры сети
               </Button>
             ) : null}
-            {onCallMaster && bothStagesDone ? (
+            {onCallMaster && bothStagesDone && !linkedWiringRequest ? (
               <Button className="w-full" onClick={onCallMaster}>
                 <GeminiSparkle className="h-5 w-5" />
                 Вызвать мастера

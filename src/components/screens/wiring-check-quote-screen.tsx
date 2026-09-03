@@ -1,9 +1,11 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
+import { hapticNotification } from "@/lib/haptics";
 import {
   formatRub,
   WIRING_CHECK_MIN_PRICE_RUB,
@@ -11,22 +13,59 @@ import {
   wiringCheckVisitPriceRub,
 } from "@/lib/lead-services";
 import { wiringCheckMasterExplanation } from "@/lib/panel-safety-stages";
+import { getTelegramUserName } from "@/lib/telegram-user";
+import {
+  formatPhoneDigits,
+  getUserProfile,
+  persistUserProfile,
+} from "@/lib/user-profile";
 
 export function WiringCheckQuoteScreen({
   moduleCount,
   address,
   onBack,
-  onContinue,
+  onConfirm,
 }: {
   moduleCount: number;
   address?: string | null;
   onBack: () => void;
-  onContinue: () => void;
+  onConfirm: (payload: {
+    phone: string;
+    name: string;
+  }) => void | Promise<void>;
 }) {
   const modules = Math.max(0, moduleCount);
   const lineTotal = modules * WIRING_CHECK_PRICE_PER_MODULE_RUB;
   const total = wiringCheckVisitPriceRub(modules);
   const minApplied = total > lineTotal || modules === 0;
+
+  const [phoneDigits, setPhoneDigits] = useState(
+    () => getUserProfile().phoneDigits?.replace(/\D/g, "").slice(0, 10) ?? "",
+  );
+  const [confirming, setConfirming] = useState(false);
+  const phoneDisplay = useMemo(
+    () => formatPhoneDigits(phoneDigits),
+    [phoneDigits],
+  );
+  const phoneValid = phoneDigits.length === 10;
+
+  const handleContinue = async () => {
+    if (!phoneValid || confirming) return;
+    setConfirming(true);
+    try {
+      await persistUserProfile({
+        ...getUserProfile(),
+        phoneDigits,
+      });
+      hapticNotification("success");
+      await onConfirm({
+        phone: `+7${phoneDigits}`,
+        name: getTelegramUserName(),
+      });
+    } finally {
+      setConfirming(false);
+    }
+  };
 
   return (
     <motion.section
@@ -91,11 +130,37 @@ export function WiringCheckQuoteScreen({
             </span>
           </div>
         </GlassCard>
+
+        <GlassCard className="p-4">
+          <p className="mb-2 ty-heading text-zinc-900">Телефон для связи</p>
+          <label className="flex h-14 items-center gap-2 rounded-[20px] border border-black/8 bg-zinc-50 px-4 focus-within:border-zinc-300">
+            <Phone className="h-4 w-4 shrink-0 text-zinc-500" />
+            <span className="ty-subtitle text-zinc-700">+7</span>
+            <input
+              inputMode="numeric"
+              value={phoneDisplay}
+              onChange={(e) => {
+                const next = e.target.value.replace(/\D/g, "").slice(0, 10);
+                setPhoneDigits(next);
+              }}
+              placeholder="999 000-00-00"
+              className="h-full min-w-0 flex-1 bg-transparent text-[16px] text-zinc-900 outline-none placeholder:text-zinc-400"
+            />
+          </label>
+          <p className="mt-2 ty-meta text-zinc-500">
+            После подтверждения сразу начнём поиск мастера
+          </p>
+        </GlassCard>
       </div>
 
       <div className="mt-4 shrink-0 space-y-2">
-        <Button className="w-full" size="lg" onClick={onContinue}>
-          Продолжить
+        <Button
+          className="w-full"
+          size="lg"
+          disabled={!phoneValid || confirming}
+          onClick={() => void handleContinue()}
+        >
+          {confirming ? "Отправляем…" : "Продолжить"}
         </Button>
         <Button className="w-full" variant="secondary" onClick={onBack}>
           Назад к адресу

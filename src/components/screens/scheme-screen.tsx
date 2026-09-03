@@ -157,6 +157,7 @@ import type {
   DeviceType,
   HomeAppliance,
   HomeListItem,
+  InstallRequest,
   PanelWire,
   TerminalRef,
 } from "@/types";
@@ -1673,6 +1674,8 @@ export function SchemeScreen({
   onAssessSafety,
   onCallMaster,
   onCallWiringCheckMaster,
+  linkedWiringRequest,
+  onOpenWiringRequest,
   devices: devicesProp,
   wires: wiresProp,
   safetyScore: safetyProp,
@@ -1732,6 +1735,8 @@ export function SchemeScreen({
   onCallMaster?: () => void;
   /** Вызов мастера для финальной проверки расключения (после этапа «Нагрузки»). */
   onCallWiringCheckMaster?: () => void;
+  linkedWiringRequest?: InstallRequest | null;
+  onOpenWiringRequest?: () => void;
   devices?: Device[];
   wires?: PanelWire[];
   safetyScore?: number | null;
@@ -3440,18 +3445,22 @@ export function SchemeScreen({
                     setSafetyOpen(true);
                   }
             }
+            linkedWiringRequest={linkedWiringRequest}
+            onOpenWiringRequest={onOpenWiringRequest}
             onCallMaster={
-              onCallWiringCheckMaster
-                ? () => {
-                    setSafetyExplainOpen(false);
-                    onCallWiringCheckMaster();
-                  }
-                : onCallMaster
+              linkedWiringRequest
+                ? undefined
+                : onCallWiringCheckMaster
                   ? () => {
                       setSafetyExplainOpen(false);
-                      onCallMaster();
+                      onCallWiringCheckMaster();
                     }
-                  : undefined
+                  : onCallMaster
+                    ? () => {
+                        setSafetyExplainOpen(false);
+                        onCallMaster();
+                      }
+                    : undefined
             }
           />
         )}

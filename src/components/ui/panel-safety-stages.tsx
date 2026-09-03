@@ -20,6 +20,8 @@ import {
 } from "@/lib/panel-safety-stages";
 import { cn } from "@/lib/utils";
 import { GeminiSparkle } from "@/components/icons/gemini-sparkle";
+import { WiringCheckRequestStatus } from "@/components/ui/wiring-check-request-status";
+import type { InstallRequest } from "@/types";
 
 function SafetyStageBar({
   snapshot,
@@ -99,15 +101,20 @@ export function PanelSafetyBarSheet({
   snapshot,
   onClose,
   onCallMaster,
+  linkedWiringRequest,
+  onOpenWiringRequest,
 }: {
   snapshot: PanelSafetyStagesSnapshot;
   onClose: () => void;
   onCallMaster?: () => void;
+  linkedWiringRequest?: InstallRequest | null;
+  onOpenWiringRequest?: () => void;
 }) {
   const copy = buildSafetyStageCardCopy(snapshot);
   const completedStage = getLastCompletedSafetyStage(snapshot);
   const detailParagraphs = buildSafetyBarSheetDetails(snapshot);
   const bothStagesDone = areFirstTwoSafetyStagesDone(snapshot);
+  const hasLinkedRequest = Boolean(linkedWiringRequest);
 
   return (
     <Portal>
@@ -159,7 +166,19 @@ export function PanelSafetyBarSheet({
             ))}
           </div>
 
-          {bothStagesDone ? (
+          {hasLinkedRequest && linkedWiringRequest ? (
+            <WiringCheckRequestStatus
+              request={linkedWiringRequest}
+              onOpenRequest={
+                onOpenWiringRequest
+                  ? () => {
+                      onClose();
+                      onOpenWiringRequest();
+                    }
+                  : undefined
+              }
+            />
+          ) : bothStagesDone ? (
             <div className="mb-4 rounded-[18px] border border-black/8 bg-zinc-50 px-4 py-3 ty-body text-zinc-600">
               {wiringCheckMasterExplanation}
             </div>
@@ -170,7 +189,7 @@ export function PanelSafetyBarSheet({
           )}
 
           <div className="flex flex-col gap-2">
-            {bothStagesDone && onCallMaster ? (
+            {bothStagesDone && onCallMaster && !hasLinkedRequest ? (
               <Button
                 className="w-full"
                 onClick={() => {
@@ -184,7 +203,11 @@ export function PanelSafetyBarSheet({
             ) : null}
             <Button
               className="w-full"
-              variant={bothStagesDone && onCallMaster ? "secondary" : undefined}
+              variant={
+                bothStagesDone && onCallMaster && !hasLinkedRequest
+                  ? "secondary"
+                  : undefined
+              }
               onClick={onClose}
             >
               Понятно
@@ -387,11 +410,15 @@ export function PanelSafetyBarSheetHost({
   snapshot,
   onClose,
   onCallMaster,
+  linkedWiringRequest,
+  onOpenWiringRequest,
 }: {
   open: boolean;
   snapshot: PanelSafetyStagesSnapshot | null;
   onClose: () => void;
   onCallMaster?: () => void;
+  linkedWiringRequest?: InstallRequest | null;
+  onOpenWiringRequest?: () => void;
 }) {
   return (
     <AnimatePresence>
@@ -400,6 +427,8 @@ export function PanelSafetyBarSheetHost({
           snapshot={snapshot}
           onClose={onClose}
           onCallMaster={onCallMaster}
+          linkedWiringRequest={linkedWiringRequest}
+          onOpenWiringRequest={onOpenWiringRequest}
         />
       ) : null}
     </AnimatePresence>
