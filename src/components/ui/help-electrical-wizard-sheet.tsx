@@ -27,7 +27,17 @@ import {
   type HelpLocation,
   type HelpProblemOption,
 } from "@/lib/help-electrical-flow";
-import { applianceDisplayKindLabel } from "@/lib/home-appliances";
+import {
+  catalogBrandsForKind,
+  catalogKindTitle,
+  catalogModelsForBrand,
+  FULL_CATALOG_KIND_OPTIONS,
+  type CatalogApplianceKind,
+} from "@/lib/appliance-catalog";
+import {
+  applianceDisplayKindLabel,
+  createApplianceId,
+} from "@/lib/home-appliances";
 import { formatRub, MASTER_HOME_VISIT_PRICE_RUB } from "@/lib/lead-services";
 import { hapticNotification } from "@/lib/haptics";
 import { getTelegramUserName } from "@/lib/telegram-user";
@@ -38,6 +48,152 @@ import {
 } from "@/lib/user-profile";
 import { cn } from "@/lib/utils";
 import type { HomeAppliance, PanelObject } from "@/types";
+
+export type HelpElsewhereAddress = {
+  city: string;
+  address: string;
+};
+
+const CUSTOM_OPTION = "__custom__";
+const selectClassName =
+  "h-12 w-full rounded-[16px] border border-black/8 bg-zinc-50 px-3 text-[15px] text-zinc-900 outline-none";
+
+function WizardApplianceCatalogPick({
+  onConfirm,
+}: {
+  onConfirm: (appliance: HomeAppliance) => void;
+}) {
+  const [kind, setKind] = useState<CatalogApplianceKind | "">("");
+  const [brand, setBrand] = useState("");
+  const [modelId, setModelId] = useState("");
+  const [customBrand, setCustomBrand] = useState("");
+  const [customModel, setCustomModel] = useState("");
+
+  const brands = kind ? catalogBrandsForKind(kind) : [];
+  const models =
+    kind && brand && brand !== CUSTOM_OPTION
+      ? catalogModelsForBrand(kind, brand)
+      : [];
+
+  const resolvedBrand =
+    brand === CUSTOM_OPTION ? customBrand.trim() : brand.trim();
+  const selectedModel = models.find((item) => item.id === modelId);
+  const resolvedModel =
+    modelId === CUSTOM_OPTION
+      ? customModel.trim()
+      : (selectedModel?.model ?? "").trim();
+
+  const ready = Boolean(kind && resolvedBrand && resolvedModel);
+
+  return (
+    <div className="space-y-3">
+      <label className="block space-y-1.5">
+        <span className="ty-note text-zinc-500">Тип техники</span>
+        <select
+          className={selectClassName}
+          value={kind}
+          onChange={(event) => {
+            setKind(event.target.value as CatalogApplianceKind | "");
+            setBrand("");
+            setModelId("");
+            setCustomBrand("");
+            setCustomModel("");
+          }}
+        >
+          <option value="">Выберите тип</option>
+          {FULL_CATALOG_KIND_OPTIONS.map((item) => (
+            <option key={item.id} value={item.id}>
+              {item.title}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      {kind ? (
+        <label className="block space-y-1.5">
+          <span className="ty-note text-zinc-500">Производитель</span>
+          <select
+            className={selectClassName}
+            value={brand}
+            onChange={(event) => {
+              setBrand(event.target.value);
+              setModelId("");
+              setCustomModel("");
+            }}
+          >
+            <option value="">Выберите производителя</option>
+            {brands.map((item) => (
+              <option key={item} value={item}>
+                {item}
+              </option>
+            ))}
+            <option value={CUSTOM_OPTION}>Свой вариант</option>
+          </select>
+        </label>
+      ) : null}
+
+      {brand === CUSTOM_OPTION ? (
+        <input
+          value={customBrand}
+          onChange={(event) => setCustomBrand(event.target.value)}
+          placeholder="Название производителя"
+          className={selectClassName}
+        />
+      ) : null}
+
+      {kind && brand && brand !== CUSTOM_OPTION ? (
+        <label className="block space-y-1.5">
+          <span className="ty-note text-zinc-500">Модель</span>
+          <select
+            className={selectClassName}
+            value={modelId}
+            onChange={(event) => setModelId(event.target.value)}
+          >
+            <option value="">Выберите модель</option>
+            {models.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.model}
+              </option>
+            ))}
+            <option value={CUSTOM_OPTION}>Свой вариант</option>
+          </select>
+        </label>
+      ) : null}
+
+      {(brand === CUSTOM_OPTION || modelId === CUSTOM_OPTION) && kind ? (
+        <input
+          value={customModel}
+          onChange={(event) => setCustomModel(event.target.value)}
+          placeholder="Модель"
+          className={selectClassName}
+        />
+      ) : null}
+
+      <Button
+        className="w-full"
+        disabled={!ready}
+        onClick={() => {
+          if (!kind || !ready) return;
+          const kindTitle = catalogKindTitle(kind);
+          onConfirm({
+            id: createApplianceId(),
+            kind,
+            title: [kindTitle, resolvedBrand, resolvedModel]
+              .filter(Boolean)
+              .join(" "),
+            brand: resolvedBrand,
+            model: resolvedModel,
+            powerW: selectedModel?.maxPowerW,
+            catalogId: selectedModel?.id,
+            createdAt: new Date().toISOString(),
+          });
+        }}
+      >
+        Продолжить
+      </Button>
+    </div>
+  );
+}
 
 type WizardStep =
   | "location"
@@ -139,7 +295,7 @@ function CategoryChoiceCards({
           <p className="mt-1 ty-meta text-zinc-500">
             {applianceCount > 0
               ? `${applianceCount} в карточке щитка`
-              : "Бытовая техника"}
+              : "Тип, производитель и модель"}
           </p>
         </div>
       </button>
@@ -397,6 +553,7 @@ export function MasterVisitConfirmStep({
 export function HelpElectricalWizardSheet({
   panels,
   open,
+  elsewhereAddress = null,
   onClose,
   onElsewhere,
   onConsultationReady,
@@ -404,6 +561,8 @@ export function HelpElectricalWizardSheet({
 }: {
   panels: PanelObject[];
   open: boolean;
+  /** After geo/manual address for «Другой адрес» — resume at category. */
+  elsewhereAddress?: HelpElsewhereAddress | null;
   onClose: () => void;
   onElsewhere: () => void;
   onConsultationReady: (
@@ -424,6 +583,9 @@ export function HelpElectricalWizardSheet({
   const [selectedApplianceId, setSelectedApplianceId] = useState<string | null>(
     null,
   );
+  const [draftAppliance, setDraftAppliance] = useState<HomeAppliance | null>(
+    null,
+  );
   const [selectedProblem, setSelectedProblem] =
     useState<HelpProblemOption | null>(null);
   const [customProblem, setCustomProblem] = useState("");
@@ -439,12 +601,28 @@ export function HelpElectricalWizardSheet({
   );
 
   const appliances = selectedPanel?.appliances ?? [];
-  const selectedAppliance = appliances.find(
-    (item) => item.id === selectedApplianceId,
-  );
+  const selectedAppliance =
+    draftAppliance ??
+    appliances.find((item) => item.id === selectedApplianceId);
+
+  const isElsewhereFlow = location === "elsewhere" || Boolean(elsewhereAddress);
 
   useEffect(() => {
     if (open && !wasOpenRef.current) {
+      if (elsewhereAddress) {
+        setStep("category");
+        setSelectedPanelId(null);
+        setLocation("elsewhere");
+        setCategory(null);
+        setSelectedApplianceId(null);
+        setDraftAppliance(null);
+        setSelectedProblem(null);
+        setCustomProblem("");
+        setAiContext(null);
+        setConsultationRequestId(null);
+        wasOpenRef.current = open;
+        return;
+      }
       if (panels.length === 0) {
         onElsewhere();
         return;
@@ -454,13 +632,14 @@ export function HelpElectricalWizardSheet({
       setLocation(null);
       setCategory(null);
       setSelectedApplianceId(null);
+      setDraftAppliance(null);
       setSelectedProblem(null);
       setCustomProblem("");
       setAiContext(null);
       setConsultationRequestId(null);
     }
     wasOpenRef.current = open;
-  }, [open, panels.length, onElsewhere]);
+  }, [open, panels.length, onElsewhere, elsewhereAddress]);
 
   const handleConsultationReady = useCallback(
     async (context: HelpElectricalContext, aiReply: string) => {
@@ -473,9 +652,15 @@ export function HelpElectricalWizardSheet({
   );
 
   const goToAi = (problem: HelpProblemOption, customText?: string) => {
-    if (!selectedPanel || !location || !category) return;
+    if (!location || !category) return;
+    if (location === "at_panel" && !selectedPanel) return;
+    if (location === "elsewhere" && !elsewhereAddress) return;
+    if (category === "appliance_repair" && !selectedAppliance) return;
+
     const context = buildHelpElectricalContext({
       panel: selectedPanel,
+      city: elsewhereAddress?.city,
+      address: elsewhereAddress?.address,
       location,
       category,
       appliance: selectedAppliance,
@@ -495,6 +680,7 @@ export function HelpElectricalWizardSheet({
     if (!panel) return;
     setSelectedPanelId(panel.id);
     setLocation("at_panel");
+    setDraftAppliance(null);
     if (panelHasHelpAppliances(panel)) {
       setStep("category");
       return;
@@ -505,6 +691,8 @@ export function HelpElectricalWizardSheet({
 
   const handleCategoryPick = (value: HelpCategory) => {
     setCategory(value);
+    setDraftAppliance(null);
+    setSelectedApplianceId(null);
     if (value === "appliance_repair") {
       setStep("appliance");
       return;
@@ -533,7 +721,11 @@ export function HelpElectricalWizardSheet({
         onClose();
         break;
       case "category":
-        setStep("location");
+        if (elsewhereAddress) {
+          onClose();
+        } else {
+          setStep("location");
+        }
         break;
       case "appliance":
         setStep("category");
@@ -541,7 +733,13 @@ export function HelpElectricalWizardSheet({
       case "problem":
         if (category === "appliance_repair") {
           setStep("appliance");
-        } else if (selectedPanel && panelHasHelpAppliances(selectedPanel)) {
+        } else if (
+          selectedPanel &&
+          panelHasHelpAppliances(selectedPanel) &&
+          !elsewhereAddress
+        ) {
+          setStep("category");
+        } else if (elsewhereAddress || isElsewhereFlow) {
           setStep("category");
         } else {
           setStep("location");
@@ -564,7 +762,8 @@ export function HelpElectricalWizardSheet({
     }
   };
 
-  if (!open || panels.length === 0) return null;
+  if (!open) return null;
+  if (!elsewhereAddress && panels.length === 0) return null;
 
   const locationOptions = [
     ...panels.map((panel) => {
@@ -587,6 +786,13 @@ export function HelpElectricalWizardSheet({
       ? getApplianceProblems(selectedAppliance.kind)
       : PANEL_ELECTRICAL_PROBLEMS;
 
+  const showCategory =
+    step === "category" && (Boolean(selectedPanel) || Boolean(elsewhereAddress));
+  const useCatalogAppliancePick =
+    Boolean(elsewhereAddress) ||
+    (location === "elsewhere") ||
+    (selectedPanel != null && !panelHasHelpAppliances(selectedPanel));
+
   return (
     <Portal>
       <motion.div
@@ -606,7 +812,7 @@ export function HelpElectricalWizardSheet({
         >
           <div className="mb-4 flex items-start justify-between gap-3">
             <div className="flex min-w-0 items-start gap-2">
-              {step !== "location" ? (
+              {step !== "location" || elsewhereAddress ? (
                 <button
                   type="button"
                   onClick={handleBack}
@@ -619,6 +825,11 @@ export function HelpElectricalWizardSheet({
               <div className="min-w-0">
                 <p className="mb-1 ty-note">Помочь с электрикой</p>
                 <h2 className="ty-heading">{stepTitle(step)}</h2>
+                {elsewhereAddress && step === "category" ? (
+                  <p className="mt-1 truncate ty-meta text-zinc-500">
+                    {elsewhereAddress.address}
+                  </p>
+                ) : null}
               </div>
             </div>
             <button
@@ -631,28 +842,43 @@ export function HelpElectricalWizardSheet({
             </button>
           </div>
 
-          {step === "location" ? (
+          {step === "location" && !elsewhereAddress ? (
             <DividedOptionList
               options={locationOptions}
               onPick={handleLocationPick}
             />
           ) : null}
 
-          {step === "category" && selectedPanel ? (
+          {showCategory ? (
             <CategoryChoiceCards
-              applianceCount={selectedPanel.appliances?.length ?? 0}
+              applianceCount={
+                elsewhereAddress
+                  ? 0
+                  : (selectedPanel?.appliances?.length ?? 0)
+              }
               onPick={handleCategoryPick}
             />
           ) : null}
 
           {step === "appliance" ? (
-            <WizardApplianceList
-              appliances={appliances}
-              onPick={(applianceId) => {
-                setSelectedApplianceId(applianceId);
-                setStep("problem");
-              }}
-            />
+            useCatalogAppliancePick || appliances.length === 0 ? (
+              <WizardApplianceCatalogPick
+                onConfirm={(appliance) => {
+                  setDraftAppliance(appliance);
+                  setSelectedApplianceId(appliance.id);
+                  setStep("problem");
+                }}
+              />
+            ) : (
+              <WizardApplianceList
+                appliances={appliances}
+                onPick={(applianceId) => {
+                  setDraftAppliance(null);
+                  setSelectedApplianceId(applianceId);
+                  setStep("problem");
+                }}
+              />
+            )
           ) : null}
 
           {step === "problem" ? (

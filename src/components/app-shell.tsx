@@ -477,6 +477,10 @@ export function AppShell({
   >(null);
   const [helpElectricalFlow, setHelpElectricalFlow] = useState(false);
   const [helpWizardOpen, setHelpWizardOpen] = useState(false);
+  const [helpElsewhereAddress, setHelpElsewhereAddress] = useState<{
+    city: string;
+    address: string;
+  } | null>(null);
   const [selectedLeadService, setSelectedLeadService] =
     useState<LeadServiceType | null>(null);
   const [leadPanelModules, setLeadPanelModules] = useState<number | null>(null);
@@ -930,6 +934,7 @@ export function AppShell({
 
   const startHelpElectricalAddressFlow = useCallback(() => {
     setHelpWizardOpen(false);
+    setHelpElsewhereAddress(null);
     setLeadFlow("install");
     setElectricalDetails(null);
     setSelectedCity(null);
@@ -953,6 +958,21 @@ export function AppShell({
     setPendingAuthAction("help-electrical");
     go("telegram-auth");
   }, [go]);
+
+  const resumeHelpWizardAfterAddress = useCallback(
+    (payload: { city: string; address: string }) => {
+      setSelectedCity(payload.city);
+      setSelectedAddress(payload.address);
+      setHelpElsewhereAddress({
+        city: payload.city,
+        address: payload.address,
+      });
+      setHelpElectricalFlow(true);
+      setHelpWizardOpen(true);
+      go("objects");
+    },
+    [go],
+  );
 
   const startHelpElectrical = useCallback(() => {
     if (helpElectricalPanels.length > 0) {
@@ -2377,7 +2397,10 @@ export function AppShell({
       name: string;
     }) => {
       setHelpWizardOpen(false);
-      setActivePanelId(context.panelId);
+      setHelpElsewhereAddress(null);
+      if (context.panelId) {
+        setActivePanelId(context.panelId);
+      }
       setHelpElectricalFlow(true);
       setLeadFlow("install");
       setSelectedLeadService("master_home_visit");
@@ -2390,10 +2413,12 @@ export function AppShell({
       setSelectedBlock(null);
       setAddressEntrySource("manual");
       setLeadBackScreen("objects");
-      const panel = items.find(
-        (item): item is PanelObject =>
-          item.kind === "panel" && item.id === context.panelId,
-      );
+      const panel = context.panelId
+        ? items.find(
+            (item): item is PanelObject =>
+              item.kind === "panel" && item.id === context.panelId,
+          )
+        : null;
       const modules = countPanelModules(panel?.devices ?? []);
       setLeadPanelModules(modules > 0 ? modules : null);
 
@@ -2423,7 +2448,7 @@ export function AppShell({
           estimatedPriceRub,
         }),
         publicCode,
-        panelId: context.panelId,
+        panelId: context.panelId || undefined,
         aiConsultation: consultation?.aiConsultation,
         replaceConsultationId: consultationRequestId ?? undefined,
       });
@@ -3553,6 +3578,10 @@ export function AppShell({
                   lat != null && lon != null ? { lat, lon } : null,
                 );
                 setAddressEntrySource("geo");
+                if (helpElectricalFlow) {
+                  resumeHelpWizardAfterAddress({ city, address });
+                  return;
+                }
                 go(
                   selectedLeadService === "master_wiring_check"
                     ? "wiring-check-quote"
@@ -3649,6 +3678,13 @@ export function AppShell({
                 setSelectedBlock(address.block ?? null);
                 setSelectedBuildingYear(address.buildingYear ?? null);
                 setAddressEntrySource("manual");
+                if (helpElectricalFlow && selectedCity) {
+                  resumeHelpWizardAfterAddress({
+                    city: selectedCity,
+                    address: address.value,
+                  });
+                  return;
+                }
                 go(
                   selectedLeadService === "master_wiring_check"
                     ? "wiring-check-quote"
@@ -4072,11 +4108,16 @@ export function AppShell({
           )}
         </AnimatePresence>
         <AnimatePresence>
-          {helpWizardOpen && helpElectricalPanels.length > 0 ? (
+          {helpWizardOpen &&
+          (helpElectricalPanels.length > 0 || helpElsewhereAddress) ? (
             <HelpElectricalWizardSheet
               open={helpWizardOpen}
               panels={helpElectricalPanels}
-              onClose={() => setHelpWizardOpen(false)}
+              elsewhereAddress={helpElsewhereAddress}
+              onClose={() => {
+                setHelpWizardOpen(false);
+                setHelpElsewhereAddress(null);
+              }}
               onElsewhere={startHelpElectricalAddressFlow}
               onConsultationReady={submitHelpElectricalConsultation}
               onConfirmMasterVisit={handleHelpWizardCallMaster}

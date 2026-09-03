@@ -164,6 +164,10 @@ export function buildHelpElectricalAiPrompt(
         ? `Нужна помощь с ремонтом техники: ${context.applianceLabel ?? "техника"}.`
         : "Нужна помощь с электрикой на объекте, где установлен этот щиток.",
     );
+  } else if (context.category === "appliance_repair") {
+    lines.push(
+      `Нужна помощь с ремонтом техники по другому адресу: ${context.applianceLabel ?? "техника"}.`,
+    );
   } else {
     lines.push("Нужна помощь с электрикой в другом месте.");
   }
@@ -205,24 +209,31 @@ export function buildAiConsultationRecord(
 }
 
 export function buildHelpElectricalContext(input: {
-  panel: PanelObject;
+  panel?: PanelObject | null;
+  city?: string | null;
+  address?: string | null;
   location: HelpLocation;
   category: HelpCategory;
   appliance?: HomeAppliance;
+  applianceLabel?: string;
   problem: HelpProblemOption;
   customProblem?: string;
 }): HelpElectricalContext {
+  const panel = input.panel ?? null;
   return {
-    panelId: input.panel.id,
-    panelTitle: input.panel.title,
-    panelAddress: input.panel.houseSnapshot?.address ?? input.panel.address,
-    panelCity: input.panel.houseSnapshot?.city,
+    panelId: panel?.id ?? "",
+    panelTitle: panel?.title ?? "Другой адрес",
+    panelAddress:
+      input.address?.trim() ||
+      panel?.houseSnapshot?.address ||
+      panel?.address,
+    panelCity: input.city?.trim() || panel?.houseSnapshot?.city,
     location: input.location,
     category: input.category,
     applianceId: input.appliance?.id,
-    applianceLabel: input.appliance
-      ? equipmentLabelForAppliance(input.appliance)
-      : undefined,
+    applianceLabel:
+      input.applianceLabel?.trim() ||
+      (input.appliance ? equipmentLabelForAppliance(input.appliance) : undefined),
     problemId: input.problem.id,
     problemLabel: input.problem.label,
     customProblem: input.customProblem,
