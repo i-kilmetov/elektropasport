@@ -1,11 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, Eye, EyeOff, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { motion } from "framer-motion";
+import { ArrowLeft, Eye, EyeOff } from "lucide-react";
 import { GlassCard } from "@/components/ui/glass-card";
-import { Portal } from "@/components/ui/portal";
 import { hapticSelection } from "@/lib/haptics";
 import {
   INTERVAL_OPTIONS,
@@ -40,24 +38,14 @@ function settingsMap(rows: MaintenanceReminderDto[]) {
   return map;
 }
 
-function intervalLabel(days: number | null | undefined): string {
-  if (days == null) return "Раз в месяц";
-  return (
-    INTERVAL_OPTIONS.find((opt) => opt.days === days)?.label ??
-    `Раз в ${days} дн.`
-  );
-}
-
 function Toggle({
   on,
   onChange,
   label,
-  stopPropagation,
 }: {
   on: boolean;
   onChange: (next: boolean) => void;
   label: string;
-  stopPropagation?: boolean;
 }) {
   return (
     <button
@@ -65,8 +53,7 @@ function Toggle({
       role="switch"
       aria-checked={on}
       aria-label={label}
-      onClick={(e) => {
-        if (stopPropagation) e.stopPropagation();
+      onClick={() => {
         hapticSelection();
         onChange(!on);
       }}
@@ -85,110 +72,84 @@ function Toggle({
   );
 }
 
-type EditorState =
-  | {
-      mode: "panel";
-      target: MaintenancePanelTarget;
-      startDate: string;
-    }
-  | {
-      mode: "appliance";
-      target: MaintenanceApplianceTarget;
-      startDate: string;
-      intervalDays: number;
-    };
+const fieldClassName =
+  "mt-1 w-full rounded-[14px] border border-black/8 bg-zinc-50 px-3 py-2.5 ty-body outline-none focus:border-zinc-400";
 
-function ReminderSettingsSheet({
-  editor,
-  saving,
-  onClose,
+function ReminderCard({
+  title,
+  subtitle,
+  enabled,
+  hidden,
+  startDate,
+  intervalDays,
+  fixedIntervalLabel,
+  onToggleEnabled,
   onChangeStartDate,
   onChangeInterval,
-  onSave,
   onHide,
   onUnhide,
-  hidden,
 }: {
-  editor: EditorState;
-  saving: boolean;
-  onClose: () => void;
+  title: string;
+  subtitle: string;
+  enabled: boolean;
+  hidden: boolean;
+  startDate: string;
+  intervalDays?: number;
+  fixedIntervalLabel?: string;
+  onToggleEnabled: (next: boolean) => void;
   onChangeStartDate: (value: string) => void;
   onChangeInterval?: (days: number) => void;
-  onSave: () => void;
   onHide: () => void;
   onUnhide: () => void;
-  hidden: boolean;
 }) {
-  const isPanel = editor.mode === "panel";
-  const title = isPanel ? editor.target.panelTitle : editor.target.title;
-  const subtitle = isPanel
-    ? "Проверка УЗО и дифавтоматов"
-    : editor.target.panelTitle;
-
   return (
-    <Portal>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[100] flex items-end justify-center bg-black/30 backdrop-blur-sm sm:items-center sm:p-6"
-        onClick={onClose}
-      >
-        <motion.div
-          initial={{ y: 40, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          exit={{ y: 40, opacity: 0 }}
-          transition={{ type: "spring", stiffness: 320, damping: 30 }}
-          onClick={(e) => e.stopPropagation()}
-          className="w-full max-w-[430px] rounded-t-[28px] border border-black/[0.06] bg-white p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-[0_20px_60px_rgba(17,17,19,0.15)] sm:rounded-[28px]"
-        >
-          <div className="mb-4 flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <h3 className="ty-title">{title}</h3>
-              <p className="mt-1 ty-note">{subtitle}</p>
-            </div>
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-zinc-600"
-              aria-label="Закрыть"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
+    <GlassCard className="p-4">
+      <div className="flex items-start gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="ty-heading">{title}</div>
+          <p className="mt-0.5 ty-note">{subtitle}</p>
+        </div>
+        {hidden ? (
+          <button
+            type="button"
+            onClick={onUnhide}
+            className="inline-flex items-center gap-1.5 ty-subtitle text-zinc-600"
+          >
+            <Eye className="h-3.5 w-3.5" />
+            Показать
+          </button>
+        ) : (
+          <Toggle
+            on={enabled}
+            label={enabled ? "Выключить напоминание" : "Включить напоминание"}
+            onChange={onToggleEnabled}
+          />
+        )}
+      </div>
 
-          {isPanel ? (
-            <p className="mb-4 ty-body text-zinc-600">
-              Раз в 30 дней напомните нажать «Тест» на всех УЗО и дифавтоматах
-              в этом щитке
-              {editor.target.deviceCount > 1
-                ? ` (${editor.target.deviceCount})`
-                : ""}
-              .
-            </p>
-          ) : (
-            <p className="mb-4 ty-body text-zinc-600">{editor.target.hint}</p>
-          )}
-
+      {!hidden && (
+        <div className="mt-3 space-y-3 border-t border-black/[0.06] pt-3">
           <label className="block">
             <span className="ty-meta text-zinc-500">Начать напоминания с</span>
             <input
               type="date"
-              value={editor.startDate}
+              value={startDate}
               onChange={(e) => onChangeStartDate(e.target.value)}
-              className="mt-1 w-full rounded-[14px] border border-black/8 bg-zinc-50 px-3 py-2.5 ty-body outline-none focus:border-zinc-400"
+              className={fieldClassName}
             />
           </label>
 
-          {isPanel ? (
-            <p className="mt-3 ty-meta text-zinc-500">Периодичность: раз в месяц</p>
+          {fixedIntervalLabel ? (
+            <p className="ty-meta text-zinc-500">
+              Периодичность: {fixedIntervalLabel}
+            </p>
           ) : (
-            <label className="mt-3 block">
+            <label className="block">
               <span className="ty-meta text-zinc-500">Периодичность</span>
               <select
-                value={editor.intervalDays}
+                value={intervalDays}
                 onChange={(e) => onChangeInterval?.(Number(e.target.value))}
-                className="mt-1 w-full rounded-[14px] border border-black/8 bg-zinc-50 px-3 py-2.5 ty-body outline-none focus:border-zinc-400"
+                className={fieldClassName}
               >
                 {INTERVAL_OPTIONS.map((opt) => (
                   <option key={opt.days} value={opt.days}>
@@ -199,84 +160,15 @@ function ReminderSettingsSheet({
             </label>
           )}
 
-          <div className="mt-5 flex gap-3">
-            <Button
-              className="flex-1"
-              variant="secondary"
-              onClick={hidden ? onUnhide : onHide}
-              disabled={saving}
-            >
-              {hidden ? "Показать" : "Скрыть"}
-            </Button>
-            <Button className="flex-1" onClick={onSave} disabled={saving}>
-              {saving ? "Сохранение…" : "Сохранить"}
-            </Button>
-          </div>
-        </motion.div>
-      </motion.div>
-    </Portal>
-  );
-}
-
-function ReminderCard({
-  title,
-  subtitle,
-  meta,
-  enabled,
-  hidden,
-  onOpen,
-  onToggleEnabled,
-  onUnhide,
-}: {
-  title: string;
-  subtitle: string;
-  meta?: string;
-  enabled: boolean;
-  hidden: boolean;
-  onOpen: () => void;
-  onToggleEnabled: (next: boolean) => void;
-  onUnhide: () => void;
-}) {
-  return (
-    <GlassCard
-      className="cursor-pointer p-4 transition-colors active:bg-zinc-50"
-      onClick={onOpen}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onOpen();
-        }
-      }}
-    >
-      <div className="flex items-start gap-3">
-        <div className="min-w-0 flex-1">
-          <div className="ty-heading">{title}</div>
-          <p className="mt-0.5 ty-note">{subtitle}</p>
-          {meta && <p className="mt-1 ty-meta text-zinc-500">{meta}</p>}
-        </div>
-        {hidden ? (
           <button
             type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onUnhide();
-            }}
-            className="inline-flex items-center gap-1.5 ty-subtitle text-zinc-600"
+            onClick={onHide}
+            className="ty-meta text-zinc-500 underline decoration-zinc-300 underline-offset-2"
           >
-            <Eye className="h-3.5 w-3.5" />
-            Показать
+            Скрыть из списка
           </button>
-        ) : (
-          <Toggle
-            on={enabled}
-            stopPropagation
-            label={enabled ? "Выключить напоминание" : "Включить напоминание"}
-            onChange={onToggleEnabled}
-          />
-        )}
-      </div>
+        </div>
+      )}
     </GlassCard>
   );
 }
@@ -298,8 +190,6 @@ export function MaintenanceScreen({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showHidden, setShowHidden] = useState(false);
-  const [editor, setEditor] = useState<EditorState | null>(null);
-  const [sheetSaving, setSheetSaving] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -340,7 +230,6 @@ export function MaintenanceScreen({
     setReminders((prev) => prev.filter((r) => r.targetKey !== targetKey));
   };
 
-  /** Optimistic local update, then persist in background. */
   const saveOptimistic = (
     targetKey: string,
     payload: Parameters<typeof saveMaintenanceReminder>[0],
@@ -402,128 +291,77 @@ export function MaintenanceScreen({
   );
   const hiddenCount = panelHidden.length + appHidden.length;
 
-  const openPanelEditor = (target: MaintenancePanelTarget) => {
+  const persistPanel = (
+    target: MaintenancePanelTarget,
+    patch: {
+      enabled?: boolean;
+      startDate?: string | null;
+      hidden?: boolean;
+    },
+  ) => {
     const row = byKey.get(target.targetKey);
-    setEditor({
-      mode: "panel",
-      target,
-      startDate: row?.startDate ?? todayLocalIso(),
-    });
-  };
-
-  const openApplianceEditor = (target: MaintenanceApplianceTarget) => {
-    const row = byKey.get(target.targetKey);
-    setEditor({
-      mode: "appliance",
-      target,
-      startDate: row?.startDate ?? todayLocalIso(),
-      intervalDays: row?.intervalDays ?? target.defaultIntervalDays,
-    });
-  };
-
-  const togglePanel = (target: MaintenancePanelTarget, next: boolean) => {
+    const enabled = patch.enabled ?? row?.enabled ?? false;
     const startDate =
-      byKey.get(target.targetKey)?.startDate ?? todayLocalIso();
+      patch.startDate === undefined
+        ? (row?.startDate ?? todayLocalIso())
+        : (patch.startDate ?? todayLocalIso());
+    const hidden = patch.hidden ?? row?.hidden ?? false;
     saveOptimistic(
       target.targetKey,
       {
         kind: "rcd_test",
         targetKey: target.targetKey,
         panelId: target.panelId,
-        enabled: next,
-        startDate: next ? startDate : byKey.get(target.targetKey)?.startDate,
+        enabled: hidden ? false : enabled,
+        hidden,
+        startDate,
         intervalDays: RCD_TEST_INTERVAL_DAYS,
       },
       makeOptimistic(target.targetKey, "rcd_test", target.panelId, {
-        enabled: next,
-        startDate: next
-          ? startDate
-          : (byKey.get(target.targetKey)?.startDate ?? null),
+        enabled: hidden ? false : enabled,
+        hidden,
+        startDate,
         intervalDays: RCD_TEST_INTERVAL_DAYS,
       }),
     );
   };
 
-  const toggleAppliance = (
+  const persistAppliance = (
     target: MaintenanceApplianceTarget,
-    next: boolean,
+    patch: {
+      enabled?: boolean;
+      startDate?: string | null;
+      intervalDays?: number;
+      hidden?: boolean;
+    },
   ) => {
     const row = byKey.get(target.targetKey);
-    const startDate = row?.startDate ?? todayLocalIso();
-    const intervalDays = row?.intervalDays ?? target.defaultIntervalDays;
+    const enabled = patch.enabled ?? row?.enabled ?? false;
+    const startDate =
+      patch.startDate === undefined
+        ? (row?.startDate ?? todayLocalIso())
+        : (patch.startDate ?? todayLocalIso());
+    const intervalDays =
+      patch.intervalDays ?? row?.intervalDays ?? target.defaultIntervalDays;
+    const hidden = patch.hidden ?? row?.hidden ?? false;
     saveOptimistic(
       target.targetKey,
       {
         kind: "appliance_service",
         targetKey: target.targetKey,
         panelId: target.panelId,
-        enabled: next,
-        startDate: next ? startDate : row?.startDate,
+        enabled: hidden ? false : enabled,
+        hidden,
+        startDate,
         intervalDays,
       },
       makeOptimistic(target.targetKey, "appliance_service", target.panelId, {
-        enabled: next,
-        startDate: next ? startDate : (row?.startDate ?? null),
+        enabled: hidden ? false : enabled,
+        hidden,
+        startDate,
         intervalDays,
       }),
     );
-  };
-
-  const hideTarget = (
-    kind: MaintenanceReminderKind,
-    targetKey: string,
-    panelId: string,
-    hidden: boolean,
-  ) => {
-    saveOptimistic(
-      targetKey,
-      {
-        kind,
-        targetKey,
-        panelId,
-        hidden,
-        enabled: hidden ? false : byKey.get(targetKey)?.enabled,
-      },
-      makeOptimistic(targetKey, kind, panelId, {
-        hidden,
-        enabled: hidden ? false : (byKey.get(targetKey)?.enabled ?? false),
-      }),
-    );
-    if (hidden) setEditor(null);
-  };
-
-  const saveEditor = async () => {
-    if (!editor) return;
-    setSheetSaving(true);
-    setError(null);
-    try {
-      if (editor.mode === "panel") {
-        const saved = await saveMaintenanceReminder({
-          kind: "rcd_test",
-          targetKey: editor.target.targetKey,
-          panelId: editor.target.panelId,
-          enabled: true,
-          startDate: editor.startDate,
-          intervalDays: RCD_TEST_INTERVAL_DAYS,
-        });
-        patchLocal(saved);
-      } else {
-        const saved = await saveMaintenanceReminder({
-          kind: "appliance_service",
-          targetKey: editor.target.targetKey,
-          panelId: editor.target.panelId,
-          enabled: true,
-          startDate: editor.startDate,
-          intervalDays: editor.intervalDays,
-        });
-        patchLocal(saved);
-      }
-      setEditor(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Не удалось сохранить");
-    } finally {
-      setSheetSaving(false);
-    }
   };
 
   const renderPanel = (target: MaintenancePanelTarget, hidden: boolean) => {
@@ -533,22 +371,23 @@ export function MaintenanceScreen({
       target.deviceCount === 1
         ? "1 УЗО/дифавтомат"
         : `${target.deviceCount} УЗО/дифавтомата`;
-    const meta = enabled
-      ? `С ${row?.startDate ?? "—"} · раз в месяц`
-      : "Напоминание выключено";
     return (
       <ReminderCard
         key={target.targetKey}
         title={target.panelTitle}
         subtitle={devicesLabel}
-        meta={meta}
         enabled={enabled}
         hidden={hidden}
-        onOpen={() => openPanelEditor(target)}
-        onToggleEnabled={(next) => togglePanel(target, next)}
-        onUnhide={() =>
-          hideTarget("rcd_test", target.targetKey, target.panelId, false)
+        startDate={row?.startDate ?? todayLocalIso()}
+        fixedIntervalLabel="раз в месяц"
+        onToggleEnabled={(next) => persistPanel(target, { enabled: next })}
+        onChangeStartDate={(value) =>
+          persistPanel(target, {
+            startDate: value,
+          })
         }
+        onHide={() => persistPanel(target, { hidden: true })}
+        onUnhide={() => persistPanel(target, { hidden: false })}
       />
     );
   };
@@ -560,27 +399,28 @@ export function MaintenanceScreen({
     const row = byKey.get(target.targetKey);
     const enabled = row?.enabled ?? false;
     const intervalDays = row?.intervalDays ?? target.defaultIntervalDays;
-    const meta = enabled
-      ? `С ${row?.startDate ?? "—"} · ${intervalLabel(intervalDays)}`
-      : target.hint;
     return (
       <ReminderCard
         key={target.targetKey}
         title={target.title}
         subtitle={target.panelTitle}
-        meta={meta}
         enabled={enabled}
         hidden={hidden}
-        onOpen={() => openApplianceEditor(target)}
-        onToggleEnabled={(next) => toggleAppliance(target, next)}
-        onUnhide={() =>
-          hideTarget(
-            "appliance_service",
-            target.targetKey,
-            target.panelId,
-            false,
-          )
+        startDate={row?.startDate ?? todayLocalIso()}
+        intervalDays={intervalDays}
+        onToggleEnabled={(next) => persistAppliance(target, { enabled: next })}
+        onChangeStartDate={(value) =>
+          persistAppliance(target, {
+            startDate: value,
+          })
         }
+        onChangeInterval={(days) =>
+          persistAppliance(target, {
+            intervalDays: days,
+          })
+        }
+        onHide={() => persistAppliance(target, { hidden: true })}
+        onUnhide={() => persistAppliance(target, { hidden: false })}
       />
     );
   };
@@ -603,7 +443,7 @@ export function MaintenanceScreen({
           <ArrowLeft className="h-4 w-4" />
         </button>
         <div className="min-w-0">
-          <h1 className="ty-title truncate">Проверка и обслуживание</h1>
+          <h1 className="ty-title truncate">Техобслуживание</h1>
           <p className="ty-note">
             Напоминания о кнопке «Тест» и уходе за техникой
           </p>
@@ -673,46 +513,6 @@ export function MaintenanceScreen({
           </>
         )}
       </div>
-
-      <AnimatePresence>
-        {editor && (
-          <ReminderSettingsSheet
-            editor={editor}
-            saving={sheetSaving}
-            hidden={Boolean(byKey.get(editor.target.targetKey)?.hidden)}
-            onClose={() => setEditor(null)}
-            onChangeStartDate={(value) =>
-              setEditor((prev) =>
-                prev ? { ...prev, startDate: value } : prev,
-              )
-            }
-            onChangeInterval={(days) =>
-              setEditor((prev) =>
-                prev && prev.mode === "appliance"
-                  ? { ...prev, intervalDays: days }
-                  : prev,
-              )
-            }
-            onSave={() => void saveEditor()}
-            onHide={() =>
-              hideTarget(
-                editor.mode === "panel" ? "rcd_test" : "appliance_service",
-                editor.target.targetKey,
-                editor.target.panelId,
-                true,
-              )
-            }
-            onUnhide={() =>
-              hideTarget(
-                editor.mode === "panel" ? "rcd_test" : "appliance_service",
-                editor.target.targetKey,
-                editor.target.panelId,
-                false,
-              )
-            }
-          />
-        )}
-      </AnimatePresence>
     </motion.div>
   );
 }

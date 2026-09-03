@@ -46,7 +46,7 @@ const items: Array<{
   },
   {
     id: "maintenance",
-    title: "Проверка и обслуживание",
+    title: "Техобслуживание",
     description: "Тест УЗО и уход за техникой",
     icon: ClipboardCheck,
   },

@@ -12,7 +12,7 @@ import type { MaintenanceReminderKind } from "@/lib/maintenance/catalog";
 
 function featureDisabledResponse() {
   return Response.json(
-    { error: "Раздел «Проверка и обслуживание» отключён" },
+    { error: "Раздел «Техобслуживание» отключён" },
     { status: 404 },
   );
 }

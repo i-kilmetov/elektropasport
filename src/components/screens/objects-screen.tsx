@@ -26,7 +26,6 @@ import {
 import { BreakerIcon } from "@/components/icons/breaker-icon";
 import { ConsultationIcon } from "@/components/icons/consultation-icon";
 import { RequestListAvatar } from "@/components/ui/request-list-avatar";
-import { GeminiSparkle } from "@/components/icons/gemini-sparkle";
 import { AddApplianceSheet } from "@/components/screens/add-appliance-sheet";
 import {
   MainMenuSheet,
@@ -1435,9 +1434,12 @@ export function ObjectsScreen({
                     Я электрик
                   </button>
                 )}
-                <Button className="h-11 rounded-full px-5" onClick={onHelpElectrical}>
-                  <GeminiSparkle className="h-5 w-5" />
-                  Помочь с электрикой
+                <Button
+                  className="h-11 rounded-full px-5 text-[18px]"
+                  onClick={onHelpElectrical}
+                  aria-label="Помочь с электрикой"
+                >
+                  🚨
                 </Button>
               </div>
             )}
@@ -1555,9 +1557,12 @@ export function ObjectsScreen({
           </div>
         ) : (
           <div className="space-y-3">
-            <Button className="w-full rounded-full" onClick={onHelpElectrical}>
-              <GeminiSparkle className="h-5 w-5" />
-              Помочь с электрикой
+            <Button
+              className="w-full rounded-full text-[18px]"
+              onClick={onHelpElectrical}
+              aria-label="Помочь с электрикой"
+            >
+              🚨
             </Button>
             {onBecomeMaster && (
               <button
