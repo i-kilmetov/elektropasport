@@ -40,6 +40,11 @@ export interface Device {
   brandKey?: string;
   /** Which DIN rail row this device is on (0-based, default 0) */
   rail?: number;
+  /**
+   * Normalized bounding box on the source photo (0–1 relative to width/height).
+   * Used for the X-ray scan highlight during analysis.
+   */
+  bbox?: { x: number; y: number; w: number; h: number };
   /** @deprecated Devices are always shown ON on the scheme. */
   powered?: boolean;
   /** Icon id for the printable DIN-rail sticker */

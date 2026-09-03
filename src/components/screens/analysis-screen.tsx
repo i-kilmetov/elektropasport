@@ -1,10 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { AlertTriangle, Camera, Check, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
+import {
+  PanelXrayScan,
+  useXrayReveal,
+} from "@/components/ui/panel-xray-scan";
 import { analysisSteps } from "@/lib/mock-data";
 import { analyzePanel } from "@/lib/analyze-panel";
 import {
@@ -36,12 +40,15 @@ export function AnalysisScreen({
 }) {
   const [progress, setProgress] = useState(0);
   const [stepIndex, setStepIndex] = useState(0);
-  const [foundCount, setFoundCount] = useState(0);
-  const [review, setReview] = useState<AnalyzePanelResult | null>(null);
+  const [phase, setPhase] = useState<"scanning" | "revealing" | "review">(
+    "scanning",
+  );
+  const [result, setResult] = useState<AnalyzePanelResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const finishedRef = useRef(false);
 
   useEffect(() => {
-    if (review || !photoDataUrl) return;
+    if (!photoDataUrl || phase !== "scanning") return;
 
     let cancelled = false;
     let frame = 0;
@@ -49,7 +56,6 @@ export function AnalysisScreen({
 
     const tickProgress = (now: number) => {
       if (cancelled) return;
-      // Soft progress while waiting for Qwen (usually 8–25s).
       const elapsed = now - started;
       const eased = Math.min(0.92, 1 - Math.exp(-elapsed / 9000));
       setProgress(Math.round(eased * 100));
@@ -65,23 +71,13 @@ export function AnalysisScreen({
 
     void (async () => {
       try {
-        const result = await analyzePanel(photoDataUrl);
+        const next = await analyzePanel(photoDataUrl);
         if (cancelled) return;
         cancelAnimationFrame(frame);
         setProgress(100);
         setStepIndex(analysisSteps.length - 1);
-        setFoundCount(result.devices.length);
-
-        const unknownCount = result.devices.filter(isRailDeviceUncertain).length;
-        const hasOverflow = panelHasRailOverflow(
-          result.devices,
-          result.railCount,
-        );
-        if (unknownCount > 0 || hasOverflow) {
-          setReview(result);
-          return;
-        }
-        onDone(result);
+        setResult(next);
+        setPhase("revealing");
       } catch (err) {
         if (cancelled) return;
         cancelAnimationFrame(frame);
@@ -98,28 +94,43 @@ export function AnalysisScreen({
       cancelled = true;
       cancelAnimationFrame(frame);
     };
-  }, [onDone, photoDataUrl, review]);
+  }, [photoDataUrl, phase]);
 
-  const foundDevices = useMemo(() => {
-    if (review) {
-      return review.devices.slice(0, 12).map((device) => ({
-        id: device.id,
-        name: device.name,
-        rating: device.rating,
-      }));
+  const finishAfterReveal = useCallback(() => {
+    if (!result || finishedRef.current) return;
+    const unknownCount = result.devices.filter(isRailDeviceUncertain).length;
+    const hasOverflow = panelHasRailOverflow(result.devices, result.railCount);
+    if (unknownCount > 0 || hasOverflow) {
+      setPhase("review");
+      return;
     }
-    return Array.from({ length: Math.max(0, foundCount) }, (_, i) => ({
-      id: i,
-      name: `Прибор ${i + 1}`,
-      rating: "—",
-    }));
-  }, [foundCount, review]);
+    finishedRef.current = true;
+    onDone(result);
+  }, [onDone, result]);
+
+  const revealCount = useXrayReveal(
+    result?.devices.length ?? 0,
+    phase === "revealing",
+    finishAfterReveal,
+  );
 
   const unknownCount =
-    review?.devices.filter(isRailDeviceUncertain).length ?? 0;
-  const hasOverflow = review
-    ? panelHasRailOverflow(review.devices, review.railCount)
+    result?.devices.filter(isRailDeviceUncertain).length ?? 0;
+  const hasOverflow = result
+    ? panelHasRailOverflow(result.devices, result.railCount)
     : false;
+
+  const statusLabel = useMemo(() => {
+    if (error) return "Не удалось разобрать фото";
+    if (phase === "review") return "Проверьте результат";
+    if (phase === "revealing") {
+      const n = Math.min(revealCount, result?.devices.length ?? 0);
+      return n > 0
+        ? `Найдено: ${n} ${deviceWord(n)}`
+        : "Подсвечиваем приборы";
+    }
+    return analysisSteps[stepIndex]?.label ?? "Сканируем щиток";
+  }, [error, phase, revealCount, result?.devices.length, stepIndex]);
 
   if (!photoDataUrl) {
     return (
@@ -128,9 +139,7 @@ export function AnalysisScreen({
         animate={{ opacity: 1 }}
         className="mx-auto flex min-h-dvh w-full max-w-xl flex-col items-center justify-center gap-4 px-5"
       >
-        <p className="text-center ty-body">
-          Нет фото для анализа.
-        </p>
+        <p className="text-center ty-body">Нет фото для анализа.</p>
         {onRetryPhoto && (
           <Button type="button" onClick={() => onRetryPhoto()}>
             Сфотографировать снова
@@ -145,39 +154,49 @@ export function AnalysisScreen({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="mx-auto flex min-h-dvh w-full max-w-xl flex-col items-center px-5 pb-10 pt-[max(2rem,env(safe-area-inset-top))] lg:max-w-2xl lg:justify-center"
+      className="mx-auto flex min-h-dvh w-full max-w-xl flex-col px-5 pb-10 pt-[max(1.25rem,env(safe-area-inset-top))] lg:max-w-2xl lg:justify-center"
     >
-      <h1 className="mb-6 text-center ty-title">
+      <h1 className="mb-2 text-center ty-title">{statusLabel}</h1>
+      <p className="mb-5 text-center ty-note text-zinc-500">
         {error
-          ? "Не удалось разобрать фото"
-          : review
-            ? "Проверьте результат"
-            : "Анализируем изображение"}
-      </h1>
+          ? "Попробуйте переснять при лучшем свете"
+          : phase === "review"
+            ? "Можно переснять или продолжить со схемой"
+            : "Рентген-скан: ищем корпуса автоматов на фото"}
+      </p>
 
-      <div className="mb-8 h-16 w-16 overflow-hidden rounded-[14px] border border-black/10 shadow-lg">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={photoDataUrl}
-          alt="Ваше фото щитка"
-          className="h-full w-full object-cover"
+      <div className="mb-5 w-full">
+        <PanelXrayScan
+          photoDataUrl={photoDataUrl}
+          progress={progress}
+          devices={result?.devices}
+          scanning={phase === "scanning" && !error}
+          revealCount={
+            phase === "revealing" || phase === "review"
+              ? revealCount || result?.devices.length
+              : 0
+          }
         />
       </div>
 
       {error ? (
-        <div className="w-full max-w-sm space-y-4">
+        <div className="w-full space-y-4">
           <GlassCard className="border border-rose-200 bg-rose-50 p-4">
             <p className="ty-body text-rose-800">{error}</p>
           </GlassCard>
           {onRetryPhoto && (
-            <Button type="button" className="w-full" onClick={() => onRetryPhoto()}>
+            <Button
+              type="button"
+              className="w-full"
+              onClick={() => onRetryPhoto()}
+            >
               <Camera className="h-4 w-4" />
               Переснять щиток
             </Button>
           )}
         </div>
-      ) : review ? (
-        <div className="w-full max-w-sm space-y-4">
+      ) : phase === "review" && result ? (
+        <div className="w-full space-y-4">
           {unknownCount > 0 && (
             <GlassCard className="flex gap-3 border border-amber-200/80 bg-amber-50/90 p-4">
               <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
@@ -224,71 +243,53 @@ export function AnalysisScreen({
             type="button"
             variant="secondary"
             className="w-full"
-            onClick={() => onDone(review)}
+            onClick={() => onDone(result)}
           >
             Продолжить со схемой
           </Button>
         </div>
       ) : (
         <>
-          <div className="relative mb-10 flex h-44 w-44 items-center justify-center">
-            <svg className="absolute inset-0 -rotate-90" viewBox="0 0 160 160">
-              <circle
-                cx="80"
-                cy="80"
-                r="68"
-                fill="none"
-                stroke="rgba(17,17,19,0.08)"
-                strokeWidth="10"
-              />
-              <motion.circle
-                cx="80"
-                cy="80"
-                r="68"
-                fill="none"
-                stroke="#3f3f46"
-                strokeWidth="10"
-                strokeLinecap="round"
-                strokeDasharray={2 * Math.PI * 68}
-                animate={{
-                  strokeDashoffset: 2 * Math.PI * 68 * (1 - progress / 100),
-                }}
-                transition={{ ease: "easeOut", duration: 0.2 }}
-              />
-            </svg>
-            <div className="text-center">
-              <div className="text-[40px] font-bold tabular-nums text-zinc-900">
-                {progress}%
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <div className="h-1.5 overflow-hidden rounded-full bg-zinc-200">
+                <motion.div
+                  className="h-full rounded-full bg-cyan-600"
+                  animate={{ width: `${progress}%` }}
+                  transition={{ ease: "easeOut", duration: 0.2 }}
+                />
               </div>
-              <div className="ty-note">завершено</div>
             </div>
+            <span className="shrink-0 text-[13px] tabular-nums text-zinc-600">
+              {progress}%
+            </span>
           </div>
 
-          <GlassCard className="mb-6 w-full max-w-sm space-y-3 p-5">
+          <GlassCard className="mb-4 w-full space-y-2.5 p-4">
             {analysisSteps.map((step, i) => {
               const done = i < stepIndex || progress === 100;
               const active = i === stepIndex && progress < 100;
               return (
                 <div key={step.id} className="flex items-center gap-3">
                   <span
-                    className={`flex h-8 w-8 items-center justify-center rounded-full ${
+                    className={`flex h-7 w-7 items-center justify-center rounded-full ${
                       done
-                        ? "bg-emerald-500/15 text-emerald-600"
+                        ? "bg-cyan-500/15 text-cyan-700"
                         : active
                           ? "bg-zinc-200 text-zinc-700"
                           : "bg-zinc-100 text-zinc-400"
                     }`}
                   >
                     {done ? (
-                      <Check className="h-4 w-4" />
+                      <Check className="h-3.5 w-3.5" />
                     ) : active ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
                     ) : (
                       <span className="h-1.5 w-1.5 rounded-full bg-current" />
                     )}
                   </span>
                   <span
-                    className={`text-[15px] ${
+                    className={`text-[14px] ${
                       done || active ? "text-zinc-800" : "text-zinc-400"
                     }`}
                   >
@@ -299,35 +300,22 @@ export function AnalysisScreen({
             })}
           </GlassCard>
 
-          <GlassCard className="w-full max-w-sm p-5">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-[15px] font-medium text-zinc-600">
-                Найденные устройства
-              </h2>
-              <span className="text-[13px] tabular-nums text-zinc-600">
-                {foundCount || "…"}
-              </span>
-            </div>
-            <ul className="max-h-40 space-y-2 overflow-hidden">
-              <AnimatePresence initial={false}>
-                {foundDevices.map((device) => (
-                  <motion.li
-                    key={device.id}
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: "auto" }}
-                    className="flex items-center justify-between text-[14px]"
-                  >
-                    <span className="text-zinc-800">{device.name}</span>
-                    <span className="text-zinc-500">{device.rating}</span>
-                  </motion.li>
-                ))}
-              </AnimatePresence>
-            </ul>
-          </GlassCard>
-
-          <p className="mt-8 text-center ty-meta">
-            Не закрывайте приложение во время анализа
-          </p>
+          <AnimatePresence>
+            {phase === "revealing" && result ? (
+              <motion.p
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-center text-[14px] text-cyan-800"
+              >
+                Подсвечиваем {result.devices.length}{" "}
+                {deviceWord(result.devices.length)} на снимке…
+              </motion.p>
+            ) : (
+              <p className="text-center ty-meta">
+                Не закрывайте приложение во время анализа
+              </p>
+            )}
+          </AnimatePresence>
         </>
       )}
     </motion.section>

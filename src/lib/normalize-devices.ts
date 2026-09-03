@@ -31,6 +31,133 @@ function asNumber(value: unknown, fallback: number): number {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 
+function clamp01(n: number): number {
+  if (!Number.isFinite(n)) return 0;
+  return Math.min(1, Math.max(0, n));
+}
+
+/**
+ * Accepts common VL box formats and returns normalized {x,y,w,h} in 0–1.
+ * Supports: bbox object, [x,y,w,h], [x1,y1,x2,y2], box_2d (0–100 or 0–1000).
+ */
+export function normalizeDeviceBbox(raw: unknown): Device["bbox"] | undefined {
+  if (Array.isArray(raw) && raw.length >= 4) {
+    const vals = raw.slice(0, 4).map(Number);
+    if (!vals.every(Number.isFinite)) return undefined;
+    const [a, b, c, d] = vals as [number, number, number, number];
+    const max = Math.max(a, b, c, d);
+    const scale = max > 100 ? 1000 : max > 1.5 ? 100 : 1;
+    const na = a / scale;
+    const nb = b / scale;
+    const nc = c / scale;
+    const nd = d / scale;
+
+    // Corners if third/fourth look like x2/y2 rather than width/height
+    const asCorners = nc >= na && nd >= nb && (nc > 0.2 || nd > 0.2) && na + nc > 0.35;
+    if (asCorners && !(nc <= 1 && nd <= 1 && na + nc <= 1.02 && nb + nd <= 1.02)) {
+      const x1 = Math.min(na, nc);
+      const y1 = Math.min(nb, nd);
+      const w = Math.abs(nc - na);
+      const h = Math.abs(nd - nb);
+      if (w < 0.01 || h < 0.01) return undefined;
+      return { x: clamp01(x1), y: clamp01(y1), w: clamp01(w), h: clamp01(h) };
+    }
+
+    if (nc < 0.01 || nd < 0.01) return undefined;
+    return {
+      x: clamp01(na),
+      y: clamp01(nb),
+      w: clamp01(nc),
+      h: clamp01(nd),
+    };
+  }
+
+  if (!isRecord(raw)) return undefined;
+  const x = asNumber(raw.x ?? raw.left, NaN);
+  const y = asNumber(raw.y ?? raw.top, NaN);
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return undefined;
+
+  if ("w" in raw || "width" in raw) {
+    const w = asNumber(raw.w ?? raw.width, NaN);
+    const h = asNumber(raw.h ?? raw.height, NaN);
+    if (!Number.isFinite(w) || !Number.isFinite(h) || w < 0.01 || h < 0.01) {
+      return undefined;
+    }
+    const scale = x > 1.5 || y > 1.5 || w > 1.5 || h > 1.5 ? 1000 : 1;
+    return {
+      x: clamp01(x / scale),
+      y: clamp01(y / scale),
+      w: clamp01(w / scale),
+      h: clamp01(h / scale),
+    };
+  }
+
+  const x2 = asNumber(raw.x2 ?? raw.right, NaN);
+  const y2 = asNumber(raw.y2 ?? raw.bottom, NaN);
+  if (!Number.isFinite(x2) || !Number.isFinite(y2)) return undefined;
+  const scale = Math.max(x, y, x2, y2) > 1.5 ? 1000 : 1;
+  const nx1 = Math.min(x, x2) / scale;
+  const ny1 = Math.min(y, y2) / scale;
+  const nw = (Math.max(x, x2) - Math.min(x, x2)) / scale;
+  const nh = (Math.max(y, y2) - Math.min(y, y2)) / scale;
+  if (nw < 0.01 || nh < 0.01) return undefined;
+  return {
+    x: clamp01(nx1),
+    y: clamp01(ny1),
+    w: clamp01(nw),
+    h: clamp01(nh),
+  };
+}
+
+/** Rough boxes from rail layout when the model omitted pixel coordinates. */
+export function estimateDeviceBboxes(
+  devices: Device[],
+  railCount: number,
+): Device[] {
+  const rails = Math.max(1, railCount);
+  const panel = { left: 0.07, right: 0.93, top: 0.1, bottom: 0.9 };
+  const panelW = panel.right - panel.left;
+  const panelH = panel.bottom - panel.top;
+  const rowH = panelH / rails;
+
+  const byRail = new Map<number, Device[]>();
+  for (const device of devices) {
+    const rail = device.rail ?? 0;
+    const list = byRail.get(rail) ?? [];
+    list.push(device);
+    byRail.set(rail, list);
+  }
+
+  return devices.map((device) => {
+    if (device.bbox) return device;
+    const rail = Math.min(rails - 1, Math.max(0, device.rail ?? 0));
+    const row = byRail.get(rail) ?? [device];
+    const totalModules = Math.max(
+      1,
+      row.reduce((sum, d) => sum + (d.modules ?? 1), 0),
+    );
+    let moduleOffset = 0;
+    for (const d of row) {
+      if (d.id === device.id) break;
+      moduleOffset += d.modules ?? 1;
+    }
+    const modules = device.modules ?? 1;
+    const x = panel.left + (moduleOffset / totalModules) * panelW;
+    const w = (modules / totalModules) * panelW;
+    const y = panel.top + rail * rowH + rowH * 0.12;
+    const h = rowH * 0.76;
+    return {
+      ...device,
+      bbox: {
+        x: clamp01(x),
+        y: clamp01(y),
+        w: clamp01(Math.max(0.04, w * 0.96)),
+        h: clamp01(h),
+      },
+    };
+  });
+}
+
 function normalizeDevice(raw: unknown, index: number): Device | null {
   if (!isRecord(raw)) return null;
 
@@ -65,6 +192,12 @@ function normalizeDevice(raw: unknown, index: number): Device | null {
     confidence >= DEVICE_DETAILS_CONFIDENCE
       ? asString(raw.series) || undefined
       : undefined;
+
+  const bbox =
+    normalizeDeviceBbox(raw.bbox) ??
+    normalizeDeviceBbox(raw.box_2d) ??
+    normalizeDeviceBbox(raw.box2d) ??
+    normalizeDeviceBbox(raw.boundingBox);
 
   return {
     id: asNumber(raw.id, index + 1),
@@ -101,6 +234,7 @@ function normalizeDevice(raw: unknown, index: number): Device | null {
     brandKey:
       confidence >= DEVICE_DETAILS_CONFIDENCE ? brandKey : undefined,
     stickerIcon: asString(raw.stickerIcon) || undefined,
+    bbox,
   };
 }
 
@@ -113,7 +247,7 @@ export function normalizeAnalyzeResult(raw: unknown): {
   const payload = isRecord(raw) ? raw : {};
   const list = Array.isArray(payload.devices) ? payload.devices : [];
 
-  const devices = prepareAnalyzedDevices(
+  let devices = prepareAnalyzedDevices(
     list
       .map((item, i) => normalizeDevice(item, i))
       .filter((d): d is Device => d !== null)
@@ -148,6 +282,8 @@ export function normalizeAnalyzeResult(raw: unknown): {
     4,
     Math.max(1, Math.round(asNumber(payload.railCount, maxRail))),
   );
+
+  devices = estimateDeviceBboxes(devices, railCount);
 
   return { devices, safetyScore, linesCount, railCount };
 }
