@@ -351,6 +351,7 @@ function HomeListCard({
   onCallWiringCheckMaster,
   linkedWiringRequest,
   onOpenWiringRequest,
+  onHowWeCalculateSafety,
 }: {
   item: HomeListItem;
   onOpen: () => void;
@@ -358,6 +359,7 @@ function HomeListCard({
   onCallWiringCheckMaster?: (panelId: string) => void;
   linkedWiringRequest?: InstallRequest | null;
   onOpenWiringRequest?: (requestId: string) => void;
+  onHowWeCalculateSafety?: () => void;
 }) {
   const isRequest = item.kind === "install_request";
   const isConsultationRequest =
@@ -470,6 +472,7 @@ function HomeListCard({
             ? () => onCallWiringCheckMaster(panel.id)
             : undefined
         }
+        onHowWeCalculate={onHowWeCalculateSafety}
         linkedWiringRequest={linkedWiringRequest}
         onOpenWiringRequest={
           linkedWiringRequest && onOpenWiringRequest
@@ -557,6 +560,7 @@ function ExpandableHomeCard({
   onCallWiringCheckMaster,
   linkedWiringRequest,
   onOpenWiringRequest,
+  onHowWeCalculateSafety,
 }: {
   panel: PanelObject;
   expanded: boolean;
@@ -569,6 +573,7 @@ function ExpandableHomeCard({
   onCallWiringCheckMaster?: (panelId: string) => void;
   linkedWiringRequest?: InstallRequest | null;
   onOpenWiringRequest?: (requestId: string) => void;
+  onHowWeCalculateSafety?: () => void;
 }) {
   const appliances = panel.appliances ?? [];
   const supportsAppliances = panelSupportsHomeAppliances(panel);
@@ -717,6 +722,7 @@ function ExpandableHomeCard({
               ? () => onCallWiringCheckMaster(panel.id)
               : undefined
           }
+          onHowWeCalculate={onHowWeCalculateSafety}
           linkedWiringRequest={linkedWiringRequest}
           onOpenWiringRequest={
             linkedWiringRequest && onOpenWiringRequest
@@ -904,6 +910,7 @@ export function ObjectsScreen({
   onRestoreAppliance,
   onCallWiringCheckMaster,
   onOpenWiringRequest,
+  onHowWeCalculateSafety,
   initialPage = 0,
   onPageChange,
 }: {
@@ -941,6 +948,7 @@ export function ObjectsScreen({
   ) => void;
   onCallWiringCheckMaster?: (panelId: string) => void;
   onOpenWiringRequest?: (requestId: string) => void;
+  onHowWeCalculateSafety?: () => void;
   initialPage?: 0 | 1;
   onPageChange?: (page: 0 | 1) => void;
 }) {
@@ -1246,6 +1254,7 @@ export function ObjectsScreen({
                     obj.id,
                   )}
                   onOpenWiringRequest={onOpenWiringRequest}
+                  onHowWeCalculateSafety={onHowWeCalculateSafety}
                 />
               )
             ) : obj.kind === "install_request" ? (
@@ -1274,6 +1283,7 @@ export function ObjectsScreen({
                   obj.id,
                 )}
                 onOpenWiringRequest={onOpenWiringRequest}
+                onHowWeCalculateSafety={onHowWeCalculateSafety}
               />
             )}
           </div>

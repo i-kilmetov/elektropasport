@@ -31,6 +31,7 @@ export function SafetyExplainSheet({
   onClose,
   onEditParams,
   onCallMaster,
+  onHowWeCalculate,
   linkedWiringRequest,
   onOpenWiringRequest,
 }: {
@@ -39,6 +40,7 @@ export function SafetyExplainSheet({
   onClose: () => void;
   onEditParams?: () => void;
   onCallMaster?: () => void;
+  onHowWeCalculate?: () => void;
   linkedWiringRequest?: InstallRequest | null;
   onOpenWiringRequest?: () => void;
 }) {
@@ -174,6 +176,18 @@ export function SafetyExplainSheet({
             <Button className="w-full" variant="secondary" onClick={onClose}>
               Понятно
             </Button>
+            {onHowWeCalculate ? (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onHowWeCalculate();
+                }}
+                className="w-full py-2 text-center ty-label text-zinc-500 underline decoration-zinc-300 underline-offset-4 transition-colors hover:text-zinc-800"
+              >
+                Как мы считаем
+              </button>
+            ) : null}
           </div>
         </motion.div>
       </motion.div>

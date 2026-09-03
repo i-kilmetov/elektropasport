@@ -1679,6 +1679,7 @@ export function SchemeScreen({
   onCallWiringCheckMaster,
   linkedWiringRequest,
   onOpenWiringRequest,
+  onHowWeCalculateSafety,
   devices: devicesProp,
   wires: wiresProp,
   safetyScore: safetyProp,
@@ -1755,6 +1756,7 @@ export function SchemeScreen({
   onCallWiringCheckMaster?: () => void;
   linkedWiringRequest?: InstallRequest | null;
   onOpenWiringRequest?: () => void;
+  onHowWeCalculateSafety?: () => void;
   devices?: Device[];
   wires?: PanelWire[];
   safetyScore?: number | null;
@@ -3691,6 +3693,14 @@ export function SchemeScreen({
             }
             linkedWiringRequest={linkedWiringRequest}
             onOpenWiringRequest={onOpenWiringRequest}
+            onHowWeCalculate={
+              onHowWeCalculateSafety
+                ? () => {
+                    setSafetyExplainOpen(false);
+                    onHowWeCalculateSafety();
+                  }
+                : undefined
+            }
             onCallMaster={
               linkedWiringRequest
                 ? undefined

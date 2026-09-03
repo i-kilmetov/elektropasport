@@ -55,6 +55,7 @@ import {
   type RequestNeedId,
 } from "@/components/screens/request-type-screen";
 import { SchemeScreen } from "@/components/screens/scheme-screen";
+import { SafetyMethodologyScreen } from "@/components/screens/safety-methodology-screen";
 import { SchoolScreen } from "@/components/screens/school-screen";
 import { TelegramAuthScreen } from "@/components/screens/telegram-auth-screen";
 import {
@@ -481,6 +482,8 @@ export function AppShell({
     city: string;
     address: string;
   } | null>(null);
+  const [safetyMethodologyBack, setSafetyMethodologyBack] =
+    useState<AppScreen>("objects");
   const [selectedLeadService, setSelectedLeadService] =
     useState<LeadServiceType | null>(null);
   const [leadPanelModules, setLeadPanelModules] = useState<number | null>(null);
@@ -981,6 +984,14 @@ export function AppShell({
     }
     startHelpElectricalAddressFlow();
   }, [helpElectricalPanels.length, startHelpElectricalAddressFlow]);
+
+  const openSafetyMethodology = useCallback(
+    (from: AppScreen) => {
+      setSafetyMethodologyBack(from);
+      go("safety-methodology");
+    },
+    [go],
+  );
 
   const submitHelpElectricalConsultation = useCallback(
     async (
@@ -2943,6 +2954,7 @@ export function AppShell({
               showMaintenance={showMaintenanceMenu}
               homeAppliancesMode={homeAppliancesEnabled}
               onCallWiringCheckMaster={startWiringCheckMaster}
+              onHowWeCalculateSafety={() => openSafetyMethodology("objects")}
               onOpenWiringRequest={(requestId) => {
                 setMasterViewRequest(null);
                 setObjectsTab(1);
@@ -3391,6 +3403,7 @@ export function AppShell({
                   setActiveRequestId(request.id);
                   go("request-details");
                 }}
+                onHowWeCalculateSafety={() => openSafetyMethodology("scheme")}
                 devices={devices ?? undefined}
                 wires={activePanel?.wires}
                 safetyScore={safetyScore}
@@ -3878,6 +3891,12 @@ export function AppShell({
             <AboutServiceScreen
               key="about-service"
               onBack={() => go("objects")}
+            />
+          )}
+          {screen === "safety-methodology" && (
+            <SafetyMethodologyScreen
+              key="safety-methodology"
+              onBack={() => go(safetyMethodologyBack)}
             />
           )}
           {screen === "school" && (
