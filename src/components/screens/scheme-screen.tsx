@@ -1681,12 +1681,14 @@ export function SchemeScreen({
   devices: devicesProp,
   wires: wiresProp,
   safetyScore: safetyProp,
+  professionalSafety: professionalSafetyProp,
   phases,
   powerKw,
   hasGround,
   railCount,
   canUseTerminals = false,
   masterWiringMode = false,
+  wiringLockedByMaster = false,
   houseSnapshot,
   onEditHouse,
   appliances = [],
@@ -1700,6 +1702,11 @@ export function SchemeScreen({
   sharedPreview?: boolean;
   /** Master reviewing client panel: save wires then send to customer */
   masterWiringMode?: boolean;
+  /**
+   * Customer after master wiring check: can view/edit wires locally,
+   * but changes are not persisted.
+   */
+  wiringLockedByMaster?: boolean;
   onSaveShared?: () => void;
   onBack: () => void;
   onRename: (name: string) => void;
@@ -1747,6 +1754,8 @@ export function SchemeScreen({
   devices?: Device[];
   wires?: PanelWire[];
   safetyScore?: number | null;
+  /** Stage 3 score after master wiring check */
+  professionalSafety?: number | null;
   phases?: "1" | "3";
   powerKw?: string;
   hasGround?: boolean;
@@ -1761,7 +1770,10 @@ export function SchemeScreen({
   onGoAddAppliances?: () => void;
 }) {
   const devices = Array.isArray(devicesProp) ? devicesProp : [];
-  const wires = Array.isArray(wiresProp) ? wiresProp : [];
+  const savedWires = Array.isArray(wiresProp) ? wiresProp : [];
+  const [draftWires, setDraftWires] = useState<PanelWire[] | null>(null);
+  const wires = draftWires ?? savedWires;
+  const canEditWires = Boolean(onUpdateWires) || wiringLockedByMaster;
   const networkParamsFilled = isPanelNetworkParamsReady({
     phases,
     powerKw,
@@ -1818,6 +1830,7 @@ export function SchemeScreen({
     () => Boolean(masterWiringMode && (wiresProp?.length ?? 0) > 0),
   );
   const [masterWiringBusy, setMasterWiringBusy] = useState(false);
+  const [wiringLockNoticeOpen, setWiringLockNoticeOpen] = useState(false);
   const safetyFrameRef = useRef<number | null>(null);
   const schemeCanvasRef = useRef<HTMLDivElement | null>(null);
   const [schemeCanvasEl, setSchemeCanvasEl] = useState<HTMLDivElement | null>(
@@ -1922,6 +1935,11 @@ export function SchemeScreen({
       lastCheck: "",
       breakers: 0,
       safety: safetyProp ?? null,
+      professionalSafety:
+        typeof professionalSafetyProp === "number"
+          ? professionalSafetyProp
+          : null,
+      wires: savedWires,
       phases,
       powerKw,
       hasGround,
@@ -1932,6 +1950,8 @@ export function SchemeScreen({
       panelId,
       title,
       safetyProp,
+      professionalSafetyProp,
+      savedWires,
       phases,
       powerKw,
       hasGround,
@@ -2085,6 +2105,10 @@ export function SchemeScreen({
   }, [allRailDevices, editDraft, railCount, railEdit.editing]);
 
   useEffect(() => {
+    setDraftWires(null);
+  }, [panelId]);
+
+  useEffect(() => {
     if (canUseTerminals) return;
     setShowTerminals(false);
     setWireDraft(null);
@@ -2126,7 +2150,7 @@ export function SchemeScreen({
     terminal: TerminalRef,
     event: PointerEvent<HTMLButtonElement>,
   ) => {
-    if (!onUpdateWires || !showTerminals || !canUseTerminals) return;
+    if (!canEditWires || !showTerminals || !canUseTerminals) return;
     if (event.button !== 0) return;
     event.preventDefault();
     clearWiringHold();
@@ -2219,14 +2243,28 @@ export function SchemeScreen({
     window.addEventListener("pointercancel", finish);
   };
 
+  const applyWiresChange = (nextWires: PanelWire[]) => {
+    if (wiringLockedByMaster) {
+      setDraftWires(nextWires);
+      setWiringLockNoticeOpen(true);
+      return;
+    }
+    if (!onUpdateWires) return;
+    onUpdateWires(nextWires);
+    if (masterWiringMode) {
+      setMasterWiringDirty(true);
+      setMasterWiringSaved(false);
+    }
+  };
+
   const commitWire = (spec: {
     color: string;
     thicknessMm: number;
     cableType: string;
   }) => {
-    if (!onUpdateWires) return;
+    if (!canEditWires) return;
     if (editingWire) {
-      onUpdateWires(
+      applyWiresChange(
         wires.map((wire) =>
           wire.id === editingWire.id
             ? {
@@ -2239,10 +2277,6 @@ export function SchemeScreen({
         ),
       );
       setEditingWire(null);
-      if (masterWiringMode) {
-        setMasterWiringDirty(true);
-        setMasterWiringSaved(false);
-      }
       return;
     }
     if (!pendingWire) return;
@@ -2257,34 +2291,22 @@ export function SchemeScreen({
     const without = wires.filter(
       (wire) => !wireConnectsSamePair(wire, pendingWire.from, pendingWire.to),
     );
-    onUpdateWires([...without, nextWire]);
+    applyWiresChange([...without, nextWire]);
     setPendingWire(null);
-    if (masterWiringMode) {
-      setMasterWiringDirty(true);
-      setMasterWiringSaved(false);
-    }
   };
 
   const deleteWire = () => {
-    if (!onUpdateWires) return;
+    if (!canEditWires) return;
     if (editingWire) {
-      onUpdateWires(wires.filter((wire) => wire.id !== editingWire.id));
+      applyWiresChange(wires.filter((wire) => wire.id !== editingWire.id));
       setEditingWire(null);
-      if (masterWiringMode) {
-        setMasterWiringDirty(true);
-        setMasterWiringSaved(false);
-      }
       return;
     }
     if (pendingWire?.existing) {
-      onUpdateWires(
+      applyWiresChange(
         wires.filter((wire) => wire.id !== pendingWire.existing?.id),
       );
       setPendingWire(null);
-      if (masterWiringMode) {
-        setMasterWiringDirty(true);
-        setMasterWiringSaved(false);
-      }
     }
   };
 
@@ -2773,6 +2795,12 @@ export function SchemeScreen({
       {tab === "scheme" ? (
         <div className="px-5 pb-4 lg:min-w-0 lg:flex-1 lg:px-0">
           <div className={cn(showTerminals && canUseTerminals && "overflow-y-visible")}>
+            {wiringLockedByMaster && showTerminals && canUseTerminals ? (
+              <p className="mb-3 rounded-[14px] border border-black/8 bg-zinc-50 px-3 py-2 ty-note text-zinc-600">
+                Расключение проверено мастером Током. Можно смотреть и пробовать
+                тянуть провода — изменения не сохраняются.
+              </p>
+            ) : null}
             <GlassCard
               data-scheme-tour="scheme"
               className={cn(
@@ -2842,7 +2870,7 @@ export function SchemeScreen({
                   wires={wires}
                   draft={wireDraft}
                   onWireClick={
-                    !onUpdateWires
+                    !canEditWires
                       ? undefined
                       : (wire) => setEditingWire(wire)
                   }
@@ -2917,7 +2945,7 @@ export function SchemeScreen({
                         setSelectedId(device.id);
                       }}
                       onTerminalPointerDown={
-                        !onUpdateWires ||
+                        !canEditWires ||
                         !canUseTerminals ||
                         railEdit.editing
                           ? undefined
@@ -3281,6 +3309,41 @@ export function SchemeScreen({
               setEditingWire(null);
             }}
           />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {wiringLockNoticeOpen && (
+          <Portal>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[140] flex items-end bg-black/45 backdrop-blur-sm sm:items-center sm:justify-center"
+              onClick={() => setWiringLockNoticeOpen(false)}
+            >
+              <motion.div
+                initial={{ y: 28, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: 28, opacity: 0 }}
+                onClick={(e) => e.stopPropagation()}
+                className="w-full max-w-md rounded-t-[24px] border border-black/8 bg-white p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl sm:rounded-[24px]"
+              >
+                <h3 className="ty-title">Сохранение недоступно</h3>
+                <p className="mt-2 ty-body text-zinc-600">
+                  Расключение щитка проверено мастером Током. Новые изменения
+                  не сохраняются — иначе схема и оценка покажут некорректную
+                  информацию.
+                </p>
+                <Button
+                  className="mt-5 w-full"
+                  onClick={() => setWiringLockNoticeOpen(false)}
+                >
+                  Понятно
+                </Button>
+              </motion.div>
+            </motion.div>
+          </Portal>
         )}
       </AnimatePresence>
 

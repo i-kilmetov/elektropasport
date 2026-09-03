@@ -3205,7 +3205,8 @@ export function AppShell({
                 onUpdateWires={
                   masterViewRequest
                     ? updateMasterLinkedWires
-                    : sharedPreview
+                    : sharedPreview ||
+                        typeof activePanel?.professionalSafety === "number"
                       ? undefined
                       : updatePanelWires
                 }
@@ -3243,6 +3244,7 @@ export function AppShell({
                 devices={devices ?? undefined}
                 wires={activePanel?.wires}
                 safetyScore={safetyScore}
+                professionalSafety={activePanel?.professionalSafety}
                 phases={activePanel?.phases}
                 powerKw={activePanel?.powerKw}
                 hasGround={activePanel?.hasGround}
@@ -3255,7 +3257,13 @@ export function AppShell({
                 railCount={railCount ?? undefined}
                 canUseTerminals={
                   Boolean(masterViewRequest) ||
-                  ((isMaster || isAdmin) && masterMode)
+                  ((isMaster || isAdmin) && masterMode) ||
+                  typeof activePanel?.professionalSafety === "number"
+                }
+                wiringLockedByMaster={
+                  !masterViewRequest &&
+                  !sharedPreview &&
+                  typeof activePanel?.professionalSafety === "number"
                 }
                 onGoAddAppliances={
                   sharedPreview
