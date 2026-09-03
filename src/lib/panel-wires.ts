@@ -4,6 +4,15 @@ export const WIRE_THICKNESS_OPTIONS = [
   0.75, 1, 1.5, 2.5, 4, 6, 10, 16,
 ] as const;
 
+export const WIRE_CABLE_TYPE_OPTIONS = [
+  { id: "vvgng_ls", label: "ВВГнг-LS" },
+  { id: "vvgng", label: "ВВГнг" },
+  { id: "vvg", label: "ВВГ" },
+  { id: "nym", label: "NYM" },
+  { id: "pvs", label: "ПВС" },
+  { id: "other", label: "Другой" },
+] as const;
+
 export const WIRE_COLOR_OPTIONS: Array<{ id: string; label: string; color: string }> = [
   { id: "brown", label: "Коричневый (L)", color: "#92400E" },
   { id: "black", label: "Чёрный (L)", color: "#18181B" },

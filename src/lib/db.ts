@@ -33,6 +33,7 @@ import {
 import { DbError, dbErrorResponse } from "@/lib/db-error";
 export { DbError, dbErrorResponse } from "@/lib/db-error";
 import { byteaParam, bytesFromBytea, getSql, jsonbParam } from "@/lib/sql-client";
+import { analyzeProfessionalWiringSafety } from "@/lib/professional-wiring-safety";
 export {
   getSql,
   isRussianDatabaseConfigured,
@@ -253,6 +254,10 @@ export async function ensureSchema(): Promise<void> {
       await sql`
         ALTER TABLE panels
         ADD COLUMN IF NOT EXISTS wires JSONB
+      `;
+      await sql`
+        ALTER TABLE panels
+        ADD COLUMN IF NOT EXISTS professional_safety INT
       `;
       await sql`
         ALTER TABLE panels
@@ -981,6 +986,7 @@ type PanelRow = {
   last_check: string;
   breakers: number;
   safety: number | null;
+  professional_safety: number | null;
   devices: Device[] | null;
   lines_count: number | null;
   photo_data_url: string | null;
@@ -1067,6 +1073,10 @@ function rowToPanel(row: PanelRow): PanelObject {
     lastCheck: row.last_check,
     breakers: row.breakers,
     safety: row.safety,
+    professionalSafety:
+      typeof row.professional_safety === "number"
+        ? row.professional_safety
+        : null,
     devices,
     linesCount: row.lines_count ?? undefined,
     // Photos are client-only; never rehydrate huge data URLs from the DB.
@@ -1157,7 +1167,7 @@ export async function listHomeItems(
   const sql = getSql();
   const panels = (await sql`
     SELECT
-      id, type, title, address, last_check, breakers, safety,
+      id, type, title, address, last_check, breakers, safety, professional_safety,
       devices, lines_count, photo_data_url, named, phases, power_kw,
       has_ground, house_snapshot, rail_count, wires, appliances, appliances_updated_at, source_share_token, no_panel_setup_id, created_at
     FROM panels
@@ -1484,7 +1494,7 @@ export async function getPanelByOwner(
   const sql = getSql();
   const rows = (await sql`
     SELECT
-      id, type, title, address, last_check, breakers, safety,
+      id, type, title, address, last_check, breakers, safety, professional_safety,
       devices, lines_count, photo_data_url, named, phases, power_kw,
       has_ground, house_snapshot, rail_count, wires, appliances, appliances_updated_at, source_share_token, no_panel_setup_id, created_at
     FROM panels
@@ -1499,7 +1509,7 @@ export async function getPanelById(id: string): Promise<PanelObject | null> {
   await ensureSchema();
   const rows = (await sql`
     SELECT
-      id, type, title, address, last_check, breakers, safety,
+      id, type, title, address, last_check, breakers, safety, professional_safety,
       devices, lines_count, photo_data_url, named, phases, power_kw,
       has_ground, house_snapshot, rail_count, wires, appliances, appliances_updated_at, source_share_token, no_panel_setup_id, created_at
     FROM panels
@@ -1517,7 +1527,7 @@ export async function getPanelForMasterRequest(
   const rows = (await sql`
     SELECT
       panels.id, panels.type, panels.title, panels.address, panels.last_check,
-      panels.breakers, panels.safety, panels.devices, panels.lines_count,
+      panels.breakers, panels.safety, panels.professional_safety, panels.devices, panels.lines_count,
       panels.photo_data_url, panels.named, panels.phases, panels.power_kw,
       panels.has_ground, panels.house_snapshot, panels.rail_count, panels.wires, panels.appliances, panels.appliances_updated_at,
       panels.source_share_token, panels.no_panel_setup_id, panels.created_at
@@ -1544,15 +1554,76 @@ export async function updateMasterRequestPanelWires(
   const wiresJson = jsonbParam(sanitizeJsonValue(wires));
   const rows = (await sql`
     UPDATE panels SET
-      wires = ${wiresJson}::jsonb
+      wires = ${wiresJson}::jsonb,
+      updated_at = NOW()
     WHERE id = ${panel.id}
     RETURNING
-      id, type, title, address, last_check, breakers, safety,
+      id, type, title, address, last_check, breakers, safety, professional_safety,
       devices, lines_count, photo_data_url, named, phases, power_kw,
       has_ground, house_snapshot, rail_count, wires, appliances, appliances_updated_at,
       source_share_token, no_panel_setup_id, created_at
   `) as PanelRow[];
   return rows[0] ? rowToPanel(rows[0]) : null;
+}
+
+export async function completeMasterWiringCheck(
+  masterTelegramId: number,
+  requestId: string,
+  wires: PanelWire[],
+): Promise<{ panel: PanelObject; request: InstallRequest } | null> {
+  const panel = await getPanelForMasterRequest(masterTelegramId, requestId);
+  if (!panel) return null;
+
+  const powerKwRaw = Number((panel.powerKw ?? "").replace(",", ".").trim());
+  const powerKw =
+    Number.isFinite(powerKwRaw) && powerKwRaw > 0 ? powerKwRaw : undefined;
+  const analysis = analyzeProfessionalWiringSafety({
+    devices: panel.devices ?? [],
+    wires,
+    phases: panel.phases,
+    powerKw,
+    hasGround: panel.hasGround,
+    loadsScore: panel.safety,
+  });
+
+  const sql = getSql();
+  await ensureSchema();
+  const wiresJson = jsonbParam(sanitizeJsonValue(wires));
+  const panelRows = (await sql`
+    UPDATE panels SET
+      wires = ${wiresJson}::jsonb,
+      professional_safety = ${analysis.score}::int,
+      updated_at = NOW()
+    WHERE id = ${panel.id}
+    RETURNING
+      id, type, title, address, last_check, breakers, safety, professional_safety,
+      devices, lines_count, photo_data_url, named, phases, power_kw,
+      has_ground, house_snapshot, rail_count, wires, appliances, appliances_updated_at,
+      source_share_token, no_panel_setup_id, created_at
+  `) as PanelRow[];
+  const nextPanel = panelRows[0] ? rowToPanel(panelRows[0]) : null;
+  if (!nextPanel) return null;
+
+  const requestRows = (await sql`
+    UPDATE install_requests
+    SET
+      status = 'done',
+      status_label = ${installStatusLabels.done}
+    WHERE id = ${requestId}
+      AND master_telegram_id = ${masterTelegramId}
+      AND status <> 'deleted'
+    RETURNING
+      id, title, subtitle, status, status_label, created_at_label,
+      city, contact_method, phone, name, dwelling, phases, power_kw,
+      setup_title, exact_address, public_code, payment_status,
+      paid_amount_rub, tbank_payment_id, created_at,
+      master_telegram_id, panel_id, master_accepted_at, dispatched_at,
+      linked_request_id, ai_consultation
+  `) as RequestRow[];
+  const nextRequest = requestRows[0] ? rowToRequest(requestRows[0]) : null;
+  if (!nextRequest) return null;
+
+  return { panel: nextPanel, request: nextRequest };
 }
 
 export async function getPanelPhotoByPanelId(

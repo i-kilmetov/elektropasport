@@ -4,6 +4,7 @@ import {
   requireTelegramUser,
 } from "@/lib/telegram-auth";
 import {
+  completeMasterWiringCheck,
   dbErrorResponse,
   ensureSchema,
   getPanelForMasterRequest,
@@ -49,7 +50,10 @@ export async function PATCH(request: Request, context: RouteContext) {
     }
 
     const { id } = await context.params;
-    const body = (await request.json()) as { wires?: unknown };
+    const body = (await request.json()) as {
+      wires?: unknown;
+      action?: "save" | "send";
+    };
     if (!Array.isArray(body.wires)) {
       return Response.json(
         { error: "Нужен массив wires" },
@@ -57,10 +61,29 @@ export async function PATCH(request: Request, context: RouteContext) {
       );
     }
 
+    const wires = body.wires as PanelWire[];
+    if (body.action === "send") {
+      if (wires.length === 0) {
+        return Response.json(
+          { error: "Сначала сохраните расключение" },
+          { status: 400 },
+        );
+      }
+      const result = await completeMasterWiringCheck(
+        user.telegramId,
+        id,
+        wires,
+      );
+      if (!result) {
+        return Response.json({ error: "Щиток не найден" }, { status: 404 });
+      }
+      return Response.json(result);
+    }
+
     const panel = await updateMasterRequestPanelWires(
       user.telegramId,
       id,
-      body.wires as PanelWire[],
+      wires,
     );
     if (!panel) {
       return Response.json({ error: "Щиток не найден" }, { status: 404 });

@@ -1670,6 +1670,8 @@ export function SchemeScreen({
   onUpdateDeviceIdentity,
   onUpdateDeviceSticker,
   onUpdateWires,
+  onSaveMasterWiring,
+  onSendWiringToCustomer,
   onUpdateDevices,
   onAssessSafety,
   onCallMaster,
@@ -1684,6 +1686,7 @@ export function SchemeScreen({
   hasGround,
   railCount,
   canUseTerminals = false,
+  masterWiringMode = false,
   houseSnapshot,
   onEditHouse,
   appliances = [],
@@ -1695,6 +1698,8 @@ export function SchemeScreen({
   photoDataUrl?: string | null;
   askNameOnBack?: boolean;
   sharedPreview?: boolean;
+  /** Master reviewing client panel: save wires then send to customer */
+  masterWiringMode?: boolean;
   onSaveShared?: () => void;
   onBack: () => void;
   onRename: (name: string) => void;
@@ -1725,6 +1730,8 @@ export function SchemeScreen({
     patch: { circuitLabel?: string; stickerIcon?: string },
   ) => void;
   onUpdateWires?: (wires: PanelWire[]) => void;
+  onSaveMasterWiring?: (wires: PanelWire[]) => Promise<void> | void;
+  onSendWiringToCustomer?: (wires: PanelWire[]) => Promise<void> | void;
   onUpdateDevices?: (devices: Device[], railCount?: number) => void;
   onAssessSafety?: (payload: {
     phases: "1" | "3";
@@ -1806,6 +1813,11 @@ export function SchemeScreen({
   } | null>(null);
   const [editingWire, setEditingWire] = useState<PanelWire | null>(null);
   const [wiresLayoutTick, setWiresLayoutTick] = useState(0);
+  const [masterWiringDirty, setMasterWiringDirty] = useState(false);
+  const [masterWiringSaved, setMasterWiringSaved] = useState(
+    () => Boolean(masterWiringMode && (wiresProp?.length ?? 0) > 0),
+  );
+  const [masterWiringBusy, setMasterWiringBusy] = useState(false);
   const safetyFrameRef = useRef<number | null>(null);
   const schemeCanvasRef = useRef<HTMLDivElement | null>(null);
   const [schemeCanvasEl, setSchemeCanvasEl] = useState<HTMLDivElement | null>(
@@ -2207,17 +2219,30 @@ export function SchemeScreen({
     window.addEventListener("pointercancel", finish);
   };
 
-  const commitWire = (spec: { color: string; thicknessMm: number }) => {
+  const commitWire = (spec: {
+    color: string;
+    thicknessMm: number;
+    cableType: string;
+  }) => {
     if (!onUpdateWires) return;
     if (editingWire) {
       onUpdateWires(
         wires.map((wire) =>
           wire.id === editingWire.id
-            ? { ...wire, color: spec.color, thicknessMm: spec.thicknessMm }
+            ? {
+                ...wire,
+                color: spec.color,
+                thicknessMm: spec.thicknessMm,
+                cableType: spec.cableType,
+              }
             : wire,
         ),
       );
       setEditingWire(null);
+      if (masterWiringMode) {
+        setMasterWiringDirty(true);
+        setMasterWiringSaved(false);
+      }
       return;
     }
     if (!pendingWire) return;
@@ -2227,12 +2252,17 @@ export function SchemeScreen({
       to: pendingWire.to,
       color: spec.color,
       thicknessMm: spec.thicknessMm,
+      cableType: spec.cableType,
     };
     const without = wires.filter(
       (wire) => !wireConnectsSamePair(wire, pendingWire.from, pendingWire.to),
     );
     onUpdateWires([...without, nextWire]);
     setPendingWire(null);
+    if (masterWiringMode) {
+      setMasterWiringDirty(true);
+      setMasterWiringSaved(false);
+    }
   };
 
   const deleteWire = () => {
@@ -2240,6 +2270,10 @@ export function SchemeScreen({
     if (editingWire) {
       onUpdateWires(wires.filter((wire) => wire.id !== editingWire.id));
       setEditingWire(null);
+      if (masterWiringMode) {
+        setMasterWiringDirty(true);
+        setMasterWiringSaved(false);
+      }
       return;
     }
     if (pendingWire?.existing) {
@@ -2247,6 +2281,40 @@ export function SchemeScreen({
         wires.filter((wire) => wire.id !== pendingWire.existing?.id),
       );
       setPendingWire(null);
+      if (masterWiringMode) {
+        setMasterWiringDirty(true);
+        setMasterWiringSaved(false);
+      }
+    }
+  };
+
+  const handleSaveMasterWiring = async () => {
+    if (!onSaveMasterWiring || masterWiringBusy || wires.length === 0) return;
+    setMasterWiringBusy(true);
+    try {
+      await onSaveMasterWiring(wires);
+      setMasterWiringDirty(false);
+      setMasterWiringSaved(true);
+      hapticNotification("success");
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setMasterWiringBusy(false);
+    }
+  };
+
+  const handleSendWiringToCustomer = async () => {
+    if (!onSendWiringToCustomer || masterWiringBusy || wires.length === 0) {
+      return;
+    }
+    setMasterWiringBusy(true);
+    try {
+      await onSendWiringToCustomer(wires);
+      hapticNotification("success");
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setMasterWiringBusy(false);
     }
   };
   const widestRailModules = Math.max(
@@ -2740,6 +2808,20 @@ export function SchemeScreen({
                     <span className="relative z-[2]">Отмена</span>
                   </button>
                 </div>
+              ) : masterWiringMode && wires.length > 0 && masterWiringDirty ? (
+                <button
+                  type="button"
+                  disabled={masterWiringBusy}
+                  onClick={() => void handleSaveMasterWiring()}
+                  className="relative shrink-0 rounded-full bg-zinc-900 px-3.5 py-1.5 ty-label text-white disabled:opacity-60"
+                >
+                  <IosHapticHit
+                    onActivate={() => void handleSaveMasterWiring()}
+                  />
+                  <span className="relative z-[2]">
+                    {masterWiringBusy ? "Сохранение…" : "Сохранить"}
+                  </span>
+                </button>
               ) : (
                 <span className="shrink-0" aria-hidden />
               )}
@@ -2835,7 +2917,7 @@ export function SchemeScreen({
                         setSelectedId(device.id);
                       }}
                       onTerminalPointerDown={
-                        sharedPreview ||
+                        !onUpdateWires ||
                         !canUseTerminals ||
                         railEdit.editing
                           ? undefined
@@ -2966,6 +3048,19 @@ export function SchemeScreen({
             </div>
           </GlassCard>
           </div>
+
+          {masterWiringMode &&
+          masterWiringSaved &&
+          !masterWiringDirty &&
+          wires.length > 0 ? (
+            <Button
+              className="mt-4 w-full"
+              disabled={masterWiringBusy}
+              onClick={() => void handleSendWiringToCustomer()}
+            >
+              {masterWiringBusy ? "Отправка…" : "Отправить заказчику"}
+            </Button>
+          ) : null}
 
           {!sharedPreview && !loadsStageReady ? (
             <button
@@ -3172,6 +3267,11 @@ export function SchemeScreen({
               editingWire?.thicknessMm ??
               pendingWire?.existing?.thicknessMm ??
               2.5
+            }
+            initialCableType={
+              editingWire?.cableType ??
+              pendingWire?.existing?.cableType ??
+              "ВВГнг-LS"
             }
             allowDelete={Boolean(editingWire || pendingWire?.existing)}
             onConfirm={commitWire}

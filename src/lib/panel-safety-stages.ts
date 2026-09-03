@@ -1,5 +1,6 @@
 import { equipmentLabelForAppliance } from "@/lib/appliance-line-sync";
 import { allPanelLoadsIdentified, parseLineLoads } from "@/lib/panel-identify";
+import { analyzeProfessionalWiringSafety } from "@/lib/professional-wiring-safety";
 import {
   analyzePanelSafety,
   safetyBadgeColors,
@@ -277,6 +278,17 @@ export function buildPanelSafetyStages(input: {
       ? input.panel.safety
       : null);
 
+  const professionalAnalysis = professionalDone
+    ? analyzeProfessionalWiringSafety({
+        devices: input.panel.devices ?? rail,
+        wires: input.panel.wires ?? [],
+        phases: input.panel.phases,
+        powerKw,
+        hasGround: input.panel.hasGround,
+        loadsScore,
+      })
+    : undefined;
+
   const stages: SafetyStageSnapshot[] = PANEL_SAFETY_STAGE_META.map((meta) => {
     if (meta.id === "scheme") {
       const score = schemeAnalysis?.score ?? null;
@@ -330,6 +342,12 @@ export function buildPanelSafetyStages(input: {
       hint: professionalDone
         ? "Заключение по расключению щитка и типу кабелей"
         : meta.lockedHint,
+      analysis: professionalAnalysis
+        ? {
+            ...professionalAnalysis,
+            score: professionalScore ?? professionalAnalysis.score,
+          }
+        : undefined,
     };
   });
 

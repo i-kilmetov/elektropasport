@@ -2416,12 +2416,42 @@ export async function persistMasterRequestPanelWires(
         "Content-Type": "application/json",
         ...authHeaders(),
       },
-      body: JSON.stringify({ wires: wires ?? [] }),
+      body: JSON.stringify({ wires: wires ?? [], action: "save" }),
     },
   );
   if (!res.ok) {
     throw new Error(await parseError(res));
   }
+}
+
+export async function sendMasterWiringToCustomer(
+  requestId: string,
+  wires: PanelObject["wires"],
+): Promise<{
+  panel: PanelObject;
+  request: import("@/types").InstallRequest;
+}> {
+  if (!canUseServer()) {
+    throw new Error("Сервер недоступен");
+  }
+  const res = await fetch(
+    `/api/master/requests/${encodeURIComponent(requestId)}/panel`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeaders(),
+      },
+      body: JSON.stringify({ wires: wires ?? [], action: "send" }),
+    },
+  );
+  if (!res.ok) {
+    throw new Error(await parseError(res));
+  }
+  return (await res.json()) as {
+    panel: PanelObject;
+    request: import("@/types").InstallRequest;
+  };
 }
 
 export async function dispatchToMasters(

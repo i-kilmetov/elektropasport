@@ -4,15 +4,23 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import {
+  WIRE_CABLE_TYPE_OPTIONS,
   WIRE_COLOR_OPTIONS,
   WIRE_THICKNESS_OPTIONS,
   wireStrokeWidth,
 } from "@/lib/panel-wires";
 import { cn } from "@/lib/utils";
 
+export type WireSpec = {
+  color: string;
+  thicknessMm: number;
+  cableType: string;
+};
+
 export function WireSpecSheet({
   initialColor = WIRE_COLOR_OPTIONS[0].color,
   initialThicknessMm = 2.5,
+  initialCableType = WIRE_CABLE_TYPE_OPTIONS[0].label,
   allowDelete = false,
   onConfirm,
   onDelete,
@@ -20,13 +28,17 @@ export function WireSpecSheet({
 }: {
   initialColor?: string;
   initialThicknessMm?: number;
+  initialCableType?: string;
   allowDelete?: boolean;
-  onConfirm: (spec: { color: string; thicknessMm: number }) => void;
+  onConfirm: (spec: WireSpec) => void;
   onDelete?: () => void;
   onCancel: () => void;
 }) {
   const [color, setColor] = useState(initialColor);
   const [thicknessMm, setThicknessMm] = useState(initialThicknessMm);
+  const [cableType, setCableType] = useState(
+    initialCableType || WIRE_CABLE_TYPE_OPTIONS[0].label,
+  );
 
   return (
     <motion.div
@@ -45,7 +57,7 @@ export function WireSpecSheet({
       >
         <h3 className="ty-title">Кабель</h3>
         <p className="mt-1 ty-note">
-          Укажите цвет изоляции и сечение — так кабель отобразится на схеме.
+          Укажите цвет изоляции, сечение и тип — так кабель отобразится на схеме.
         </p>
 
         <div className="mt-4">
@@ -109,6 +121,30 @@ export function WireSpecSheet({
           </div>
         </div>
 
+        <div className="mt-4">
+          <div className="mb-2 ty-badge text-zinc-500">Тип кабеля</div>
+          <div className="flex flex-wrap gap-2">
+            {WIRE_CABLE_TYPE_OPTIONS.map((option) => {
+              const active = option.label === cableType;
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => setCableType(option.label)}
+                  className={cn(
+                    "rounded-full px-3 py-1.5 ty-label transition-colors",
+                    active
+                      ? "bg-zinc-900 text-white"
+                      : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200",
+                  )}
+                >
+                  {option.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         <div className="mt-5 flex items-center gap-3 rounded-[16px] border border-black/8 bg-zinc-50 px-3 py-3">
           <svg width="72" height="16" viewBox="0 0 72 16" aria-hidden>
             <line
@@ -129,7 +165,7 @@ export function WireSpecSheet({
             />
           </svg>
           <span className="text-[13px] text-zinc-600">
-            {thicknessMm} мм² на схеме
+            {cableType}, {thicknessMm} мм²
           </span>
         </div>
 
@@ -145,7 +181,7 @@ export function WireSpecSheet({
           <Button
             type="button"
             className="flex-1"
-            onClick={() => onConfirm({ color, thicknessMm })}
+            onClick={() => onConfirm({ color, thicknessMm, cableType })}
           >
             Сохранить
           </Button>

@@ -63,6 +63,8 @@ export type PanelWire = {
   color: string;
   /** Cross-section in mm² */
   thicknessMm: number;
+  /** Cable construction / mark, e.g. ВВГнг-LS */
+  cableType?: string;
 };
 
 export type ObjectType = "apartment" | "house" | "garage" | "dacha";
@@ -326,7 +328,7 @@ export interface AnalyzePanelResult {
 export const installStatusLabels: Record<InstallRequestStatus, string> = {
   new: "Новая",
   in_progress: "В работе",
-  done: "Выполнено",
+  done: "Готово",
   cancelled: "Отменена",
   deleted: "Удален",
 };
@@ -337,7 +339,7 @@ export const installStatusSteps: Array<{
 }> = [
   { id: "new", label: "Новая" },
   { id: "in_progress", label: "В работе" },
-  { id: "done", label: "Выполнено" },
+  { id: "done", label: "Готово" },
 ];
 
 export function installStatusProgress(status: InstallRequestStatus): number {

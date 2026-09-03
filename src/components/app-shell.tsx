@@ -132,6 +132,7 @@ import {
   formatErrorMessage,
   mergeAppliancesUnion,
   recordInviteLinkOpen,
+  sendMasterWiringToCustomer,
   syncDataEpochFromServer,
 } from "@/lib/user-data";
 import { mergeAppliancesWithEquipmentLabels } from "@/lib/appliance-line-sync";
@@ -1851,11 +1852,54 @@ export function AppShell({
           ? { ...prev, panel: { ...prev.panel, wires: nextWires } }
           : prev,
       );
-      void persistMasterRequestPanelWires(masterViewRequest.id, nextWires).catch(
-        (error) => console.error(error),
-      );
     },
     [masterViewRequest],
+  );
+
+  const saveMasterLinkedWires = useCallback(
+    async (nextWires: PanelWire[]) => {
+      if (!masterViewRequest) return;
+      setSharedPreview((prev) =>
+        prev
+          ? { ...prev, panel: { ...prev.panel, wires: nextWires } }
+          : prev,
+      );
+      await persistMasterRequestPanelWires(masterViewRequest.id, nextWires);
+    },
+    [masterViewRequest],
+  );
+
+  const sendMasterWiringResult = useCallback(
+    async (nextWires: PanelWire[]) => {
+      if (!masterViewRequest) return;
+      const { panel, request } = await sendMasterWiringToCustomer(
+        masterViewRequest.id,
+        nextWires,
+      );
+      setSharedPreview((prev) =>
+        prev ? { ...prev, panel: { ...prev.panel, ...panel } } : prev,
+      );
+      setMasterViewRequest(request);
+      setItems((prev) =>
+        prev.map((item) => {
+          if (item.kind === "install_request" && item.id === request.id) {
+            return { ...item, ...request };
+          }
+          if (item.kind === "panel" && item.id === panel.id) {
+            return {
+              ...item,
+              wires: panel.wires,
+              professionalSafety: panel.professionalSafety,
+            };
+          }
+          return item;
+        }),
+      );
+      setSharedPreview(null);
+      setActiveRequestId(request.id);
+      go("request-details");
+    },
+    [go, masterViewRequest],
   );
 
   const updateDeviceCharacteristic = useCallback(
@@ -3165,6 +3209,13 @@ export function AppShell({
                       ? undefined
                       : updatePanelWires
                 }
+                onSaveMasterWiring={
+                  masterViewRequest ? saveMasterLinkedWires : undefined
+                }
+                onSendWiringToCustomer={
+                  masterViewRequest ? sendMasterWiringResult : undefined
+                }
+                masterWiringMode={Boolean(masterViewRequest)}
                 onUpdateDevices={
                   sharedPreview ? undefined : updatePanelDevices
                 }
