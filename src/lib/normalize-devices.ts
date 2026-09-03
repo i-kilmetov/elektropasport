@@ -38,37 +38,33 @@ function clamp01(n: number): number {
 
 /**
  * Accepts common VL box formats and returns normalized {x,y,w,h} in 0–1.
- * Supports: bbox object, [x,y,w,h], [x1,y1,x2,y2], box_2d (0–100 or 0–1000).
+ * Supports: bbox object, [x,y,w,h] in 0–1, box_2d [x1,y1,x2,y2] in 0–100/1000.
  */
 export function normalizeDeviceBbox(raw: unknown): Device["bbox"] | undefined {
   if (Array.isArray(raw) && raw.length >= 4) {
     const vals = raw.slice(0, 4).map(Number);
     if (!vals.every(Number.isFinite)) return undefined;
     const [a, b, c, d] = vals as [number, number, number, number];
-    const max = Math.max(a, b, c, d);
-    const scale = max > 100 ? 1000 : max > 1.5 ? 100 : 1;
-    const na = a / scale;
-    const nb = b / scale;
-    const nc = c / scale;
-    const nd = d / scale;
+    const max = Math.max(Math.abs(a), Math.abs(b), Math.abs(c), Math.abs(d));
 
-    // Corners if third/fourth look like x2/y2 rather than width/height
-    const asCorners = nc >= na && nd >= nb && (nc > 0.2 || nd > 0.2) && na + nc > 0.35;
-    if (asCorners && !(nc <= 1 && nd <= 1 && na + nc <= 1.02 && nb + nd <= 1.02)) {
-      const x1 = Math.min(na, nc);
-      const y1 = Math.min(nb, nd);
-      const w = Math.abs(nc - na);
-      const h = Math.abs(nd - nb);
+    // Pixel / percent corners (Qwen box_2d style)
+    if (max > 1.5) {
+      const scale = max > 100 ? 1000 : 100;
+      const x1 = Math.min(a, c) / scale;
+      const y1 = Math.min(b, d) / scale;
+      const w = Math.abs(c - a) / scale;
+      const h = Math.abs(d - b) / scale;
       if (w < 0.01 || h < 0.01) return undefined;
       return { x: clamp01(x1), y: clamp01(y1), w: clamp01(w), h: clamp01(h) };
     }
 
-    if (nc < 0.01 || nd < 0.01) return undefined;
+    // Prompt asks for normalized xywh
+    if (c < 0.01 || d < 0.01) return undefined;
     return {
-      x: clamp01(na),
-      y: clamp01(nb),
-      w: clamp01(nc),
-      h: clamp01(nd),
+      x: clamp01(a),
+      y: clamp01(b),
+      w: clamp01(c),
+      h: clamp01(d),
     };
   }
 
