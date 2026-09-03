@@ -6,7 +6,6 @@ import { ArrowLeft, Eye, EyeOff, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Portal } from "@/components/ui/portal";
-import { PushNotificationsCard } from "@/components/ui/push-notifications-card";
 import { hapticSelection } from "@/lib/haptics";
 import {
   INTERVAL_OPTIONS,
@@ -121,9 +120,9 @@ function ReminderSettingsSheet({
   hidden: boolean;
 }) {
   const isPanel = editor.mode === "panel";
-  const title = isPanel ? "Щиток" : editor.target.title;
+  const title = isPanel ? editor.target.panelTitle : editor.target.title;
   const subtitle = isPanel
-    ? editor.target.panelTitle
+    ? "Проверка УЗО и дифавтоматов"
     : editor.target.panelTitle;
 
   return (
@@ -540,8 +539,8 @@ export function MaintenanceScreen({
     return (
       <ReminderCard
         key={target.targetKey}
-        title="Щиток"
-        subtitle={`${target.panelTitle} · ${devicesLabel}`}
+        title={target.panelTitle}
+        subtitle={devicesLabel}
         meta={meta}
         enabled={enabled}
         hidden={hidden}
@@ -612,8 +611,6 @@ export function MaintenanceScreen({
       </div>
 
       <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
-        <PushNotificationsCard />
-
         {error && (
           <p className="rounded-[16px] bg-rose-50 px-3 py-2 text-[13px] text-rose-700">
             {error}
