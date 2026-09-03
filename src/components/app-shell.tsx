@@ -239,6 +239,8 @@ function pickLivePanelFields(
   PanelObject,
   | "photoDataUrl"
   | "devices"
+  | "wires"
+  | "professionalSafety"
   | "appliances"
   | "appliancesUpdatedAt"
   | "schemeUpdatedAt"
@@ -288,6 +290,30 @@ function pickLivePanelFields(
           schemeUpdatedAt: remote.schemeUpdatedAt ?? live.schemeUpdatedAt,
         };
 
+  const remoteWiresLen = remote.wires?.length ?? 0;
+  const liveWiresLen = live.wires?.length ?? 0;
+  let wires = remote.wires ?? live.wires;
+  if (typeof remote.professionalSafety === "number" && remoteWiresLen > 0) {
+    wires = remote.wires;
+  } else if (
+    typeof live.professionalSafety === "number" &&
+    liveWiresLen > 0 &&
+    remoteWiresLen === 0
+  ) {
+    wires = live.wires;
+  } else if (remoteWiresLen > liveWiresLen) {
+    wires = remote.wires;
+  } else if (liveWiresLen > remoteWiresLen) {
+    wires = live.wires;
+  }
+
+  const professionalSafety =
+    typeof remote.professionalSafety === "number"
+      ? remote.professionalSafety
+      : typeof live.professionalSafety === "number"
+        ? live.professionalSafety
+        : (remote.professionalSafety ?? live.professionalSafety ?? null);
+
   const liveAt = live.appliancesUpdatedAt
     ? Date.parse(live.appliancesUpdatedAt)
     : 0;
@@ -301,6 +327,8 @@ function pickLivePanelFields(
       noPanelSetupId,
       photoDataUrl: remote.photoDataUrl || live.photoDataUrl,
       ...schemeFields,
+      wires,
+      professionalSafety,
       appliances: live.appliances,
       appliancesUpdatedAt: live.appliancesUpdatedAt,
     };
@@ -311,6 +339,8 @@ function pickLivePanelFields(
       noPanelSetupId,
       photoDataUrl: remote.photoDataUrl || live.photoDataUrl,
       ...schemeFields,
+      wires,
+      professionalSafety,
       appliances: remote.appliances,
       appliancesUpdatedAt: remote.appliancesUpdatedAt,
     };
@@ -320,6 +350,8 @@ function pickLivePanelFields(
     noPanelSetupId,
     photoDataUrl: remote.photoDataUrl || live.photoDataUrl,
     ...schemeFields,
+    wires,
+    professionalSafety,
     appliances: mergeAppliancesUnion(remote.appliances, live.appliances),
     appliancesUpdatedAt:
       remote.appliancesUpdatedAt ?? live.appliancesUpdatedAt,

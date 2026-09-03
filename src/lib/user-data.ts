@@ -499,6 +499,31 @@ function schemeTouchMs(panel?: PanelObject | null): number {
   return Number.isFinite(ms) ? ms : 0;
 }
 
+/** Prefer richer / master-verified wiring over a stale local empty scheme. */
+function pickWires(
+  primary: PanelObject,
+  fallback?: PanelObject | null,
+): PanelObject["wires"] {
+  const primaryWires = Array.isArray(primary.wires) ? primary.wires : undefined;
+  const fallbackWires = Array.isArray(fallback?.wires)
+    ? fallback.wires
+    : undefined;
+  const primaryLen = primaryWires?.length ?? 0;
+  const fallbackLen = fallbackWires?.length ?? 0;
+
+  if (typeof primary.professionalSafety === "number" && primaryLen > 0) {
+    return primaryWires;
+  }
+  if (typeof fallback?.professionalSafety === "number" && fallbackLen > 0) {
+    if (primaryLen === 0) return fallbackWires;
+  }
+  if (primaryLen > fallbackLen) return primaryWires;
+  if (fallbackLen > primaryLen) return fallbackWires;
+  if (primaryLen > 0) return primaryWires;
+  if (fallbackLen > 0) return fallbackWires;
+  return primaryWires ?? fallbackWires;
+}
+
 function pickSchemeFields(
   primary: PanelObject,
   fallback?: PanelObject | null,
@@ -521,6 +546,7 @@ function pickSchemeFields(
       schemeUpdatedAt: primary.schemeUpdatedAt,
     };
   }
+  const wires = pickWires(primary, fallback);
   const primaryAt = schemeTouchMs(primary);
   const fallbackAt = schemeTouchMs(fallback);
   if (fallbackAt > primaryAt) {
@@ -528,7 +554,7 @@ function pickSchemeFields(
       devices: Array.isArray(fallback.devices)
         ? fallback.devices
         : primary.devices,
-      wires: Array.isArray(fallback.wires) ? fallback.wires : primary.wires,
+      wires,
       railCount: fallback.railCount ?? primary.railCount,
       breakers: fallback.breakers || primary.breakers,
       linesCount: fallback.linesCount ?? primary.linesCount,
@@ -540,7 +566,7 @@ function pickSchemeFields(
       devices: Array.isArray(primary.devices)
         ? primary.devices
         : fallback.devices,
-      wires: Array.isArray(primary.wires) ? primary.wires : fallback.wires,
+      wires,
       railCount: primary.railCount ?? fallback.railCount,
       breakers: primary.breakers || fallback.breakers,
       linesCount: primary.linesCount ?? fallback.linesCount,
@@ -549,7 +575,7 @@ function pickSchemeFields(
   }
   return {
     devices: preferNonEmptyArray(primary.devices, fallback.devices),
-    wires: preferNonEmptyArray(primary.wires, fallback.wires),
+    wires,
     railCount: primary.railCount ?? fallback.railCount,
     breakers:
       typeof primary.breakers === "number" && primary.breakers > 0
@@ -1343,11 +1369,18 @@ export async function fetchHomeItems(): Promise<HomeListItem[]> {
         applianceUpdatedAtMs(item) > applianceUpdatedAtMs(server);
       const localHasMoreAppliances =
         (item.appliances?.length ?? 0) > (server?.appliances?.length ?? 0);
+      const serverHasMasterWiring =
+        typeof server?.professionalSafety === "number" &&
+        (server.wires?.length ?? 0) > 0;
+      const localWouldDropMasterWires =
+        serverHasMasterWiring &&
+        (item.wires?.length ?? 0) < (server.wires?.length ?? 0);
       if (
-        (localHasDevices && !serverHasDevices) ||
-        (localSchemeNewer && localSchemeDiffers) ||
-        localAppliancesNewer ||
-        localHasMoreAppliances
+        !localWouldDropMasterWires &&
+        ((localHasDevices && !serverHasDevices) ||
+          (localSchemeNewer && localSchemeDiffers) ||
+          localAppliancesNewer ||
+          localHasMoreAppliances)
       ) {
         void persistPanel(item).catch((error) => console.error(error));
       }
