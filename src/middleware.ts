@@ -21,6 +21,7 @@ const TEST_PUBLIC_PREFIXES = [
   "/test-login",
   "/api/test-access",
   "/api/payments/robokassa-result",
+  "/api/payments/robokassa-status",
   "/api/auth/telegram",
   "/api/telegram/webhook",
   "/api/telegram/hook",

@@ -874,6 +874,7 @@ export function ServiceDocsPage() {
                   ["POST", "/api/payments/school", "Оплата класса школы"],
                   ["GET", "/api/school/access", "Оплаченные классы"],
                   ["GET/POST", "/api/payments/robokassa-result", "Result URL Robokassa"],
+                  ["GET", "/api/payments/robokassa-status", "Проверка настройки Robokassa"],
                 ]}
               />
 
