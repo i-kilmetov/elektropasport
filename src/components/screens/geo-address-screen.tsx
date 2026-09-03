@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { ArrowLeft, Loader2, MapPin, Navigation } from "lucide-react";
-import { AddressSuggestField } from "@/components/ui/address-suggest-field";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
 import {
@@ -11,9 +10,9 @@ import {
   isGeolocationAbortError,
   requestUserGeolocation,
 } from "@/lib/address-suggest-client";
-import { hasHouse, type AddressSuggestion, type GeolocatedAddress } from "@/lib/dadata";
+import type { GeolocatedAddress } from "@/lib/dadata";
 import { hapticImpact, hapticNotification } from "@/lib/haptics";
-import { isMoscow, normalizeCityName } from "@/lib/lead-services";
+import { normalizeCityName } from "@/lib/lead-services";
 
 type Phase = "requesting" | "resolving" | "confirm" | "error";
 
@@ -27,34 +26,6 @@ export type GeoAddressRestore = {
   block?: string;
   buildingYear?: number;
 };
-
-function toSuggestion(address: GeolocatedAddress): AddressSuggestion {
-  return {
-    value: address.value,
-    unrestrictedValue: address.unrestrictedValue,
-    fiasId: address.fiasId,
-    houseFiasId: address.houseFiasId,
-    streetFiasId: address.streetFiasId,
-    fiasLevel: address.fiasLevel,
-    house: address.house,
-    street: address.street,
-    flat: address.flat,
-    block: address.block,
-    building: address.building,
-    city: address.city,
-  };
-}
-
-function moscowEditQuery(address: GeolocatedAddress): string {
-  const street = address.street?.trim();
-  if (!street) return address.value;
-  const parts = [
-    street,
-    address.house ? `д. ${address.house}` : null,
-    address.block ? `к. ${address.block}` : null,
-  ].filter(Boolean);
-  return parts.join(", ");
-}
 
 export function GeoAddressScreen({
   onBack,
@@ -81,10 +52,6 @@ export function GeoAddressScreen({
   const [phase, setPhase] = useState<Phase>("requesting");
   const [error, setError] = useState<string | null>(null);
   const [address, setAddress] = useState<GeolocatedAddress | null>(null);
-  const [editing, setEditing] = useState(false);
-  const [query, setQuery] = useState("");
-  const [selected, setSelected] = useState<AddressSuggestion | null>(null);
-  const [lookupFailed, setLookupFailed] = useState(false);
   const [geoCoords, setGeoCoords] = useState<{ lat: number; lon: number } | null>(
     null,
   );
@@ -92,13 +59,6 @@ export function GeoAddressScreen({
   const locateAbortRef = useRef<AbortController | null>(null);
 
   const cityLabel = address ? normalizeCityName(address.city) : "";
-  const useMoscow = isMoscow(cityLabel);
-  const trimmed = query.trim();
-  const editReady =
-    (selected != null &&
-      selected.value === trimmed &&
-      hasHouse(selected)) ||
-    (lookupFailed && trimmed.length >= 8);
 
   const runLocate = useCallback(async () => {
     locateAbortRef.current?.abort();
@@ -107,10 +67,6 @@ export function GeoAddressScreen({
     setPhase("requesting");
     setError(null);
     setAddress(null);
-    setEditing(false);
-    setQuery("");
-    setSelected(null);
-    setLookupFailed(false);
     try {
       const coords = await requestUserGeolocation({ signal: controller.signal });
       if (controller.signal.aborted) return;
@@ -163,40 +119,6 @@ export function GeoAddressScreen({
     onManual();
   };
 
-  const beginManualEdit = () => {
-    if (!address) {
-      goManualPage();
-      return;
-    }
-    // Prefill from geo; suggestions use moscow→DaData fallback on the server.
-    setQuery(
-      useMoscow && address.street
-        ? moscowEditQuery(address)
-        : address.value,
-    );
-    setSelected(useMoscow ? null : toSuggestion(address));
-    setLookupFailed(false);
-    setEditing(true);
-    hapticImpact("light");
-  };
-
-  const confirmEdited = () => {
-    if (!address || !editReady) return;
-    hapticImpact("medium");
-    onConfirm({
-      city: cityLabel,
-      address: selected?.value ?? trimmed,
-      fiasId: selected?.fiasId,
-      houseFiasId: selected?.houseFiasId ?? selected?.fiasId,
-      street: selected?.street ?? address.street,
-      house: selected?.house ?? address.house,
-      block: selected?.block ?? address.block,
-      buildingYear: selected?.buildingYear,
-      lat: geoCoords?.lat,
-      lon: geoCoords?.lon,
-    });
-  };
-
   const confirmGeoAddress = () => {
     if (!address) return;
     hapticImpact("medium");
@@ -233,17 +155,11 @@ export function GeoAddressScreen({
       </header>
 
       <h2 className="mb-2 ty-display text-zinc-900">
-        {phase === "confirm"
-          ? editing
-            ? "Уточните адрес"
-            : "Это ваш адрес?"
-          : "Определяем адрес"}
+        {phase === "confirm" ? "Это ваш адрес?" : "Определяем адрес"}
       </h2>
       <p className="mb-5 ty-body">
         {phase === "confirm"
-          ? editing
-            ? "Исправьте адрес, если геопозиция определилась неточно."
-            : "Проверьте, верно ли определился дом по геопозиции."
+          ? "Проверьте, верно ли определился дом по геопозиции."
           : "Разрешите доступ к геопозиции — подставим адрес автоматически."}
       </p>
 
@@ -261,18 +177,16 @@ export function GeoAddressScreen({
               ? "Запрашиваем геопозицию…"
               : "Ищем адрес рядом с вами…"}
           </p>
-          <p className="ty-note">
-            Обычно это занимает несколько секунд.
-          </p>
+          <p className="ty-note">Обычно это занимает несколько секунд.</p>
         </GlassCard>
       )}
 
-      {phase === "confirm" && address && !editing && (
+      {phase === "confirm" && address && (
         <button
           type="button"
-          onClick={beginManualEdit}
+          onClick={goManualPage}
           className="w-full text-left"
-          aria-label="Исправить адрес"
+          aria-label="Указать адрес вручную"
         >
           <GlassCard className="space-y-4 p-5 transition-colors active:bg-zinc-50/80">
             <div className="flex items-start gap-3">
@@ -280,42 +194,17 @@ export function GeoAddressScreen({
                 <MapPin className="h-5 w-5" />
               </span>
               <div className="min-w-0">
-                <p className="ty-label text-zinc-500">
-                  {cityLabel}
-                </p>
+                <p className="ty-label text-zinc-500">{cityLabel}</p>
                 <p className="mt-1 ty-heading leading-snug text-zinc-900">
                   {address.value}
                 </p>
                 <p className="mt-2 ty-note">
-                  Нажмите, чтобы исправить
+                  Нажмите, чтобы указать другой город и адрес
                 </p>
               </div>
             </div>
           </GlassCard>
         </button>
-      )}
-
-      {phase === "confirm" && address && editing && (
-        <AddressSuggestField
-          city={cityLabel}
-          value={query}
-          source={useMoscow ? "moscow" : "dadata"}
-          houseOnly
-          autoFocus
-          selectEndOnFocus
-          onChange={(next) => {
-            setQuery(next);
-            if (selected && next.trim() !== selected.value) {
-              setSelected(null);
-            }
-          }}
-          onSelect={(item) => {
-            setSelected(item);
-            setLookupFailed(false);
-          }}
-          onLookupError={(message) => setLookupFailed(Boolean(message))}
-          placeholder="Улица, дом"
-        />
       )}
 
       {phase === "error" && (
@@ -330,7 +219,7 @@ export function GeoAddressScreen({
       )}
 
       <div className="mt-auto space-y-3 pt-6">
-        {phase === "confirm" && address && !editing && (
+        {phase === "confirm" && address && (
           <>
             <Button
               className="w-full rounded-full"
@@ -343,30 +232,9 @@ export function GeoAddressScreen({
               className="w-full rounded-full"
               variant="secondary"
               size="lg"
-              onClick={beginManualEdit}
+              onClick={goManualPage}
             >
               Указать вручную
-            </Button>
-          </>
-        )}
-
-        {phase === "confirm" && address && editing && (
-          <>
-            <Button
-              className="w-full rounded-full"
-              size="lg"
-              disabled={!editReady}
-              onClick={confirmEdited}
-            >
-              Продолжить
-            </Button>
-            <Button
-              className="w-full rounded-full"
-              variant="secondary"
-              size="lg"
-              onClick={() => setEditing(false)}
-            >
-              Отмена
             </Button>
           </>
         )}

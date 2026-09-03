@@ -19,7 +19,7 @@ import {
   type CitySuggestion,
   type GeolocatedAddress,
 } from "@/lib/dadata";
-import { isMoscow, normalizeCityName } from "@/lib/lead-services";
+import { normalizeCityName } from "@/lib/lead-services";
 
 type Phase = "requesting" | "resolving" | "confirm" | "error" | "manual";
 
@@ -70,7 +70,6 @@ export function PanelHouseAddressSheet({
     ) ?? null;
   const city = citySelected ?? cityExact ?? null;
   const cityLabel = city ? normalizeCityName(city.name) : "";
-  const useMoscow = isMoscow(cityLabel);
   const addressTrimmed = addressQuery.trim();
   const addressReady =
     addressSelected != null &&
@@ -234,9 +233,7 @@ export function PanelHouseAddressSheet({
                 {phase === "confirm"
                   ? "Проверьте, верно ли определился дом по геопозиции."
                   : phase === "manual"
-                    ? useMoscow
-                      ? "Укажите улицу и дом."
-                      : "Укажите город, улицу и дом."
+                    ? "Укажите город, улицу и дом."
                     : "Сначала определим адрес автоматически — как при вызове помощи."}
               </p>
             </div>
@@ -353,7 +350,6 @@ export function PanelHouseAddressSheet({
                 <AddressSuggestField
                   city={cityLabel}
                   value={addressQuery}
-                  source={useMoscow ? "moscow" : "dadata"}
                   houseOnly
                   onChange={(next) => {
                     setAddressQuery(next);

@@ -6,7 +6,7 @@ import { ArrowLeft } from "lucide-react";
 import { AddressSuggestField } from "@/components/ui/address-suggest-field";
 import { Button } from "@/components/ui/button";
 import { hasFlat, hasHouse, type AddressSuggestion } from "@/lib/dadata";
-import { isMoscow, normalizeCityName } from "@/lib/lead-services";
+import { normalizeCityName } from "@/lib/lead-services";
 
 export type ConfirmedAddress = {
   value: string;
@@ -52,11 +52,9 @@ export function LeadAddressScreen({
   const [lookupFailed, setLookupFailed] = useState(false);
 
   const cityLabel = normalizeCityName(city);
-  const useMoscow = isMoscow(cityLabel);
   const trimmed = query.trim();
   const needsApartment =
     requireApartment &&
-    !useMoscow &&
     selected != null &&
     hasHouse(selected) &&
     !hasFlat(selected) &&
@@ -92,16 +90,13 @@ export function LeadAddressScreen({
       </h2>
       <p className="mb-5 ty-body">
         {description ??
-          (useMoscow
-            ? "Укажите улицу и дом. Год постройки подтянем из открытых источников и оценим заземление."
-            : "Укажите точный адрес: улица и дом. По году постройки подскажем, есть ли заземление.")}
+          "Укажите точный адрес: улица и дом. По году постройки подскажем, есть ли заземление."}
       </p>
 
       <AddressSuggestField
         city={cityLabel}
         value={query}
-        source={useMoscow ? "moscow" : "dadata"}
-        houseOnly={!requireApartment || useMoscow}
+        houseOnly={!requireApartment}
         onChange={(next) => {
           setQuery(next);
           if (selected && next.trim() !== selected.value) {
@@ -120,8 +115,7 @@ export function LeadAddressScreen({
 
       {needsApartment && (
         <p className="mt-3 text-[13px] leading-relaxed text-amber-800">
-          В этом доме есть квартиры в адресном реестре — выберите квартиру из
-          списка.
+          В этом доме есть квартиры — выберите квартиру из списка.
         </p>
       )}
 

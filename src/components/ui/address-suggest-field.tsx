@@ -19,7 +19,6 @@ export function AddressSuggestField({
   onSelect,
   onLookupError,
   placeholder = "Улица, дом, квартира",
-  source = "dadata",
   houseOnly = false,
   autoFocus = false,
   selectEndOnFocus = false,
@@ -33,9 +32,7 @@ export function AddressSuggestField({
   ) => void;
   onLookupError?: (message: string | null) => void;
   placeholder?: string;
-  /** Moscow open data returns MKD houses with year from dommos passports. */
-  source?: "dadata" | "moscow";
-  /** Skip apartment drill-down (house-level sources only). */
+  /** Skip apartment drill-down (house-level selection only). */
   houseOnly?: boolean;
   autoFocus?: boolean;
   /** Place caret at end and scroll long values to the tail on focus. */
@@ -72,8 +69,7 @@ export function AddressSuggestField({
       return;
     }
     const query = value.trim();
-    const minLen = source === "moscow" ? 3 : 2;
-    if (query.length < minLen) {
+    if (query.length < 2) {
       setSuggestions([]);
       setApartments([]);
       setLoading(false);
@@ -85,7 +81,7 @@ export function AddressSuggestField({
     const id = ++requestId.current;
     const timer = window.setTimeout(() => {
       setLoading(true);
-      void suggestAddresses(query, city, { source })
+      void suggestAddresses(query, city)
         .then((next) => {
           if (requestId.current !== id) return;
           setSuggestions(next);
@@ -108,7 +104,7 @@ export function AddressSuggestField({
     }, 200);
 
     return () => window.clearTimeout(timer);
-  }, [value, city, source]);
+  }, [value, city]);
 
   const pickSuggestion = (
     event: PointerEvent<HTMLButtonElement>,
@@ -120,7 +116,7 @@ export function AddressSuggestField({
     pickingRef.current = true;
     onChange(item.value);
 
-    if (houseOnly || source === "moscow" || hasFlat(item) || !hasHouse(item)) {
+    if (houseOnly || hasFlat(item) || !hasHouse(item)) {
       setApartments([]);
       setOpen(false);
       onSelect(item, { apartments: [] });
@@ -129,7 +125,7 @@ export function AddressSuggestField({
 
     setLoading(true);
     const id = ++requestId.current;
-    void suggestAddresses(`${item.value} кв`, city, { source: "dadata" })
+    void suggestAddresses(`${item.value} кв`, city)
       .then((next) => {
         if (requestId.current !== id) return;
         const flats = next.filter(hasFlat);
@@ -155,15 +151,6 @@ export function AddressSuggestField({
   };
 
   const list = apartments.length > 0 ? apartments : suggestions;
-  const hint =
-    source === "moscow" &&
-    value.trim().length >= 3 &&
-    !loading &&
-    !error
-      ? list.length === 0
-        ? "Ищем дом в открытых данных Москвы — уточните улицу и номер"
-        : null
-      : null;
 
   return (
     <div>
@@ -198,18 +185,13 @@ export function AddressSuggestField({
 
       {loading && (
         <p className="mt-2 ty-meta">
-          {source === "moscow"
-            ? "Ищем дом в открытых данных Москвы…"
-            : apartments.length > 0 || value.includes("кв")
-              ? "Ищем квартиры…"
-              : "Ищем адрес…"}
+          {apartments.length > 0 || value.includes("кв")
+            ? "Ищем квартиры…"
+            : "Ищем адрес…"}
         </p>
       )}
       {error && !loading && (
         <p className="mt-2 ty-note text-rose-600">{error}</p>
-      )}
-      {hint && (
-        <p className="mt-2 ty-meta">{hint}</p>
       )}
 
       {open && list.length > 0 && (
@@ -217,11 +199,6 @@ export function AddressSuggestField({
           {apartments.length > 0 && (
             <p className="border-b border-black/6 px-4 py-2 ty-badge text-zinc-500">
               Выберите квартиру в этом доме
-            </p>
-          )}
-          {source === "moscow" && (
-            <p className="border-b border-black/6 px-4 py-2 ty-badge text-zinc-500">
-              Дома Москвы — выберите свой
             </p>
           )}
           <ul className="max-h-[40vh] overflow-y-auto">
@@ -238,24 +215,18 @@ export function AddressSuggestField({
                   <span
                     className={cn(
                       "mt-0.5 text-[12px]",
-                      source === "moscow"
+                      hasFlat(item)
                         ? "text-emerald-700"
-                        : hasFlat(item)
-                          ? "text-emerald-700"
-                          : hasHouse(item)
-                            ? "text-zinc-400"
-                            : "text-amber-700",
+                        : hasHouse(item)
+                          ? "text-zinc-400"
+                          : "text-amber-700",
                     )}
                   >
-                    {source === "moscow"
-                      ? item.buildingYear != null
-                        ? `Год постройки: ${item.buildingYear}`
-                        : "Дом в реестре Москвы"
-                      : hasFlat(item)
-                        ? "Квартира найдена в адресном реестре"
-                        : hasHouse(item)
-                          ? "Дом найден — уточните квартиру, если она есть"
-                          : "Уточните номер дома"}
+                    {hasFlat(item)
+                      ? "Квартира найдена"
+                      : hasHouse(item)
+                        ? "Дом найден — уточните квартиру, если она есть"
+                        : "Уточните номер дома"}
                   </span>
                 </button>
               </li>

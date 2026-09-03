@@ -103,7 +103,6 @@ import {
   payableAmountRub,
   resolveRequestTypeCodeForService,
   wiringCheckVisitPriceRub,
-  isMoscow,
   type LeadServiceType,
 } from "@/lib/lead-services";
 import { findWiringCheckRequestForPanel } from "@/lib/wiring-check-request";
@@ -3637,16 +3636,8 @@ export function AppShell({
               city={selectedCity}
               initialAddress={selectedAddress ?? undefined}
               requireApartment={false}
-              heading={
-                helpElectricalFlow || isMoscow(selectedCity)
-                  ? "Точный адрес дома"
-                  : undefined
-              }
-              description={
-                isMoscow(selectedCity)
-                  ? "Укажите улицу и дом."
-                  : "Укажите точный адрес: улица и дом."
-              }
+              heading="Точный адрес дома"
+              description="Укажите точный адрес: улица и дом."
               onBack={() => go("city-select")}
               onConfirm={(address) => {
                 setSelectedAddress(address.value);
