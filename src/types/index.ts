@@ -260,6 +260,8 @@ export interface InstallRequest {
   paidAt?: string;
   /** When the request was dispatched to masters */
   dispatchedAt?: string;
+  /** Customer should review master wiring + rate on next open */
+  wiringReviewPending?: boolean;
   /** Linked consultation request shown under a master visit card */
   linkedRequestId?: string;
   /** Saved AI consultation payload for consultation requests */

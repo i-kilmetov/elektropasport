@@ -56,7 +56,7 @@ import { ensureConnectedMoscowMaster } from "@/lib/ensure-moscow-master";
 let schemaReady: Promise<void> | null = null;
 
 /** Bump when DDL below changes so cold starts re-run migrations once. */
-const SCHEMA_VERSION = "2026-09-03-request-payment-status";
+const SCHEMA_VERSION = "2026-09-03-wiring-review-pending";
 /** One-shot data wipe flag — never re-run after it is written. */
 const FRESH_START_KEY = "fresh_start_2026_08_25_b";
 /** Bumped on each factory wipe so clients drop localStorage orphans. */
@@ -367,6 +367,10 @@ export async function ensureSchema(): Promise<void> {
       await sql`
         ALTER TABLE install_requests
         ADD COLUMN IF NOT EXISTS paid_at TIMESTAMPTZ
+      `;
+      await sql`
+        ALTER TABLE install_requests
+        ADD COLUMN IF NOT EXISTS wiring_review_pending BOOLEAN NOT NULL DEFAULT FALSE
       `;
       await sql`
         ALTER TABLE users
@@ -1034,6 +1038,7 @@ type RequestRow = {
   master_accepted_at?: string | null;
   paid_at?: string | null;
   dispatched_at?: string | null;
+  wiring_review_pending?: boolean | null;
   linked_request_id?: string | null;
   ai_consultation?: unknown;
 };
@@ -1161,6 +1166,7 @@ function rowToRequest(row: RequestRow): InstallRequest {
     masterAcceptedAt: row.master_accepted_at ?? undefined,
     paidAt: row.paid_at ? new Date(row.paid_at).toISOString() : undefined,
     dispatchedAt: row.dispatched_at ?? undefined,
+    wiringReviewPending: row.wiring_review_pending === true,
     linkedRequestId: row.linked_request_id ?? undefined,
     aiConsultation: parseJsonbValue<InstallRequest["aiConsultation"]>(
       row.ai_consultation,
@@ -1188,7 +1194,7 @@ export async function listHomeItems(
       setup_title, exact_address, public_code, payment_status,
       paid_amount_rub, tbank_payment_id, created_at,
       master_telegram_id, panel_id, master_accepted_at, paid_at, dispatched_at,
-      linked_request_id, ai_consultation
+      wiring_review_pending, linked_request_id, ai_consultation
     FROM install_requests
     WHERE telegram_user_id = ${telegramUserId}
   `) as RequestRow[];
@@ -1615,7 +1621,8 @@ export async function completeMasterWiringCheck(
     UPDATE install_requests
     SET
       status = 'done',
-      status_label = ${installStatusLabels.done}
+      status_label = ${installStatusLabels.done},
+      wiring_review_pending = TRUE
     WHERE id = ${requestId}
       AND master_telegram_id = ${masterTelegramId}
       AND status <> 'deleted'
@@ -1624,13 +1631,27 @@ export async function completeMasterWiringCheck(
       city, contact_method, phone, name, dwelling, phases, power_kw,
       setup_title, exact_address, public_code, payment_status,
       paid_amount_rub, tbank_payment_id, created_at,
-      master_telegram_id, panel_id, master_accepted_at, dispatched_at,
-      linked_request_id, ai_consultation
+      master_telegram_id, panel_id, master_accepted_at, paid_at, dispatched_at,
+      wiring_review_pending, linked_request_id, ai_consultation
   `) as RequestRow[];
   const nextRequest = requestRows[0] ? rowToRequest(requestRows[0]) : null;
   if (!nextRequest) return null;
 
   return { panel: nextPanel, request: nextRequest };
+}
+
+export async function clearWiringReviewPending(
+  telegramUserId: number,
+  requestId: string,
+): Promise<void> {
+  const sql = getSql();
+  await ensureSchema();
+  await sql`
+    UPDATE install_requests
+    SET wiring_review_pending = FALSE
+    WHERE id = ${requestId}
+      AND telegram_user_id = ${telegramUserId}
+  `;
 }
 
 export async function getPanelPhotoByPanelId(
@@ -2028,7 +2049,7 @@ export async function getInstallRequestById(
       setup_title, exact_address, public_code, payment_status,
       paid_amount_rub, tbank_payment_id, created_at,
       master_telegram_id, panel_id, master_accepted_at, paid_at, dispatched_at,
-      linked_request_id, ai_consultation
+      wiring_review_pending, linked_request_id, ai_consultation
     FROM install_requests
     WHERE id = ${id}
     LIMIT 1
@@ -2479,7 +2500,8 @@ export async function getMasterProfile(
       const reachScore = bothReached ? 100 : 0;
       totalScore += reachScore * 0.3;
       totalWeight += 0.3;
-      if (bothReached && typeof fb.user_score === "number") {
+      // Star ratings count even without mutual “reached” (e.g. wiring check).
+      if (typeof fb.user_score === "number") {
         totalScore += (fb.user_score / 5) * 100 * 0.7;
         totalWeight += 0.7;
       }

@@ -3,6 +3,7 @@ import {
   requireTelegramUser,
 } from "@/lib/telegram-auth";
 import {
+  clearWiringReviewPending,
   dbErrorResponse,
   ensureSchema,
   getInstallRequestById,
@@ -21,6 +22,7 @@ export async function POST(request: Request) {
       userReached?: boolean;
       masterReached?: boolean;
       userScore?: number;
+      clearWiringReview?: boolean;
     };
 
     if (!body.requestId) {
@@ -38,23 +40,45 @@ export async function POST(request: Request) {
       return Response.json({ error: "Нет доступа" }, { status: 403 });
     }
 
-    const patch: { userReached?: boolean; masterReached?: boolean; userScore?: number } = {};
+    const patch: {
+      userReached?: boolean;
+      masterReached?: boolean;
+      userScore?: number;
+    } = {};
     if (isUser) {
       if (typeof body.userReached === "boolean") patch.userReached = body.userReached;
-      if (typeof body.userScore === "number" && body.userScore >= 1 && body.userScore <= 5) {
+      if (
+        typeof body.userScore === "number" &&
+        body.userScore >= 1 &&
+        body.userScore <= 5
+      ) {
         patch.userScore = body.userScore;
       }
     }
     if (isMaster) {
-      if (typeof body.masterReached === "boolean") patch.masterReached = body.masterReached;
+      if (typeof body.masterReached === "boolean") {
+        patch.masterReached = body.masterReached;
+      }
     }
 
-    await upsertMasterFeedback(
-      body.requestId,
-      req.masterTelegramId!,
-      req.telegramUserId,
-      patch,
-    );
+    if (Object.keys(patch).length > 0) {
+      if (!req.masterTelegramId) {
+        return Response.json({ error: "Мастер не назначен" }, { status: 400 });
+      }
+      await upsertMasterFeedback(
+        body.requestId,
+        req.masterTelegramId,
+        req.telegramUserId,
+        patch,
+      );
+    }
+
+    if (
+      isUser &&
+      (body.clearWiringReview === true || typeof patch.userScore === "number")
+    ) {
+      await clearWiringReviewPending(user.telegramId, body.requestId);
+    }
 
     return Response.json({ ok: true });
   } catch (error) {

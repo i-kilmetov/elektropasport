@@ -65,6 +65,10 @@ import { PanelHouseAddressSheet } from "@/components/ui/panel-house-address-shee
 import { HelpElectricalWizardSheet } from "@/components/ui/help-electrical-wizard-sheet";
 import { PdConsentGate } from "@/components/ui/pd-consent-gate";
 import { SchemeErrorBoundary } from "@/components/ui/scheme-error-boundary";
+import {
+  MasterStarRatingDialog,
+  WiringReviewReadyDialog,
+} from "@/components/ui/wiring-review-dialogs";
 import { fetchPdConsentStatus } from "@/lib/pd-consent-client";
 import { markHomeExpandPanelForAppliances } from "@/lib/home-expanded";
 import {
@@ -134,6 +138,7 @@ import {
   mergeAppliancesUnion,
   recordInviteLinkOpen,
   sendMasterWiringToCustomer,
+  submitMasterFeedback,
   syncDataEpochFromServer,
 } from "@/lib/user-data";
 import { mergeAppliancesWithEquipmentLabels } from "@/lib/appliance-line-sync";
@@ -411,6 +416,13 @@ export function AppShell({
     null,
   );
   const [activeRequestId, setActiveRequestId] = useState<string | null>(null);
+  const [wiringReviewPrompt, setWiringReviewPrompt] =
+    useState<InstallRequest | null>(null);
+  const [pendingMasterRatingRequestId, setPendingMasterRatingRequestId] =
+    useState<string | null>(null);
+  const [masterRatingOpen, setMasterRatingOpen] = useState(false);
+  const [forceShowTerminals, setForceShowTerminals] = useState(false);
+  const wiringReviewDeferredRef = useRef(new Set<string>());
   const [objectsTab, setObjectsTab] = useState<0 | 1>(0);
   const [askNameOnBack, setAskNameOnBack] = useState(false);
   const [panelHousePromptOpen, setPanelHousePromptOpen] = useState(false);
@@ -2637,6 +2649,94 @@ export function AppShell({
     void openSharedPanel(pending.token, pending.includeAppliances);
   }, [itemsLoading, onboardingReady, openSharedPanel, splashPhase]);
 
+  useEffect(() => {
+    if (
+      !initialFetchDone ||
+      itemsLoading ||
+      masterMode ||
+      splashPhase !== "done" ||
+      !onboardingReady
+    ) {
+      return;
+    }
+    if (wiringReviewPrompt || pendingMasterRatingRequestId || masterRatingOpen) {
+      return;
+    }
+    if (screen !== "objects") return;
+
+    const pending = items.find(
+      (item): item is InstallRequest =>
+        item.kind === "install_request" &&
+        item.wiringReviewPending === true &&
+        Boolean(item.panelId) &&
+        !wiringReviewDeferredRef.current.has(item.id),
+    );
+    if (pending) setWiringReviewPrompt(pending);
+  }, [
+    initialFetchDone,
+    items,
+    itemsLoading,
+    masterMode,
+    masterRatingOpen,
+    onboardingReady,
+    pendingMasterRatingRequestId,
+    screen,
+    splashPhase,
+    wiringReviewPrompt,
+  ]);
+
+  const leaveSchemeForCustomer = useCallback(() => {
+    setSharedPreview(null);
+    setForceShowTerminals(false);
+    const rateRequestId = pendingMasterRatingRequestId;
+    go(masterViewRequest ? "request-details" : "objects");
+    if (rateRequestId) {
+      setMasterRatingOpen(true);
+    }
+  }, [go, masterViewRequest, pendingMasterRatingRequestId]);
+
+  const finishMasterWiringRating = useCallback(
+    async (score: number | null) => {
+      const requestId = pendingMasterRatingRequestId;
+      setMasterRatingOpen(false);
+      setPendingMasterRatingRequestId(null);
+      setForceShowTerminals(false);
+      if (!requestId) return;
+
+      if (typeof score === "number") {
+        await submitMasterFeedback({ requestId, userScore: score });
+      } else {
+        await submitMasterFeedback({
+          requestId,
+          clearWiringReview: true,
+        });
+      }
+
+      setItems((prev) =>
+        prev.map((item) =>
+          item.kind === "install_request" && item.id === requestId
+            ? { ...item, wiringReviewPending: false }
+            : item,
+        ),
+      );
+      wiringReviewDeferredRef.current.delete(requestId);
+    },
+    [pendingMasterRatingRequestId],
+  );
+
+  const openWiringReviewPanel = useCallback(() => {
+    const prompt = wiringReviewPrompt;
+    if (!prompt?.panelId) {
+      setWiringReviewPrompt(null);
+      return;
+    }
+    setWiringReviewPrompt(null);
+    setPendingMasterRatingRequestId(prompt.id);
+    setForceShowTerminals(true);
+    setMasterViewRequest(null);
+    openPanel(prompt.panelId);
+  }, [openPanel, wiringReviewPrompt]);
+
   const masterApplyEarly =
     screen === "become-master" ||
     screen === "master-docs" ||
@@ -3196,10 +3296,7 @@ export function AppShell({
             <SchemeErrorBoundary
               key={`scheme-boundary-${activePanelId ?? sharedPreview?.token ?? "x"}`}
               panelTitle={activePanel?.title}
-              onBack={() => {
-                setSharedPreview(null);
-                go(masterViewRequest ? "request-details" : "objects");
-              }}
+              onBack={leaveSchemeForCustomer}
             >
               <SchemeScreen
                 key={
@@ -3212,10 +3309,8 @@ export function AppShell({
                 photoDataUrl={activePanel?.photoDataUrl ?? photoDataUrl}
                 askNameOnBack={askNameOnBack}
                 sharedPreview={Boolean(sharedPreview)}
-                onBack={() => {
-                  setSharedPreview(null);
-                  go(masterViewRequest ? "request-details" : "objects");
-                }}
+                initialShowTerminals={forceShowTerminals}
+                onBack={leaveSchemeForCustomer}
                 onSaveShared={
                   sharedPreview && !sharedPreview.token
                     ? undefined
@@ -3936,6 +4031,27 @@ export function AppShell({
                 setMasterAbout(about);
                 go("lead-contact");
               }}
+            />
+          )}
+        </AnimatePresence>
+        <AnimatePresence>
+          {wiringReviewPrompt && (
+            <WiringReviewReadyDialog
+              onLater={() => {
+                wiringReviewDeferredRef.current.add(wiringReviewPrompt.id);
+                setWiringReviewPrompt(null);
+              }}
+              onOpen={openWiringReviewPanel}
+            />
+          )}
+        </AnimatePresence>
+        <AnimatePresence>
+          {masterRatingOpen && pendingMasterRatingRequestId && (
+            <MasterStarRatingDialog
+              onSkip={() => {
+                void finishMasterWiringRating(null);
+              }}
+              onSubmit={(score) => finishMasterWiringRating(score)}
             />
           )}
         </AnimatePresence>

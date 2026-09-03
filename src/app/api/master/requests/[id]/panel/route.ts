@@ -7,11 +7,13 @@ import {
   completeMasterWiringCheck,
   dbErrorResponse,
   ensureSchema,
+  getInstallRequestById,
   getPanelForMasterRequest,
   getUserRole,
   updateMasterRequestPanelWires,
   upsertUser,
 } from "@/lib/db";
+import { notifyUserWebPush } from "@/lib/web-push";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -76,6 +78,14 @@ export async function PATCH(request: Request, context: RouteContext) {
       );
       if (!result) {
         return Response.json({ error: "Щиток не найден" }, { status: 404 });
+      }
+      const owner = await getInstallRequestById(id);
+      if (owner) {
+        await notifyUserWebPush(owner.telegramUserId, {
+          title: "Током",
+          body: "Мастер проверил расключение щитка. Откройте приложение, чтобы посмотреть и оценить работу.",
+          url: "/",
+        });
       }
       return Response.json(result);
     }

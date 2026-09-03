@@ -2580,6 +2580,7 @@ export async function submitMasterFeedback(payload: {
   userReached?: boolean;
   masterReached?: boolean;
   userScore?: number;
+  clearWiringReview?: boolean;
 }): Promise<void> {
   if (!canUseServer()) return;
   await fetch("/api/master/feedback", {

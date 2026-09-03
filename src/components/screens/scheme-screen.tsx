@@ -1690,6 +1690,7 @@ export function SchemeScreen({
   canUseTerminals = false,
   masterWiringMode = false,
   wiringLockedByMaster = false,
+  initialShowTerminals = false,
   houseSnapshot,
   onEditHouse,
   appliances = [],
@@ -1708,6 +1709,8 @@ export function SchemeScreen({
    * but changes are not persisted.
    */
   wiringLockedByMaster?: boolean;
+  /** Open scheme with terminals (Клеммы) already on */
+  initialShowTerminals?: boolean;
   onSaveShared?: () => void;
   onBack: () => void;
   onRename: (name: string) => void;
@@ -1786,7 +1789,7 @@ export function SchemeScreen({
   );
 
   const [tab, setTab] = useState<"scheme" | "photo">("scheme");
-  const [showTerminals, setShowTerminals] = useState(false);
+  const [showTerminals, setShowTerminals] = useState(initialShowTerminals);
   const [sheetAnchorY, setSheetAnchorY] = useState<number | null>(null);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
