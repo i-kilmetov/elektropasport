@@ -56,7 +56,7 @@ import { ensureConnectedMoscowMaster } from "@/lib/ensure-moscow-master";
 let schemaReady: Promise<void> | null = null;
 
 /** Bump when DDL below changes so cold starts re-run migrations once. */
-const SCHEMA_VERSION = "2026-09-03-professional-safety";
+const SCHEMA_VERSION = "2026-09-03-request-payment-status";
 /** One-shot data wipe flag — never re-run after it is written. */
 const FRESH_START_KEY = "fresh_start_2026_08_25_b";
 /** Bumped on each factory wipe so clients drop localStorage orphans. */
@@ -363,6 +363,10 @@ export async function ensureSchema(): Promise<void> {
       await sql`
         ALTER TABLE install_requests
         ADD COLUMN IF NOT EXISTS tbank_payment_id TEXT
+      `;
+      await sql`
+        ALTER TABLE install_requests
+        ADD COLUMN IF NOT EXISTS paid_at TIMESTAMPTZ
       `;
       await sql`
         ALTER TABLE users
@@ -1028,6 +1032,7 @@ type RequestRow = {
   master_telegram_id?: string | number | null;
   panel_id?: string | null;
   master_accepted_at?: string | null;
+  paid_at?: string | null;
   dispatched_at?: string | null;
   linked_request_id?: string | null;
   ai_consultation?: unknown;
@@ -1110,6 +1115,7 @@ function rowToPanel(row: PanelRow): PanelObject {
 function rowToRequest(row: RequestRow): InstallRequest {
   const rawStatus = row.status;
   const status: InstallRequestStatus =
+    rawStatus === "payment" ||
     rawStatus === "in_progress" ||
     rawStatus === "done" ||
     rawStatus === "cancelled" ||
@@ -1153,6 +1159,7 @@ function rowToRequest(row: RequestRow): InstallRequest {
     masterTelegramId: row.master_telegram_id ? Number(row.master_telegram_id) : undefined,
     panelId: row.panel_id ?? undefined,
     masterAcceptedAt: row.master_accepted_at ?? undefined,
+    paidAt: row.paid_at ? new Date(row.paid_at).toISOString() : undefined,
     dispatchedAt: row.dispatched_at ?? undefined,
     linkedRequestId: row.linked_request_id ?? undefined,
     aiConsultation: parseJsonbValue<InstallRequest["aiConsultation"]>(
@@ -1180,7 +1187,7 @@ export async function listHomeItems(
       city, contact_method, phone, name, dwelling, phases, power_kw,
       setup_title, exact_address, public_code, payment_status,
       paid_amount_rub, tbank_payment_id, created_at,
-      master_telegram_id, panel_id, master_accepted_at, dispatched_at,
+      master_telegram_id, panel_id, master_accepted_at, paid_at, dispatched_at,
       linked_request_id, ai_consultation
     FROM install_requests
     WHERE telegram_user_id = ${telegramUserId}
@@ -2020,7 +2027,7 @@ export async function getInstallRequestById(
       city, contact_method, phone, name, dwelling, phases, power_kw,
       setup_title, exact_address, public_code, payment_status,
       paid_amount_rub, tbank_payment_id, created_at,
-      master_telegram_id, panel_id, master_accepted_at, dispatched_at,
+      master_telegram_id, panel_id, master_accepted_at, paid_at, dispatched_at,
       linked_request_id, ai_consultation
     FROM install_requests
     WHERE id = ${id}
@@ -2429,6 +2436,7 @@ export async function getMasterProfile(
   username: string;
   ordersCount: number;
   rating: number;
+  city: string | null;
 } | null> {
   const sql = getSql();
   await ensureSchema();
@@ -2449,7 +2457,7 @@ export async function getMasterProfile(
     SELECT COUNT(*)::int AS count
     FROM install_requests
     WHERE ABS(master_telegram_id) = ${absId}
-      AND status IN ('in_progress', 'done')
+      AND status IN ('payment', 'in_progress', 'done')
   `) as Array<{ count: number }>;
 
   const feedbackRows = (await sql`
@@ -2479,6 +2487,16 @@ export async function getMasterProfile(
     rating = totalWeight > 0 ? Math.round(totalScore / totalWeight) : 100;
   }
 
+  const [appCity] = (await sql`
+    SELECT city
+    FROM master_applications
+    WHERE ABS(telegram_user_id) = ${absId}
+      AND city IS NOT NULL
+      AND BTRIM(city) <> ''
+    ORDER BY created_at DESC
+    LIMIT 1
+  `) as Array<{ city: string | null }>;
+
   return {
     firstName: user.first_name ?? "",
     lastName: user.last_name ?? "",
@@ -2486,6 +2504,7 @@ export async function getMasterProfile(
     username: user.username ?? "",
     ordersCount: ordersRow?.count ?? 0,
     rating,
+    city: appCity?.city?.trim() || null,
   };
 }
 
@@ -2554,10 +2573,11 @@ export async function acceptInstallRequest(
       master_telegram_id = ${storageMasterId},
       master_accepted_at = NOW(),
       dispatched_at = COALESCE(dispatched_at, NOW()),
-      status = 'in_progress',
-      status_label = 'В работе'
+      status = 'payment',
+      status_label = ${installStatusLabels.payment}
     WHERE id = ${requestId}
       AND master_telegram_id IS NULL
+      AND status = 'new'
     RETURNING id
   `) as Array<{ id: string }>;
   if (rows.length > 0) return "accepted";
@@ -2680,15 +2700,91 @@ export async function listMasterRequests(
       id, title, subtitle, status, status_label, created_at_label,
       city, contact_method, phone, name, dwelling, phases, power_kw,
       setup_title, exact_address, public_code, payment_status,
-      paid_amount_rub, tbank_payment_id, created_at, panel_id
+      paid_amount_rub, tbank_payment_id, created_at, panel_id,
+      master_telegram_id, master_accepted_at, paid_at, dispatched_at,
+      linked_request_id, ai_consultation
     FROM install_requests
     WHERE master_telegram_id = ${masterTelegramId}
+    ORDER BY
+      CASE status
+        WHEN 'in_progress' THEN 0
+        WHEN 'payment' THEN 1
+        WHEN 'done' THEN 2
+        ELSE 3
+      END,
+      COALESCE(paid_at, master_accepted_at, created_at) DESC
+  `) as RequestRow[];
+  return rows.map((row) => rowToRequest(row));
+}
+
+function normalizeCityKey(city: string): string {
+  return city
+    .trim()
+    .toLowerCase()
+    .replace(/ё/g, "е")
+    .replace(/\s+/g, " ");
+}
+
+export async function listMasterExchangeRequests(
+  masterTelegramId: number,
+): Promise<InstallRequest[]> {
+  const sql = getSql();
+  await ensureSchema();
+  const profile = await getMasterProfile(masterTelegramId);
+  const city = profile?.city?.trim();
+  if (!city) return [];
+
+  const rows = (await sql`
+    SELECT
+      id, title, subtitle, status, status_label, created_at_label,
+      city, contact_method, phone, name, dwelling, phases, power_kw,
+      setup_title, exact_address, public_code, payment_status,
+      paid_amount_rub, tbank_payment_id, created_at, panel_id,
+      master_telegram_id, master_accepted_at, paid_at, dispatched_at,
+      linked_request_id, ai_consultation
+    FROM install_requests
+    WHERE status = 'new'
+      AND master_telegram_id IS NULL
+      AND status <> 'deleted'
     ORDER BY created_at DESC
-  `) as Array<RequestRow & { panel_id: string | null }>;
-  return rows.map((row) => ({
-    ...rowToRequest(row),
-    panelId: row.panel_id ?? undefined,
-  }));
+    LIMIT 100
+  `) as RequestRow[];
+
+  const cityKey = normalizeCityKey(city);
+  return rows
+    .filter((row) => normalizeCityKey(row.city) === cityKey)
+    .map((row) => rowToRequest(row));
+}
+
+export async function markInstallRequestPaid(
+  telegramUserId: number,
+  requestId: string,
+  amountRub: number,
+  tbankPaymentId?: string | null,
+): Promise<InstallRequest | null> {
+  const sql = getSql();
+  await ensureSchema();
+  const rows = (await sql`
+    UPDATE install_requests
+    SET
+      status = 'in_progress',
+      status_label = ${installStatusLabels.in_progress},
+      payment_status = 'confirmed',
+      paid_amount_rub = ${amountRub}::int,
+      tbank_payment_id = COALESCE(${tbankPaymentId ?? null}, tbank_payment_id),
+      paid_at = COALESCE(paid_at, NOW())
+    WHERE id = ${requestId}
+      AND telegram_user_id = ${telegramUserId}
+      AND status IN ('payment', 'new', 'in_progress')
+    RETURNING
+      id, title, subtitle, status, status_label, created_at_label,
+      city, contact_method, phone, name, dwelling, phases, power_kw,
+      setup_title, exact_address, public_code, payment_status,
+      paid_amount_rub, tbank_payment_id, created_at,
+      master_telegram_id, panel_id, master_accepted_at, paid_at, dispatched_at,
+      linked_request_id, ai_consultation
+  `) as RequestRow[];
+  return rows[0] ? rowToRequest(rows[0]) : null;
 }
 
 export async function setRequestPanelId(

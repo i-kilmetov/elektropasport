@@ -2267,7 +2267,7 @@ export async function adminSetRole(
 
 export async function adminSetRequestStatus(
   requestId: string,
-  status: "new" | "in_progress" | "done" | "cancelled" | "deleted",
+  status: "new" | "payment" | "in_progress" | "done" | "cancelled" | "deleted",
 ): Promise<void> {
   const res = await fetch(`/api/admin/requests/${encodeURIComponent(requestId)}`, {
     method: "PATCH",
@@ -2381,6 +2381,7 @@ export type MasterProfileData = {
     username: string;
     ordersCount: number;
     rating: number;
+    city?: string | null;
   };
 };
 
@@ -2403,6 +2404,52 @@ export async function fetchMasterRequests(): Promise<InstallRequest[]> {
   if (!res.ok) return [];
   const data = (await res.json()) as { requests: InstallRequest[] };
   return data.requests ?? [];
+}
+
+export async function fetchMasterExchangeRequests(): Promise<InstallRequest[]> {
+  if (!canUseServer()) return [];
+  const res = await fetch("/api/master/exchange", {
+    headers: authHeaders(),
+    cache: "no-store",
+  });
+  if (!res.ok) return [];
+  const data = (await res.json()) as { requests: InstallRequest[] };
+  return data.requests ?? [];
+}
+
+export async function acceptMasterExchangeRequest(
+  requestId: string,
+): Promise<InstallRequest> {
+  const res = await fetch(
+    `/api/master/requests/${encodeURIComponent(requestId)}/accept`,
+    {
+      method: "POST",
+      headers: authHeaders(),
+    },
+  );
+  if (!res.ok) throw new Error(await parseError(res));
+  const data = (await res.json()) as { request: InstallRequest };
+  return data.request;
+}
+
+export async function confirmInstallRequestPayment(
+  requestId: string,
+  amountRub?: number,
+): Promise<InstallRequest> {
+  const res = await fetch(
+    `/api/install-requests/${encodeURIComponent(requestId)}/pay`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeaders(),
+      },
+      body: JSON.stringify({ amountRub }),
+    },
+  );
+  if (!res.ok) throw new Error(await parseError(res));
+  const data = (await res.json()) as { request: InstallRequest };
+  return data.request;
 }
 
 export async function fetchMasterRequestPanel(

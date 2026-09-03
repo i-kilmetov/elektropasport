@@ -464,9 +464,11 @@ export async function getAdminDashboard(
 
   const byStatus: Record<string, number> = {
     new: 0,
+    payment: 0,
     in_progress: 0,
     done: 0,
     cancelled: 0,
+    deleted: 0,
   };
   for (const row of statusRows) {
     byStatus[row.status] = row.count;
@@ -657,7 +659,7 @@ export async function adminSetUserRole(
 
 export async function adminSetRequestStatus(
   requestId: string,
-  status: "new" | "in_progress" | "done" | "cancelled" | "deleted",
+  status: "new" | "payment" | "in_progress" | "done" | "cancelled" | "deleted",
   statusLabel: string,
 ): Promise<void> {
   const sql = getSql();

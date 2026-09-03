@@ -20,7 +20,12 @@ export function findWiringCheckRequestForPanel(
   );
   if (matches.length === 0) return null;
   const preferred =
-    matches.find((item) => item.status === "new" || item.status === "in_progress") ??
+    matches.find(
+      (item) =>
+        item.status === "new" ||
+        item.status === "payment" ||
+        item.status === "in_progress",
+    ) ??
     matches[0];
   return preferred ?? null;
 }

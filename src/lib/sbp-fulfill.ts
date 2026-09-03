@@ -5,6 +5,7 @@ import {
   getSbpPaymentByTbankId,
   hasSchoolPromoRedemption,
   insertInstallRequest,
+  markInstallRequestPaid,
   recordSchoolPromoRedemption,
   updateSbpPayment,
   type SbpPaymentRecord,
@@ -99,6 +100,23 @@ export async function fulfillConfirmedSbpPayment(
 
   if (payment.status === "confirmed" && payment.requestId) {
     return payment;
+  }
+
+  if (payment.requestId) {
+    const paid = await markInstallRequestPaid(
+      payment.telegramUserId,
+      payment.requestId,
+      payment.amountRub,
+      payment.tbankPaymentId,
+    );
+    if (paid) {
+      return (
+        (await updateSbpPayment(payment.id, {
+          status: "confirmed",
+          requestId: payment.requestId,
+        })) ?? { ...payment, status: "confirmed" as const }
+      );
+    }
   }
 
   const lead = payment.leadPayload as PendingInstallLead | null;

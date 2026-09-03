@@ -1447,6 +1447,37 @@ export function ObjectsScreen({
 
       <PushEnableBanner />
 
+      {page === 0
+        ? items
+            .filter(
+              (item): item is InstallRequest =>
+                item.kind === "install_request" && item.status === "payment",
+            )
+            .map((request) => (
+              <button
+                key={`pay-banner-${request.id}`}
+                type="button"
+                onClick={() => onOpenRequest(request.id)}
+                className="mx-5 mb-3 block w-[calc(100%-2.5rem)] shrink-0 rounded-[20px] border border-amber-300/60 bg-amber-50 px-4 py-3 text-left shadow-sm transition-colors hover:bg-amber-100/80 lg:mx-10 lg:w-[calc(100%-5rem)]"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="ty-heading text-amber-950">
+                      Мастер принял вашу заявку
+                    </p>
+                    <p className="mt-0.5 ty-note text-amber-900/80">
+                      Необходимо оплатить
+                      {request.publicCode ? ` · ${request.publicCode}` : ""}
+                    </p>
+                  </div>
+                  <span className="shrink-0 rounded-full bg-amber-400/25 px-2 py-0.5 ty-badge text-amber-900">
+                    Оплата
+                  </span>
+                </div>
+              </button>
+            ))
+        : null}
+
       {error && (
         <p className="mx-5 mb-3 shrink-0 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 ty-note text-rose-700 lg:mx-10">
           {error}

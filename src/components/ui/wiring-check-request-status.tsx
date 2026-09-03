@@ -23,33 +23,28 @@ export function WiringCheckRequestStatus({
   const activeIndex =
     request.status === "new"
       ? 0
-      : request.status === "in_progress"
+      : request.status === "payment"
         ? 1
-        : request.status === "done"
+        : request.status === "in_progress"
           ? 2
-          : -1;
+          : request.status === "done"
+            ? 3
+            : -1;
 
   return (
-    <div className="mb-4 space-y-3 rounded-[18px] border border-black/8 bg-zinc-50 px-4 py-3">
+    <div className="mb-5 space-y-3 rounded-[18px] border border-black/8 bg-zinc-50 px-4 py-3">
       <div className="flex items-center justify-between gap-3">
-        <div>
-          <p className="ty-heading text-zinc-900">Заявка на проверку</p>
-          {request.publicCode ? (
-            <p className="mt-0.5 ty-meta text-zinc-500">{request.publicCode}</p>
-          ) : null}
-        </div>
+        <p className="ty-label text-zinc-500">Заявка на проверку</p>
         <span className={cn("rounded-full px-2.5 py-1 ty-label", tone.badge)}>
           {installStatusLabels[request.status]}
         </span>
       </div>
-
       <Progress
         value={installStatusProgress(request.status)}
         className={cn(closed && "opacity-40")}
         indicatorClassName={tone.bar}
       />
-
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-4 gap-1">
         {installStatusSteps.map((step, index) => {
           const reached = !closed && index <= activeIndex;
           const current = !closed && index === activeIndex;
@@ -57,14 +52,14 @@ export function WiringCheckRequestStatus({
             <div key={step.id} className="text-center">
               <div
                 className={cn(
-                  "mx-auto mb-1.5 h-2.5 w-2.5 rounded-full",
+                  "mx-auto mb-1 h-2 w-2 rounded-full",
                   reached ? tone.dot : "bg-zinc-200",
-                  current && `ring-2 ${tone.ring} ring-offset-2 ring-offset-white`,
+                  current && `ring-2 ${tone.ring} ring-offset-1 ring-offset-zinc-50`,
                 )}
               />
               <div
                 className={cn(
-                  "text-[11px] leading-tight",
+                  "text-[9px] leading-tight",
                   current ? "font-medium text-zinc-900" : "text-zinc-500",
                 )}
               >
@@ -74,7 +69,6 @@ export function WiringCheckRequestStatus({
           );
         })}
       </div>
-
       {onOpenRequest ? (
         <Button className="w-full" variant="secondary" onClick={onOpenRequest}>
           Открыть заявку

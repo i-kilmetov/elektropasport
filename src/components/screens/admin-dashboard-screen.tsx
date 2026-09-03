@@ -426,8 +426,9 @@ function Overview({
             {(
               [
                 ["new", "Новые"],
+                ["payment", "Оплата"],
                 ["in_progress", "В работе"],
-                ["done", "Готово"],
+                ["done", "Выполнено"],
                 ["cancelled", "Отменены"],
               ] as const
             ).map(([id, label]) => (

@@ -17,6 +17,7 @@ export async function PATCH(request: Request, context: RouteContext) {
     const body = (await request.json()) as { status?: InstallRequestStatus };
     if (
       body.status !== "new" &&
+      body.status !== "payment" &&
       body.status !== "in_progress" &&
       body.status !== "done" &&
       body.status !== "cancelled" &&

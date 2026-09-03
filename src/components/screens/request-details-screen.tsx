@@ -98,16 +98,32 @@ function NameDialog({
   );
 }
 
-function StatusProgress({ status }: { status: InstallRequestStatus }) {
+function StatusProgress({
+  status,
+  dark = false,
+}: {
+  status: InstallRequestStatus;
+  dark?: boolean;
+}) {
   const closed = status === "cancelled" || status === "deleted";
   const tone = installStatusTone(status);
   const activeIndex =
-    status === "new" ? 0 : status === "in_progress" ? 1 : status === "done" ? 2 : -1;
+    status === "new"
+      ? 0
+      : status === "payment"
+        ? 1
+        : status === "in_progress"
+          ? 2
+          : status === "done"
+            ? 3
+            : -1;
 
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-3">
-        <div className="ty-label text-zinc-500">Статус</div>
+        <div className={cn("ty-label", dark ? "text-white/50" : "text-zinc-500")}>
+          Статус
+        </div>
         <span
           className={cn(
             "rounded-full px-2.5 py-1 ty-label",
@@ -120,11 +136,11 @@ function StatusProgress({ status }: { status: InstallRequestStatus }) {
 
       <Progress
         value={installStatusProgress(status)}
-        className={cn(closed && "opacity-40")}
+        className={cn(closed && "opacity-40", dark && "bg-white/10")}
         indicatorClassName={tone.bar}
       />
 
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-4 gap-1.5">
         {installStatusSteps.map((step, index) => {
           const reached = !closed && index <= activeIndex;
           const current = !closed && index === activeIndex;
@@ -133,14 +149,21 @@ function StatusProgress({ status }: { status: InstallRequestStatus }) {
               <div
                 className={cn(
                   "mx-auto mb-1.5 h-2.5 w-2.5 rounded-full",
-                  reached ? tone.dot : "bg-zinc-200",
-                  current && `ring-2 ${tone.ring} ring-offset-2 ring-offset-white`,
+                  reached ? tone.dot : dark ? "bg-white/20" : "bg-zinc-200",
+                  current &&
+                    `ring-2 ${tone.ring} ring-offset-2 ${dark ? "ring-offset-[#111113]" : "ring-offset-white"}`,
                 )}
               />
               <div
                 className={cn(
-                  "text-[11px] leading-tight",
-                  current ? "font-medium text-zinc-900" : "text-zinc-500",
+                  "text-[10px] leading-tight",
+                  current
+                    ? dark
+                      ? "font-medium text-white"
+                      : "font-medium text-zinc-900"
+                    : dark
+                      ? "text-white/45"
+                      : "text-zinc-500",
                 )}
               >
                 {step.label}
@@ -238,7 +261,9 @@ export function RequestDetailsScreen({
   onUpdate,
   onOpenPanel,
   onCallMaster,
+  onConfirmPayment,
   readOnly = false,
+  dark = false,
 }: {
   request: InstallRequest;
   onBack: () => void;
@@ -254,18 +279,23 @@ export function RequestDetailsScreen({
     phone: string;
     name: string;
   }) => void | Promise<void>;
+  onConfirmPayment?: () => void | Promise<void>;
   readOnly?: boolean;
+  dark?: boolean;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
   const [pendingDelete, setPendingDelete] = useState(false);
   const [masterConfirmOpen, setMasterConfirmOpen] = useState(false);
+  const [paying, setPaying] = useState(false);
   const [address, setAddress] = useState(request.exactAddress ?? "");
   const [addressSaved, setAddressSaved] = useState(false);
   const standaloneConsultation =
     !readOnly && isStandaloneAiConsultation(request) && Boolean(onCallMaster);
   const showStatusBlock = !isStandaloneAiConsultation(request);
   const showContactBlock = !isStandaloneAiConsultation(request);
+  const needsPayment =
+    !readOnly && request.status === "payment" && Boolean(onConfirmPayment);
 
   useEffect(() => {
     setAddress(request.exactAddress ?? "");
@@ -319,18 +349,31 @@ export function RequestDetailsScreen({
       initial={{ opacity: 0, x: 40 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -40 }}
-      className="relative flex min-h-dvh flex-col px-5 pb-8 pt-[max(1.25rem,env(safe-area-inset-top))]"
+      className={cn(
+        "relative flex min-h-dvh flex-col px-5 pb-8 pt-[max(1.25rem,env(safe-area-inset-top))]",
+        dark && "bg-[#111113] text-white",
+      )}
     >
       <header className="mb-6 flex items-center justify-between gap-3">
         <button
           type="button"
           onClick={onBack}
-          className="flex h-11 w-11 items-center justify-center rounded-full border border-black/8 bg-zinc-100 text-zinc-900"
+          className={cn(
+            "flex h-11 w-11 items-center justify-center rounded-full border",
+            dark
+              ? "border-white/12 bg-white/8 text-white"
+              : "border-black/8 bg-zinc-100 text-zinc-900",
+          )}
           aria-label="Назад"
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <h1 className="flex-1 truncate text-center ty-title">
+        <h1
+          className={cn(
+            "flex-1 truncate text-center ty-title",
+            dark && "text-white",
+          )}
+        >
           {request.publicCode ?? "Детали заявки"}
         </h1>
         {readOnly ? (
@@ -389,8 +432,10 @@ export function RequestDetailsScreen({
 
       <div className="flex-1 space-y-3 overflow-y-auto pb-4">
         {showStatusBlock ? (
-          <GlassCard className="p-4">
-            <StatusProgress status={request.status} />
+          <GlassCard
+            className={cn("p-4", dark && "border-white/10 bg-white/[0.06] shadow-none")}
+          >
+            <StatusProgress status={request.status} dark={dark} />
             {request.status === "cancelled" && !readOnly && (
               <Button
                 className="mt-4 w-full"
@@ -405,6 +450,44 @@ export function RequestDetailsScreen({
                 Вернуть в работу
               </Button>
             )}
+          </GlassCard>
+        ) : null}
+
+        {needsPayment ? (
+          <GlassCard className="space-y-3 p-4">
+            <div>
+              <div className="ty-heading">Оплата выезда мастера</div>
+              <p className="mt-1 ty-note">
+                Мастер принял вашу заявку. Оплатите выезд, чтобы он приступил к
+                работе.
+              </p>
+            </div>
+            <Button
+              className="w-full"
+              disabled={paying}
+              onClick={() => {
+                if (!onConfirmPayment) return;
+                setPaying(true);
+                void Promise.resolve(onConfirmPayment()).finally(() =>
+                  setPaying(false),
+                );
+              }}
+            >
+              {paying ? "Оплата…" : "Оплатить"}
+            </Button>
+          </GlassCard>
+        ) : null}
+
+        {readOnly && request.status === "payment" ? (
+          <GlassCard
+            className={cn(
+              "p-4",
+              dark && "border-white/10 bg-white/[0.06] shadow-none",
+            )}
+          >
+            <p className={cn("ty-body", dark ? "text-white/70" : "text-zinc-600")}>
+              Заявка принята. Ожидаем оплату от заказчика.
+            </p>
           </GlassCard>
         ) : null}
 

@@ -213,6 +213,7 @@ export interface PanelObject {
 
 export type InstallRequestStatus =
   | "new"
+  | "payment"
   | "in_progress"
   | "done"
   | "cancelled"
@@ -255,6 +256,8 @@ export interface InstallRequest {
   panelId?: string;
   /** When master accepted the request */
   masterAcceptedAt?: string;
+  /** When the user paid after master acceptance */
+  paidAt?: string;
   /** When the request was dispatched to masters */
   dispatchedAt?: string;
   /** Linked consultation request shown under a master visit card */
@@ -327,8 +330,9 @@ export interface AnalyzePanelResult {
 
 export const installStatusLabels: Record<InstallRequestStatus, string> = {
   new: "Новая",
+  payment: "Оплата",
   in_progress: "В работе",
-  done: "Готово",
+  done: "Выполнено",
   cancelled: "Отменена",
   deleted: "Удален",
 };
@@ -338,13 +342,15 @@ export const installStatusSteps: Array<{
   label: string;
 }> = [
   { id: "new", label: "Новая" },
+  { id: "payment", label: "Оплата" },
   { id: "in_progress", label: "В работе" },
-  { id: "done", label: "Готово" },
+  { id: "done", label: "Выполнено" },
 ];
 
 export function installStatusProgress(status: InstallRequestStatus): number {
-  if (status === "new") return 33;
-  if (status === "in_progress") return 66;
+  if (status === "new") return 25;
+  if (status === "payment") return 50;
+  if (status === "in_progress") return 75;
   if (status === "done") return 100;
   return 0;
 }
@@ -364,6 +370,14 @@ export function installStatusTone(status: InstallRequestStatus): {
     };
   }
   if (status === "in_progress") {
+    return {
+      badge: "bg-sky-500/15 text-sky-800",
+      bar: "bg-sky-500",
+      dot: "bg-sky-500",
+      ring: "ring-sky-500/35",
+    };
+  }
+  if (status === "payment") {
     return {
       badge: "bg-amber-400/20 text-amber-800",
       bar: "bg-amber-400",

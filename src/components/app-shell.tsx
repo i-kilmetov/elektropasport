@@ -127,6 +127,7 @@ import {
   persistPanelScheme,
   persistPanelRename,
   createPanelShare,
+  confirmInstallRequestPayment,
   fetchPanelById,
   fetchSharedPanel,
   formatErrorMessage,
@@ -2643,8 +2644,7 @@ export function AppShell({
     screen === "master-about" ||
     (screen === "city-select" && leadFlow === "master") ||
     (screen === "lead-contact" && leadFlow === "master");
-  const darkShellActive =
-    masterApplyEarly || (masterMode && screen === "objects");
+  const darkShellActive = masterApplyEarly || masterMode;
 
   const authIntroVisible =
     showAuthIntro &&
@@ -2748,8 +2748,7 @@ export function AppShell({
     masterApply;
   const fullBleed = screen === "master-search";
 
-  const masterDesk = masterMode && screen === "objects";
-  const darkShell = masterApply || masterDesk;
+  const darkShell = masterApply || masterMode;
 
   return (
     <div
@@ -3676,9 +3675,10 @@ export function AppShell({
               key={`request-${activeRequest.id}`}
               request={activeRequest}
               readOnly={Boolean(masterViewRequest)}
+              dark={Boolean(masterMode)}
               onBack={() => {
                 setMasterViewRequest(null);
-                setObjectsTab(1);
+                setObjectsTab(masterMode ? 0 : 1);
                 go("objects");
               }}
               onRename={renameRequest}
@@ -3697,6 +3697,34 @@ export function AppShell({
                 activeRequest && isStandaloneAiConsultation(activeRequest)
                   ? (payload) =>
                       handleConsultationCallMaster(activeRequest, payload)
+                  : undefined
+              }
+              onConfirmPayment={
+                activeRequest.status === "payment" && !masterViewRequest
+                  ? async () => {
+                      try {
+                        const paid = await confirmInstallRequestPayment(
+                          activeRequest.id,
+                          MASTER_HOME_VISIT_PRICE_RUB,
+                        );
+                        setItems((prev) =>
+                          prev.map((item) =>
+                            item.kind === "install_request" &&
+                            item.id === paid.id
+                              ? { ...item, ...paid }
+                              : item,
+                          ),
+                        );
+                        setMasterViewRequest(null);
+                        hapticNotification("success");
+                      } catch (error) {
+                        setItemsError(
+                          error instanceof Error
+                            ? error.message
+                            : "Не удалось подтвердить оплату",
+                        );
+                      }
+                    }
                   : undefined
               }
             />
