@@ -6,17 +6,20 @@ import { ChevronDown, Lock, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Portal } from "@/components/ui/portal";
 import {
+  areFirstTwoSafetyStagesDone,
   buildSafetyBarSheetDetails,
   buildSafetyStageCardCopy,
   formatSafetyScoreAssessment,
   getLastCompletedSafetyStage,
   panelSafetyStagesDisclaimer,
   stageScoreBadge,
+  wiringCheckMasterExplanation,
   type PanelSafetyStagesSnapshot,
   type SafetyStageId,
   type SafetyStageSnapshot,
 } from "@/lib/panel-safety-stages";
 import { cn } from "@/lib/utils";
+import { GeminiSparkle } from "@/components/icons/gemini-sparkle";
 
 function SafetyStageBar({
   snapshot,
@@ -95,13 +98,16 @@ function SafetyStageBar({
 export function PanelSafetyBarSheet({
   snapshot,
   onClose,
+  onCallMaster,
 }: {
   snapshot: PanelSafetyStagesSnapshot;
   onClose: () => void;
+  onCallMaster?: () => void;
 }) {
   const copy = buildSafetyStageCardCopy(snapshot);
   const completedStage = getLastCompletedSafetyStage(snapshot);
   const detailParagraphs = buildSafetyBarSheetDetails(snapshot);
+  const bothStagesDone = areFirstTwoSafetyStagesDone(snapshot);
 
   return (
     <Portal>
@@ -153,13 +159,37 @@ export function PanelSafetyBarSheet({
             ))}
           </div>
 
-          <p className="mb-5 ty-note text-zinc-400">
-            {panelSafetyStagesDisclaimer}
-          </p>
+          {bothStagesDone ? (
+            <div className="mb-4 rounded-[18px] border border-black/8 bg-zinc-50 px-4 py-3 ty-body text-zinc-600">
+              {wiringCheckMasterExplanation}
+            </div>
+          ) : (
+            <p className="mb-5 ty-note text-zinc-400">
+              {panelSafetyStagesDisclaimer}
+            </p>
+          )}
 
-          <Button className="w-full" onClick={onClose}>
-            Понятно
-          </Button>
+          <div className="flex flex-col gap-2">
+            {bothStagesDone && onCallMaster ? (
+              <Button
+                className="w-full"
+                onClick={() => {
+                  onClose();
+                  onCallMaster();
+                }}
+              >
+                <GeminiSparkle className="h-5 w-5" />
+                Вызвать мастера
+              </Button>
+            ) : null}
+            <Button
+              className="w-full"
+              variant={bothStagesDone && onCallMaster ? "secondary" : undefined}
+              onClick={onClose}
+            >
+              Понятно
+            </Button>
+          </div>
         </motion.div>
       </motion.div>
     </Portal>
@@ -356,15 +386,21 @@ export function PanelSafetyBarSheetHost({
   open,
   snapshot,
   onClose,
+  onCallMaster,
 }: {
   open: boolean;
   snapshot: PanelSafetyStagesSnapshot | null;
   onClose: () => void;
+  onCallMaster?: () => void;
 }) {
   return (
     <AnimatePresence>
       {open && snapshot ? (
-        <PanelSafetyBarSheet snapshot={snapshot} onClose={onClose} />
+        <PanelSafetyBarSheet
+          snapshot={snapshot}
+          onClose={onClose}
+          onCallMaster={onCallMaster}
+        />
       ) : null}
     </AnimatePresence>
   );

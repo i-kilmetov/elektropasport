@@ -12,6 +12,7 @@ import {
   areFirstTwoSafetyStagesDone,
   formatSafetyScoreAssessment,
   panelSafetyStagesDisclaimer,
+  wiringCheckMasterExplanation,
   type PanelSafetyStagesSnapshot,
   type SafetyStageId,
 } from "@/lib/panel-safety-stages";
@@ -41,7 +42,6 @@ export function SafetyExplainSheet({
   const selectedStage =
     stages.stages.find((stage) => stage.id === selectedStageId) ??
     stages.stages[0];
-  const improveCount = advice.filter((item) => item.kind === "improve").length;
   const generalImprove = advice.filter(
     (item) => item.kind === "improve" && item.axis === "general",
   );
@@ -133,9 +133,8 @@ export function SafetyExplainSheet({
             : bothStagesDone &&
                 selectedStage?.id === "professional" &&
                 selectedStage.status !== "done" ? (
-              <div className="mb-5 rounded-[18px] border border-black/8 bg-zinc-50 px-4 py-3 ty-body text-zinc-600">
-                Финальная оценка возможна после проверки расключения щитка и
-                типа кабелей к нагрузкам: как соединены автоматы, УЗО и линии.
+              <div className="mb-5 space-y-3 rounded-[18px] border border-black/8 bg-zinc-50 px-4 py-3 ty-body text-zinc-600">
+                <p>{wiringCheckMasterExplanation}</p>
               </div>
             ) : null}
 
@@ -145,14 +144,10 @@ export function SafetyExplainSheet({
                 Параметры сети
               </Button>
             ) : null}
-            {onCallMaster &&
-            bothStagesDone &&
-            (selectedStage?.id === "professional" || improveCount > 0) ? (
+            {onCallMaster && bothStagesDone ? (
               <Button className="w-full" onClick={onCallMaster}>
                 <GeminiSparkle className="h-5 w-5" />
-                {selectedStage?.id === "professional"
-                  ? "Вызвать электрика"
-                  : "Помочь с электрикой"}
+                Вызвать мастера
               </Button>
             ) : null}
             <Button className="w-full" variant="secondary" onClick={onClose}>

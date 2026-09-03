@@ -4,11 +4,15 @@ import { deviceModules } from "@/lib/panel-rails";
 export const ONLINE_CONSULTATION_PRICE_RUB = 499;
 export const MODULE_LABELING_PRICE_RUB = 500;
 export const MASTER_HOME_VISIT_PRICE_RUB = 2990;
+/** Выезд для проверки расключения: 1000 ₽ за модуль, минимум 5000 ₽. */
+export const WIRING_CHECK_PRICE_PER_MODULE_RUB = 1000;
+export const WIRING_CHECK_MIN_PRICE_RUB = 5000;
 
 export type LeadServiceType =
   | "online_consultation"
   | "master_home_visit"
   | "master_labeling"
+  | "master_wiring_check"
   | "other";
 
 export type LeadServiceOption = {
@@ -57,6 +61,13 @@ export function masterLabelingPriceRub(moduleCount: number): number {
   return Math.max(0, moduleCount) * MODULE_LABELING_PRICE_RUB;
 }
 
+export function wiringCheckVisitPriceRub(moduleCount: number): number {
+  return Math.max(
+    WIRING_CHECK_MIN_PRICE_RUB,
+    Math.max(0, moduleCount) * WIRING_CHECK_PRICE_PER_MODULE_RUB,
+  );
+}
+
 export function getLeadServiceLabel(type: LeadServiceType): string {
   switch (type) {
     case "online_consultation":
@@ -65,6 +76,8 @@ export function getLeadServiceLabel(type: LeadServiceType): string {
       return "Вызов мастера на дом";
     case "master_labeling":
       return "Вызов мастера для прозвонки и маркировки";
+    case "master_wiring_check":
+      return "Проверка расключения щитка";
     case "other":
       return "Другое";
   }
@@ -79,6 +92,11 @@ export function buildLeadServiceSetupTitle(input: {
   if (input.serviceType === "master_labeling" && input.panelModules) {
     const price =
       input.estimatedPriceRub ?? masterLabelingPriceRub(input.panelModules);
+    return `${base} (${input.panelModules} мод., ${formatRub(price)})`;
+  }
+  if (input.serviceType === "master_wiring_check" && input.panelModules) {
+    const price =
+      input.estimatedPriceRub ?? wiringCheckVisitPriceRub(input.panelModules);
     return `${base} (${input.panelModules} мод., ${formatRub(price)})`;
   }
   if (
@@ -140,6 +158,16 @@ export function payableAmountRub(input: {
   ) {
     return masterLabelingPriceRub(input.panelModules);
   }
+  if (
+    input.serviceType === "master_wiring_check" &&
+    typeof input.panelModules === "number" &&
+    input.panelModules > 0
+  ) {
+    return wiringCheckVisitPriceRub(input.panelModules);
+  }
+  if (input.serviceType === "master_wiring_check") {
+    return WIRING_CHECK_MIN_PRICE_RUB;
+  }
   return null;
 }
 
@@ -149,7 +177,8 @@ export function resolveRequestTypeCodeForService(
   if (serviceType === "online_consultation") return "C";
   if (
     serviceType === "master_labeling" ||
-    serviceType === "master_home_visit"
+    serviceType === "master_home_visit" ||
+    serviceType === "master_wiring_check"
   ) {
     return "V";
   }

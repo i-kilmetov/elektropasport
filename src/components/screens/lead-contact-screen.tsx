@@ -480,6 +480,11 @@ export function LeadContactScreen({
               {formatRub(estimatedPriceRub)}
             </p>
           )}
+          {serviceType === "master_wiring_check" && panelModules != null ? (
+            <p className="mt-1 ty-note">
+              {panelModules} мод. × 1 000 ₽, минимум 5 000 ₽
+            </p>
+          ) : null}
           {serviceType === "other" && (
             <p className="mt-1 ty-note">
               Стоимость определим после разговора по телефону.

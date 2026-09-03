@@ -14,7 +14,7 @@ export function TelegramAuthScreen({
   minimal = false,
   returnTo,
 }: {
-  pendingAction?: "add-panel" | "no-panel" | "call-master" | "help-electrical";
+  pendingAction?: "add-panel" | "no-panel" | "call-master" | "help-electrical" | "wiring-check";
   onBack?: () => void;
   minimal?: boolean;
   returnTo?: string;

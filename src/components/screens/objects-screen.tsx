@@ -347,10 +347,12 @@ function HomeListCard({
   item,
   onOpen,
   onContextMenu,
+  onCallWiringCheckMaster,
 }: {
   item: HomeListItem;
   onOpen: () => void;
   onContextMenu: () => void;
+  onCallWiringCheckMaster?: (panelId: string) => void;
 }) {
   const isRequest = item.kind === "install_request";
   const isConsultationRequest =
@@ -452,6 +454,11 @@ function HomeListCard({
         open={safetyInfoOpen}
         snapshot={safetyStages}
         onClose={() => setSafetyInfoOpen(false)}
+        onCallMaster={
+          panel && onCallWiringCheckMaster
+            ? () => onCallWiringCheckMaster(panel.id)
+            : undefined
+        }
       />
     </div>
   );
@@ -530,6 +537,7 @@ function ExpandableHomeCard({
   onAddAppliance,
   onApplianceContextMenu,
   onContextMenu,
+  onCallWiringCheckMaster,
 }: {
   panel: PanelObject;
   expanded: boolean;
@@ -539,6 +547,7 @@ function ExpandableHomeCard({
   onAddAppliance: () => void;
   onApplianceContextMenu: (appliance: HomeAppliance) => void;
   onContextMenu: () => void;
+  onCallWiringCheckMaster?: (panelId: string) => void;
 }) {
   const appliances = panel.appliances ?? [];
   const supportsAppliances = panelSupportsHomeAppliances(panel);
@@ -675,6 +684,11 @@ function ExpandableHomeCard({
           open={safetyInfoOpen}
           snapshot={safetyStages}
           onClose={() => setSafetyInfoOpen(false)}
+          onCallMaster={
+            onCallWiringCheckMaster
+              ? () => onCallWiringCheckMaster(panel.id)
+              : undefined
+          }
         />
 
         <AnimatePresence>
@@ -854,6 +868,7 @@ export function ObjectsScreen({
   onOpenAppliance,
   onDeleteAppliance,
   onRestoreAppliance,
+  onCallWiringCheckMaster,
   initialPage = 0,
   onPageChange,
 }: {
@@ -889,6 +904,7 @@ export function ObjectsScreen({
     appliance: HomeAppliance,
     index: number,
   ) => void;
+  onCallWiringCheckMaster?: (panelId: string) => void;
   initialPage?: 0 | 1;
   onPageChange?: (page: 0 | 1) => void;
 }) {
@@ -1188,6 +1204,7 @@ export function ObjectsScreen({
                   item={obj}
                   onOpen={() => onOpenPanel(obj.id)}
                   onContextMenu={() => setActionsItemId(obj.id)}
+                  onCallWiringCheckMaster={onCallWiringCheckMaster}
                 />
               )
             ) : obj.kind === "install_request" ? (
@@ -1210,6 +1227,7 @@ export function ObjectsScreen({
                   setApplianceActions({ panelId: obj.id, appliance })
                 }
                 onContextMenu={() => setActionsItemId(obj.id)}
+                onCallWiringCheckMaster={onCallWiringCheckMaster}
               />
             )}
           </div>

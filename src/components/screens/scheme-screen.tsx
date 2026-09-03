@@ -1672,6 +1672,7 @@ export function SchemeScreen({
   onUpdateDevices,
   onAssessSafety,
   onCallMaster,
+  onCallWiringCheckMaster,
   devices: devicesProp,
   wires: wiresProp,
   safetyScore: safetyProp,
@@ -1729,6 +1730,8 @@ export function SchemeScreen({
     safety: number | null;
   }) => void;
   onCallMaster?: () => void;
+  /** Вызов мастера для финальной проверки расключения (после этапа «Нагрузки»). */
+  onCallWiringCheckMaster?: () => void;
   devices?: Device[];
   wires?: PanelWire[];
   safetyScore?: number | null;
@@ -3438,12 +3441,17 @@ export function SchemeScreen({
                   }
             }
             onCallMaster={
-              onCallMaster
+              onCallWiringCheckMaster
                 ? () => {
                     setSafetyExplainOpen(false);
-                    onCallMaster();
+                    onCallWiringCheckMaster();
                   }
-                : undefined
+                : onCallMaster
+                  ? () => {
+                      setSafetyExplainOpen(false);
+                      onCallMaster();
+                    }
+                  : undefined
             }
           />
         )}

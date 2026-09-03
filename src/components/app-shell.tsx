@@ -37,6 +37,7 @@ import {
   type LeadFinishPayload,
 } from "@/components/screens/lead-contact-screen";
 import { LeadServiceScreen } from "@/components/screens/lead-service-screen";
+import { WiringCheckQuoteScreen } from "@/components/screens/wiring-check-quote-screen";
 import type { ParsedAiLead } from "@/lib/ai-lead-ready";
 import { LeadAddressScreen } from "@/components/screens/lead-address-screen";
 import { NoPanelDetailScreen } from "@/components/screens/no-panel-detail-screen";
@@ -395,7 +396,7 @@ export function AppShell({
   const [railCount, setRailCount] = useState<number | null>(null);
   const [retakePanelId, setRetakePanelId] = useState<string | null>(null);
   const [pendingAuthAction, setPendingAuthAction] = useState<
-    "add-panel" | "no-panel" | "call-master" | "help-electrical" | null
+    "add-panel" | "no-panel" | "call-master" | "help-electrical" | "wiring-check" | null
   >(null);
   const [leadBackScreen, setLeadBackScreen] = useState<AppScreen>(
     "panel-advantages",
@@ -720,6 +721,7 @@ export function AppShell({
       | "no-panel"
       | "call-master"
       | "help-electrical"
+      | "wiring-check"
       | null;
     if (!pending || !canUseServerAuth()) return;
 
@@ -730,6 +732,29 @@ export function AppShell({
     } else if (pending === "no-panel") {
       setActivePanelId(null);
       setScreen("no-panel-options");
+    } else if (pending === "wiring-check") {
+      setLeadFlow("install");
+      setElectricalDetails(null);
+      setRequestNeedId(null);
+      setNoPanelSetupId(null);
+      setSelectedCity(null);
+      setSelectedAddress(null);
+      setSelectedAddressFiasId(null);
+      setSelectedBuildingYear(null);
+      setSelectedStreet(null);
+      setSelectedHouse(null);
+      setSelectedBlock(null);
+      setHelpElectricalFlow(false);
+      setSelectedLeadService("master_wiring_check");
+      setLeadBackScreen("scheme");
+      const cached = getCachedHomeItems() ?? [];
+      const panel = cached.find(
+        (item): item is PanelObject => item.kind === "panel",
+      );
+      const modules = countPanelModules(panel?.devices);
+      setLeadPanelModules(modules > 0 ? modules : null);
+      if (panel) setActivePanelId(panel.id);
+      setScreen("geo-address");
     } else if (pending === "call-master" || pending === "help-electrical") {
       setLeadFlow("install");
       setElectricalDetails(null);
@@ -976,6 +1001,45 @@ export function AppShell({
     go("telegram-auth");
   }, [go, activePanel?.devices, devices]);
 
+  const startWiringCheckMaster = useCallback(
+    (panelId?: string | null) => {
+      const panel =
+        (panelId
+          ? items.find(
+              (item): item is PanelObject =>
+                item.kind === "panel" && item.id === panelId,
+            )
+          : null) ?? activePanel;
+      if (panelId) {
+        setActivePanelId(panelId);
+      }
+      setLeadFlow("install");
+      setElectricalDetails(null);
+      setSelectedCity(null);
+      setSelectedAddress(null);
+      setSelectedAddressFiasId(null);
+      setSelectedBuildingYear(null);
+      setSelectedStreet(null);
+      setSelectedHouse(null);
+      setSelectedBlock(null);
+      setAddressEntrySource(null);
+      setHelpElectricalFlow(false);
+      setSelectedLeadService("master_wiring_check");
+      setRequestNeedId(null);
+      setNoPanelSetupId(null);
+      setLeadBackScreen(panelId && screen === "objects" ? "objects" : "scheme");
+      const panelDevices = panel?.devices ?? devices;
+      const modules = countPanelModules(panelDevices);
+      setLeadPanelModules(modules > 0 ? modules : null);
+      if (canUseServerAuth()) {
+        go("geo-address");
+        return;
+      }
+      setPendingAuthAction("wiring-check");
+      go("telegram-auth");
+    },
+    [activePanel, devices, go, items, screen],
+  );
   const handleAnalysisDone = useCallback(
     (result: AnalyzePanelResult) => {
       if (retakePanelId) {
@@ -2638,6 +2702,7 @@ export function AppShell({
               onPanelLimit={openPanelLimit}
               showMaintenance={showMaintenanceMenu}
               homeAppliancesMode={homeAppliancesEnabled}
+              onCallWiringCheckMaster={startWiringCheckMaster}
               onAddAppliance={
                 homeAppliancesEnabled
                   ? (panelId, appliance) => {
@@ -3058,6 +3123,9 @@ export function AppShell({
                 }
                 onAssessSafety={assessPanelSafety}
                 onCallMaster={startCallMaster}
+                onCallWiringCheckMaster={() =>
+                  startWiringCheckMaster(activePanelId)
+                }
                 devices={devices ?? undefined}
                 wires={activePanel?.wires}
                 safetyScore={safetyScore}
@@ -3238,7 +3306,11 @@ export function AppShell({
                   lat != null && lon != null ? { lat, lon } : null,
                 );
                 setAddressEntrySource("geo");
-                go("lead-service");
+                go(
+                  selectedLeadService === "master_wiring_check"
+                    ? "wiring-check-quote"
+                    : "lead-service",
+                );
               }}
             />
           )}
@@ -3338,8 +3410,35 @@ export function AppShell({
                 setSelectedBlock(address.block ?? null);
                 setSelectedBuildingYear(address.buildingYear ?? null);
                 setAddressEntrySource("manual");
-                go("lead-service");
+                go(
+                  selectedLeadService === "master_wiring_check"
+                    ? "wiring-check-quote"
+                    : "lead-service",
+                );
               }}
+            />
+          )}
+          {screen === "wiring-check-quote" && (
+            <WiringCheckQuoteScreen
+              key={`wiring-quote-${leadPanelModules ?? 0}`}
+              moduleCount={leadPanelModules ?? 0}
+              address={
+                selectedAddress
+                  ? `${selectedCity ? `${selectedCity}, ` : ""}${selectedAddress}`
+                  : selectedCity
+              }
+              onBack={() => {
+                if (selectedAddress && addressEntrySource === "geo") {
+                  go("geo-address");
+                  return;
+                }
+                if (selectedAddress) {
+                  go("address-select");
+                  return;
+                }
+                go("geo-address");
+              }}
+              onContinue={() => go("lead-contact")}
             />
           )}
           {screen === "lead-service" && selectedCity && (
@@ -3392,7 +3491,13 @@ export function AppShell({
                     })
               }
               onBack={() =>
-                go(leadFlow === "master" ? "master-about" : "lead-service")
+                go(
+                  leadFlow === "master"
+                    ? "master-about"
+                    : selectedLeadService === "master_wiring_check"
+                      ? "wiring-check-quote"
+                      : "lead-service",
+                )
               }
               onFinish={submitLead}
               onGoHome={() => {

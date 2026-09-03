@@ -311,7 +311,8 @@ export type AppScreen =
   | "admin"
   | "appliance-detail"
   | "research-survey"
-  | "maintenance";
+  | "maintenance"
+  | "wiring-check-quote";
 
 export type LeadFlow = "install" | "master";
 

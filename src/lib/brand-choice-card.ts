@@ -43,6 +43,7 @@ export const LEAD_SERVICE_VARIANTS: Partial<
   online_consultation: "ink",
   master_home_visit: "mustard",
   master_labeling: "white",
+  master_wiring_check: "mustard",
 };
 
 export const NO_PANEL_CARD_VARIANTS: Record<NoPanelSetupId, BrandChoiceVariant> =
