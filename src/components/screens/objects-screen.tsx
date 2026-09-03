@@ -848,6 +848,7 @@ export function ObjectsScreen({
   isAdmin = false,
   masterMode = false,
   onMasterModeChange,
+  showMaintenance = false,
   homeAppliancesMode = false,
   onAddAppliance,
   onOpenAppliance,
@@ -878,6 +879,7 @@ export function ObjectsScreen({
   isAdmin?: boolean;
   masterMode?: boolean;
   onMasterModeChange?: (next: boolean) => void;
+  showMaintenance?: boolean;
   homeAppliancesMode?: boolean;
   onAddAppliance?: (panelId: string, appliance: HomeAppliance) => void;
   onOpenAppliance?: (panelId: string, applianceId: string) => void;
@@ -1239,6 +1241,7 @@ export function ObjectsScreen({
         <nav className="flex flex-1 flex-col space-y-1.5">
           {MAIN_MENU_ITEMS.filter((item) => {
             if (item.id === "master" && isMaster) return false;
+            if (item.id === "maintenance" && !showMaintenance) return false;
             return true;
           }).map((item) => (
             <button
@@ -1483,6 +1486,7 @@ export function ObjectsScreen({
             }}
             isMaster={isMaster}
             isAdmin={isAdmin}
+            showMaintenance={showMaintenance}
             onMasterModeChange={
               onMasterModeChange ??
               (onMasterMode

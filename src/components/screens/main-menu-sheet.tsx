@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowRight,
+  ClipboardCheck,
   Gamepad2,
   GraduationCap,
   Info,
@@ -24,6 +25,7 @@ import { shouldShowInstallAppPrompt } from "@/lib/web-push-client";
 
 export type MainMenuId =
   | "profile"
+  | "maintenance"
   | "game"
   | "school"
   | "about"
@@ -41,6 +43,12 @@ const items: Array<{
     title: "Личный кабинет",
     description: "Данные и контакты",
     icon: UserRound,
+  },
+  {
+    id: "maintenance",
+    title: "Проверка и обслуживание",
+    description: "Тест УЗО и уход за техникой",
+    icon: ClipboardCheck,
   },
   {
     id: "game",
@@ -81,12 +89,15 @@ export function MainMenuSheet({
   onSelect,
   isMaster = false,
   isAdmin = false,
+  showMaintenance = false,
   onMasterModeChange,
 }: {
   onClose: () => void;
   onSelect: (id: MainMenuId) => void;
   isMaster?: boolean;
   isAdmin?: boolean;
+  /** Isolated kill-switch + УЗО/диф gate — false hides the item. */
+  showMaintenance?: boolean;
   onMasterModeChange?: (next: boolean) => void;
 }) {
   const [showInstallApps, setShowInstallApps] = useState(false);
@@ -101,6 +112,7 @@ export function MainMenuSheet({
 
   const visibleItems = items.filter((item) => {
     if (item.id === "master" && isMaster) return false;
+    if (item.id === "maintenance" && !showMaintenance) return false;
     return true;
   });
 

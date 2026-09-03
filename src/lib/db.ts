@@ -55,7 +55,7 @@ import { ensureConnectedMoscowMaster } from "@/lib/ensure-moscow-master";
 let schemaReady: Promise<void> | null = null;
 
 /** Bump when DDL below changes so cold starts re-run migrations once. */
-const SCHEMA_VERSION = "2026-09-02-phone-gateway-auth";
+const SCHEMA_VERSION = "2026-09-03-maintenance-reminders";
 /** One-shot data wipe flag — never re-run after it is written. */
 const FRESH_START_KEY = "fresh_start_2026_08_25_b";
 /** Bumped on each factory wipe so clients drop localStorage orphans. */
@@ -635,6 +635,27 @@ export async function ensureSchema(): Promise<void> {
       await sql`
         CREATE INDEX IF NOT EXISTS phone_auth_challenges_phone_idx
         ON phone_auth_challenges (phone_digits, created_at DESC)
+      `;
+      await sql`
+        CREATE TABLE IF NOT EXISTS maintenance_reminders (
+          id TEXT PRIMARY KEY,
+          telegram_user_id BIGINT NOT NULL REFERENCES users(telegram_id) ON DELETE CASCADE,
+          kind TEXT NOT NULL,
+          target_key TEXT NOT NULL,
+          panel_id TEXT,
+          enabled BOOLEAN NOT NULL DEFAULT FALSE,
+          hidden BOOLEAN NOT NULL DEFAULT FALSE,
+          start_date DATE,
+          interval_days INTEGER,
+          last_sent_at TIMESTAMPTZ,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          UNIQUE (telegram_user_id, target_key)
+        )
+      `;
+      await sql`
+        CREATE INDEX IF NOT EXISTS maintenance_reminders_due_idx
+        ON maintenance_reminders (enabled, hidden, start_date)
       `;
 
       // One-time factory reset requested for clean testing.

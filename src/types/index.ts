@@ -309,7 +309,8 @@ export type AppScreen =
   | "master-not-found"
   | "admin"
   | "appliance-detail"
-  | "research-survey";
+  | "research-survey"
+  | "maintenance";
 
 export type LeadFlow = "install" | "master";
 

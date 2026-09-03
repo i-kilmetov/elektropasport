@@ -21,6 +21,7 @@ import { MasterNotFoundScreen } from "@/components/screens/master-not-found-scre
 import { CitySelectScreen } from "@/components/screens/city-select-screen";
 import { GeoAddressScreen } from "@/components/screens/geo-address-screen";
 import { FeedbackScreen } from "@/components/screens/feedback-screen";
+import { MaintenanceScreen } from "@/components/screens/maintenance-screen";
 import { ResearchSurveyScreen } from "@/components/screens/research-survey-screen";
 import { MasterAboutScreen } from "@/components/screens/master-about-screen";
 import { MasterDocsScreen } from "@/components/screens/master-docs-screen";
@@ -189,6 +190,8 @@ import { useAppStatusBarTheme } from "@/hooks/use-status-bar-theme";
 import { useTestSiteInactivityLogout } from "@/hooks/use-test-site-inactivity";
 import { applyAppStatusBarTheme } from "@/lib/status-bar-theme";
 import { useHomeAppliancesEnabled } from "@/hooks/use-home-appliances-enabled";
+import { isMaintenanceRemindersEnabled } from "@/lib/maintenance/feature";
+import { hasRcdTestDevices } from "@/lib/maintenance/targets";
 import { isLaunchWaitlistRuntime } from "@/lib/app-env";
 import { cn } from "@/lib/utils";
 
@@ -765,6 +768,11 @@ export function AppShell({
 
   const helpElectricalPanels = useMemo(
     () => listHelpElectricalPanels(items),
+    [items],
+  );
+
+  const showMaintenanceMenu = useMemo(
+    () => isMaintenanceRemindersEnabled() && hasRcdTestDevices(items),
     [items],
   );
 
@@ -2592,6 +2600,7 @@ export function AppShell({
               onHelpElectrical={startHelpElectrical}
               onBecomeMaster={() => go("become-master")}
               onPanelLimit={openPanelLimit}
+              showMaintenance={showMaintenanceMenu}
               homeAppliancesMode={homeAppliancesEnabled}
               onAddAppliance={
                 homeAppliancesEnabled
@@ -2776,6 +2785,7 @@ export function AppShell({
               onMenuSelect={(id) => {
                 setMainMenuOpen(false);
                 if (id === "profile") go("profile");
+                if (id === "maintenance") go("maintenance");
                 if (id === "game") go("panel-game");
                 if (id === "school") {
                   go("school");
@@ -3441,6 +3451,13 @@ export function AppShell({
           )}
           {screen === "feedback" && (
             <FeedbackScreen key="feedback" onBack={() => go("objects")} />
+          )}
+          {screen === "maintenance" && isMaintenanceRemindersEnabled() && (
+            <MaintenanceScreen
+              key="maintenance"
+              items={items}
+              onBack={() => go("objects")}
+            />
           )}
           {screen === "research-survey" && (
             <ResearchSurveyScreen key="research-survey" />

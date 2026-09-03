@@ -80,6 +80,16 @@ export function homeAppliancesEnabledForHost(
   return process.env.NEXT_PUBLIC_HOME_APPLIANCES !== "false";
 }
 
+/**
+ * «Проверка и обслуживание» — enabled by default.
+ * Set NEXT_PUBLIC_MAINTENANCE_REMINDERS=false to hide UI and skip cron.
+ */
+export function maintenanceRemindersEnabledForHost(
+  _host?: string | null,
+): boolean {
+  return process.env.NEXT_PUBLIC_MAINTENANCE_REMINDERS !== "false";
+}
+
 /** Production apex is in pre-launch waitlist mode (no Telegram login). */
 export function isProductionLaunchWaitlistHost(
   host: string | null | undefined,
