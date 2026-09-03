@@ -1,6 +1,7 @@
 import type { AddressSuggestion } from "@/lib/dadata";
 import type { HouseInsight, PanelHouseSnapshot } from "@/lib/house-insight";
 import type { HomeAppliance, HomeListItem, InstallRequest, PanelObject } from "@/types";
+import { installStatusLabels } from "@/types";
 import {
   authHeaders,
   canUseServerAuth,
@@ -1683,7 +1684,21 @@ export async function persistDeletePanel(id: string): Promise<void> {
   return trackPanelDelete(
     enqueuePanelOp(id, async () => {
       if (!isHomeItemDeleted(id)) return;
-      writeLocalItems(readLocalItems().filter((item) => item.id !== id));
+      writeLocalItems(
+        readLocalItems()
+          .filter((item) => item.id !== id)
+          .map((item) => {
+            if (item.kind !== "install_request" || item.panelId !== id) {
+              return item;
+            }
+            return {
+              ...item,
+              panelId: undefined,
+              status: "deleted" as const,
+              statusLabel: installStatusLabels.deleted,
+            };
+          }),
+      );
 
       if (!canUseServer()) return;
 
@@ -2219,7 +2234,7 @@ export async function adminSetRole(
 
 export async function adminSetRequestStatus(
   requestId: string,
-  status: "new" | "in_progress" | "done" | "cancelled",
+  status: "new" | "in_progress" | "done" | "cancelled" | "deleted",
 ): Promise<void> {
   const res = await fetch(`/api/admin/requests/${encodeURIComponent(requestId)}`, {
     method: "PATCH",
@@ -2369,6 +2384,44 @@ export async function fetchMasterRequestPanel(
   }
   const data = (await res.json()) as { panel: PanelObject };
   return data.panel;
+}
+
+export async function fetchMasterRequestPanelPhotoObjectUrl(
+  requestId: string,
+): Promise<string | null> {
+  if (!canUseServer()) return null;
+  const res = await fetch(
+    `/api/master/requests/${encodeURIComponent(requestId)}/panel/photo`,
+    { headers: authHeaders(), cache: "no-store" },
+  );
+  if (res.status === 404) return null;
+  if (!res.ok) {
+    throw new Error(await parseError(res));
+  }
+  const blob = await res.blob();
+  if (!blob.size) return null;
+  return URL.createObjectURL(blob);
+}
+
+export async function persistMasterRequestPanelWires(
+  requestId: string,
+  wires: PanelObject["wires"],
+): Promise<void> {
+  if (!canUseServer()) return;
+  const res = await fetch(
+    `/api/master/requests/${encodeURIComponent(requestId)}/panel`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeaders(),
+      },
+      body: JSON.stringify({ wires: wires ?? [] }),
+    },
+  );
+  if (!res.ok) {
+    throw new Error(await parseError(res));
+  }
 }
 
 export async function dispatchToMasters(

@@ -99,7 +99,7 @@ function NameDialog({
 }
 
 function StatusProgress({ status }: { status: InstallRequestStatus }) {
-  const cancelled = status === "cancelled";
+  const closed = status === "cancelled" || status === "deleted";
   const tone = installStatusTone(status);
   const activeIndex =
     status === "new" ? 0 : status === "in_progress" ? 1 : status === "done" ? 2 : -1;
@@ -120,14 +120,14 @@ function StatusProgress({ status }: { status: InstallRequestStatus }) {
 
       <Progress
         value={installStatusProgress(status)}
-        className={cn(cancelled && "opacity-40")}
+        className={cn(closed && "opacity-40")}
         indicatorClassName={tone.bar}
       />
 
       <div className="grid grid-cols-3 gap-2">
         {installStatusSteps.map((step, index) => {
-          const reached = !cancelled && index <= activeIndex;
-          const current = !cancelled && index === activeIndex;
+          const reached = !closed && index <= activeIndex;
+          const current = !closed && index === activeIndex;
           return (
             <div key={step.id} className="text-center">
               <div

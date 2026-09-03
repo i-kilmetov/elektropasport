@@ -114,11 +114,14 @@ export async function DELETE(request: Request, context: RouteContext) {
     await upsertUser(user);
 
     const { id } = await context.params;
-    const ok = await deletePanel(user.telegramId, id);
-    if (!ok) {
+    const result = await deletePanel(user.telegramId, id);
+    if (!result.ok) {
       return Response.json({ error: "Щиток не найден" }, { status: 404 });
     }
-    return Response.json({ ok: true });
+    return Response.json({
+      ok: true,
+      markedRequestIds: result.markedRequestIds,
+    });
   } catch (error) {
     const db = dbErrorResponse(error);
     if (db) return db;

@@ -2106,7 +2106,7 @@ export function SchemeScreen({
     terminal: TerminalRef,
     event: PointerEvent<HTMLButtonElement>,
   ) => {
-    if (sharedPreview || !onUpdateWires || !showTerminals || !canUseTerminals) return;
+    if (!onUpdateWires || !showTerminals || !canUseTerminals) return;
     if (event.button !== 0) return;
     event.preventDefault();
     clearWiringHold();
@@ -2752,7 +2752,7 @@ export function SchemeScreen({
                   wires={wires}
                   draft={wireDraft}
                   onWireClick={
-                    sharedPreview || !onUpdateWires
+                    !onUpdateWires
                       ? undefined
                       : (wire) => setEditingWire(wire)
                   }

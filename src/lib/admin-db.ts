@@ -657,7 +657,7 @@ export async function adminSetUserRole(
 
 export async function adminSetRequestStatus(
   requestId: string,
-  status: "new" | "in_progress" | "done" | "cancelled",
+  status: "new" | "in_progress" | "done" | "cancelled" | "deleted",
   statusLabel: string,
 ): Promise<void> {
   const sql = getSql();

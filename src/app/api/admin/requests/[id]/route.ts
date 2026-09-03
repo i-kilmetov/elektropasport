@@ -19,7 +19,8 @@ export async function PATCH(request: Request, context: RouteContext) {
       body.status !== "new" &&
       body.status !== "in_progress" &&
       body.status !== "done" &&
-      body.status !== "cancelled"
+      body.status !== "cancelled" &&
+      body.status !== "deleted"
     ) {
       return Response.json({ error: "Некорректный статус" }, { status: 400 });
     }

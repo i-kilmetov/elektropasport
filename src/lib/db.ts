@@ -1103,6 +1103,7 @@ function rowToRequest(row: RequestRow): InstallRequest {
     rawStatus === "in_progress" ||
     rawStatus === "done" ||
     rawStatus === "cancelled" ||
+    rawStatus === "deleted" ||
     rawStatus === "new"
       ? rawStatus
       : "new";
@@ -1525,9 +1526,58 @@ export async function getPanelForMasterRequest(
     WHERE install_requests.id = ${requestId}
       AND install_requests.master_telegram_id = ${masterTelegramId}
       AND install_requests.panel_id IS NOT NULL
+      AND install_requests.status <> 'deleted'
     LIMIT 1
   `) as PanelRow[];
   return rows[0] ? rowToPanel(rows[0]) : null;
+}
+
+export async function updateMasterRequestPanelWires(
+  masterTelegramId: number,
+  requestId: string,
+  wires: PanelWire[],
+): Promise<PanelObject | null> {
+  const panel = await getPanelForMasterRequest(masterTelegramId, requestId);
+  if (!panel) return null;
+  const sql = getSql();
+  await ensureSchema();
+  const wiresJson = jsonbParam(sanitizeJsonValue(wires));
+  const rows = (await sql`
+    UPDATE panels SET
+      wires = ${wiresJson}::jsonb
+    WHERE id = ${panel.id}
+    RETURNING
+      id, type, title, address, last_check, breakers, safety,
+      devices, lines_count, photo_data_url, named, phases, power_kw,
+      has_ground, house_snapshot, rail_count, wires, appliances, appliances_updated_at,
+      source_share_token, no_panel_setup_id, created_at
+  `) as PanelRow[];
+  return rows[0] ? rowToPanel(rows[0]) : null;
+}
+
+export async function getPanelPhotoByPanelId(
+  panelId: string,
+): Promise<PanelPhoto | null> {
+  const sql = getSql();
+  await ensureSchema();
+  const [row] = (await sql`
+    SELECT panel_id, mime, bytes, updated_at
+    FROM panel_photos
+    WHERE panel_id = ${panelId}
+    LIMIT 1
+  `) as Array<{
+    panel_id: string;
+    mime: string;
+    bytes: unknown;
+    updated_at: string | Date;
+  }>;
+  if (!row) return null;
+  return {
+    panelId: row.panel_id,
+    mime: row.mime || "image/jpeg",
+    bytes: bytesFromBytea(row.bytes),
+    updatedAt: new Date(row.updated_at).toISOString(),
+  };
 }
 
 export async function createOrGetPanelShare(
@@ -1580,14 +1630,28 @@ export async function getSharedPanel(token: string): Promise<{
 export async function deletePanel(
   telegramUserId: number,
   id: string,
-): Promise<boolean> {
+): Promise<{ ok: boolean; markedRequestIds: string[] }> {
   const sql = getSql();
+  const marked = (await sql`
+    UPDATE install_requests
+    SET
+      status = 'deleted',
+      status_label = ${installStatusLabels.deleted},
+      panel_id = NULL
+    WHERE panel_id = ${id}
+      AND telegram_user_id = ${telegramUserId}
+    RETURNING id
+  `) as Array<{ id: string }>;
+
   const rows = await sql`
     DELETE FROM panels
     WHERE id = ${id} AND telegram_user_id = ${telegramUserId}
     RETURNING id
   `;
-  return rows.length > 0;
+  return {
+    ok: rows.length > 0,
+    markedRequestIds: marked.map((row) => row.id),
+  };
 }
 
 export async function allocateRequestPublicCode(

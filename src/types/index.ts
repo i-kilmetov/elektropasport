@@ -213,7 +213,8 @@ export type InstallRequestStatus =
   | "new"
   | "in_progress"
   | "done"
-  | "cancelled";
+  | "cancelled"
+  | "deleted";
 
 export type AiConsultationRecord = {
   category: "electrical" | "appliance_repair";
@@ -326,10 +327,11 @@ export const installStatusLabels: Record<InstallRequestStatus, string> = {
   in_progress: "В работе",
   done: "Выполнено",
   cancelled: "Отменена",
+  deleted: "Удален",
 };
 
 export const installStatusSteps: Array<{
-  id: Exclude<InstallRequestStatus, "cancelled">;
+  id: Exclude<InstallRequestStatus, "cancelled" | "deleted">;
   label: string;
 }> = [
   { id: "new", label: "Новая" },
@@ -366,7 +368,7 @@ export function installStatusTone(status: InstallRequestStatus): {
       ring: "ring-amber-400/40",
     };
   }
-  if (status === "cancelled") {
+  if (status === "cancelled" || status === "deleted") {
     return {
       badge: "bg-zinc-100 text-zinc-500",
       bar: "bg-zinc-400",

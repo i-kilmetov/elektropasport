@@ -108,6 +108,7 @@ import {
   fetchIsAdmin,
   fetchMasterProfile,
   fetchMasterRequestPanel,
+  fetchMasterRequestPanelPhotoObjectUrl,
   fetchPanelQuota,
   getCachedHomeItems,
   localPanelQuota,
@@ -116,6 +117,7 @@ import {
   persistInstallRequest,
   persistInstallRequestPatch,
   persistMasterApplication,
+  persistMasterRequestPanelWires,
   persistPanel,
   persistPanelAppliances,
   persistPanelPatch,
@@ -1475,6 +1477,13 @@ export function AppShell({
         setLinesCount(panel.linesCount ?? null);
         setRailCount(panelRailCount(panel));
         go("scheme");
+        void fetchMasterRequestPanelPhotoObjectUrl(requestId)
+          .then((url) => {
+            if (url) setPhotoDataUrl(url);
+          })
+          .catch((error) =>
+            console.error("fetchMasterRequestPanelPhoto failed", requestId, error),
+          );
       } catch (error) {
         setItemsError(
           error instanceof Error
@@ -1618,7 +1627,19 @@ export function AppShell({
   const deletePanelById = useCallback((id: string) => {
     hapticDelete();
     setItems((prev) =>
-      prev.filter((item) => !(item.kind === "panel" && item.id === id)),
+      prev
+        .filter((item) => !(item.kind === "panel" && item.id === id))
+        .map((item) => {
+          if (item.kind !== "install_request" || item.panelId !== id) {
+            return item;
+          }
+          return {
+            ...item,
+            panelId: undefined,
+            status: "deleted",
+            statusLabel: installStatusLabels.deleted,
+          };
+        }),
     );
     setQuota((prev) => adjustPanelQuotaCount(prev, -1));
     void persistDeletePanel(id)
@@ -1754,6 +1775,21 @@ export function AppShell({
       );
     },
     [activePanelId],
+  );
+
+  const updateMasterLinkedWires = useCallback(
+    (nextWires: PanelWire[]) => {
+      if (!masterViewRequest) return;
+      setSharedPreview((prev) =>
+        prev
+          ? { ...prev, panel: { ...prev.panel, wires: nextWires } }
+          : prev,
+      );
+      void persistMasterRequestPanelWires(masterViewRequest.id, nextWires).catch(
+        (error) => console.error(error),
+      );
+    },
+    [masterViewRequest],
   );
 
   const updateDeviceCharacteristic = useCallback(
@@ -3010,7 +3046,13 @@ export function AppShell({
                 onUpdateDeviceSticker={updateDeviceSticker}
                 onUpdateDeviceCharacteristic={updateDeviceCharacteristic}
                 onUpdateDeviceIdentity={updateDeviceIdentity}
-                onUpdateWires={sharedPreview ? undefined : updatePanelWires}
+                onUpdateWires={
+                  masterViewRequest
+                    ? updateMasterLinkedWires
+                    : sharedPreview
+                      ? undefined
+                      : updatePanelWires
+                }
                 onUpdateDevices={
                   sharedPreview ? undefined : updatePanelDevices
                 }
