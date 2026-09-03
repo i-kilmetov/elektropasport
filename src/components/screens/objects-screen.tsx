@@ -49,6 +49,7 @@ import {
 } from "@/lib/home-appliances";
 import { applianceNeedsDetails } from "@/lib/appliance-line-sync";
 import {
+  areAllSafetyStagesDone,
   buildPanelSafetyStages,
 } from "@/lib/panel-safety-stages";
 import { loadIdentifyContext } from "@/lib/panel-identify";
@@ -426,6 +427,12 @@ function HomeListCard({
                 ) : panel?.noPanelSetupId ? (
                   <span className="shrink-0 rounded-full bg-zinc-100 px-2 py-0.5 ty-badge text-zinc-600">
                     нет щитка
+                  </span>
+                ) : panel &&
+                  safetyStages &&
+                  areAllSafetyStagesDone(safetyStages) ? (
+                  <span className="shrink-0 rounded-full bg-emerald-500/15 px-2 py-0.5 ty-badge text-emerald-700">
+                    Проверен
                   </span>
                 ) : null}
               </div>

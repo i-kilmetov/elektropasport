@@ -407,6 +407,16 @@ export function areFirstTwoSafetyStagesDone(
   return scheme?.status === "done" && loads?.status === "done";
 }
 
+/** All three stages scored: scheme, loads, and master wiring check. */
+export function areAllSafetyStagesDone(
+  snapshot: PanelSafetyStagesSnapshot,
+): boolean {
+  return (
+    snapshot.stages.length > 0 &&
+    snapshot.stages.every((stage) => stage.status === "done")
+  );
+}
+
 export function formatSafetyScoreAssessment(score: number): string {
   const label = safetyLabel(score);
   if (score >= 80) {
