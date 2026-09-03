@@ -118,7 +118,6 @@ export function applianceServicePreset(
 }
 
 export const INTERVAL_OPTIONS: Array<{ days: number; label: string }> = [
-  { days: 7, label: "Раз в неделю" },
   { days: 30, label: "Раз в месяц" },
   { days: 60, label: "Раз в 2 месяца" },
   { days: 90, label: "Раз в 3 месяца" },
@@ -126,8 +125,9 @@ export const INTERVAL_OPTIONS: Array<{ days: number; label: string }> = [
   { days: 365, label: "Раз в год" },
 ];
 
-export function rcdDeviceTargetKey(panelId: string, deviceId: number): string {
-  return `rcd:${panelId}:${deviceId}`;
+/** One reminder per panel for all УЗО / дифавтоматы inside it. */
+export function rcdPanelTargetKey(panelId: string): string {
+  return `rcd:${panelId}`;
 }
 
 export function applianceTargetKey(panelId: string, applianceId: string): string {

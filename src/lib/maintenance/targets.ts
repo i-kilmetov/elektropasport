@@ -1,21 +1,19 @@
-import type { Device, HomeAppliance, HomeListItem, PanelObject } from "@/types";
+import type { HomeAppliance, HomeListItem, PanelObject } from "@/types";
 import {
   applianceServicePreset,
   isRcdTestDeviceType,
   isServiceableApplianceKind,
-  rcdDeviceTargetKey,
+  rcdPanelTargetKey,
   applianceTargetKey,
   RCD_TEST_INTERVAL_DAYS,
 } from "@/lib/maintenance/catalog";
 
-export type MaintenanceRcdTarget = {
+export type MaintenancePanelTarget = {
   kind: "rcd_test";
   targetKey: string;
   panelId: string;
   panelTitle: string;
-  deviceId: number;
-  deviceType: Device["type"];
-  deviceName: string;
+  deviceCount: number;
   intervalDays: number;
 };
 
@@ -43,24 +41,24 @@ export function hasRcdTestDevices(items: HomeListItem[]): boolean {
   );
 }
 
+/** One target per panel that has any УЗО / дифавтомат. */
 export function collectRcdTestTargets(
   items: HomeListItem[],
-): MaintenanceRcdTarget[] {
-  const out: MaintenanceRcdTarget[] = [];
+): MaintenancePanelTarget[] {
+  const out: MaintenancePanelTarget[] = [];
   for (const panel of panelsFromHomeItems(items)) {
-    for (const device of panel.devices ?? []) {
-      if (!isRcdTestDeviceType(device.type)) continue;
-      out.push({
-        kind: "rcd_test",
-        targetKey: rcdDeviceTargetKey(panel.id, device.id),
-        panelId: panel.id,
-        panelTitle: panel.title,
-        deviceId: device.id,
-        deviceType: device.type,
-        deviceName: device.name || (device.type === "rcd" ? "УЗО" : "Дифавтомат"),
-        intervalDays: RCD_TEST_INTERVAL_DAYS,
-      });
-    }
+    const deviceCount = (panel.devices ?? []).filter((device) =>
+      isRcdTestDeviceType(device.type),
+    ).length;
+    if (deviceCount === 0) continue;
+    out.push({
+      kind: "rcd_test",
+      targetKey: rcdPanelTargetKey(panel.id),
+      panelId: panel.id,
+      panelTitle: panel.title,
+      deviceCount,
+      intervalDays: RCD_TEST_INTERVAL_DAYS,
+    });
   }
   return out;
 }

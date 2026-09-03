@@ -58,8 +58,12 @@ export async function GET(request: Request) {
       let body = "Пора выполнить проверку или обслуживание.";
 
       if (row.kind === "rcd_test" && rcd) {
-        title = "Проверка кнопки «Тест»";
-        body = `Нажмите «Тест» на ${rcd.deviceName} в щитке «${rcd.panelTitle}».`;
+        title = "Проверка щитка";
+        const countLabel =
+          rcd.deviceCount === 1
+            ? "УЗО/дифавтомате"
+            : `всех УЗО и дифавтоматах (${rcd.deviceCount})`;
+        body = `Нажмите «Тест» на ${countLabel} в щитке «${rcd.panelTitle}».`;
       } else if (row.kind === "appliance_service" && appliance) {
         title = "Обслуживание техники";
         body = `${appliance.title}: ${appliance.hint}`;
