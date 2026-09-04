@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import {
   LEGACY_VERCEL_HOST,
   PRODUCTION_APP_URL,
+  TEST_APP_URL,
 } from "@/lib/app-url";
 import {
   isTestAppHost,
@@ -34,6 +35,15 @@ function isTestPublicPath(pathname: string): boolean {
   );
 }
 
+/** Public HTTPS URL without leaked internal :3000 from Amvera/proxy. */
+function publicTestUrl(pathname: string, search = ""): URL {
+  const url = new URL(pathname + search, TEST_APP_URL);
+  url.protocol = "https:";
+  url.hostname = TEST_APP_HOST;
+  url.port = "";
+  return url;
+}
+
 /**
  * elektropasport.vercel.app and tokom.ru are the same deployment.
  * test.tokom.ru shares the UI but gates access with TEST_SITE_PASSWORD,
@@ -54,9 +64,10 @@ export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
   if (isTestAppWwwHost(host) || isTestAppWwwHost(forwardedHost)) {
-    const canonical = new URL(request.url);
-    canonical.hostname = TEST_APP_HOST;
-    return NextResponse.redirect(canonical, 308);
+    return NextResponse.redirect(
+      publicTestUrl(pathname, request.nextUrl.search),
+      308,
+    );
   }
 
   if (isTestAppHost(host) || isTestAppHost(forwardedHost)) {
@@ -74,8 +85,7 @@ export async function middleware(request: NextRequest) {
     const cookie = request.cookies.get(TEST_SITE_COOKIE)?.value;
     const status = await verifyTestSiteCookie(cookie);
     if (!status.ok) {
-      const login = new URL("/test-login", request.url);
-      login.hostname = TEST_APP_HOST;
+      const login = publicTestUrl("/test-login");
       if (status.reason === "expired") {
         login.searchParams.set("reason", "idle");
       }
