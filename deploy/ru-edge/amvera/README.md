@@ -120,6 +120,7 @@ Postgres и приложение тарифицируются **отдельно
 |---------|----------------|
 | 502 на amvera.io | Логи контейнера; доступ Amvera → Vercel |
 | **403 Forbidden, ID `arn1::…`, заголовок `x-vercel-mitigated: deny`** | В `nginx.conf` должно быть `Host elektropasport.vercel.app`, не `www.tokom.ru`. Иначе Vercel режет domain-fronting. Залейте обновлённый конфиг и пересоберите приложение |
+| **`upstream timed out` … `https://64.x.x.x:443/` (IP Vercel)** | Amvera в РФ **сама не достучится до CDN Vercel** — те же блокировки, что у пользователей. Прокси «Amvera → Vercel» в Москве не работает. Нужен либо VPS **вне** зоны блокировки (EU), либо запуск самого Next.js на Amvera/VPS в РФ без Vercel |
 | Домен не привязывается | A + TXT как в подсказке Amvera; подождать DNS |
 | Бесконечный редирект | Не включайте `CANONICALIZE_VERCEL_APP_HOST` |
 | Открывается старый/чужой сайт | Кэш DNS; с телефона LTE вместо Wi‑Fi |
