@@ -53,13 +53,21 @@ export function productionWebhookOrigin(request?: Request): string {
  */
 export function resolveRequestOrigin(request: Request): string {
   const url = new URL(request.url);
-  const proto =
+  const proto = (
     request.headers.get("x-forwarded-proto") ??
-    url.protocol.replace(":", "");
-  const host =
+    url.protocol.replace(":", "")
+  ).split(",")[0].trim();
+  let host = (
     request.headers.get("x-forwarded-host") ??
     request.headers.get("host") ??
-    url.host;
+    url.host
+  )
+    .split(",")[0]
+    .trim();
+  // Amvera/container may forward the internal listen port into public URLs.
+  if (host.endsWith(":3000")) {
+    host = host.slice(0, -5);
+  }
   return `${proto}://${host}`;
 }
 
