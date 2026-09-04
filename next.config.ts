@@ -24,6 +24,15 @@ const nextConfig: NextConfig = {
         ],
       },
       {
+        // Needed when Next emits <script crossorigin> / font preloads.
+        // Without ACAO some browsers never hydrate and hang on Suspense fallbacks.
+        source: "/_next/static/:path*",
+        headers: [
+          { key: "Access-Control-Allow-Origin", value: "*" },
+          { key: "Access-Control-Allow-Methods", value: "GET, HEAD, OPTIONS" },
+        ],
+      },
+      {
         source: "/:path*",
         headers: [
           {

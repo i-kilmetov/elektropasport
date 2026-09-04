@@ -1,16 +1,15 @@
-import { Suspense } from "react";
-import { TestLoginRedirectForm } from "./test-login-redirect-form";
+import { TestLoginForm } from "@/components/screens/test-login-form";
 
-export default function TestLoginPage() {
+export default async function TestLoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ next?: string; reason?: string }>;
+}) {
+  const params = await searchParams;
   return (
-    <Suspense
-      fallback={
-        <main className="flex min-h-dvh items-center justify-center bg-[var(--bg)]">
-          <p className="ty-body">Загрузка…</p>
-        </main>
-      }
-    >
-      <TestLoginRedirectForm />
-    </Suspense>
+    <TestLoginForm
+      next={params.next?.trim() || "/"}
+      idleReason={params.reason === "idle"}
+    />
   );
 }
