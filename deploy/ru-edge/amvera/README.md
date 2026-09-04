@@ -92,9 +92,9 @@ git push -u amvera master
 
 ### 5. Vercel
 
-В **Vercel → Domains** оставьте `tokom.ru` и `www.tokom.ru` привязанными к проекту  
-(нужно, чтобы `Host: www.tokom.ru` принимался).  
-Предупреждение «DNS incorrect» можно игнорировать — DNS специально смотрит на Amvera.
+В **Vercel → Domains** `tokom.ru` / `www.tokom.ru` можно оставить или убрать —
+прокси ходит на `elektropasport.vercel.app` (Host совпадает с TLS SNI).  
+Публичное имя (`tokom.ru`) передаётся в `X-Forwarded-Host`.
 
 `CANONICALIZE_VERCEL_APP_HOST` **не** включайте.
 
@@ -119,6 +119,7 @@ Postgres и приложение тарифицируются **отдельно
 | Симптом | Что проверить |
 |---------|----------------|
 | 502 на amvera.io | Логи контейнера; доступ Amvera → Vercel |
+| **403 Forbidden, ID `arn1::…`, заголовок `x-vercel-mitigated: deny`** | В `nginx.conf` должно быть `Host elektropasport.vercel.app`, не `www.tokom.ru`. Иначе Vercel режет domain-fronting. Залейте обновлённый конфиг и пересоберите приложение |
 | Домен не привязывается | A + TXT как в подсказке Amvera; подождать DNS |
 | Бесконечный редирект | Не включайте `CANONICALIZE_VERCEL_APP_HOST` |
 | Открывается старый/чужой сайт | Кэш DNS; с телефона LTE вместо Wi‑Fi |

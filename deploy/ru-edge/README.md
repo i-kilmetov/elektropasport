@@ -29,6 +29,9 @@ VPS в РФ + certbot + A-записи на IP VPS.
 
 - Редирект `elektropasport.vercel.app` → `tokom.ru` **выключен по умолчанию**.
 - Включить снова: `CANONICALIZE_VERCEL_APP_HOST=1` в Vercel (не нужно, пока edge в РФ).
+- В nginx у прокси: `Host` = `elektropasport.vercel.app` (совпадает с TLS),  
+  публичный `tokom.ru` только в `X-Forwarded-Host`.  
+  Иначе Vercel отвечает **403** (`x-vercel-mitigated: deny`).
 
 ## Запасной URL
 
