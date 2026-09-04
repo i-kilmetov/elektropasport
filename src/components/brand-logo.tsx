@@ -49,6 +49,34 @@ function TStripes({ color }: { color: string }) {
   );
 }
 
+/** Capital «Т» with the two brand stripes — for compact badges. */
+export function TokomTMark({
+  fontSize = "0.95em",
+  color = LOGO_INK,
+  className,
+}: {
+  fontSize?: number | string;
+  color?: string;
+  className?: string;
+}) {
+  const typeStyle = wordmarkTypeStyle(fontSize, color);
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "relative inline-block shrink-0 leading-none",
+        className,
+      )}
+      style={{ ...typeStyle, paddingTop: STRIPE_PAD_TOP }}
+    >
+      <span className="relative inline-block leading-none">
+        <TStripes color={color} />
+        Т
+      </span>
+    </span>
+  );
+}
+
 export function TokomWordmark({
   fontSize,
   color = LOGO_INK,
@@ -65,15 +93,7 @@ export function TokomWordmark({
       className={cn("inline-flex items-end whitespace-nowrap", className)}
       style={typeStyle}
     >
-      <span
-        className="relative inline-block shrink-0 leading-none"
-        style={{ paddingTop: STRIPE_PAD_TOP }}
-      >
-        <span className="relative inline-block leading-none">
-          <TStripes color={color} />
-          Т
-        </span>
-      </span>
+      <TokomTMark fontSize={fontSize} color={color} />
       <span className="inline-block leading-none">{WORDMARK_REST}</span>
     </span>
   );

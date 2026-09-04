@@ -275,9 +275,23 @@ export function ApplianceDetailScreen({
                       className="flex items-start justify-between gap-3 py-2.5 first:pt-0 last:pb-0"
                     >
                       <div className="min-w-0 ty-body">Максимальная мощность</div>
-                      <div className="max-w-[55%] shrink-0 text-right ty-heading">
-                        {row.value}
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPowerDraft(
+                            appliance.powerW != null
+                              ? String(Math.round(appliance.powerW))
+                              : "",
+                          );
+                          setPowerError(null);
+                          setPowerEditOpen(true);
+                        }}
+                        className="inline-flex max-w-[55%] shrink-0 items-center gap-1.5 text-right ty-heading text-zinc-900 transition-colors hover:text-zinc-600"
+                        aria-label="Изменить мощность"
+                      >
+                        <span>{row.value}</span>
+                        <Pencil className="h-3.5 w-3.5 shrink-0 text-zinc-400" />
+                      </button>
                     </div>
                   );
                 }
@@ -418,8 +432,9 @@ export function ApplianceDetailScreen({
               >
                 <h3 className="mb-2 ty-title">Максимальная мощность</h3>
                 <p className="mb-4 ty-body text-zinc-600">
-                  Укажите номинальную мощность в ваттах — её можно найти на
-                  шильдике или в документации.
+                  {hasPower
+                    ? "Можно исправить значение, если указали мощность по ошибке."
+                    : "Укажите номинальную мощность в ваттах — её можно найти на шильдике или в документации."}
                 </p>
                 <label className="mb-2 block">
                   <span className="mb-1.5 block ty-label text-zinc-500">

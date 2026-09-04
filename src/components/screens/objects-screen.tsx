@@ -33,6 +33,7 @@ import {
   type MainMenuId,
 } from "@/components/screens/main-menu-sheet";
 import { HomeListSkeleton } from "@/components/ui/home-list-skeleton";
+import { PanelVerifiedBadge } from "@/components/ui/panel-verified-badge";
 import { BrandLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
@@ -432,9 +433,7 @@ function HomeListCard({
                 ) : panel &&
                   safetyStages &&
                   areAllSafetyStagesDone(safetyStages) ? (
-                  <span className="shrink-0 rounded-full bg-emerald-500/15 px-2 py-0.5 ty-badge text-emerald-700">
-                    Проверен
-                  </span>
+                  <PanelVerifiedBadge className="ml-auto" />
                 ) : null}
               </div>
               <p className="truncate ty-note">
@@ -625,18 +624,16 @@ function ExpandableHomeCard({
             <div className="min-w-0 flex-1">
               <div className="mb-0.5 flex items-center justify-between gap-2">
                 <h2 className="truncate ty-heading">{panel.title}</h2>
-                {areAllSafetyStagesDone(safetyStages) ? (
-                  <span className="shrink-0 rounded-full bg-emerald-500/15 px-2 py-0.5 ty-badge text-emerald-700">
-                    Проверен
-                  </span>
-                ) : null}
               </div>
               <p className="truncate ty-note">{panel.address}</p>
               <p className="mt-1 ty-meta">{formatPanelListMeta(panel)}</p>
             </div>
           </button>
 
-          <div className="flex shrink-0 flex-col items-center justify-center gap-1.5 py-3 pr-2 pl-1 lg:pr-3 lg:pl-1.5">
+          <div className="flex shrink-0 flex-col items-end justify-center gap-1.5 py-3 pr-2 pl-1 lg:pr-3 lg:pl-1.5">
+            {areAllSafetyStagesDone(safetyStages) ? (
+              <PanelVerifiedBadge />
+            ) : null}
             {panel.noPanelSetupId ? (
               <span className="shrink-0 rounded-full bg-zinc-100 px-2 py-0.5 ty-badge text-zinc-600">
                 нет щитка
