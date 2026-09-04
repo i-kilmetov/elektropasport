@@ -1,38 +1,18 @@
-# Доступ tokom.ru из России без ухода с Vercel
+# Доступ tokom.ru из России
 
-## В чём проблема
+## Актуальная схема (2026)
 
-Провайдеры в РФ часто режут IP/CDN **Vercel**. Браузер не доходит до origin.
-Обход: вход в РФ (Amvera-приложение или VPS) → reverse-proxy → Vercel.
-Код остаётся на Vercel.
+**Прод = Amvera (Next.js)**, Vercel остаётся зеркалом с GitHub.
 
-## Рекомендуемый путь (у вас уже есть Amvera + Postgres)
+→ Инструкция: **[../../amvera/README.md](../../amvera/README.md)**  
+→ Dockerfile: `amvera/Dockerfile`, конфиг: `amvera.yaml` в корне репозитория
 
-**Не VPS из базы**, а отдельное **приложение**-прокси в том же аккаунте.
+Прокси «Amvera nginx → Vercel» из Москвы **не работает** (таймаут до CDN Vercel).
 
-→ Подробная инструкция: **[amvera/README.md](./amvera/README.md)**  
-→ Файлы деплоя: `amvera/Dockerfile`, `amvera/nginx.conf`, `amvera/amvera.yaml`
+## Архив: nginx reverse-proxy
 
-Кратко:
-1. Создать проект «Приложение» `tokom-edge` (Docker).
-2. Запушить содержимое `deploy/ru-edge/amvera/`.
-3. Привязать HTTPS-домен Amvera, проверить с телефона.
-4. Прописать A+TXT для `tokom.ru` / `www` на IP Amvera.
-5. Postgres не трогать.
-
-## Альтернатива: свой VPS
-
-См. конфиг `nginx-tokom.conf` ниже по файлу / в корне `deploy/ru-edge/`.
-VPS в РФ + certbot + A-записи на IP VPS.
-
-## Что уже сделано в коде
-
-- Редирект `elektropasport.vercel.app` → `tokom.ru` **выключен по умолчанию**.
-- Включить снова: `CANONICALIZE_VERCEL_APP_HOST=1` в Vercel (не нужно, пока edge в РФ).
-- В nginx у прокси: `Host` = `elektropasport.vercel.app` (совпадает с TLS),  
-  публичный `tokom.ru` только в `X-Forwarded-Host`.  
-  Иначе Vercel отвечает **403** (`x-vercel-mitigated: deny`).
+Папка `amvera/` здесь и `nginx-tokom.conf` — для VPS **вне** зоны блокировки Vercel (EU и т.п.), не для Amvera Москва.
 
 ## Запасной URL
 
-Пока DNS не сменился: `https://elektropasport.vercel.app`
+`https://elektropasport.vercel.app` — пока Vercel деплоится с `main`.

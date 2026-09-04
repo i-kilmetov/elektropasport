@@ -1,0 +1,22 @@
+# Keep the Amvera/Docker build context small and free of secrets.
+node_modules
+.next
+.git
+.github
+.vercel
+.cursor
+.env
+.env.*
+!.env.example
+*.md
+!amvera/README.md
+docs
+deploy/ru-edge
+scripts
+data/moscow/*.json
+data/moscow/*.jsonl
+coverage
+.DS_Store
+*.pem
+*.tsbuildinfo
+agent-transcripts

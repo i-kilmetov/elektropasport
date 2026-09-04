@@ -2,6 +2,8 @@ import type { NextConfig } from "next";
 import { formatAppVersion } from "./src/lib/app-version";
 
 const nextConfig: NextConfig = {
+  // Required for Amvera (and any Docker) production image.
+  output: "standalone",
   env: {
     NEXT_PUBLIC_APP_VERSION: formatAppVersion(),
   },

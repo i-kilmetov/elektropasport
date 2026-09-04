@@ -55,8 +55,13 @@ npm run dev
 
 ## Домен tokom.ru
 
+**Прод сейчас на Amvera** (РФ); Vercel деплоится с GitHub как зеркало.  
+Подробно: [`amvera/README.md`](./amvera/README.md).
+
+Исторически (откат на Vercel):
+
 1. В Vercel → проект → **Settings → Domains** добавьте `tokom.ru` и `www.tokom.ru`.
-2. В DNS у регистратора (сейчас ns1/ns2.reg.ru) поставьте записи, которые покажет Vercel. Обычно:
+2. В DNS у регистратора поставьте записи, которые покажет Vercel. Обычно:
    - `A` для `@` → `76.76.21.21`
    - `CNAME` для `www` → `cname.vercel-dns.com`
 3. Дождитесь выпуска SSL (несколько минут после корректного DNS).
