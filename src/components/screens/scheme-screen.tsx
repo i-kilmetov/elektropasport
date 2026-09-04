@@ -38,6 +38,7 @@ import { StickerBadgeIcon } from "@/components/icons/sticker-badge";
 import {
   GroundSymbol,
   SupplyCableIcon,
+  SupplyInfeedSource,
 } from "@/components/icons/supply-cable";
 import {
   DeviceFace,
@@ -88,6 +89,15 @@ import {
   terminalKey,
   wireConnectsSamePair,
 } from "@/lib/panel-wires";
+import {
+  bindSupplyCoreByColor,
+  isSupplyTerminal,
+  supplyCoresForNetwork,
+  supplyWireColorOptions,
+  usedSupplyCoreIndexes,
+  wireTouchesSupply,
+} from "@/lib/supply-infeed";
+import { recommendCopperCrossSectionMm2 } from "@/lib/supply-cable-size";
 import { hapticContextMenu, hapticDelete, hapticImpact, hapticNotification } from "@/lib/haptics";
 import { persistPanel, restoreDeletedHomeItem } from "@/lib/user-data";
 import {
@@ -1785,6 +1795,19 @@ export function SchemeScreen({
     powerKw,
     hasGround,
   });
+  const supplyPhases: "1" | "3" = phases === "3" ? "3" : "1";
+  const supplyHasGround = hasGround === true;
+  const usedSupplyCores = useMemo(
+    () => usedSupplyCoreIndexes(wires),
+    [wires],
+  );
+  const recommendedSupplyMm2 = useMemo(() => {
+    if (!networkParamsFilled || !powerKw) return 2.5;
+    const powerNum = Number(powerKw.replace(",", "."));
+    return (
+      recommendCopperCrossSectionMm2(powerNum, supplyPhases)?.mm2 ?? 2.5
+    );
+  }, [networkParamsFilled, powerKw, supplyPhases]);
 
   const [identifyContext, setIdentifyContext] = useState<IdentifyContext | null>(
     () => loadIdentifyContext(panelId),
@@ -1830,6 +1853,41 @@ export function SchemeScreen({
     existing?: PanelWire;
   } | null>(null);
   const [editingWire, setEditingWire] = useState<PanelWire | null>(null);
+  const pendingTouchesSupply = Boolean(
+    pendingWire &&
+      (isSupplyTerminal(pendingWire.from) || isSupplyTerminal(pendingWire.to)),
+  );
+  const editingTouchesSupply = Boolean(
+    editingWire && wireTouchesSupply(editingWire),
+  );
+  const supplyColorPalette =
+    pendingTouchesSupply || editingTouchesSupply
+      ? supplyWireColorOptions(
+          supplyPhases,
+          supplyHasGround,
+          wires,
+          editingWire?.id ?? pendingWire?.existing?.id,
+        )
+      : undefined;
+  const supplyWireInitialColor = (() => {
+    if (editingWire?.color) return editingWire.color;
+    if (pendingWire?.existing?.color) return pendingWire.existing.color;
+    if (pendingWire && isSupplyTerminal(pendingWire.from)) {
+      const core = supplyCoresForNetwork(
+        supplyPhases,
+        supplyHasGround,
+      ).find((c) => c.index === pendingWire.from.index);
+      if (core) return core.color;
+    }
+    if (pendingWire && isSupplyTerminal(pendingWire.to)) {
+      const core = supplyCoresForNetwork(
+        supplyPhases,
+        supplyHasGround,
+      ).find((c) => c.index === pendingWire.to.index);
+      if (core) return core.color;
+    }
+    return "#92400E";
+  })();
   const [wiresLayoutTick, setWiresLayoutTick] = useState(0);
   const [masterWiringDirty, setMasterWiringDirty] = useState(false);
   const [masterWiringSaved, setMasterWiringSaved] = useState(
@@ -2183,7 +2241,7 @@ export function SchemeScreen({
       window.clearTimeout(t3);
       ro?.disconnect();
     };
-  }, [showTerminals, canUseTerminals, wires.length, devices, numRails, schemeCanvasEl]);
+  }, [showTerminals, canUseTerminals, wires.length, devices, numRails, schemeCanvasEl, networkParamsFilled]);
 
   useEffect(() => {
     const onResize = () => setWiresLayoutTick((v) => v + 1);
@@ -2290,10 +2348,15 @@ export function SchemeScreen({
 
       const to = findTerminalAtPoint(upEvent.clientX, upEvent.clientY);
       if (!to || sameTerminal(hold.from, to)) return;
+      if (isSupplyTerminal(hold.from) && isSupplyTerminal(to)) return;
 
       const existing = wires.find((wire) =>
         wireConnectsSamePair(wire, hold.from, to),
       );
+      const usedCores = usedSupplyCoreIndexes(wires, existing?.id);
+      if (isSupplyTerminal(to) && usedCores.has(to.index)) return;
+      if (isSupplyTerminal(hold.from) && usedCores.has(hold.from.index)) return;
+
       hapticImpact("medium");
       setPendingWire({ from: hold.from, to, existing });
     };
@@ -2323,12 +2386,30 @@ export function SchemeScreen({
     cableType: string;
   }) => {
     if (!canEditWires) return;
+    const supplyPhases = phases === "3" ? "3" : "1";
+    const supplyGround = hasGround === true;
+
     if (editingWire) {
+      let nextFrom = editingWire.from;
+      let nextTo = editingWire.to;
+      if (wireTouchesSupply(editingWire) && phases) {
+        const bound = bindSupplyCoreByColor(
+          nextFrom,
+          nextTo,
+          spec.color,
+          supplyPhases,
+          supplyGround,
+        );
+        nextFrom = bound.from;
+        nextTo = bound.to;
+      }
       applyWiresChange(
         wires.map((wire) =>
           wire.id === editingWire.id
             ? {
                 ...wire,
+                from: nextFrom,
+                to: nextTo,
                 color: spec.color,
                 thicknessMm: spec.thicknessMm,
                 cableType: spec.cableType,
@@ -2340,10 +2421,26 @@ export function SchemeScreen({
       return;
     }
     if (!pendingWire) return;
+    let from = pendingWire.from;
+    let to = pendingWire.to;
+    if (
+      phases &&
+      (isSupplyTerminal(from) || isSupplyTerminal(to))
+    ) {
+      const bound = bindSupplyCoreByColor(
+        from,
+        to,
+        spec.color,
+        supplyPhases,
+        supplyGround,
+      );
+      from = bound.from;
+      to = bound.to;
+    }
     const nextWire: PanelWire = {
       id: pendingWire.existing?.id ?? createWireId(),
-      from: pendingWire.from,
-      to: pendingWire.to,
+      from,
+      to,
       color: spec.color,
       thicknessMm: spec.thicknessMm,
       cableType: spec.cableType,
@@ -2921,9 +3018,36 @@ export function SchemeScreen({
             <div className="-mx-1 overflow-x-auto px-1">
             <div
               ref={setSchemeCanvasRef}
-              className={cn("relative inline-block min-w-full", showTerminals && canUseTerminals && "py-11")}
+              className={cn(
+                "relative inline-block min-w-full",
+                showTerminals &&
+                  canUseTerminals &&
+                  (networkParamsFilled ? "pt-16 pb-11" : "py-11"),
+              )}
               style={{ minWidth: railMinWidth }}
-            >              {showTerminals && canUseTerminals && (
+            >
+              {showTerminals && canUseTerminals && networkParamsFilled ? (
+                <div className="pointer-events-none absolute inset-x-0 top-1 z-[6] flex justify-center">
+                  <div className="pointer-events-auto">
+                    <SupplyInfeedSource
+                      phases={supplyPhases}
+                      hasGround={supplyHasGround}
+                      usedIndexes={usedSupplyCores}
+                      highlightKey={
+                        hoverTerminalKey ??
+                        (wireDraft ? terminalKey(wireDraft.from) : null)
+                      }
+                      interactive={canEditWires && !railEdit.editing}
+                      onTerminalPointerDown={
+                        !canEditWires || railEdit.editing
+                          ? undefined
+                          : handleTerminalPointerDown
+                      }
+                    />
+                  </div>
+                </div>
+              ) : null}
+              {showTerminals && canUseTerminals && (
                 <PanelWiresSvg
                   key={`wires-${wiresLayoutTick}`}
                   container={schemeCanvasEl}
@@ -3369,20 +3493,24 @@ export function SchemeScreen({
       <AnimatePresence>
         {(pendingWire || editingWire) && (
           <WireSpecSheet
-            initialColor={
-              editingWire?.color ??
-              pendingWire?.existing?.color ??
-              "#92400E"
-            }
+            initialColor={supplyWireInitialColor}
             initialThicknessMm={
               editingWire?.thicknessMm ??
               pendingWire?.existing?.thicknessMm ??
-              2.5
+              (pendingTouchesSupply || editingTouchesSupply
+                ? recommendedSupplyMm2
+                : 2.5)
             }
             initialCableType={
               editingWire?.cableType ??
               pendingWire?.existing?.cableType ??
               "ВВГнг-LS"
+            }
+            colorOptions={supplyColorPalette}
+            colorHint={
+              supplyColorPalette
+                ? "Выберите жилу вводного кабеля. Уже протянутые жилы скрыты."
+                : undefined
             }
             allowDelete={Boolean(editingWire || pendingWire?.existing)}
             onConfirm={commitWire}

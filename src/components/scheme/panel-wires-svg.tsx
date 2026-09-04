@@ -30,7 +30,9 @@ export function terminalAnchor(
 
   const device =
     screw.closest("[data-device-face]") ??
-    container.querySelector(`[data-device-face="${terminal.deviceId}"]`);
+    screw.closest("[data-supply-face]") ??
+    container.querySelector(`[data-device-face="${terminal.deviceId}"]`) ??
+    container.querySelector(`[data-supply-face="${terminal.deviceId}"]`);
   if (!(device instanceof HTMLElement)) return null;
 
   const c = container.getBoundingClientRect();

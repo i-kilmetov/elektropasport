@@ -2,6 +2,14 @@
 
 import { useId } from "react";
 import { cn } from "@/lib/utils";
+import {
+  SUPPLY_DEVICE_ID,
+  supplyCoresForNetwork,
+  type SupplyCoreDef,
+} from "@/lib/supply-infeed";
+import { terminalKey } from "@/lib/panel-wires";
+import type { TerminalRef } from "@/types";
+import type { PointerEvent } from "react";
 
 type Wire = {
   fill: string;
@@ -14,23 +22,12 @@ export function wiresForSupplyPreview(
   phases: "1" | "3" | null,
   hasGround: boolean | null,
 ): Wire[] {
-  const wires: Wire[] = [];
-
-  if (phases === "1") {
-    wires.push({ fill: "#B45309", label: "L" });
-    wires.push({ fill: "#2563EB", label: "N" });
-  } else if (phases === "3") {
-    wires.push({ fill: "#B45309", label: "L1" });
-    wires.push({ fill: "#18181B", label: "L2" });
-    wires.push({ fill: "#A1A1AA", label: "L3" });
-    wires.push({ fill: "#2563EB", label: "N" });
-  }
-
-  if (hasGround === true) {
-    wires.push({ fill: "#EAB308", pe: true, label: "PE" });
-  }
-
-  return wires;
+  if (!phases) return [];
+  return supplyCoresForNetwork(phases, hasGround === true).map((core) => ({
+    fill: core.color,
+    pe: core.pe,
+    label: core.label,
+  }));
 }
 
 export function GroundSymbol({
@@ -52,6 +49,23 @@ export function GroundSymbol({
         strokeLinecap="round"
       />
     </svg>
+  );
+}
+
+function PePatternDefs({ patternId }: { patternId: string }) {
+  return (
+    <defs>
+      <pattern
+        id={patternId}
+        width="3.2"
+        height="3.2"
+        patternUnits="userSpaceOnUse"
+        patternTransform="rotate(45)"
+      >
+        <rect width="3.2" height="3.2" fill="#CA8A04" />
+        <rect width="1.5" height="3.2" fill="#166534" />
+      </pattern>
+    </defs>
   );
 }
 
@@ -87,18 +101,7 @@ export function SupplyCableIcon({
       className={cn("shrink-0", className)}
       aria-hidden
     >
-      <defs>
-        <pattern
-          id={patternId}
-          width="3.2"
-          height="3.2"
-          patternUnits="userSpaceOnUse"
-          patternTransform="rotate(45)"
-        >
-          <rect width="3.2" height="3.2" fill="#EAB308" />
-          <rect width="1.5" height="3.2" fill="#16A34A" />
-        </pattern>
-      </defs>
+      <PePatternDefs patternId={patternId} />
       <rect
         x="0.6"
         y="0.6"
@@ -134,5 +137,181 @@ export function SupplyCableIcon({
         );
       })}
     </svg>
+  );
+}
+
+/** Interactive infeed cable above the panel in terminals mode. */
+export function SupplyInfeedSource({
+  phases,
+  hasGround,
+  usedIndexes,
+  highlightKey,
+  interactive,
+  onTerminalPointerDown,
+  className,
+}: {
+  phases: "1" | "3";
+  hasGround: boolean;
+  usedIndexes: Set<number>;
+  highlightKey?: string | null;
+  interactive?: boolean;
+  onTerminalPointerDown?: (
+    terminal: TerminalRef,
+    event: PointerEvent<HTMLButtonElement>,
+  ) => void;
+  className?: string;
+}) {
+  const cores = supplyCoresForNetwork(phases, hasGround);
+  if (cores.length === 0) return null;
+
+  const corePx = 18;
+  const gapPx = 4;
+  const padX = 12;
+  const padY = 10;
+  const width = cores.length * corePx + (cores.length - 1) * gapPx + padX * 2;
+  const height = corePx + padY * 2;
+  const patternId = `pe-infeed-${useId().replace(/:/g, "")}`;
+
+  return (
+    <div
+      data-supply-face={SUPPLY_DEVICE_ID}
+      className={cn(
+        "relative inline-flex flex-col items-center gap-1",
+        className,
+      )}
+      aria-label="Вводной кабель"
+    >
+      <span className="ty-badge text-zinc-500">Ввод</span>
+      <div
+        className="relative"
+        style={{ width, height }}
+      >
+        <svg
+          viewBox={`0 0 ${width} ${height}`}
+          width={width}
+          height={height}
+          className="absolute inset-0"
+          aria-hidden
+        >
+          <PePatternDefs patternId={patternId} />
+          <rect
+            x="0.8"
+            y="0.8"
+            width={width - 1.6}
+            height={height - 1.6}
+            rx={height / 2}
+            fill="#E4E4E7"
+            stroke="#A1A1AA"
+            strokeWidth="1.2"
+          />
+          {cores.map((core, index) => {
+            const cx = padX + corePx / 2 + index * (corePx + gapPx);
+            const cy = height / 2;
+            const used = usedIndexes.has(core.index);
+            return (
+              <g
+                key={core.label}
+                opacity={used ? 0.35 : 1}
+              >
+                <circle
+                  cx={cx}
+                  cy={cy}
+                  r={corePx / 2 - 0.5}
+                  fill={core.pe ? `url(#${patternId})` : core.color}
+                  stroke="rgba(0,0,0,0.22)"
+                  strokeWidth="0.6"
+                />
+                <circle
+                  cx={cx}
+                  cy={cy}
+                  r={2.4}
+                  fill="#D4D4D8"
+                  stroke="rgba(0,0,0,0.18)"
+                  strokeWidth="0.35"
+                />
+              </g>
+            );
+          })}
+        </svg>
+        {cores.map((core, index) => {
+          const left = padX + index * (corePx + gapPx);
+          const terminal = {
+            deviceId: SUPPLY_DEVICE_ID,
+            side: "bottom" as const,
+            index: core.index,
+          };
+          const key = terminalKey(terminal);
+          const used = usedIndexes.has(core.index);
+          const active = highlightKey === key;
+          const canStart = interactive && !used && onTerminalPointerDown;
+
+          if (!canStart) {
+            return (
+              <span
+                key={key}
+                data-terminal={key}
+                className="absolute"
+                style={{
+                  left,
+                  top: padY,
+                  width: corePx,
+                  height: corePx,
+                }}
+                aria-hidden
+              />
+            );
+          }
+
+          return (
+            <button
+              key={key}
+              type="button"
+              data-terminal={key}
+              aria-label={`Жила ввода ${core.label}`}
+              className={cn(
+                "absolute touch-none rounded-full",
+                active && "ring-2 ring-zinc-900/40 ring-offset-1",
+              )}
+              style={{
+                left,
+                top: padY,
+                width: corePx,
+                height: corePx,
+              }}
+              onPointerDown={(event) => {
+                event.stopPropagation();
+                onTerminalPointerDown(terminal, event);
+              }}
+              onClick={(event) => event.stopPropagation()}
+            />
+          );
+        })}
+      </div>
+      <CoreLabels cores={cores} usedIndexes={usedIndexes} />
+    </div>
+  );
+}
+
+function CoreLabels({
+  cores,
+  usedIndexes,
+}: {
+  cores: SupplyCoreDef[];
+  usedIndexes: Set<number>;
+}) {
+  return (
+    <div className="flex items-center gap-1">
+      {cores.map((core) => (
+        <span
+          key={core.label}
+          className={cn(
+            "min-w-[1.1rem] text-center text-[10px] font-medium leading-none",
+            usedIndexes.has(core.index) ? "text-zinc-300" : "text-zinc-500",
+          )}
+        >
+          {core.label}
+        </span>
+      ))}
+    </div>
   );
 }

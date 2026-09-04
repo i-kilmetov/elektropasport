@@ -21,6 +21,8 @@ export function WireSpecSheet({
   initialColor = WIRE_COLOR_OPTIONS[0].color,
   initialThicknessMm = 2.5,
   initialCableType = WIRE_CABLE_TYPE_OPTIONS[0].label,
+  colorOptions = WIRE_COLOR_OPTIONS,
+  colorHint,
   allowDelete = false,
   onConfirm,
   onDelete,
@@ -29,12 +31,21 @@ export function WireSpecSheet({
   initialColor?: string;
   initialThicknessMm?: number;
   initialCableType?: string;
+  /** When set (e.g. infeed cores), only these colors are offered. */
+  colorOptions?: typeof WIRE_COLOR_OPTIONS;
+  colorHint?: string;
   allowDelete?: boolean;
   onConfirm: (spec: WireSpec) => void;
   onDelete?: () => void;
   onCancel: () => void;
 }) {
-  const [color, setColor] = useState(initialColor);
+  const palette =
+    colorOptions.length > 0 ? colorOptions : WIRE_COLOR_OPTIONS;
+  const [color, setColor] = useState(() =>
+    palette.some((o) => o.color === initialColor)
+      ? initialColor
+      : palette[0].color,
+  );
   const [thicknessMm, setThicknessMm] = useState(initialThicknessMm);
   const [cableType, setCableType] = useState(
     initialCableType || WIRE_CABLE_TYPE_OPTIONS[0].label,
@@ -57,13 +68,14 @@ export function WireSpecSheet({
       >
         <h3 className="ty-title">Кабель</h3>
         <p className="mt-1 ty-note">
-          Укажите цвет изоляции, сечение и тип — так кабель отобразится на схеме.
+          {colorHint ??
+            "Укажите цвет изоляции, сечение и тип — так кабель отобразится на схеме."}
         </p>
 
         <div className="mt-4">
           <div className="mb-2 ty-badge text-zinc-500">Цвет</div>
           <div className="grid grid-cols-4 gap-2">
-            {WIRE_COLOR_OPTIONS.map((option) => {
+            {palette.map((option) => {
               const active = option.color === color;
               const isPe = option.id === "pe";
               return (
