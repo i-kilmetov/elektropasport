@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, Camera, Check, Loader2, RotateCcw } from "lucide-react";
+import { ArrowLeft, Camera, Check, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
 import { fileToCompressedDataUrl } from "@/lib/image";
@@ -68,7 +68,6 @@ export function PhotoScreen({
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const openedOnce = useRef(false);
 
   const processFile = async (file: File) => {
@@ -76,10 +75,9 @@ export function PhotoScreen({
     setError(null);
     try {
       const dataUrl = await fileToCompressedDataUrl(file);
-      setPreviewUrl(dataUrl);
+      onCapture(dataUrl);
     } catch {
       setError("Не удалось обработать фото. Попробуйте ещё раз.");
-    } finally {
       setBusy(false);
     }
   };
@@ -113,78 +111,6 @@ export function PhotoScreen({
     return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- open once on mount
   }, []);
-
-  if (previewUrl) {
-    return (
-      <motion.section
-        initial={{ opacity: 0, x: 40 }}
-        animate={{ opacity: 1, x: 0 }}
-        exit={{ opacity: 0, x: -40 }}
-        transition={{ duration: 0.35 }}
-        className="mx-auto flex min-h-dvh w-full max-w-xl flex-col px-5 pb-8 pt-[max(1.25rem,env(safe-area-inset-top))] lg:max-w-2xl lg:px-0 lg:py-10"
-      >
-        <header className="mb-5 flex items-center gap-3">
-          <button
-            type="button"
-            onClick={onBack}
-            className="flex h-11 w-11 items-center justify-center rounded-full border border-black/8 bg-zinc-100 text-zinc-900"
-            aria-label="Назад"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </button>
-          <h1 className="ty-title">Подтвердите фото</h1>
-        </header>
-
-        <p className="mb-4 ty-body">
-          Проверьте, что все автоматы в кадре и снимок резкий. После
-          подтверждения запустим рентген-скан приборов.
-        </p>
-
-        <div className="mb-6 overflow-hidden rounded-[22px] border border-black/8 bg-zinc-950 shadow-lg">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={previewUrl}
-            alt="Предпросмотр щитка"
-            className="aspect-[4/3] w-full object-cover"
-          />
-        </div>
-
-        <div className="mt-auto space-y-3">
-          <Button
-            className="w-full"
-            size="lg"
-            onClick={() => onCapture(previewUrl)}
-          >
-            <Check className="h-5 w-5" />
-            Подтвердить фото
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            className="w-full"
-            size="lg"
-            onClick={() => {
-              setPreviewUrl(null);
-              void openCamera();
-            }}
-          >
-            <RotateCcw className="h-5 w-5" />
-            Переснять
-          </Button>
-          <button
-            type="button"
-            onClick={() => {
-              setPreviewUrl(null);
-              void openGallery();
-            }}
-            className="w-full text-center ty-subtitle underline decoration-zinc-300 underline-offset-4 transition-colors hover:text-zinc-800"
-          >
-            Выбрать другое фото
-          </button>
-        </div>
-      </motion.section>
-    );
-  }
 
   return (
     <motion.section
