@@ -67,8 +67,11 @@ export function resolveInitialSplashPhase(options: {
   return "pending";
 }
 
-export function buildPostTestLoginUrl(next: string): string {
-  const url = new URL(next, window.location.origin);
+export function buildPostTestLoginUrl(
+  next: string,
+  origin = typeof window !== "undefined" ? window.location.origin : "https://test.tokom.ru",
+): string {
+  const url = new URL(next, origin);
   url.searchParams.set(SKIP_SPLASH_QUERY, "1");
   return `${url.pathname}${url.search}${url.hash}`;
 }

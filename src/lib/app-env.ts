@@ -1,3 +1,5 @@
+import { resolveRequestOrigin } from "@/lib/app-url";
+
 /** Staging host for gated preview (password → then same product UI as prod). */
 export const TEST_APP_HOST = "test.tokom.ru";
 
@@ -27,11 +29,15 @@ export function appEnvFromHost(host: string | null | undefined): AppEnv {
 }
 
 export function appEnvFromRequest(request: Request): AppEnv {
-  const host =
-    request.headers.get("x-forwarded-host")?.split(",")[0]?.trim() ||
-    request.headers.get("host") ||
-    new URL(request.url).host;
-  return appEnvFromHost(host);
+  try {
+    return appEnvFromHost(new URL(resolveRequestOrigin(request)).host);
+  } catch {
+    const host =
+      request.headers.get("host") ||
+      request.headers.get("x-forwarded-host")?.split(",")[0]?.trim() ||
+      new URL(request.url).host;
+    return appEnvFromHost(host);
+  }
 }
 
 /**

@@ -19,12 +19,14 @@ import {
   validateTelegramIdToken,
 } from "@/lib/telegram-oauth";
 import { resolveRequestOrigin } from "@/lib/app-url";
-import { isBrowserLoginEnabled } from "@/lib/phone-auth";
 
 export async function POST(request: Request) {
   try {
     const host = new URL(resolveRequestOrigin(request)).host;
-    if (!isTestAppHost(host) && !isBrowserLoginEnabled()) {
+    const telegramAuthDisabled =
+      process.env.DISABLE_BROWSER_TELEGRAM_AUTH?.trim().toLowerCase() === "1" ||
+      process.env.DISABLE_BROWSER_TELEGRAM_AUTH?.trim().toLowerCase() === "true";
+    if (telegramAuthDisabled && !isTestAppHost(host)) {
       return Response.json(
         { error: "Вход временно закрыт. Оставьте email на главной." },
         { status: 403 },

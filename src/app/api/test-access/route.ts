@@ -12,6 +12,8 @@ import {
   verifyTestSiteCookie,
   verifyTestSitePassword,
 } from "@/lib/test-site-auth";
+import { resolveRequestOrigin } from "@/lib/app-url";
+import { buildPostTestLoginUrl } from "@/lib/splash-session";
 
 function readTestSiteCookie(request: Request): string {
   const cookieHeader = request.headers.get("cookie") ?? "";
@@ -25,6 +27,25 @@ function readTestSiteCookie(request: Request): string {
   } catch {
     return raw;
   }
+}
+
+function safeNextPath(raw: string | null | undefined): string {
+  const value = (raw ?? "/").trim() || "/";
+  if (
+    !value.startsWith("/") ||
+    value.startsWith("//") ||
+    value.includes("://") ||
+    value.includes("\\")
+  ) {
+    return "/";
+  }
+  return value;
+}
+
+function loginRedirect(request: Request, next: string): URL {
+  const url = new URL("/test-login", `${resolveRequestOrigin(request)}/`);
+  if (next && next !== "/") url.searchParams.set("next", next);
+  return url;
 }
 
 export async function GET(request: Request) {
@@ -62,24 +83,89 @@ export async function GET(request: Request) {
   return response;
 }
 
-export async function POST(request: Request) {
+async function handlePasswordAttempt(
+  request: Request,
+  password: string,
+): Promise<
+  | { ok: true; token: string }
+  | {
+      ok: false;
+      status: number;
+      error: string;
+      locked?: boolean;
+      retryAfterMs?: number;
+    }
+> {
   if (!testSitePasswordConfigured()) {
-    return NextResponse.json(
-      { error: "TEST_SITE_PASSWORD не настроен на сервере" },
-      { status: 503 },
-    );
+    return {
+      ok: false,
+      status: 503,
+      error: "TEST_SITE_PASSWORD не настроен на сервере",
+    };
   }
 
   const lockout = await getTestSiteLockoutStatus(request);
   if (lockout.locked) {
-    return NextResponse.json(
-      {
-        error: lockout.message,
+    return {
+      ok: false,
+      status: 429,
+      error: lockout.message ?? "Слишком много попыток. Попробуйте позже.",
+      locked: true,
+      retryAfterMs: lockout.retryAfterMs,
+    };
+  }
+
+  if (!verifyTestSitePassword(password)) {
+    const afterFail = await recordTestSiteFailedAttempt(request);
+    if (afterFail.locked) {
+      return {
+        ok: false,
+        status: 429,
+        error: afterFail.message ?? "Слишком много попыток. Попробуйте позже.",
         locked: true,
-        retryAfterMs: lockout.retryAfterMs,
-      },
-      { status: 429 },
-    );
+        retryAfterMs: afterFail.retryAfterMs,
+      };
+    }
+    return { ok: false, status: 401, error: "Неверный пароль" };
+  }
+
+  await clearTestSiteLockout(request);
+  const token = await signTestSiteCookie();
+  if (!token) {
+    return {
+      ok: false,
+      status: 503,
+      error: "TEST_SITE_PASSWORD не настроен на сервере",
+    };
+  }
+  return { ok: true, token };
+}
+
+export async function POST(request: Request) {
+  const contentType = request.headers.get("content-type") ?? "";
+  const isForm =
+    contentType.includes("application/x-www-form-urlencoded") ||
+    contentType.includes("multipart/form-data");
+
+  if (isForm) {
+    const form = await request.formData();
+    const password = String(form.get("password") ?? "").trim();
+    const next = safeNextPath(String(form.get("next") ?? "/"));
+    const result = await handlePasswordAttempt(request, password);
+    if (!result.ok) {
+      const redirect = loginRedirect(request, next);
+      redirect.searchParams.set("error", result.error);
+      if (result.locked && result.retryAfterMs) {
+        redirect.searchParams.set("retry", String(result.retryAfterMs));
+      }
+      return NextResponse.redirect(redirect, 303);
+    }
+    // Absolute public URL so Amvera never rewrites Location to 0.0.0.0:3000.
+    const origin = resolveRequestOrigin(request);
+    const destination = new URL(buildPostTestLoginUrl(next, origin), `${origin}/`);
+    const response = NextResponse.redirect(destination, 303);
+    response.cookies.set(TEST_SITE_COOKIE, result.token, testSiteCookieOptions());
+    return response;
   }
 
   let password = "";
@@ -90,34 +176,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Неверный запрос" }, { status: 400 });
   }
 
-  if (!verifyTestSitePassword(password)) {
-    const afterFail = await recordTestSiteFailedAttempt(request);
-    if (afterFail.locked) {
-      return NextResponse.json(
-        {
-          error: afterFail.message,
-          locked: true,
-          retryAfterMs: afterFail.retryAfterMs,
-        },
-        { status: 429 },
-      );
-    }
-
-    return NextResponse.json({ error: "Неверный пароль" }, { status: 401 });
-  }
-
-  await clearTestSiteLockout(request);
-
-  const token = await signTestSiteCookie();
-  if (!token) {
+  const result = await handlePasswordAttempt(request, password);
+  if (!result.ok) {
     return NextResponse.json(
-      { error: "TEST_SITE_PASSWORD не настроен на сервере" },
-      { status: 503 },
+      {
+        error: result.error,
+        locked: result.locked,
+        retryAfterMs: result.retryAfterMs,
+      },
+      { status: result.status },
     );
   }
 
   const response = NextResponse.json({ ok: true });
-  response.cookies.set(TEST_SITE_COOKIE, token, testSiteCookieOptions());
+  response.cookies.set(TEST_SITE_COOKIE, result.token, testSiteCookieOptions());
   return response;
 }
 

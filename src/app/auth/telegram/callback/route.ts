@@ -35,8 +35,11 @@ import {
   readOAuthCookie,
   validateTelegramIdToken,
 } from "@/lib/telegram-oauth";
-import { resolveOAuthOrigin, resolveRequestOrigin } from "@/lib/app-url";
-import { isBrowserLoginEnabled } from "@/lib/phone-auth";
+import {
+  publicRequestUrl,
+  resolveOAuthOrigin,
+  resolveRequestOrigin,
+} from "@/lib/app-url";
 import { POST_AUTH_NEXT_KEY, POST_AUTH_SKIP_SPLASH_KEY } from "@/lib/auth-flow";
 
 function parseLoginParams(url: URL): TelegramLoginWidgetData | null {
@@ -110,8 +113,11 @@ async function finishLogin(
   request: Request,
 ): Promise<NextResponse> {
   const host = new URL(resolveRequestOrigin(request)).host;
-  if (!isTestAppHost(host) && !isBrowserLoginEnabled()) {
-    return NextResponse.redirect(new URL("/?auth_error=closed", request.url));
+  const telegramAuthDisabled =
+    process.env.DISABLE_BROWSER_TELEGRAM_AUTH?.trim().toLowerCase() === "1" ||
+    process.env.DISABLE_BROWSER_TELEGRAM_AUTH?.trim().toLowerCase() === "true";
+  if (telegramAuthDisabled && !isTestAppHost(host)) {
+    return NextResponse.redirect(publicRequestUrl("/?auth_error=closed", request));
   }
 
   const env = appEnvFromRequest(request);
@@ -186,7 +192,7 @@ export async function GET(request: Request) {
     if (code && state && canUseOidcLogin()) {
       const pkce = readOAuthCookie(request);
       if (!pkce || pkce.state !== state) {
-        return NextResponse.redirect(new URL("/?auth_error=state", request.url));
+        return NextResponse.redirect(publicRequestUrl("/?auth_error=state", request));
       }
 
       const clientId = getTelegramClientId();
@@ -205,17 +211,17 @@ export async function GET(request: Request) {
 
     const botToken = getBotToken();
     if (!botToken) {
-      return NextResponse.redirect(new URL("/?auth_error=config", request.url));
+      return NextResponse.redirect(publicRequestUrl("/?auth_error=config", request));
     }
 
     const raw = parseLoginParams(url);
     if (!raw || !Number.isFinite(raw.id)) {
-      return NextResponse.redirect(new URL("/?auth_error=invalid", request.url));
+      return NextResponse.redirect(publicRequestUrl("/?auth_error=invalid", request));
     }
 
     const user = validateTelegramLoginWidget(raw, botToken);
     return finishLogin(user, request);
   } catch {
-    return NextResponse.redirect(new URL("/?auth_error=failed", request.url));
+    return NextResponse.redirect(publicRequestUrl("/?auth_error=failed", request));
   }
 }

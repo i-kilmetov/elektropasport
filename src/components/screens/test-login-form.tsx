@@ -15,20 +15,33 @@ export function TestLoginForm({
   title = "Тестовая среда",
   description = "test.tokom.ru — здесь проверяются новые функции до релиза на основной сайт.",
   idleReason = false,
+  initialError = null,
+  initialRetryAfterMs = null,
 }: {
   next?: string;
   onSuccess?: () => void;
   title?: string;
   description?: string;
   idleReason?: boolean;
+  initialError?: string | null;
+  initialRetryAfterMs?: number | null;
 }) {
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(initialError);
   const [loading, setLoading] = useState(false);
-  const [lockedUntil, setLockedUntil] = useState<number | null>(null);
+  const [lockedUntil, setLockedUntil] = useState<number | null>(
+    initialRetryAfterMs != null && initialRetryAfterMs > 0
+      ? Date.now() + initialRetryAfterMs
+      : null,
+  );
+  const [jsReady, setJsReady] = useState(false);
 
   const locked = lockedUntil != null && lockedUntil > Date.now();
   const retryAfterMs = locked ? lockedUntil - Date.now() : 0;
+
+  useEffect(() => {
+    setJsReady(true);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -79,6 +92,8 @@ export function TestLoginForm({
   };
 
   const onSubmit = async (event: FormEvent) => {
+    // Without hydration, the native form POST to /api/test-access handles login.
+    if (!jsReady) return;
     event.preventDefault();
     if (locked) return;
 
@@ -106,10 +121,6 @@ export function TestLoginForm({
       }
 
       setLockedUntil(null);
-      if (onSuccess) {
-        finishTestLogin();
-        return;
-      }
       finishTestLogin();
     } catch {
       setError("Не удалось проверить пароль. Попробуйте ещё раз.");
@@ -136,13 +147,20 @@ export function TestLoginForm({
               Сессия завершена после 2 часов бездействия. Введите пароль снова.
             </p>
           )}
-          <form onSubmit={onSubmit} className="space-y-4">
+          <form
+            action="/api/test-access"
+            method="post"
+            onSubmit={onSubmit}
+            className="space-y-4"
+          >
+            <input type="hidden" name="next" value={next} />
             <label className="block">
               <span className="mb-2 block ty-label text-zinc-700">
                 Пароль администратора
               </span>
               <input
                 type="password"
+                name="password"
                 autoComplete="current-password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}

@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { isTestAppHost } from "@/lib/app-env";
-import { isBrowserLoginEnabled } from "@/lib/phone-auth";
-import { resolveOAuthOrigin, resolveRequestOrigin } from "@/lib/app-url";
+import { resolveOAuthOrigin, publicRequestUrl, resolveRequestOrigin } from "@/lib/app-url";
 import {
   buildLegacyAuthUrl,
   buildOidcAuthUrl,
@@ -14,13 +13,20 @@ import {
 
 export async function GET(request: Request) {
   const browserHost = new URL(resolveRequestOrigin(request)).host;
-  if (!isTestAppHost(browserHost) && !isBrowserLoginEnabled()) {
-    return NextResponse.redirect(new URL("/?auth_error=closed", request.url));
+  const clientId = getTelegramClientId();
+
+  // Telegram OAuth (widget / OIDC) is always available when the bot client is
+  // configured. Phone/Gateway login is gated separately via isBrowserLoginEnabled.
+  if (!clientId) {
+    return NextResponse.redirect(publicRequestUrl("/?auth_error=config", request));
   }
 
-  const clientId = getTelegramClientId();
-  if (!clientId) {
-    return NextResponse.redirect(new URL("/?auth_error=config", request.url));
+  // Optional hard-close (waitlist kill switch) — does not apply on test.tokom.ru.
+  const telegramAuthDisabled =
+    process.env.DISABLE_BROWSER_TELEGRAM_AUTH?.trim().toLowerCase() === "1" ||
+    process.env.DISABLE_BROWSER_TELEGRAM_AUTH?.trim().toLowerCase() === "true";
+  if (telegramAuthDisabled && !isTestAppHost(browserHost)) {
+    return NextResponse.redirect(publicRequestUrl("/?auth_error=closed", request));
   }
 
   // test.tokom.ru uses its own origin (must be in BotFather allowlist).
