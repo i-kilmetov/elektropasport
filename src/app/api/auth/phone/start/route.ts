@@ -78,11 +78,13 @@ export async function POST(request: Request) {
       await gatewaySendVerificationMessage(phoneE164, {
         requestId: gatewayRequestId,
       });
-    } catch {
+    } catch (primaryError) {
+      console.error("telegram gateway send (ability path)", primaryError);
       try {
         const sent = await gatewaySendVerificationMessage(phoneE164);
         gatewayRequestId = sent.request_id;
-      } catch {
+      } catch (fallbackError) {
+        console.error("telegram gateway send (direct path)", fallbackError);
         throw new PhoneAuthError(PHONE_CODE_NOT_DELIVERED_MESSAGE, 400);
       }
     }

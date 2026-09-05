@@ -1,7 +1,11 @@
 import { headers } from "next/headers";
 import { AppShell } from "@/components/app-shell";
 import { BRAND_YELLOW } from "@/components/brand-logo";
-import { isProductionLaunchWaitlistHost, isTestAppHost } from "@/lib/app-env";
+import {
+  isProductionLaunchWaitlistHost,
+  isTestAppHost,
+  publicHostFromHeaders,
+} from "@/lib/app-env";
 
 export default async function Home({
   searchParams,
@@ -9,8 +13,7 @@ export default async function Home({
   searchParams: Promise<{ waitlist?: string }>;
 }) {
   const [h, sp] = await Promise.all([headers(), searchParams]);
-  const host =
-    h.get("x-forwarded-host")?.split(",")[0]?.trim() || h.get("host");
+  const host = publicHostFromHeaders(h);
   const launchWaitlist =
     isProductionLaunchWaitlistHost(host) || sp.waitlist === "1";
   const skipBootSplash = isTestAppHost(host);

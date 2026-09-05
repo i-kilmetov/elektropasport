@@ -6,6 +6,12 @@ export const TEST_APP_HOST = "test.tokom.ru";
 /** Legacy/alternate host — redirect to {@link TEST_APP_HOST} in middleware. */
 export const TEST_APP_WWW_HOST = "www.test.tokom.ru";
 
+const PROD_WAITLIST_HOSTS = new Set([
+  "tokom.ru",
+  "www.tokom.ru",
+  "elektropasport.vercel.app",
+]);
+
 export type AppEnv = "prod" | "test";
 
 export function normalizeHost(host: string | null | undefined): string {
@@ -13,6 +19,43 @@ export function normalizeHost(host: string | null | undefined): string {
   const trimmed = host.split(",")[0]?.trim() ?? "";
   const withoutProtocol = trimmed.replace(/^https?:\/\//i, "");
   return withoutProtocol.split("/")[0]?.split(":")[0]?.toLowerCase() ?? "";
+}
+
+function isJunkPublicHost(host: string | null | undefined): boolean {
+  const normalized = normalizeHost(host);
+  if (!normalized) return true;
+  if (
+    normalized === "0.0.0.0" ||
+    normalized === "127.0.0.1" ||
+    normalized === "localhost" ||
+    normalized === "::" ||
+    normalized === "::1"
+  ) {
+    return true;
+  }
+  return /^\d{1,3}(?:\.\d{1,3}){3}$/.test(normalized);
+}
+
+/**
+ * Browser-facing host from request headers.
+ * Prefer staging when any candidate is test.tokom.ru (Amvera may set a
+ * misleading X-Forwarded-Host while Host is correct, or the reverse).
+ */
+export function publicHostFromHeaders(
+  headers: Headers | { get(name: string): string | null },
+): string {
+  const candidates = [
+    headers.get("host"),
+    headers.get("x-forwarded-host")?.split(",")[0]?.trim(),
+  ];
+  for (const raw of candidates) {
+    if (isTestAppHost(raw)) return normalizeHost(raw);
+  }
+  for (const raw of candidates) {
+    const normalized = normalizeHost(raw);
+    if (normalized && !isJunkPublicHost(normalized)) return normalized;
+  }
+  return "";
 }
 
 export function isTestAppHost(host: string | null | undefined): boolean {
@@ -29,14 +72,20 @@ export function appEnvFromHost(host: string | null | undefined): AppEnv {
 }
 
 export function appEnvFromRequest(request: Request): AppEnv {
+  const fromHeaders = publicHostFromHeaders(request.headers);
+  if (isTestAppHost(fromHeaders)) return "test";
   try {
-    return appEnvFromHost(new URL(resolveRequestOrigin(request)).host);
+    if (isTestAppHost(new URL(resolveRequestOrigin(request)).host)) {
+      return "test";
+    }
   } catch {
-    const host =
-      request.headers.get("host") ||
-      request.headers.get("x-forwarded-host")?.split(",")[0]?.trim() ||
-      new URL(request.url).host;
-    return appEnvFromHost(host);
+    // fall through
+  }
+  if (fromHeaders) return appEnvFromHost(fromHeaders);
+  try {
+    return appEnvFromHost(new URL(request.url).host);
+  } catch {
+    return "prod";
   }
 }
 
@@ -101,14 +150,11 @@ export function isProductionLaunchWaitlistHost(
   host: string | null | undefined,
 ): boolean {
   const normalized = normalizeHost(host);
-  if (
-    !normalized ||
-    normalized === "localhost" ||
-    normalized === "127.0.0.1"
-  ) {
+  if (!normalized || isJunkPublicHost(normalized) || isTestAppHost(normalized)) {
     return false;
   }
-  return !isTestAppHost(normalized);
+  // Only known public prod hosts — never treat Amvera bind addresses as waitlist.
+  return PROD_WAITLIST_HOSTS.has(normalized);
 }
 
 /**

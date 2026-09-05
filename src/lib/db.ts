@@ -56,7 +56,7 @@ import { ensureConnectedMoscowMaster } from "@/lib/ensure-moscow-master";
 let schemaReady: Promise<void> | null = null;
 
 /** Bump when DDL below changes so cold starts re-run migrations once. */
-const SCHEMA_VERSION = "2026-09-03-wiring-review-pending";
+const SCHEMA_VERSION = "2026-09-05-oauth-pkce";
 /** One-shot data wipe flag — never re-run after it is written. */
 const FRESH_START_KEY = "fresh_start_2026_08_25_b";
 /** Bumped on each factory wipe so clients drop localStorage orphans. */
@@ -648,6 +648,20 @@ export async function ensureSchema(): Promise<void> {
       await sql`
         CREATE INDEX IF NOT EXISTS phone_auth_challenges_phone_idx
         ON phone_auth_challenges (phone_digits, created_at DESC)
+      `;
+      await sql`
+        CREATE TABLE IF NOT EXISTS telegram_oauth_pkce (
+          state TEXT PRIMARY KEY,
+          verifier TEXT NOT NULL,
+          return_origin TEXT,
+          app_env TEXT,
+          expires_at TIMESTAMPTZ NOT NULL,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+      `;
+      await sql`
+        CREATE INDEX IF NOT EXISTS telegram_oauth_pkce_expires_idx
+        ON telegram_oauth_pkce (expires_at)
       `;
       await sql`
         CREATE TABLE IF NOT EXISTS maintenance_reminders (
@@ -3451,6 +3465,84 @@ export async function insertPhoneAuthChallenge(input: {
     RETURNING *
   `) as PhoneAuthChallengeRow[];
   return rowToPhoneAuthChallenge(rows[0]!);
+}
+
+export async function saveTelegramOAuthPkce(input: {
+  state: string;
+  verifier: string;
+  returnOrigin?: string;
+  appEnv?: "prod" | "test";
+  ttlMs?: number;
+}): Promise<void> {
+  const sql = getSql();
+  await ensureSchema();
+  const ttlMs = input.ttlMs ?? 10 * 60 * 1000;
+  const expiresAt = new Date(Date.now() + ttlMs).toISOString();
+  await sql`
+    INSERT INTO telegram_oauth_pkce (
+      state, verifier, return_origin, app_env, expires_at
+    ) VALUES (
+      ${input.state},
+      ${input.verifier},
+      ${input.returnOrigin ?? null},
+      ${input.appEnv ?? null},
+      ${expiresAt}
+    )
+    ON CONFLICT (state) DO UPDATE SET
+      verifier = EXCLUDED.verifier,
+      return_origin = EXCLUDED.return_origin,
+      app_env = EXCLUDED.app_env,
+      expires_at = EXCLUDED.expires_at
+  `;
+  // Best-effort cleanup of expired rows.
+  await sql`DELETE FROM telegram_oauth_pkce WHERE expires_at < NOW()`;
+}
+
+export async function consumeTelegramOAuthPkce(state: string): Promise<{
+  state: string;
+  verifier: string;
+  returnOrigin?: string;
+  appEnv?: "prod" | "test";
+} | null> {
+  const sql = getSql();
+  await ensureSchema();
+  const rows = (await sql`
+    DELETE FROM telegram_oauth_pkce
+    WHERE state = ${state}
+      AND expires_at >= NOW()
+    RETURNING state, verifier, return_origin, app_env
+  `) as Array<{
+    state: string;
+    verifier: string;
+    return_origin: string | null;
+    app_env: string | null;
+  }>;
+  const row = rows[0];
+  if (!row?.state || !row.verifier) return null;
+  const appEnv =
+    row.app_env === "test" || row.app_env === "prod" ? row.app_env : undefined;
+  let returnOrigin: string | undefined;
+  if (row.return_origin) {
+    try {
+      const origin = new URL(row.return_origin).origin;
+      if (
+        origin === "https://tokom.ru" ||
+        origin === "https://www.tokom.ru" ||
+        origin === "https://test.tokom.ru" ||
+        origin === "https://www.test.tokom.ru"
+      ) {
+        returnOrigin = origin;
+      }
+    } catch {
+      // ignore
+    }
+  }
+  return {
+    state: row.state,
+    verifier: row.verifier,
+    returnOrigin,
+    appEnv,
+  };
 }
 
 export async function getPhoneAuthChallenge(

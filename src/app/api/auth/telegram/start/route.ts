@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
-import { isTestAppHost } from "@/lib/app-env";
+import { isTestAppHost, publicHostFromHeaders } from "@/lib/app-env";
+import { saveTelegramOAuthPkce } from "@/lib/db";
 import {
   resolveOAuthOrigin,
   publicRequestUrl,
   resolveRequestOrigin,
+  TEST_APP_URL,
 } from "@/lib/app-url";
 import {
   buildLegacyAuthUrl,
@@ -17,7 +19,10 @@ import {
 } from "@/lib/telegram-oauth";
 
 export async function GET(request: Request) {
-  const browserOrigin = resolveRequestOrigin(request);
+  const headerHost = publicHostFromHeaders(request.headers);
+  const browserOrigin = isTestAppHost(headerHost)
+    ? TEST_APP_URL
+    : resolveRequestOrigin(request);
   const browserHost = new URL(browserOrigin).host;
   const clientId = getTelegramClientId();
 
@@ -46,6 +51,14 @@ export async function GET(request: Request) {
       returnOrigin: browserOrigin,
       appEnv: isTestAppHost(browserHost) ? "test" : "prod",
     };
+    try {
+      await saveTelegramOAuthPkce(pkce);
+    } catch (error) {
+      console.error("saveTelegramOAuthPkce", error);
+      return NextResponse.redirect(
+        publicRequestUrl("/?auth_error=config", request),
+      );
+    }
     const authUrl = buildOidcAuthUrl({
       clientId,
       redirectUri,
@@ -54,6 +67,7 @@ export async function GET(request: Request) {
     });
 
     const response = NextResponse.redirect(authUrl);
+    // Cookie is a fallback; primary PKCE lives in Postgres (cross-subdomain safe).
     response.headers.set(
       "Set-Cookie",
       oauthCookieHeader(pkce, { domain: browserHost }),

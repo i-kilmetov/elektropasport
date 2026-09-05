@@ -1,4 +1,5 @@
 const GATEWAY_API = "https://gatewayapi.telegram.org";
+const FLOOD_WAIT_RE = /^FLOOD_WAIT_(\d+)$/i;
 
 function gatewayToken(): string {
   const token = process.env.TELEGRAM_GATEWAY_TOKEN?.trim();
@@ -6,6 +7,20 @@ function gatewayToken(): string {
     throw new Error("TELEGRAM_GATEWAY_TOKEN не настроен");
   }
   return token;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function floodWaitMs(error: string | undefined): number | null {
+  if (!error) return null;
+  const match = FLOOD_WAIT_RE.exec(error.trim());
+  if (!match) return null;
+  const seconds = Number(match[1]);
+  if (!Number.isFinite(seconds) || seconds < 0) return null;
+  // Cap so a bad API value cannot hang the request forever.
+  return Math.min(seconds, 30) * 1000 + 250;
 }
 
 type GatewayResponse<T> = {
@@ -18,25 +33,35 @@ async function gatewayPost<T>(
   method: string,
   body: Record<string, unknown>,
 ): Promise<T> {
-  const res = await fetch(`${GATEWAY_API}/${method}`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${gatewayToken()}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
-  });
+  let lastError = "Ошибка Telegram Gateway";
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const res = await fetch(`${GATEWAY_API}/${method}`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${gatewayToken()}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
 
-  const data = (await res.json()) as GatewayResponse<T>;
-  if (!res.ok || !data.ok || !data.result) {
-    throw new Error(
+    const data = (await res.json()) as GatewayResponse<T>;
+    if (res.ok && data.ok && data.result) {
+      return data.result;
+    }
+
+    lastError =
       data.error ||
-        (typeof data === "object" && data && "error" in data
-          ? String(data.error)
-          : "Ошибка Telegram Gateway"),
-    );
+      (typeof data === "object" && data && "error" in data
+        ? String(data.error)
+        : lastError);
+
+    const waitMs = floodWaitMs(data.error);
+    if (waitMs == null || attempt === 3) {
+      throw new Error(lastError);
+    }
+    await sleep(waitMs);
   }
-  return data.result;
+  throw new Error(lastError);
 }
 
 export async function gatewayCheckSendAbility(phoneE164: string): Promise<{

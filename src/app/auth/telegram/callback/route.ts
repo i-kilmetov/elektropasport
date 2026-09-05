@@ -14,6 +14,7 @@ import {
 } from "@/lib/app-env";
 import { signSessionToken } from "@/lib/session-token";
 import {
+  consumeTelegramOAuthPkce,
   ensureSchema,
   getStoredUserProfile,
   recordUserPdConsent,
@@ -34,6 +35,7 @@ import {
   getTelegramClientSecret,
   oauthCookieHeader,
   readOAuthCookie,
+  type OAuthPkceState,
   validateTelegramIdToken,
 } from "@/lib/telegram-oauth";
 import {
@@ -202,7 +204,10 @@ async function finishLogin(
     appEnv: env,
   };
 
-  const returnOrigin = (options?.returnOrigin || requestOrigin).replace(/\/$/, "");
+  const returnOrigin = (
+    options?.returnOrigin ||
+    (options?.appEnv === "test" ? "https://test.tokom.ru" : requestOrigin)
+  ).replace(/\/$/, "");
   const sameOrigin = returnOrigin === requestOrigin.replace(/\/$/, "");
   const response = new NextResponse(
     sameOrigin
@@ -224,6 +229,40 @@ async function finishLogin(
   return response;
 }
 
+async function resolveOidcPkce(
+  request: Request,
+  state: string,
+): Promise<OAuthPkceState | null> {
+  try {
+    const fromDb = await consumeTelegramOAuthPkce(state);
+    if (fromDb) return fromDb;
+  } catch (error) {
+    console.error("consumeTelegramOAuthPkce", error);
+  }
+  const fromCookie = readOAuthCookie(request);
+  if (fromCookie && fromCookie.state === state) return fromCookie;
+  return null;
+}
+
+/** Prefer test host when Referer shows staging; else apex. */
+function pkceReturnHint(request: Request): string {
+  const referer = request.headers.get("referer") ?? "";
+  try {
+    if (referer) {
+      const origin = new URL(referer).origin;
+      if (
+        origin === "https://test.tokom.ru" ||
+        origin === "https://www.test.tokom.ru"
+      ) {
+        return origin;
+      }
+    }
+  } catch {
+    // ignore
+  }
+  return resolveRequestOrigin(request).replace(/\/$/, "");
+}
+
 export async function GET(request: Request) {
   try {
     const url = new URL(request.url);
@@ -231,13 +270,15 @@ export async function GET(request: Request) {
     const state = url.searchParams.get("state");
 
     if (code && state && canUseOidcLogin()) {
-      const pkce = readOAuthCookie(request);
-      if (!pkce || pkce.state !== state) {
-        return NextResponse.redirect(publicRequestUrl("/?auth_error=state", request));
+      const pkce = await resolveOidcPkce(request, state);
+      if (!pkce) {
+        console.error("telegram oauth: missing PKCE for state", state.slice(0, 8));
+        return NextResponse.redirect(`${pkceReturnHint(request)}/?auth_error=state`);
       }
 
       const clientId = getTelegramClientId();
       const clientSecret = getTelegramClientSecret();
+      // Must match the redirect_uri used at /api/auth/telegram/start (BotFather allowlist).
       const redirectUri = `${resolveOAuthOrigin(request)}/auth/telegram/callback`;
       const idToken = await exchangeAuthorizationCode({
         code,
@@ -247,8 +288,11 @@ export async function GET(request: Request) {
         clientSecret,
       });
       const user = await validateTelegramIdToken(idToken, clientId);
+      const returnOrigin =
+        pkce.returnOrigin ||
+        (pkce.appEnv === "test" ? "https://test.tokom.ru" : undefined);
       return finishLogin(user, request, {
-        returnOrigin: pkce.returnOrigin,
+        returnOrigin,
         appEnv: pkce.appEnv,
       });
     }
@@ -265,7 +309,8 @@ export async function GET(request: Request) {
 
     const user = validateTelegramLoginWidget(raw, botToken);
     return finishLogin(user, request);
-  } catch {
+  } catch (error) {
+    console.error("telegram oauth callback", error);
     return NextResponse.redirect(publicRequestUrl("/?auth_error=failed", request));
   }
 }
