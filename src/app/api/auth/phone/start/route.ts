@@ -12,6 +12,7 @@ import {
   PHONE_CODE_NOT_DELIVERED_MESSAGE,
   ruPhoneToE164,
 } from "@/lib/phone-auth";
+import { isTelegramUnreachable } from "@/lib/telegram-fetch";
 import {
   gatewayCheckSendAbility,
   gatewaySendVerificationMessage,
@@ -85,6 +86,16 @@ export async function POST(request: Request) {
         gatewayRequestId = sent.request_id;
       } catch (fallbackError) {
         console.error("telegram gateway send (direct path)", fallbackError);
+        if (
+          isTelegramUnreachable(primaryError) ||
+          isTelegramUnreachable(fallbackError)
+        ) {
+          // Keep 400: the Amvera edge replaces 5xx bodies with its own HTML.
+          throw new PhoneAuthError(
+            "Сервер не может связаться с Telegram Gateway — войдите кнопкой «Войти через Telegram»",
+            400,
+          );
+        }
         throw new PhoneAuthError(PHONE_CODE_NOT_DELIVERED_MESSAGE, 400);
       }
     }

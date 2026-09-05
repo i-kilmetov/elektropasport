@@ -1,17 +1,10 @@
-import { createHash, randomBytes } from "crypto";
-import { createRemoteJWKSet, customFetch, jwtVerify } from "jose";
+import { createHash, createHmac, randomBytes, timingSafeEqual } from "crypto";
 import type { ValidatedTelegramUser } from "@/lib/telegram-auth";
 import { AuthError } from "@/lib/telegram-auth";
 import { telegramFetch } from "@/lib/telegram-fetch";
+import { verifyTelegramOidcToken } from "@/lib/telegram-jwks";
 
 const OAUTH_COOKIE = "ep_tg_oauth";
-const JWKS = createRemoteJWKSet(
-  new URL("https://oauth.telegram.org/.well-known/jwks.json"),
-  {
-    // Telegram is unreachable from some regions — reuse the egress fallback.
-    [customFetch]: (url, options) => telegramFetch(url, options),
-  },
-);
 
 export type OAuthPkceState = {
   state: string;
@@ -36,6 +29,72 @@ export function getTelegramClientSecret(): string {
 
 export function canUseOidcLogin(): boolean {
   return Boolean(getTelegramClientId() && getTelegramClientSecret());
+}
+
+export type OidcExchangeMode = "server" | "browser" | "auto";
+
+/**
+ * Where the authorization code is exchanged for an id_token.
+ * "browser" is required where the server cannot reach oauth.telegram.org
+ * (RF hosting): the user's browser can, and PKCE keeps the flow safe.
+ */
+export function oidcExchangeMode(): OidcExchangeMode {
+  const raw = process.env.TELEGRAM_OIDC_EXCHANGE?.trim().toLowerCase();
+  if (raw === "server" || raw === "browser") return raw;
+  return "auto";
+}
+
+function loginContextSecret(): string {
+  return (
+    process.env.AUTH_SECRET?.trim() ||
+    process.env.TEST_SITE_SECRET?.trim() ||
+    process.env.BOT_TOKEN?.trim() ||
+    ""
+  );
+}
+
+export type LoginContext = {
+  returnOrigin?: string;
+  appEnv?: "prod" | "test";
+  exp: number;
+};
+
+/** Signed hand-off between the callback page and /api/auth/telegram/complete. */
+export function signLoginContext(context: LoginContext): string {
+  const payload = Buffer.from(JSON.stringify(context), "utf8").toString(
+    "base64url",
+  );
+  const mac = createHmac("sha256", loginContextSecret())
+    .update(payload)
+    .digest("base64url");
+  return `${payload}.${mac}`;
+}
+
+export function verifyLoginContext(raw: string): LoginContext | null {
+  if (!loginContextSecret()) return null;
+  const [payload, mac] = raw.split(".");
+  if (!payload || !mac) return null;
+  const expected = createHmac("sha256", loginContextSecret())
+    .update(payload)
+    .digest("base64url");
+  const expectedBuf = Buffer.from(expected, "utf8");
+  const actualBuf = Buffer.from(mac, "utf8");
+  if (
+    expectedBuf.length !== actualBuf.length ||
+    !timingSafeEqual(expectedBuf, actualBuf)
+  ) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(
+      Buffer.from(payload, "base64url").toString("utf8"),
+    ) as LoginContext;
+    if (!parsed || typeof parsed.exp !== "number") return null;
+    if (Date.now() > parsed.exp) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
 }
 
 export function createPkcePair(): OAuthPkceState {
@@ -197,10 +256,7 @@ export async function validateTelegramIdToken(
   idToken: string,
   clientId: string,
 ): Promise<ValidatedTelegramUser> {
-  const { payload } = await jwtVerify(idToken, JWKS, {
-    issuer: "https://oauth.telegram.org",
-    audience: clientId,
-  });
+  const payload = await verifyTelegramOidcToken(idToken, clientId);
 
   // Telegram OIDC: `sub` is an opaque subject, NOT the Telegram user id.
   // The numeric Telegram user id is only in the `id` claim (scope: profile).

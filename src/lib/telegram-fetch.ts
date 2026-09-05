@@ -103,6 +103,19 @@ function normalizeBody(body: BodyInit | null | undefined): {
   throw new Error("Тело запроса не поддерживается Telegram egress прокси");
 }
 
+/** Telegram cannot be reached from this deployment at all. */
+export class TelegramEgressError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "TelegramEgressError";
+  }
+}
+
+/** True when the failure is connectivity, not a Telegram-level rejection. */
+export function isTelegramUnreachable(error: unknown): boolean {
+  return error instanceof TelegramEgressError || isNetworkError(error);
+}
+
 function isNetworkError(error: unknown): boolean {
   if (error instanceof DOMException && error.name === "TimeoutError") return true;
   if (!(error instanceof Error)) return false;
@@ -141,7 +154,7 @@ async function proxyTelegramFetch(
 ): Promise<Response> {
   const proxy = egressProxyUrl();
   if (!proxy) {
-    throw new Error(
+    throw new TelegramEgressError(
       "Telegram недоступен с этого сервера, а TELEGRAM_EGRESS_PROXY_URL не настроен",
     );
   }

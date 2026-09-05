@@ -8,33 +8,21 @@ import {
 import {
   appEnvFromRequest,
   isTestAppHost,
-  toStorageTelegramId,
-  toTelegramChatId,
   type AppEnv,
 } from "@/lib/app-env";
-import { signSessionToken } from "@/lib/session-token";
-import {
-  consumeTelegramOAuthPkce,
-  ensureSchema,
-  getStoredUserProfile,
-  recordUserPdConsent,
-  updateStoredUserProfile,
-  upsertUser,
-  userHasPdConsent,
-} from "@/lib/db";
-import {
-  isPdConsentCookieValid,
-  PD_CONSENT_VERSION,
-  pdConsentCookieHeader,
-  readPdConsentCookie,
-} from "@/lib/pd-consent";
+import { establishTelegramSession } from "@/lib/auth-session";
+import { consumeTelegramOAuthPkce } from "@/lib/db";
+import { pdConsentCookieHeader } from "@/lib/pd-consent";
+import { isTelegramUnreachable } from "@/lib/telegram-fetch";
 import {
   canUseOidcLogin,
   exchangeAuthorizationCode,
   getTelegramClientId,
   getTelegramClientSecret,
   oauthCookieHeader,
+  oidcExchangeMode,
   readOAuthCookie,
+  signLoginContext,
   type OAuthPkceState,
   validateTelegramIdToken,
 } from "@/lib/telegram-oauth";
@@ -150,60 +138,16 @@ async function finishLogin(
 ): Promise<NextResponse> {
   const requestOrigin = resolveRequestOrigin(request);
   const host = new URL(requestOrigin).host;
-  const telegramAuthDisabled =
-    process.env.DISABLE_BROWSER_TELEGRAM_AUTH?.trim().toLowerCase() === "1" ||
-    process.env.DISABLE_BROWSER_TELEGRAM_AUTH?.trim().toLowerCase() === "true";
-  if (telegramAuthDisabled && !isTestAppHost(host) && options?.appEnv !== "test") {
+  if (
+    telegramAuthHardClosed() &&
+    !isTestAppHost(host) &&
+    options?.appEnv !== "test"
+  ) {
     return NextResponse.redirect(publicRequestUrl("/?auth_error=closed", request));
   }
 
-  const env: AppEnv =
-    options?.appEnv ??
-    appEnvFromRequest(request);
-  const realTelegramId = toTelegramChatId(user.telegramId);
-  const storageUser: ValidatedTelegramUser = {
-    ...user,
-    telegramId: toStorageTelegramId(realTelegramId, env),
-    appEnv: env,
-  };
-
-  await ensureSchema();
-  await upsertUser(storageUser);
-
-  const consentVersion = readPdConsentCookie(request);
-  if (isPdConsentCookieValid(consentVersion)) {
-    await recordUserPdConsent(storageUser.telegramId, PD_CONSENT_VERSION);
-  }
-
-  const alreadyConsented = await userHasPdConsent(storageUser.telegramId);
-
-  const existing = await getStoredUserProfile(storageUser.telegramId);
-  if (
-    !existing.firstName &&
-    !existing.lastName &&
-    (user.firstName || user.lastName)
-  ) {
-    await updateStoredUserProfile(storageUser.telegramId, {
-      ...existing,
-      firstName: user.firstName,
-      lastName: user.lastName,
-    });
-  }
-
-  const token = signSessionToken({
-    telegramId: realTelegramId,
-    appEnv: env,
-    firstName: user.firstName,
-    lastName: user.lastName,
-    username: user.username,
-  });
-  const displayUser: ValidatedTelegramUser = {
-    telegramId: realTelegramId,
-    firstName: user.firstName,
-    lastName: user.lastName,
-    username: user.username,
-    appEnv: env,
-  };
+  const env: AppEnv = options?.appEnv ?? appEnvFromRequest(request);
+  const session = await establishTelegramSession(user, request, env);
 
   const returnOrigin = (
     options?.returnOrigin ||
@@ -212,8 +156,8 @@ async function finishLogin(
   const sameOrigin = returnOrigin === requestOrigin.replace(/\/$/, "");
   const response = new NextResponse(
     sameOrigin
-      ? sessionHtml(displayUser, token, returnOrigin)
-      : crossOriginHandoffHtml(returnOrigin, displayUser, token),
+      ? sessionHtml(session.user, session.token, returnOrigin)
+      : crossOriginHandoffHtml(returnOrigin, session.user, session.token),
     {
       headers: { "Content-Type": "text/html; charset=utf-8" },
     },
@@ -224,10 +168,125 @@ async function finishLogin(
       domain: host,
     }),
   );
-  if (alreadyConsented || isPdConsentCookieValid(consentVersion)) {
+  if (session.pdConsent) {
     response.headers.append("Set-Cookie", pdConsentCookieHeader());
   }
   return response;
+}
+
+function telegramAuthHardClosed(): boolean {
+  const raw = process.env.DISABLE_BROWSER_TELEGRAM_AUTH?.trim().toLowerCase();
+  return raw === "1" || raw === "true";
+}
+
+/**
+ * Page that exchanges the authorization code from the user's browser.
+ * Needed where the server cannot reach oauth.telegram.org: the code never
+ * leaves the browser that owns the login, and PKCE + the signed context keep
+ * the hand-off bound to this attempt.
+ */
+function browserExchangeHtml(params: {
+  code: string;
+  verifier: string;
+  clientId: string;
+  redirectUri: string;
+  context: string;
+  completeUrl: string;
+  failureUrl: string;
+}): string {
+  const config = JSON.stringify(params);
+  return `<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex" />
+  <title>Вход…</title>
+  <style>
+    body {
+      margin: 0;
+      min-height: 100dvh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font: 16px/1.4 system-ui, sans-serif;
+      color: #52525b;
+      background: #f4f4f5;
+      text-align: center;
+      padding: 24px;
+    }
+  </style>
+</head>
+<body>
+  <p id="msg">Завершаем вход…</p>
+  <script>
+    (function () {
+      var cfg = ${config};
+      var msg = document.getElementById("msg");
+      function fail(text, reason) {
+        if (msg) msg.textContent = text;
+        var url = cfg.failureUrl;
+        if (reason) {
+          url += (url.indexOf("?") === -1 ? "?" : "&") + "reason=" + encodeURIComponent(String(reason).slice(0, 40));
+        }
+        setTimeout(function () {
+          window.location.replace(url);
+        }, 2500);
+      }
+      var body = new URLSearchParams({
+        grant_type: "authorization_code",
+        code: cfg.code,
+        redirect_uri: cfg.redirectUri,
+        client_id: cfg.clientId,
+        code_verifier: cfg.verifier
+      });
+      fetch("https://oauth.telegram.org/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: body.toString()
+      })
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+          if (!data || !data.id_token) {
+            throw new Error(data && data.error ? data.error : "no id_token");
+          }
+          return fetch(cfg.completeUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ctx: cfg.context, idToken: data.id_token })
+          });
+        })
+        .then(function (res) {
+          return res.json().then(function (data) {
+            if (!res.ok) throw new Error(data && data.error ? data.error : "session failed");
+            return data;
+          });
+        })
+        .then(function (session) {
+          var origin = String(session.returnOrigin || window.location.origin).replace(/\\/$/, "");
+          var payload = new URLSearchParams({
+            token: session.token,
+            user: JSON.stringify(session.user)
+          });
+          if (origin === window.location.origin) {
+            try {
+              localStorage.setItem("elektropasport:auth-token", session.token);
+              localStorage.setItem("elektropasport:auth-user", JSON.stringify(session.user));
+              sessionStorage.setItem(${JSON.stringify(POST_AUTH_SKIP_SPLASH_KEY)}, "1");
+            } catch (e) {}
+            window.location.replace(origin + "/");
+            return;
+          }
+          window.location.replace(origin + "/auth/telegram/finish#" + payload.toString());
+        })
+        .catch(function (error) {
+          console.error("telegram login exchange failed", error);
+          fail("Не удалось завершить вход. Попробуйте ещё раз.", error && error.message);
+        });
+    })();
+  </script>
+</body>
+</html>`;
 }
 
 async function resolveOidcPkce(
@@ -289,13 +348,50 @@ export async function GET(request: Request) {
       const clientSecret = getTelegramClientSecret();
       // Must match the redirect_uri used at /api/auth/telegram/start (BotFather allowlist).
       const redirectUri = `${resolveOAuthOrigin(request)}/auth/telegram/callback`;
-      const idToken = await exchangeAuthorizationCode({
-        code,
-        redirectUri,
-        codeVerifier: pkce.verifier,
-        clientId,
-        clientSecret,
-      });
+      const mode = oidcExchangeMode();
+
+      let idToken: string | null = null;
+      if (mode !== "browser") {
+        try {
+          idToken = await exchangeAuthorizationCode({
+            code,
+            redirectUri,
+            codeVerifier: pkce.verifier,
+            clientId,
+            clientSecret,
+          });
+        } catch (error) {
+          if (mode === "server" || !isTelegramUnreachable(error)) throw error;
+          console.error(
+            "telegram oauth: server exchange unreachable, retrying in browser",
+            error,
+          );
+        }
+      }
+
+      if (!idToken) {
+        const failureBase = (returnOrigin ?? pkceReturnHint(request)).replace(
+          /\/$/,
+          "",
+        );
+        return new NextResponse(
+          browserExchangeHtml({
+            code,
+            verifier: pkce.verifier,
+            clientId,
+            redirectUri,
+            context: signLoginContext({
+              returnOrigin,
+              appEnv: pkce.appEnv,
+              exp: Date.now() + 10 * 60 * 1000,
+            }),
+            completeUrl: `${resolveOAuthOrigin(request)}/api/auth/telegram/complete`,
+            failureUrl: `${failureBase}/?auth_error=failed`,
+          }),
+          { headers: { "Content-Type": "text/html; charset=utf-8" } },
+        );
+      }
+
       const user = await validateTelegramIdToken(idToken, clientId);
       return finishLogin(user, request, {
         returnOrigin,
