@@ -48,3 +48,7 @@ data/moscow/*.checkpoint.json
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local secrets dump — never commit
+ключи.xlsx
+*.xlsx
