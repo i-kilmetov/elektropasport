@@ -44,7 +44,9 @@ export async function POST(request: Request) {
     // Soft stub: only the allowlisted number may receive Gateway codes for now.
     if (!isPhoneAuthAllowlisted(phoneDigits)) {
       await sleep(STUB_DELAY_MS);
-      throw new PhoneAuthError(PHONE_CODE_NOT_DELIVERED_MESSAGE, 502);
+      // Use 400 (not 502): Amvera edge replaces 502 with an HTML page, and the
+      // client then shows a generic "Не удалось выполнить запрос".
+      throw new PhoneAuthError(PHONE_CODE_NOT_DELIVERED_MESSAGE, 400);
     }
 
     await ensureSchema();
@@ -81,7 +83,7 @@ export async function POST(request: Request) {
         const sent = await gatewaySendVerificationMessage(phoneE164);
         gatewayRequestId = sent.request_id;
       } catch {
-        throw new PhoneAuthError(PHONE_CODE_NOT_DELIVERED_MESSAGE, 502);
+        throw new PhoneAuthError(PHONE_CODE_NOT_DELIVERED_MESSAGE, 400);
       }
     }
 

@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { isTestAppHost } from "@/lib/app-env";
-import { resolveOAuthOrigin, publicRequestUrl, resolveRequestOrigin } from "@/lib/app-url";
+import {
+  resolveOAuthOrigin,
+  publicRequestUrl,
+  resolveRequestOrigin,
+} from "@/lib/app-url";
 import {
   buildLegacyAuthUrl,
   buildOidcAuthUrl,
@@ -9,10 +13,12 @@ import {
   getTelegramClientId,
   oauthCookieHeader,
   pkceChallenge,
+  type OAuthPkceState,
 } from "@/lib/telegram-oauth";
 
 export async function GET(request: Request) {
-  const browserHost = new URL(resolveRequestOrigin(request)).host;
+  const browserOrigin = resolveRequestOrigin(request);
+  const browserHost = new URL(browserOrigin).host;
   const clientId = getTelegramClientId();
 
   // Telegram OAuth (widget / OIDC) is always available when the bot client is
@@ -29,12 +35,17 @@ export async function GET(request: Request) {
     return NextResponse.redirect(publicRequestUrl("/?auth_error=closed", request));
   }
 
-  // test.tokom.ru uses its own origin (must be in BotFather allowlist).
+  // Always use the BotFather-registered apex redirect_uri.
   const oauthOrigin = resolveOAuthOrigin(request);
   const redirectUri = `${oauthOrigin}/auth/telegram/callback`;
 
   if (canUseOidcLogin()) {
-    const pkce = createPkcePair();
+    const pair = createPkcePair();
+    const pkce: OAuthPkceState = {
+      ...pair,
+      returnOrigin: browserOrigin,
+      appEnv: isTestAppHost(browserHost) ? "test" : "prod",
+    };
     const authUrl = buildOidcAuthUrl({
       clientId,
       redirectUri,

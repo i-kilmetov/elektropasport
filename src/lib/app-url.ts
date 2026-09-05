@@ -154,7 +154,13 @@ export function resolveOAuthOrigin(request: Request): string {
   const origin = resolveRequestOrigin(request);
   try {
     const host = new URL(origin).host.toLowerCase();
-    if (host === "www.tokom.ru" || host === "tokom.ru") {
+    // BotFather allowlist is registered for tokom.ru — map staging/www here.
+    if (
+      host === "www.tokom.ru" ||
+      host === "tokom.ru" ||
+      host === "test.tokom.ru" ||
+      host === "www.test.tokom.ru"
+    ) {
       return PRODUCTION_APP_URL;
     }
   } catch {

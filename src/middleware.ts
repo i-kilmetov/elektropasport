@@ -24,9 +24,11 @@ const TEST_PUBLIC_PREFIXES = [
   "/api/payments/robokassa-result",
   "/api/payments/robokassa-status",
   "/api/auth/telegram",
+  "/api/auth/phone",
   "/api/telegram/webhook",
   "/api/telegram/hook",
   "/auth/telegram/callback",
+  "/auth/telegram/finish",
 ];
 
 function isTestPublicPath(pathname: string): boolean {

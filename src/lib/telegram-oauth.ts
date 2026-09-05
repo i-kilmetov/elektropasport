@@ -11,6 +11,10 @@ const JWKS = createRemoteJWKSet(
 export type OAuthPkceState = {
   state: string;
   verifier: string;
+  /** Browser origin that started login (e.g. https://test.tokom.ru). */
+  returnOrigin?: string;
+  /** Persist test vs prod user rows when callback runs on apex. */
+  appEnv?: "prod" | "test";
 };
 
 export function getTelegramClientId(): string {
@@ -79,7 +83,32 @@ export function parseOAuthCookie(raw: string | undefined): OAuthPkceState | null
   try {
     const parsed = JSON.parse(raw) as OAuthPkceState;
     if (!parsed?.state || !parsed?.verifier) return null;
-    return parsed;
+    const appEnv =
+      parsed.appEnv === "test" || parsed.appEnv === "prod"
+        ? parsed.appEnv
+        : undefined;
+    let returnOrigin: string | undefined;
+    if (typeof parsed.returnOrigin === "string" && parsed.returnOrigin) {
+      try {
+        const origin = new URL(parsed.returnOrigin).origin;
+        if (
+          origin === "https://tokom.ru" ||
+          origin === "https://www.tokom.ru" ||
+          origin === "https://test.tokom.ru" ||
+          origin === "https://www.test.tokom.ru"
+        ) {
+          returnOrigin = origin;
+        }
+      } catch {
+        // ignore
+      }
+    }
+    return {
+      state: parsed.state,
+      verifier: parsed.verifier,
+      returnOrigin,
+      appEnv,
+    };
   } catch {
     return null;
   }
@@ -90,9 +119,15 @@ export function oauthCookieHeader(
   options?: { domain?: string },
 ): string {
   const host = options?.domain?.replace(/^\./, "").toLowerCase() ?? "";
-  // Only share across apex/www of production — never leak to test.tokom.ru.
+  // Share PKCE cookie across apex / www / test so staging can use the
+  // BotFather-registered https://tokom.ru/auth/telegram/callback.
   const domainAttr =
-    host === "tokom.ru" || host === "www.tokom.ru" ? "; Domain=.tokom.ru" : "";
+    host === "tokom.ru" ||
+    host === "www.tokom.ru" ||
+    host === "test.tokom.ru" ||
+    host === "www.test.tokom.ru"
+      ? "; Domain=.tokom.ru"
+      : "";
   if (!value) {
     return `${OAUTH_COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0${domainAttr}`;
   }

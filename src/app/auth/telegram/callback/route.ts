@@ -10,6 +10,7 @@ import {
   isTestAppHost,
   toStorageTelegramId,
   toTelegramChatId,
+  type AppEnv,
 } from "@/lib/app-env";
 import { signSessionToken } from "@/lib/session-token";
 import {
@@ -108,19 +109,54 @@ function sessionHtml(user: ValidatedTelegramUser, token: string, origin: string)
 </html>`;
 }
 
+/** Hand off session to another tokom host (hash — not sent to the server). */
+function crossOriginHandoffHtml(
+  returnOrigin: string,
+  user: ValidatedTelegramUser,
+  token: string,
+): string {
+  const payload = new URLSearchParams({
+    token,
+    user: JSON.stringify({
+      telegramId: user.telegramId,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      username: user.username,
+    }),
+  });
+  const target = `${returnOrigin.replace(/\/$/, "")}/auth/telegram/finish#${payload.toString()}`;
+  return `<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Вход…</title>
+</head>
+<body>
+  <script>
+    window.location.replace(${JSON.stringify(target)});
+  </script>
+</body>
+</html>`;
+}
+
 async function finishLogin(
   user: ValidatedTelegramUser,
   request: Request,
+  options?: { returnOrigin?: string; appEnv?: AppEnv },
 ): Promise<NextResponse> {
-  const host = new URL(resolveRequestOrigin(request)).host;
+  const requestOrigin = resolveRequestOrigin(request);
+  const host = new URL(requestOrigin).host;
   const telegramAuthDisabled =
     process.env.DISABLE_BROWSER_TELEGRAM_AUTH?.trim().toLowerCase() === "1" ||
     process.env.DISABLE_BROWSER_TELEGRAM_AUTH?.trim().toLowerCase() === "true";
-  if (telegramAuthDisabled && !isTestAppHost(host)) {
+  if (telegramAuthDisabled && !isTestAppHost(host) && options?.appEnv !== "test") {
     return NextResponse.redirect(publicRequestUrl("/?auth_error=closed", request));
   }
 
-  const env = appEnvFromRequest(request);
+  const env: AppEnv =
+    options?.appEnv ??
+    appEnvFromRequest(request);
   const realTelegramId = toTelegramChatId(user.telegramId);
   const storageUser: ValidatedTelegramUser = {
     ...user,
@@ -165,8 +201,13 @@ async function finishLogin(
     username: user.username,
     appEnv: env,
   };
+
+  const returnOrigin = (options?.returnOrigin || requestOrigin).replace(/\/$/, "");
+  const sameOrigin = returnOrigin === requestOrigin.replace(/\/$/, "");
   const response = new NextResponse(
-    sessionHtml(displayUser, token, resolveRequestOrigin(request)),
+    sameOrigin
+      ? sessionHtml(displayUser, token, returnOrigin)
+      : crossOriginHandoffHtml(returnOrigin, displayUser, token),
     {
       headers: { "Content-Type": "text/html; charset=utf-8" },
     },
@@ -174,7 +215,7 @@ async function finishLogin(
   response.headers.append(
     "Set-Cookie",
     oauthCookieHeader(null, {
-      domain: new URL(resolveRequestOrigin(request)).host,
+      domain: host,
     }),
   );
   if (alreadyConsented || isPdConsentCookieValid(consentVersion)) {
@@ -206,7 +247,10 @@ export async function GET(request: Request) {
         clientSecret,
       });
       const user = await validateTelegramIdToken(idToken, clientId);
-      return finishLogin(user, request);
+      return finishLogin(user, request, {
+        returnOrigin: pkce.returnOrigin,
+        appEnv: pkce.appEnv,
+      });
     }
 
     const botToken = getBotToken();
