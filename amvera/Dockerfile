@@ -1,16 +1,22 @@
 # Production Next.js image for Amvera (tokom.ru).
-# Build context = repository root (Amvera Code folder).
+# Always clone public GitHub `main` so rebuilds are not stuck on a stale Code tree.
+FROM node:22-alpine AS source
+RUN apk add --no-cache git
+WORKDIR /src
+ARG GIT_REF=main
+RUN git clone --depth 1 --branch "${GIT_REF}" https://github.com/i-kilmetov/elektropasport.git .
+
 FROM node:22-alpine AS deps
 WORKDIR /app
 RUN apk add --no-cache libc6-compat
-COPY package.json package-lock.json ./
+COPY --from=source /src/package.json /src/package-lock.json ./
 RUN npm ci
 
 FROM node:22-alpine AS builder
 WORKDIR /app
 RUN apk add --no-cache libc6-compat
 COPY --from=deps /app/node_modules ./node_modules
-COPY . .
+COPY --from=source /src .
 
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
