@@ -1,11 +1,16 @@
 import { createHash, randomBytes } from "crypto";
-import { createRemoteJWKSet, jwtVerify } from "jose";
+import { createRemoteJWKSet, customFetch, jwtVerify } from "jose";
 import type { ValidatedTelegramUser } from "@/lib/telegram-auth";
 import { AuthError } from "@/lib/telegram-auth";
+import { telegramFetch } from "@/lib/telegram-fetch";
 
 const OAUTH_COOKIE = "ep_tg_oauth";
 const JWKS = createRemoteJWKSet(
   new URL("https://oauth.telegram.org/.well-known/jwks.json"),
+  {
+    // Telegram is unreachable from some regions — reuse the egress fallback.
+    [customFetch]: (url, options) => telegramFetch(url, options),
+  },
 );
 
 export type OAuthPkceState = {
@@ -157,7 +162,7 @@ export async function exchangeAuthorizationCode(params: {
     "utf8",
   ).toString("base64");
 
-  const res = await fetch("https://oauth.telegram.org/token", {
+  const res = await telegramFetch("https://oauth.telegram.org/token", {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",

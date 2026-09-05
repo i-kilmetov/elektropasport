@@ -1,3 +1,5 @@
+import { telegramFetch } from "@/lib/telegram-fetch";
+
 const GATEWAY_API = "https://gatewayapi.telegram.org";
 const FLOOD_WAIT_RE = /^FLOOD_WAIT_(\d+)$/i;
 
@@ -35,7 +37,7 @@ async function gatewayPost<T>(
 ): Promise<T> {
   let lastError = "Ошибка Telegram Gateway";
   for (let attempt = 0; attempt < 4; attempt++) {
-    const res = await fetch(`${GATEWAY_API}/${method}`, {
+    const res = await telegramFetch(`${GATEWAY_API}/${method}`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${gatewayToken()}`,

@@ -2,6 +2,7 @@ import type { InstallRequest, InstallRequestStatus } from "@/types";
 import { installStatusLabels } from "@/types";
 import { PRODUCTION_APP_URL } from "@/lib/app-url";
 import { getBotToken } from "@/lib/telegram-auth";
+import { telegramFetch } from "@/lib/telegram-fetch";
 import { dedupeMasterStorageIds, toTelegramChatId } from "@/lib/app-env";
 import { listAdminTelegramIds, ownerAdminTelegramId } from "@/lib/admin";
 import {
@@ -52,11 +53,14 @@ async function telegramApi<T>(
     return { ok: false, error: "BOT_TOKEN missing" };
   }
 
-  const res = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
+  const res = await telegramFetch(
+    `https://api.telegram.org/bot${token}/${method}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    },
+  );
 
   const data = (await res.json()) as {
     ok: boolean;
@@ -489,6 +493,7 @@ async function telegramApiForm(
     return { ok: false, error: "BOT_TOKEN missing" };
   }
 
+  // Multipart uploads stay direct — the egress relay only forwards text bodies.
   const res = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
     method: "POST",
     body: form,

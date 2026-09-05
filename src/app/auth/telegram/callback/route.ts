@@ -42,6 +42,7 @@ import {
   publicRequestUrl,
   resolveOAuthOrigin,
   resolveRequestOrigin,
+  TEST_APP_URL,
 } from "@/lib/app-url";
 import { POST_AUTH_NEXT_KEY, POST_AUTH_SKIP_SPLASH_KEY } from "@/lib/auth-flow";
 
@@ -206,7 +207,7 @@ async function finishLogin(
 
   const returnOrigin = (
     options?.returnOrigin ||
-    (options?.appEnv === "test" ? "https://test.tokom.ru" : requestOrigin)
+    (options?.appEnv === "test" ? TEST_APP_URL : requestOrigin)
   ).replace(/\/$/, "");
   const sameOrigin = returnOrigin === requestOrigin.replace(/\/$/, "");
   const response = new NextResponse(
@@ -264,6 +265,9 @@ function pkceReturnHint(request: Request): string {
 }
 
 export async function GET(request: Request) {
+  // Remembered so a failed exchange still returns the user to the host they
+  // started from (test.tokom.ru) instead of the prod waitlist page.
+  let loginOrigin: string | null = null;
   try {
     const url = new URL(request.url);
     const code = url.searchParams.get("code");
@@ -275,6 +279,11 @@ export async function GET(request: Request) {
         console.error("telegram oauth: missing PKCE for state", state.slice(0, 8));
         return NextResponse.redirect(`${pkceReturnHint(request)}/?auth_error=state`);
       }
+
+      const returnOrigin =
+        pkce.returnOrigin ||
+        (pkce.appEnv === "test" ? TEST_APP_URL : undefined);
+      loginOrigin = returnOrigin ?? null;
 
       const clientId = getTelegramClientId();
       const clientSecret = getTelegramClientSecret();
@@ -288,9 +297,6 @@ export async function GET(request: Request) {
         clientSecret,
       });
       const user = await validateTelegramIdToken(idToken, clientId);
-      const returnOrigin =
-        pkce.returnOrigin ||
-        (pkce.appEnv === "test" ? "https://test.tokom.ru" : undefined);
       return finishLogin(user, request, {
         returnOrigin,
         appEnv: pkce.appEnv,
@@ -311,6 +317,7 @@ export async function GET(request: Request) {
     return finishLogin(user, request);
   } catch (error) {
     console.error("telegram oauth callback", error);
-    return NextResponse.redirect(publicRequestUrl("/?auth_error=failed", request));
+    const base = (loginOrigin ?? pkceReturnHint(request)).replace(/\/$/, "");
+    return NextResponse.redirect(`${base}/?auth_error=failed`);
   }
 }
