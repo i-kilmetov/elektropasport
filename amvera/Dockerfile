@@ -6,9 +6,11 @@ ARG REPO_URL=https://github.com/i-kilmetov/elektropasport.git
 ARG REPO_REF=main
 RUN git clone --depth 1 --branch "${REPO_REF}" "${REPO_URL}" .
 ENV NEXT_TELEMETRY_DISABLED=1
+# npm ci must run with NODE_ENV unset so build tooling (e.g. @tailwindcss/postcss) installs.
+RUN npm ci
 ENV NODE_ENV=production
 # NEXT_PUBLIC_* must be present in Amvera Variables during build.
-RUN npm ci && npm run build
+RUN npm run build
 
 FROM node:22-alpine AS runner
 WORKDIR /app
