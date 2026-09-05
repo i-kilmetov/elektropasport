@@ -71,7 +71,12 @@ export async function POST(request: Request) {
 export async function GET() {
   const targets = [
     ...TELEGRAM_API_HOSTS.map((host) => `https://${host}/`),
+    "https://core.telegram.org/",
+    "https://t.me/",
     "https://elektropasport.vercel.app/api/payments/robokassa-status",
+    "https://api.github.com/",
+    "https://www.google.com/generate_204",
+    "https://cloudflare-dns.com/dns-query?name=example.com",
   ];
 
   const checks = await Promise.all(
@@ -80,6 +85,7 @@ export async function GET() {
       try {
         const res = await fetch(url, {
           method: "GET",
+          redirect: "manual",
           signal: AbortSignal.timeout(6000),
         });
         return { url, ok: true, status: res.status, ms: Date.now() - startedAt };
@@ -95,8 +101,27 @@ export async function GET() {
     }),
   );
 
+  const dns = await Promise.all(
+    TELEGRAM_API_HOSTS.map(async (host) => {
+      try {
+        const { promises } = await import("dns");
+        const [v4, v6] = await Promise.all([
+          promises.resolve4(host).catch(() => []),
+          promises.resolve6(host).catch(() => []),
+        ]);
+        return { host, v4, v6 };
+      } catch (error) {
+        return { host, error: (error as Error).message };
+      }
+    }),
+  );
+
   return NextResponse.json(
-    { proxyConfigured: Boolean(process.env.TELEGRAM_EGRESS_PROXY_URL), checks },
+    {
+      proxyConfigured: Boolean(process.env.TELEGRAM_EGRESS_PROXY_URL),
+      checks,
+      dns,
+    },
     { headers: { "Cache-Control": "no-store" } },
   );
 }
