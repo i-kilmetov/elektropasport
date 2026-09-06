@@ -4,11 +4,17 @@ import { toTelegramChatId } from "@/lib/app-env";
 import { PRODUCTION_APP_URL, TEST_APP_URL } from "@/lib/app-url";
 import {
   getInstallRequestById,
+  getPanelById,
   getPendingSbpPaymentByRequestId,
   insertSbpPayment,
+  updateSbpPayment,
   type SbpPaymentRecord,
 } from "@/lib/db";
-import { MASTER_HOME_VISIT_PRICE_RUB } from "@/lib/lead-services";
+import {
+  countPanelModules,
+  masterVisitPriceRub,
+  parseModulesFromSetupTitle,
+} from "@/lib/lead-services";
 import {
   buildRobokassaPaymentUrl,
   isRobokassaConfigured,
@@ -29,6 +35,21 @@ function appOriginForOwner(storageTelegramId: number): string {
   return storageTelegramId < 0 ? TEST_APP_URL : PRODUCTION_APP_URL;
 }
 
+/** Visit amount: 1000 ₽ × panel modules, minimum 5000 ₽. */
+export async function resolveInstallRequestVisitAmountRub(
+  request: InstallRequest,
+): Promise<number> {
+  let modules = 0;
+  if (request.panelId) {
+    const panel = await getPanelById(request.panelId);
+    modules = countPanelModules(panel?.devices ?? []);
+  }
+  if (modules <= 0) {
+    modules = parseModulesFromSetupTitle(request.setupTitle);
+  }
+  return masterVisitPriceRub(modules);
+}
+
 /**
  * Create (or reuse) a Robokassa payment link for an accepted install request.
  */
@@ -38,10 +59,16 @@ export async function ensureInstallRequestPayment(
   if (!isRobokassaConfigured()) return null;
   if (request.status !== "payment" && request.status !== "new") return null;
 
+  const amountRub = await resolveInstallRequestVisitAmountRub(request);
   const existing = await getPendingSbpPaymentByRequestId(request.id);
-  if (existing?.qrPayload) return existing;
+  if (existing?.qrPayload && existing.amountRub === amountRub) {
+    return existing;
+  }
+  // Drop stale pending links (e.g. old fixed 2990 ₽ amount).
+  if (existing) {
+    await updateSbpPayment(existing.id, { status: "failed" });
+  }
 
-  const amountRub = MASTER_HOME_VISIT_PRICE_RUB;
   const orderId = newOrderId();
   const invId = newRobokassaInvId();
   const origin = appOriginForOwner(request.telegramUserId);
@@ -90,11 +117,21 @@ export async function afterInstallRequestAccepted(
   }
 
   let paymentUrl: string | null = null;
+  let amountRub: number | null = null;
   try {
     const payment = await ensureInstallRequestPayment(existing);
     paymentUrl = payment?.qrPayload ?? null;
+    amountRub = payment?.amountRub ?? null;
   } catch (error) {
     console.error("ensureInstallRequestPayment", error);
+  }
+
+  if (amountRub == null) {
+    try {
+      amountRub = await resolveInstallRequestVisitAmountRub(existing);
+    } catch (error) {
+      console.error("resolveInstallRequestVisitAmountRub", error);
+    }
   }
 
   const ownerStorageId = existing.telegramUserId;
@@ -104,6 +141,7 @@ export async function afterInstallRequestAccepted(
         toTelegramChatId(ownerStorageId),
         existing,
         paymentUrl,
+        amountRub ?? undefined,
       );
     } catch (error) {
       console.error("notifyCustomerMasterAccepted", error);

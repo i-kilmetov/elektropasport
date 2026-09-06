@@ -2,13 +2,15 @@ import {
   authErrorResponse,
   requireTelegramUser,
 } from "@/lib/telegram-auth";
+import { MASTER_VISIT_MIN_PRICE_RUB } from "@/lib/lead-services";
+import { resolveInstallRequestVisitAmountRub } from "@/lib/install-request-accept";
 import {
   dbErrorResponse,
   ensureSchema,
+  getInstallRequestById,
   markInstallRequestPaid,
   upsertUser,
 } from "@/lib/db";
-import { MASTER_HOME_VISIT_PRICE_RUB } from "@/lib/lead-services";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -23,10 +25,16 @@ export async function POST(request: Request, context: RouteContext) {
       amountRub?: number;
       tbankPaymentId?: string;
     };
-    const amountRub =
+    let amountRub =
       typeof body.amountRub === "number" && body.amountRub > 0
         ? body.amountRub
-        : MASTER_HOME_VISIT_PRICE_RUB;
+        : null;
+    if (amountRub == null) {
+      const existing = await getInstallRequestById(id);
+      amountRub = existing
+        ? await resolveInstallRequestVisitAmountRub(existing)
+        : MASTER_VISIT_MIN_PRICE_RUB;
+    }
 
     const item = await markInstallRequestPaid(
       user.telegramId,

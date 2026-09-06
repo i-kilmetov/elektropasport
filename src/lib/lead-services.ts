@@ -3,10 +3,14 @@ import { deviceModules } from "@/lib/panel-rails";
 
 export const ONLINE_CONSULTATION_PRICE_RUB = 499;
 export const MODULE_LABELING_PRICE_RUB = 500;
-export const MASTER_HOME_VISIT_PRICE_RUB = 2990;
-/** Выезд для проверки расключения: 1000 ₽ за модуль, минимум 5000 ₽. */
-export const WIRING_CHECK_PRICE_PER_MODULE_RUB = 1000;
-export const WIRING_CHECK_MIN_PRICE_RUB = 5000;
+/** Выезд мастера: 1000 ₽ за модуль в щитке, минимум 5000 ₽. */
+export const MASTER_VISIT_PRICE_PER_MODULE_RUB = 1000;
+export const MASTER_VISIT_MIN_PRICE_RUB = 5000;
+/** @deprecated use masterVisitPriceRub / MASTER_VISIT_MIN_PRICE_RUB */
+export const MASTER_HOME_VISIT_PRICE_RUB = MASTER_VISIT_MIN_PRICE_RUB;
+/** Выезд для проверки расключения — та же формула, что и выезд мастера. */
+export const WIRING_CHECK_PRICE_PER_MODULE_RUB = MASTER_VISIT_PRICE_PER_MODULE_RUB;
+export const WIRING_CHECK_MIN_PRICE_RUB = MASTER_VISIT_MIN_PRICE_RUB;
 
 export type LeadServiceType =
   | "online_consultation"
@@ -61,11 +65,25 @@ export function masterLabelingPriceRub(moduleCount: number): number {
   return Math.max(0, moduleCount) * MODULE_LABELING_PRICE_RUB;
 }
 
-export function wiringCheckVisitPriceRub(moduleCount: number): number {
+/** 1000 ₽ × modules, not less than 5000 ₽. */
+export function masterVisitPriceRub(moduleCount: number): number {
   return Math.max(
-    WIRING_CHECK_MIN_PRICE_RUB,
-    Math.max(0, moduleCount) * WIRING_CHECK_PRICE_PER_MODULE_RUB,
+    MASTER_VISIT_MIN_PRICE_RUB,
+    Math.max(0, moduleCount) * MASTER_VISIT_PRICE_PER_MODULE_RUB,
   );
+}
+
+export function wiringCheckVisitPriceRub(moduleCount: number): number {
+  return masterVisitPriceRub(moduleCount);
+}
+
+/** Parse "N мод." from setup titles when panel devices are unavailable. */
+export function parseModulesFromSetupTitle(setupTitle?: string | null): number {
+  if (!setupTitle) return 0;
+  const match = setupTitle.match(/(\d+)\s*мод/i);
+  if (!match) return 0;
+  const n = Number(match[1]);
+  return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
 export function getLeadServiceLabel(type: LeadServiceType): string {
@@ -99,6 +117,11 @@ export function buildLeadServiceSetupTitle(input: {
       input.estimatedPriceRub ?? wiringCheckVisitPriceRub(input.panelModules);
     return `${base} (${input.panelModules} мод., ${formatRub(price)})`;
   }
+  if (input.serviceType === "master_home_visit" && input.panelModules) {
+    const price =
+      input.estimatedPriceRub ?? masterVisitPriceRub(input.panelModules);
+    return `${base} (${input.panelModules} мод., ${formatRub(price)})`;
+  }
   if (
     (input.serviceType === "online_consultation" ||
       input.serviceType === "master_home_visit") &&
@@ -121,9 +144,9 @@ export function getLeadServiceOptions(input: {
         id: "master_home_visit",
         title: "Вызов мастера на дом",
         description:
-          "Поиск мастера занимает в среднем не больше минуты. Мастера ищем в реальном времени среди подключенных в вашем городе.",
-        priceLabel: formatRub(MASTER_HOME_VISIT_PRICE_RUB),
-        priceRub: MASTER_HOME_VISIT_PRICE_RUB,
+          "Поиск мастера занимает в среднем не больше минуты. Мастера ищем в реальном времени среди подключенных в вашем городе. Стоимость — 1000 ₽ за модуль в щитке, минимум 5000 ₽.",
+        priceLabel: `от ${formatRub(MASTER_VISIT_MIN_PRICE_RUB)}`,
+        priceRub: MASTER_VISIT_MIN_PRICE_RUB,
       },
     ];
   }
@@ -149,7 +172,13 @@ export function payableAmountRub(input: {
     return ONLINE_CONSULTATION_PRICE_RUB;
   }
   if (input.serviceType === "master_home_visit") {
-    return MASTER_HOME_VISIT_PRICE_RUB;
+    if (
+      typeof input.panelModules === "number" &&
+      input.panelModules > 0
+    ) {
+      return masterVisitPriceRub(input.panelModules);
+    }
+    return MASTER_VISIT_MIN_PRICE_RUB;
   }
   if (
     input.serviceType === "master_labeling" &&

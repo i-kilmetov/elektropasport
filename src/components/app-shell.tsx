@@ -100,7 +100,7 @@ import { resolveRequestTypeCode } from "@/lib/request-codes";
 import {
   buildLeadServiceSetupTitle,
   countPanelModules,
-  MASTER_HOME_VISIT_PRICE_RUB,
+  masterVisitPriceRub,
   payableAmountRub,
   resolveRequestTypeCodeForService,
   wiringCheckVisitPriceRub,
@@ -2444,7 +2444,7 @@ export function AppShell({
 
       const typeCode = resolveRequestTypeCodeForService("master_home_visit");
       const publicCode = await allocateRequestPublicCode(typeCode);
-      const estimatedPriceRub = MASTER_HOME_VISIT_PRICE_RUB;
+      const estimatedPriceRub = masterVisitPriceRub(modules);
 
       await submitLead({
         contactMethod: "phone",
@@ -2457,6 +2457,7 @@ export function AppShell({
         panelModules: modules > 0 ? modules : undefined,
         setupTitle: buildLeadServiceSetupTitle({
           serviceType: "master_home_visit",
+          panelModules: modules > 0 ? modules : undefined,
           estimatedPriceRub,
         }),
         publicCode,
@@ -2504,7 +2505,7 @@ export function AppShell({
 
       const typeCode = resolveRequestTypeCodeForService("master_home_visit");
       const publicCode = await allocateRequestPublicCode(typeCode);
-      const estimatedPriceRub = MASTER_HOME_VISIT_PRICE_RUB;
+      const estimatedPriceRub = masterVisitPriceRub(modules);
 
       await submitLead({
         contactMethod: "phone",
@@ -2520,6 +2521,7 @@ export function AppShell({
         panelModules: modules > 0 ? modules : undefined,
         setupTitle: buildLeadServiceSetupTitle({
           serviceType: "master_home_visit",
+          panelModules: modules > 0 ? modules : undefined,
           estimatedPriceRub,
         }),
         publicCode,
@@ -2536,7 +2538,8 @@ export function AppShell({
       setSelectedLeadService("master_home_visit");
       const typeCode = resolveRequestTypeCodeForService("master_home_visit");
       const publicCode = await allocateRequestPublicCode(typeCode);
-      const estimatedPriceRub = MASTER_HOME_VISIT_PRICE_RUB;
+      const modules = leadPanelModules ?? 0;
+      const estimatedPriceRub = masterVisitPriceRub(modules);
       await submitLead({
         contactMethod: "phone",
         phone,
@@ -2545,9 +2548,10 @@ export function AppShell({
         exactAddress: selectedAddress ?? undefined,
         serviceType: "master_home_visit",
         estimatedPriceRub,
-        panelModules: leadPanelModules ?? undefined,
+        panelModules: modules > 0 ? modules : undefined,
         setupTitle: buildLeadServiceSetupTitle({
           serviceType: "master_home_visit",
+          panelModules: modules > 0 ? modules : undefined,
           estimatedPriceRub,
         }),
         publicCode,
@@ -3846,9 +3850,19 @@ export function AppShell({
                       } catch (error) {
                         // Fallback for local/dev without Robokassa.
                         try {
+                          const panel = activeRequest.panelId
+                            ? items.find(
+                                (item): item is PanelObject =>
+                                  item.kind === "panel" &&
+                                  item.id === activeRequest.panelId,
+                              )
+                            : null;
+                          const visitAmount = masterVisitPriceRub(
+                            countPanelModules(panel?.devices ?? []),
+                          );
                           const paid = await confirmInstallRequestPayment(
                             activeRequest.id,
-                            MASTER_HOME_VISIT_PRICE_RUB,
+                            visitAmount,
                           );
                           setItems((prev) =>
                             prev.map((item) =>
@@ -3982,12 +3996,15 @@ export function AppShell({
               key={`success-${searchRequestId}`}
               requestId={searchRequestId}
               master={foundMaster}
-              amountRub={MASTER_HOME_VISIT_PRICE_RUB}
+              amountRub={masterVisitPriceRub(leadPanelModules ?? 0)}
               city={selectedCity ?? activeRequest?.city}
               address={selectedAddress ?? activeRequest?.exactAddress}
               lat={selectedCoords?.lat}
               lon={selectedCoords?.lon}
               onPaymentComplete={() => {
+                const paidAmountRub = masterVisitPriceRub(
+                  leadPanelModules ?? 0,
+                );
                 setItems((prev) =>
                   prev.map((item) =>
                     item.kind === "install_request" &&
@@ -3995,14 +4012,14 @@ export function AppShell({
                       ? {
                           ...item,
                           paymentStatus: "confirmed",
-                          paidAmountRub: MASTER_HOME_VISIT_PRICE_RUB,
+                          paidAmountRub,
                         }
                       : item,
                   ),
                 );
                 void persistInstallRequestPatch(searchRequestId, {
                   paymentStatus: "confirmed",
-                  paidAmountRub: MASTER_HOME_VISIT_PRICE_RUB,
+                  paidAmountRub,
                 }).catch((error) => {
                   console.error(error);
                 });

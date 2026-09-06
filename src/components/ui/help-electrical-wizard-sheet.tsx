@@ -38,7 +38,12 @@ import {
   applianceDisplayKindLabel,
   createApplianceId,
 } from "@/lib/home-appliances";
-import { formatRub, MASTER_HOME_VISIT_PRICE_RUB } from "@/lib/lead-services";
+import {
+  countPanelModules,
+  formatRub,
+  masterVisitPriceRub,
+  MASTER_VISIT_MIN_PRICE_RUB,
+} from "@/lib/lead-services";
 import { hapticNotification } from "@/lib/haptics";
 import { getTelegramUserName } from "@/lib/telegram-user";
 import {
@@ -474,9 +479,11 @@ function AiAnswerStep({
 export function MasterVisitConfirmStep({
   onBack,
   onConfirm,
+  moduleCount = 0,
 }: {
   onBack: () => void;
   onConfirm: (payload: { phone: string; name: string }) => void | Promise<void>;
+  moduleCount?: number;
 }) {
   const [phoneDigits, setPhoneDigits] = useState(
     () => getUserProfile().phoneDigits?.replace(/\D/g, "").slice(0, 10) ?? "",
@@ -487,6 +494,14 @@ export function MasterVisitConfirmStep({
     [phoneDigits],
   );
   const phoneValid = phoneDigits.length === 10;
+  const visitPriceRub =
+    moduleCount > 0
+      ? masterVisitPriceRub(moduleCount)
+      : MASTER_VISIT_MIN_PRICE_RUB;
+  const priceLabel =
+    moduleCount > 0
+      ? formatRub(visitPriceRub)
+      : `от ${formatRub(MASTER_VISIT_MIN_PRICE_RUB)}`;
 
   const handleConfirm = async () => {
     if (!phoneValid || confirming) return;
@@ -510,10 +525,9 @@ export function MasterVisitConfirmStep({
     <div className="space-y-4">
       <p className="ty-body text-zinc-700">
         Стоимость вызова —{" "}
-        <span className="font-medium text-zinc-900">
-          {formatRub(MASTER_HOME_VISIT_PRICE_RUB)}
-        </span>
-        . Оплату нужно будет выполнить только после успешного поиска мастера.
+        <span className="font-medium text-zinc-900">{priceLabel}</span>
+        {moduleCount > 0 ? ` за ${moduleCount} мод.` : ""}. Оплату нужно будет
+        выполнить только после успешного поиска мастера.
       </p>
 
       <div>
@@ -924,6 +938,7 @@ export function HelpElectricalWizardSheet({
 
           {step === "master_confirm" && aiContext ? (
             <MasterVisitConfirmStep
+              moduleCount={countPanelModules(selectedPanel?.devices ?? [])}
               onBack={handleBack}
               onConfirm={(payload) =>
                 void onConfirmMasterVisit({

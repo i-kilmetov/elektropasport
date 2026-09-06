@@ -1,7 +1,7 @@
 import type { InstallRequest, InstallRequestStatus } from "@/types";
 import { installStatusLabels } from "@/types";
 import { PRODUCTION_APP_URL } from "@/lib/app-url";
-import { MASTER_HOME_VISIT_PRICE_RUB } from "@/lib/lead-services";
+import { MASTER_VISIT_MIN_PRICE_RUB } from "@/lib/lead-services";
 import { getBotToken } from "@/lib/telegram-auth";
 import { telegramFetch } from "@/lib/telegram-fetch";
 import { dedupeMasterStorageIds, toTelegramChatId } from "@/lib/app-env";
@@ -443,8 +443,9 @@ export async function notifyCustomerMasterAccepted(
   customerChatId: number,
   request: InstallRequest,
   paymentUrl: string | null,
+  amountRub?: number,
 ): Promise<void> {
-  const amount = MASTER_HOME_VISIT_PRICE_RUB;
+  const amount = amountRub ?? MASTER_VISIT_MIN_PRICE_RUB;
   const lines = [
     "✅ Мастер принял вашу заявку",
     "",

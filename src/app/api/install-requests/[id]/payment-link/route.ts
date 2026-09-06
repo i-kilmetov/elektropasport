@@ -15,7 +15,7 @@ import {
   toTelegramChatId,
 } from "@/lib/app-env";
 import { ensureInstallRequestPayment } from "@/lib/install-request-accept";
-import { MASTER_HOME_VISIT_PRICE_RUB } from "@/lib/lead-services";
+import { MASTER_VISIT_MIN_PRICE_RUB } from "@/lib/lead-services";
 import { isPhoneAuthStorageId } from "@/lib/phone-auth";
 import { notifyCustomerMasterAccepted } from "@/lib/telegram-notify";
 
@@ -66,6 +66,7 @@ export async function POST(request: Request, context: RouteContext) {
           toTelegramChatId(existing.telegramUserId),
           existing,
           payment.qrPayload,
+          payment.amountRub,
         );
       } catch (error) {
         console.error("payment-link notifyCustomerMasterAccepted", error);
@@ -74,7 +75,7 @@ export async function POST(request: Request, context: RouteContext) {
 
     return Response.json({
       paymentUrl: payment.qrPayload,
-      amountRub: payment.amountRub ?? MASTER_HOME_VISIT_PRICE_RUB,
+      amountRub: payment.amountRub ?? MASTER_VISIT_MIN_PRICE_RUB,
     });
   } catch (error) {
     return dbErrorResponse(error) ?? authErrorResponse(error);
