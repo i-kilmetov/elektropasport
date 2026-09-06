@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto";
+import { ownerAdminTelegramId } from "@/lib/admin";
 import { appEnvFromRequest } from "@/lib/app-env";
 import { dbErrorResponse, ensureSchema, getSql, insertPhoneAuthChallenge } from "@/lib/db";
 import {
@@ -7,7 +8,9 @@ import {
   phoneAuthErrorResponse,
 } from "@/lib/phone-auth-server";
 import {
+  generateLocalPhoneOtp,
   isPhoneAuthAllowlisted,
+  localPhoneOtpRequestId,
   normalizeRuPhoneDigits,
   PHONE_CODE_NOT_DELIVERED_MESSAGE,
   ruPhoneToE164,
@@ -17,6 +20,7 @@ import {
   gatewayCheckSendAbility,
   gatewaySendVerificationMessage,
 } from "@/lib/telegram-gateway";
+import { sendTelegramMessage } from "@/lib/telegram-notify";
 
 const START_COOLDOWN_MS = 60_000;
 const CHALLENGE_TTL_MS = 5 * 60_000;
@@ -72,7 +76,7 @@ export async function POST(request: Request) {
       }
     }
 
-    let gatewayRequestId: string;
+    let gatewayRequestId: string | null = null;
     try {
       const ability = await gatewayCheckSendAbility(phoneE164);
       gatewayRequestId = ability.request_id;
@@ -87,26 +91,53 @@ export async function POST(request: Request) {
       } catch (fallbackError) {
         console.error("telegram gateway send (direct path)", fallbackError);
         if (
-          isTelegramUnreachable(primaryError) ||
-          isTelegramUnreachable(fallbackError)
+          !(
+            isTelegramUnreachable(primaryError) ||
+            isTelegramUnreachable(fallbackError)
+          )
         ) {
-          // Keep 400: the Amvera edge replaces 5xx bodies with its own HTML.
-          throw new PhoneAuthError(
-            "Сервер не может связаться с Telegram Gateway — войдите кнопкой «Войти через Telegram»",
-            400,
-          );
+          throw new PhoneAuthError(PHONE_CODE_NOT_DELIVERED_MESSAGE, 400);
         }
-        throw new PhoneAuthError(PHONE_CODE_NOT_DELIVERED_MESSAGE, 400);
+        // Amvera Moscow cannot reach gatewayapi.telegram.org, but api.telegram.org
+        // works — deliver the OTP through the bot to the admin chat.
+        gatewayRequestId = null;
+      }
+    }
+
+    const challengeId = randomUUID();
+    const expiresAt = new Date(Date.now() + CHALLENGE_TTL_MS).toISOString();
+
+    if (!gatewayRequestId) {
+      const adminChatId = ownerAdminTelegramId();
+      if (adminChatId == null) {
+        throw new PhoneAuthError(
+          "Telegram Gateway недоступен, а TELEGRAM_ADMIN_CHAT_ID не задан",
+          400,
+        );
+      }
+      const code = generateLocalPhoneOtp();
+      gatewayRequestId = localPhoneOtpRequestId(challengeId, code);
+      try {
+        await sendTelegramMessage(
+          adminChatId,
+          `Код входа Током: ${code}\nНомер: ${phoneE164}\nДействует 5 минут.`,
+        );
+      } catch (error) {
+        console.error("phone auth bot otp send", error);
+        throw new PhoneAuthError(
+          "Не удалось отправить код в Telegram — напишите боту /start и попробуйте снова",
+          400,
+        );
       }
     }
 
     const challenge = await insertPhoneAuthChallenge({
-      id: randomUUID(),
+      id: challengeId,
       phoneE164,
       phoneDigits,
       gatewayRequestId,
       appEnv: env,
-      expiresAt: new Date(Date.now() + CHALLENGE_TTL_MS).toISOString(),
+      expiresAt,
     });
 
     return Response.json({

@@ -7,7 +7,11 @@ import {
   type PhoneAuthChallenge,
 } from "@/lib/db";
 import { isInviteToken } from "@/lib/invites";
-import { isTelegramGatewayConfigured } from "@/lib/phone-auth";
+import {
+  isLocalPhoneOtpRequestId,
+  isTelegramGatewayConfigured,
+  verifyLocalPhoneOtp,
+} from "@/lib/phone-auth";
 import { gatewayCheckVerificationStatus } from "@/lib/telegram-gateway";
 import { signSessionToken } from "@/lib/session-token";
 import type { ValidatedTelegramUser } from "@/lib/telegram-auth";
@@ -70,12 +74,25 @@ export async function finishPhoneAuthLogin(input: {
     throw new PhoneAuthError("Сессия другого окружения", 400);
   }
 
-  const status = await gatewayCheckVerificationStatus(
-    input.challenge.gatewayRequestId,
-    input.code.trim(),
-  );
-  if (status.verification_status.status !== "code_valid") {
-    throw new PhoneAuthError("Неверный код", 400);
+  const code = input.code.trim();
+  if (isLocalPhoneOtpRequestId(input.challenge.gatewayRequestId)) {
+    if (
+      !verifyLocalPhoneOtp(
+        input.challenge.id,
+        input.challenge.gatewayRequestId,
+        code,
+      )
+    ) {
+      throw new PhoneAuthError("Неверный код", 400);
+    }
+  } else {
+    const status = await gatewayCheckVerificationStatus(
+      input.challenge.gatewayRequestId,
+      code,
+    );
+    if (status.verification_status.status !== "code_valid") {
+      throw new PhoneAuthError("Неверный код", 400);
+    }
   }
 
   await markPhoneAuthChallengeVerified(input.challenge.id);
