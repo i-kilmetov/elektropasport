@@ -66,7 +66,9 @@ export function JobLandingPage() {
     } catch {
       // private mode
     }
-    window.location.assign("/api/auth/telegram/start");
+    void import("@/lib/pd-consent-client").then(({ beginTelegramLogin }) =>
+      beginTelegramLogin("/job"),
+    );
   };
 
   return (

@@ -11,25 +11,29 @@ import {
 } from "@/lib/telegram-oauth";
 
 /**
- * Completes a login whose code was exchanged in the user's browser
- * (see the callback route's browser exchange page). The id_token signature is
- * verified server-side against pinned Telegram keys, so a forged token cannot
- * create a session.
+ * Completes Telegram login after the browser already holds an id_token.
+ * Used by:
+ * - Telegram.Login popup (same-origin, no ctx)
+ * - browser code-exchange handoff page (signed ctx for return host)
  */
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as {
       ctx?: unknown;
       idToken?: unknown;
+      id_token?: unknown;
     };
     const rawContext = typeof body.ctx === "string" ? body.ctx : "";
-    const idToken = typeof body.idToken === "string" ? body.idToken : "";
-    if (!rawContext || !idToken) {
+    const idToken =
+      (typeof body.idToken === "string" && body.idToken) ||
+      (typeof body.id_token === "string" && body.id_token) ||
+      "";
+    if (!idToken) {
       return NextResponse.json({ error: "Некорректный запрос" }, { status: 400 });
     }
 
-    const context = verifyLoginContext(rawContext);
-    if (!context) {
+    const context = rawContext ? verifyLoginContext(rawContext) : null;
+    if (rawContext && !context) {
       return NextResponse.json(
         { error: "Сессия входа истекла — попробуйте снова" },
         { status: 400 },
@@ -45,19 +49,24 @@ export async function POST(request: Request) {
     }
 
     const user = await validateTelegramIdToken(idToken, clientId);
-    const env = context.appEnv ?? appEnvFromRequest(request);
+    const env = context?.appEnv ?? appEnvFromRequest(request);
 
     const disabled =
       process.env.DISABLE_BROWSER_TELEGRAM_AUTH?.trim().toLowerCase() === "1" ||
       process.env.DISABLE_BROWSER_TELEGRAM_AUTH?.trim().toLowerCase() === "true";
     const requestOrigin = resolveRequestOrigin(request);
-    if (disabled && env !== "test" && !isTestAppHost(new URL(requestOrigin).host)) {
+    if (
+      disabled &&
+      env !== "test" &&
+      !isTestAppHost(new URL(requestOrigin).host)
+    ) {
       return NextResponse.json({ error: "Вход закрыт" }, { status: 403 });
     }
 
     const session = await establishTelegramSession(user, request, env);
     const returnOrigin = (
-      context.returnOrigin || (env === "test" ? TEST_APP_URL : requestOrigin)
+      context?.returnOrigin ||
+      (env === "test" ? TEST_APP_URL : requestOrigin)
     ).replace(/\/$/, "");
 
     const response = NextResponse.json(

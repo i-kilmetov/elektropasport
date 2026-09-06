@@ -192,6 +192,22 @@ export function PhoneLoginFlow({
     };
   }, []);
 
+  // Mini App / deep-link: /?auth=telegram opens the popup once on this host.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("auth") !== "telegram") return;
+    params.delete("auth");
+    const clean = `${window.location.pathname}${params.toString() ? `?${params}` : ""}${window.location.hash}`;
+    window.history.replaceState({}, "", clean);
+    setBusy(true);
+    void beginTelegramLogin(returnTo)
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : "Не удалось начать вход");
+      })
+      .finally(() => setBusy(false));
+  }, [returnTo]);
+
   const phoneDigits = useMemo(() => ruNationalDigits(phone), [phone]);
   const phoneValid = phoneDigits.length === 10;
   const isSplash = variant === "splash";

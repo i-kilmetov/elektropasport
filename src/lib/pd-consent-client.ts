@@ -1,10 +1,53 @@
 "use client";
 
-import { POST_AUTH_NEXT_KEY, safeAuthNextPath } from "@/lib/auth-flow";
-import { isTelegramMiniApp } from "@/lib/client-auth";
+import {
+  POST_AUTH_NEXT_KEY,
+  safeAuthNextPath,
+} from "@/lib/auth-flow";
+import {
+  isTelegramMiniApp,
+  type BrowserAuthUser,
+} from "@/lib/client-auth";
+import { completeBrowserLogin } from "@/lib/phone-auth-client";
 import { PD_CONSENT_VERSION } from "@/lib/pd-consent";
 
 const LOCAL_CONSENT_KEY = "elektropasport:pd-consent";
+const SCRIPT_SRC = "https://oauth.telegram.org/js/telegram-login.js";
+
+type TelegramLoginResult = {
+  id_token?: string;
+  error?: string;
+  user?: Record<string, unknown>;
+};
+
+type TelegramLoginApi = {
+  auth: (
+    options: {
+      client_id: number | string;
+      scope?: Array<"profile" | "phone" | "write">;
+      lang?: string;
+      nonce?: string;
+    },
+    callback: (data: TelegramLoginResult) => void,
+  ) => void;
+};
+
+type TelegramGlobals = {
+  Login?: TelegramLoginApi;
+  WebApp?: {
+    openLink?: (url: string) => void;
+    platform?: string;
+    initData?: string;
+  };
+};
+
+function telegramGlobals(): TelegramGlobals {
+  return ((window as unknown as { Telegram?: TelegramGlobals }).Telegram ??
+    {}) as TelegramGlobals;
+}
+
+let scriptPromise: Promise<TelegramLoginApi> | null = null;
+let cachedClientId: string | null = null;
 
 function readLocalPdConsent(): boolean {
   try {
@@ -22,8 +65,70 @@ function writeLocalPdConsent(version: string = PD_CONSENT_VERSION): void {
   }
 }
 
-/** Open Telegram OAuth. PD / cookie consent is collected after login. */
-export async function beginTelegramLogin(next?: string): Promise<void> {
+async function fetchClientId(): Promise<string> {
+  if (cachedClientId) return cachedClientId;
+  const res = await fetch("/api/auth/telegram/config", { cache: "no-store" });
+  if (!res.ok) {
+    throw new Error("Telegram Login не настроен");
+  }
+  const data = (await res.json()) as { clientId?: string };
+  const id = data.clientId?.trim() ?? "";
+  if (!id) throw new Error("Telegram Login не настроен");
+  cachedClientId = id;
+  return id;
+}
+
+function loadTelegramLoginScript(): Promise<TelegramLoginApi> {
+  if (typeof window === "undefined") {
+    return Promise.reject(new Error("Только в браузере"));
+  }
+  const existing = telegramGlobals().Login;
+  if (existing?.auth) return Promise.resolve(existing);
+
+  if (scriptPromise) return scriptPromise;
+
+  scriptPromise = new Promise<TelegramLoginApi>((resolve, reject) => {
+    const done = () => {
+      const api = telegramGlobals().Login;
+      if (api?.auth) {
+        resolve(api);
+        return;
+      }
+      reject(new Error("Не удалось загрузить Telegram Login"));
+    };
+
+    const prior = document.querySelector<HTMLScriptElement>(
+      `script[src="${SCRIPT_SRC}"]`,
+    );
+    if (prior) {
+      if (telegramGlobals().Login?.auth) {
+        done();
+        return;
+      }
+      prior.addEventListener("load", done, { once: true });
+      prior.addEventListener(
+        "error",
+        () => reject(new Error("Не удалось загрузить Telegram Login")),
+        { once: true },
+      );
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = SCRIPT_SRC;
+    script.async = true;
+    script.onload = done;
+    script.onerror = () =>
+      reject(new Error("Не удалось загрузить Telegram Login"));
+    document.head.appendChild(script);
+  }).finally(() => {
+    if (!telegramGlobals().Login?.auth) scriptPromise = null;
+  });
+
+  return scriptPromise;
+}
+
+function rememberNextPath(next?: string): void {
   try {
     const path = safeAuthNextPath(next);
     if (path === "/") {
@@ -32,29 +137,111 @@ export async function beginTelegramLogin(next?: string): Promise<void> {
       sessionStorage.setItem(POST_AUTH_NEXT_KEY, path);
     }
   } catch {
-    // ignore
+    // private mode
   }
+}
 
-  const startUrl = new URL(
-    "/api/auth/telegram/start",
-    window.location.origin,
-  ).href;
+async function exchangeIdToken(idToken: string): Promise<{
+  token: string;
+  user: BrowserAuthUser;
+}> {
+  const res = await fetch("/api/auth/telegram/complete", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ idToken }),
+  });
+  const data = (await res.json().catch(() => ({}))) as {
+    error?: string;
+    token?: string;
+    user?: BrowserAuthUser;
+  };
+  if (!res.ok || !data.token || !data.user) {
+    throw new Error(data.error || "Не удалось завершить вход");
+  }
+  return { token: data.token, user: data.user };
+}
 
-  const webApp = window.Telegram?.WebApp as
-    | { openLink?: (url: string) => void; platform?: string }
-    | undefined;
+/**
+ * Popup OIDC via Telegram's official login library.
+ * The popup exchanges the code on oauth.telegram.org and returns id_token
+ * via postMessage — our server never needs to reach Telegram's token endpoint.
+ */
+export async function beginTelegramLogin(next?: string): Promise<void> {
+  rememberNextPath(next);
 
-  // Inside Telegram — open OAuth in the system browser so the user lands back on the site.
+  const webApp = telegramGlobals().WebApp;
+  // Mini App: open the same-origin site in the system browser so the popup
+  // library can run outside Telegram's restricted WebView.
   if (
     webApp?.openLink &&
     (isTelegramMiniApp() ||
       (webApp.platform && webApp.platform !== "unknown"))
   ) {
-    webApp.openLink(startUrl);
+    const url = new URL("/", window.location.origin);
+    url.searchParams.set("auth", "telegram");
+    webApp.openLink(url.href);
     return;
   }
 
-  window.location.assign(startUrl);
+  const [clientId, login] = await Promise.all([
+    fetchClientId(),
+    loadTelegramLoginScript(),
+  ]);
+
+  await new Promise<void>((resolve, reject) => {
+    let settled = false;
+    const finish = (error?: Error) => {
+      if (settled) return;
+      settled = true;
+      if (error) reject(error);
+      else resolve();
+    };
+
+    try {
+      login.auth(
+        {
+          client_id: clientId,
+          scope: ["profile", "write"],
+          lang: "ru",
+        },
+        (data) => {
+          void (async () => {
+            try {
+              if (!data || data.error) {
+                finish(
+                  new Error(
+                    data?.error === "cancelled"
+                      ? "Вход отменён"
+                      : data?.error || "Не удалось войти через Telegram",
+                  ),
+                );
+                return;
+              }
+              if (!data.id_token) {
+                finish(new Error("Telegram не вернул id_token"));
+                return;
+              }
+              const session = await exchangeIdToken(data.id_token);
+              completeBrowserLogin(session.token, session.user, next);
+              finish();
+            } catch (error) {
+              finish(
+                error instanceof Error
+                  ? error
+                  : new Error("Не удалось завершить вход"),
+              );
+            }
+          })();
+        },
+      );
+    } catch (error) {
+      finish(
+        error instanceof Error
+          ? error
+          : new Error("Не удалось открыть вход Telegram"),
+      );
+    }
+  });
 }
 
 export async function acceptPdConsentForSession(): Promise<void> {
@@ -83,7 +270,6 @@ export async function fetchPdConsentStatus(): Promise<boolean> {
       return true;
     }
     if (localAccepted) {
-      // Local gate was accepted earlier — push it to the server/user row.
       try {
         await acceptPdConsentForSession();
         return true;
@@ -102,8 +288,7 @@ function authHeadersForConsent(): Record<string, string> {
   try {
     const token = localStorage.getItem("elektropasport:auth-token")?.trim();
     if (token) return { Authorization: `Bearer ${token}` };
-    const webApp = window.Telegram?.WebApp as { initData?: string } | undefined;
-    const initData = webApp?.initData?.trim();
+    const initData = telegramGlobals().WebApp?.initData?.trim();
     if (initData) return { Authorization: `tma ${initData}` };
   } catch {
     // ignore
