@@ -27,6 +27,7 @@ import {
 import { parseTelegramStartCommand } from "@/lib/research-survey";
 import { installStatusLabels } from "@/types";
 import { notifyUserWebPush } from "@/lib/web-push";
+import { afterInstallRequestAccepted } from "@/lib/install-request-accept";
 
 type TelegramUpdate = {
   message?: {
@@ -229,11 +230,7 @@ export async function handleTelegramWebhook(
           existing,
           existing.name,
         );
-        await notifyUserWebPush(existing.telegramUserId, {
-          title: "Током",
-          body: "Мастер принял вашу заявку и скоро свяжется",
-          url: "/",
-        });
+        await afterInstallRequestAccepted(resolvedRequestId);
       }
 
       const dispatched = await getDispatchMessages(resolvedRequestId);

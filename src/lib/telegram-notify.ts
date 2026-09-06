@@ -1,6 +1,7 @@
 import type { InstallRequest, InstallRequestStatus } from "@/types";
 import { installStatusLabels } from "@/types";
 import { PRODUCTION_APP_URL } from "@/lib/app-url";
+import { MASTER_HOME_VISIT_PRICE_RUB } from "@/lib/lead-services";
 import { getBotToken } from "@/lib/telegram-auth";
 import { telegramFetch } from "@/lib/telegram-fetch";
 import { dedupeMasterStorageIds, toTelegramChatId } from "@/lib/app-env";
@@ -426,13 +427,53 @@ export async function notifyMasterRequestAccepted(
     request.setupTitle ? `Работа: ${request.setupTitle}` : null,
     "",
     "Свяжитесь с клиентом в течение 5 минут.",
-  ].filter((line) => line !== null).join("\n");
+  ]
+    .filter((line) => line !== null)
+    .join("\n");
 
   await telegramApi("sendMessage", {
     chat_id: masterChatId,
     text,
     disable_web_page_preview: true,
   });
+}
+
+/** Tell the customer a master accepted — include Robokassa pay link when available. */
+export async function notifyCustomerMasterAccepted(
+  customerChatId: number,
+  request: InstallRequest,
+  paymentUrl: string | null,
+): Promise<void> {
+  const amount = MASTER_HOME_VISIT_PRICE_RUB;
+  const lines = [
+    "✅ Мастер принял вашу заявку",
+    "",
+    request.setupTitle ? `Работа: ${request.setupTitle}` : null,
+    request.exactAddress ? `Адрес: ${request.exactAddress}` : null,
+    `К оплате: ${amount.toLocaleString("ru-RU")} ₽`,
+    "",
+    paymentUrl
+      ? "Оплатите выезд по кнопке ниже — после оплаты мастер приступит к работе."
+      : "Откройте приложение Током и оплатите выезд, чтобы мастер приступил к работе.",
+  ].filter((line): line is string => Boolean(line));
+
+  const reply_markup = paymentUrl
+    ? {
+        inline_keyboard: [
+          [{ text: `Оплатить ${amount.toLocaleString("ru-RU")} ₽`, url: paymentUrl }],
+        ],
+      }
+    : undefined;
+
+  const result = await telegramApi("sendMessage", {
+    chat_id: customerChatId,
+    text: lines.join("\n"),
+    disable_web_page_preview: true,
+    ...(reply_markup ? { reply_markup } : {}),
+  });
+  if (!result.ok) {
+    throw new Error(result.error ?? "sendMessage failed");
+  }
 }
 
 /** Tell other masters this request was taken. */

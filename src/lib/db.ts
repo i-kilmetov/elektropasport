@@ -1996,6 +1996,20 @@ export async function getPendingSbpPaymentByService(
   return rows[0] ? rowToSbpPayment(rows[0]) : null;
 }
 
+export async function getPendingSbpPaymentByRequestId(
+  requestId: string,
+): Promise<SbpPaymentRecord | null> {
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT * FROM sbp_payments
+    WHERE request_id = ${requestId}
+      AND status = 'pending'
+    ORDER BY created_at DESC
+    LIMIT 1
+  `) as SbpPaymentRow[];
+  return rows[0] ? rowToSbpPayment(rows[0]) : null;
+}
+
 export async function updateSbpPayment(
   id: string,
   patch: Partial<

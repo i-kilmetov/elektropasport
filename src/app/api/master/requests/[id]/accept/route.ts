@@ -10,6 +10,7 @@ import {
   getUserRole,
   upsertUser,
 } from "@/lib/db";
+import { afterInstallRequestAccepted } from "@/lib/install-request-accept";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -43,8 +44,11 @@ export async function POST(request: Request, context: RouteContext) {
     if (!accepted) {
       return Response.json({ error: "Заявка не найдена" }, { status: 404 });
     }
+
+    const { paymentUrl } = await afterInstallRequestAccepted(accepted.id);
+
     const { telegramUserId: _owner, ...requestItem } = accepted;
-    return Response.json({ request: requestItem, ok: true });
+    return Response.json({ request: requestItem, ok: true, paymentUrl });
   } catch (error) {
     return dbErrorResponse(error) ?? authErrorResponse(error);
   }

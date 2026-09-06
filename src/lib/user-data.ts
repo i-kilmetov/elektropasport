@@ -2452,6 +2452,21 @@ export async function confirmInstallRequestPayment(
   return data.request;
 }
 
+/** Opens Robokassa for an accepted install request (status=payment). */
+export async function openInstallRequestPayment(
+  requestId: string,
+): Promise<{ paymentUrl: string; amountRub: number }> {
+  const res = await fetch(
+    `/api/install-requests/${encodeURIComponent(requestId)}/payment-link`,
+    {
+      method: "POST",
+      headers: authHeaders(),
+    },
+  );
+  if (!res.ok) throw new Error(await parseError(res));
+  return (await res.json()) as { paymentUrl: string; amountRub: number };
+}
+
 export async function fetchMasterRequestPanel(
   requestId: string,
 ): Promise<PanelObject> {

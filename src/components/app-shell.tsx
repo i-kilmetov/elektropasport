@@ -132,6 +132,7 @@ import {
   persistPanelRename,
   createPanelShare,
   confirmInstallRequestPayment,
+  openInstallRequestPayment,
   fetchPanelById,
   fetchSharedPanel,
   formatErrorMessage,
@@ -3838,26 +3839,34 @@ export function AppShell({
                 activeRequest.status === "payment" && !masterViewRequest
                   ? async () => {
                       try {
-                        const paid = await confirmInstallRequestPayment(
+                        const { paymentUrl } = await openInstallRequestPayment(
                           activeRequest.id,
-                          MASTER_HOME_VISIT_PRICE_RUB,
                         );
-                        setItems((prev) =>
-                          prev.map((item) =>
-                            item.kind === "install_request" &&
-                            item.id === paid.id
-                              ? { ...item, ...paid }
-                              : item,
-                          ),
-                        );
-                        setMasterViewRequest(null);
-                        hapticNotification("success");
+                        window.location.assign(paymentUrl);
                       } catch (error) {
-                        setItemsError(
-                          error instanceof Error
-                            ? error.message
-                            : "Не удалось подтвердить оплату",
-                        );
+                        // Fallback for local/dev without Robokassa.
+                        try {
+                          const paid = await confirmInstallRequestPayment(
+                            activeRequest.id,
+                            MASTER_HOME_VISIT_PRICE_RUB,
+                          );
+                          setItems((prev) =>
+                            prev.map((item) =>
+                              item.kind === "install_request" &&
+                              item.id === paid.id
+                                ? { ...item, ...paid }
+                                : item,
+                            ),
+                          );
+                          setMasterViewRequest(null);
+                          hapticNotification("success");
+                        } catch {
+                          setItemsError(
+                            error instanceof Error
+                              ? error.message
+                              : "Не удалось открыть оплату",
+                          );
+                        }
                       }
                     }
                   : undefined
