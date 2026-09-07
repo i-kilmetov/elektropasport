@@ -3,6 +3,7 @@ import type { PendingInstallLead } from "@/lib/pending-lead";
 import {
   addSchoolPaidGrade,
   getSbpPaymentByTbankId,
+  grantTokomPlus,
   hasSchoolPromoRedemption,
   insertInstallRequest,
   markInstallRequestPaid,
@@ -19,6 +20,7 @@ import {
   computePromoAmounts,
   parseSchoolPaymentLeadPayload,
 } from "@/lib/school/promo";
+import { TOKOM_PLUS_SERVICE_TYPE } from "@/lib/tokom-plus";
 import { notifyAdminNewInstallRequest, notifyAdminSchoolPurchase } from "@/lib/telegram-notify";
 
 function newRedemptionId(): string {
@@ -70,6 +72,17 @@ export async function refreshSbpPaymentFromBank(
 export async function fulfillConfirmedSbpPayment(
   payment: SbpPaymentRecord,
 ): Promise<SbpPaymentRecord> {
+  if (payment.serviceType === TOKOM_PLUS_SERVICE_TYPE) {
+    if (payment.status === "confirmed") return payment;
+    await grantTokomPlus(payment.telegramUserId);
+    return (
+      (await updateSbpPayment(payment.id, { status: "confirmed" })) ?? {
+        ...payment,
+        status: "confirmed" as const,
+      }
+    );
+  }
+
   const gradeId = parseSchoolGradeId(payment.serviceType);
   if (gradeId) {
     await addSchoolPaidGrade(payment.telegramUserId, gradeId);

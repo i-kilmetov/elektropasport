@@ -1,5 +1,6 @@
 import type { Device } from "@/types";
 import { deviceModules } from "@/lib/panel-rails";
+import { applyTokomPlusDiscount } from "@/lib/tokom-plus";
 
 export const ONLINE_CONSULTATION_PRICE_RUB = 499;
 export const MODULE_LABELING_PRICE_RUB = 500;
@@ -167,7 +168,11 @@ export function payableAmountRub(input: {
   serviceType?: LeadServiceType | null;
   panelModules?: number | null;
   isFirstOrder?: boolean;
+  hasTokomPlus?: boolean;
 }): number | null {
+  const withPlusDiscount = (amount: number) =>
+    applyTokomPlusDiscount(amount, Boolean(input.hasTokomPlus));
+
   if (input.serviceType === "online_consultation") {
     return ONLINE_CONSULTATION_PRICE_RUB;
   }
@@ -176,26 +181,26 @@ export function payableAmountRub(input: {
       typeof input.panelModules === "number" &&
       input.panelModules > 0
     ) {
-      return masterVisitPriceRub(input.panelModules);
+      return withPlusDiscount(masterVisitPriceRub(input.panelModules));
     }
-    return MASTER_VISIT_MIN_PRICE_RUB;
+    return withPlusDiscount(MASTER_VISIT_MIN_PRICE_RUB);
   }
   if (
     input.serviceType === "master_labeling" &&
     typeof input.panelModules === "number" &&
     input.panelModules > 0
   ) {
-    return masterLabelingPriceRub(input.panelModules);
+    return withPlusDiscount(masterLabelingPriceRub(input.panelModules));
   }
   if (
     input.serviceType === "master_wiring_check" &&
     typeof input.panelModules === "number" &&
     input.panelModules > 0
   ) {
-    return wiringCheckVisitPriceRub(input.panelModules);
+    return withPlusDiscount(wiringCheckVisitPriceRub(input.panelModules));
   }
   if (input.serviceType === "master_wiring_check") {
-    return WIRING_CHECK_MIN_PRICE_RUB;
+    return withPlusDiscount(WIRING_CHECK_MIN_PRICE_RUB);
   }
   return null;
 }

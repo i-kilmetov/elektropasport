@@ -2,6 +2,10 @@
 
 import { useLayoutEffect, useRef, useState } from "react";
 import {
+  TokomPlusMark,
+  type TokomPlusMarkVariant,
+} from "@/components/brand/tokom-plus-mark";
+import {
   BRAND_YELLOW,
   LOGO_INK,
   STRIPE_ABOVE_CROSSBAR,
@@ -17,6 +21,7 @@ import {
 import { cn } from "@/lib/utils";
 
 export { BRAND_YELLOW };
+export { TokomPlusMark };
 
 function TStripes({ color }: { color: string }) {
   return (
@@ -102,14 +107,21 @@ export function TokomWordmark({
 export function BrandLogo({
   className,
   onDark = false,
+  plus = false,
+  plusVariant,
 }: {
   className?: string;
   /** Black background → brand yellow. Light background → black. */
   onDark?: boolean;
+  /** Show «Током Плюс» mark after the wordmark. */
+  plus?: boolean;
+  plusVariant?: TokomPlusMarkVariant;
 }) {
   const ref = useRef<HTMLSpanElement>(null);
   const [fontSize, setFontSize] = useState<number>(28);
   const color = onDark ? BRAND_YELLOW : LOGO_INK;
+  const resolvedPlusVariant: TokomPlusMarkVariant =
+    plusVariant ?? (onDark ? "onYellow" : "color");
 
   useLayoutEffect(() => {
     const node = ref.current;
@@ -130,10 +142,20 @@ export function BrandLogo({
     <span
       ref={ref}
       role="img"
-      aria-label="Током"
-      className={cn("inline-block leading-none", className)}
+      aria-label={plus ? "Током Плюс" : "Током"}
+      className={cn(
+        "inline-flex items-center leading-none",
+        plus && "gap-[0.28em]",
+        className,
+      )}
     >
       <TokomWordmark fontSize={fontSize} color={color} />
+      {plus ? (
+        <TokomPlusMark
+          size={fontSize * 0.92}
+          variant={resolvedPlusVariant}
+        />
+      ) : null}
     </span>
   );
 }

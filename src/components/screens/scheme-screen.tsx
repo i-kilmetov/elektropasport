@@ -1699,6 +1699,7 @@ export function SchemeScreen({
   hasGround,
   railCount,
   canUseTerminals = false,
+  onRequirePlus,
   masterWiringMode = false,
   wiringLockedByMaster = false,
   initialShowTerminals = false,
@@ -1776,8 +1777,10 @@ export function SchemeScreen({
   powerKw?: string;
   hasGround?: boolean;
   railCount?: number;
-  /** Masters can edit terminal wiring; user mode shows a waitlist sheet. */
+  /** Masters / Plus / after master check can use terminal wiring. */
   canUseTerminals?: boolean;
+  /** When terminals are locked, open Plus upsell instead of waitlist. */
+  onRequirePlus?: () => void;
   /** Address / year / kapremont snapshot for this dwelling */
   houseSnapshot?: PanelHouseSnapshot;
   onEditHouse?: () => void;
@@ -2906,7 +2909,8 @@ export function SchemeScreen({
                 setTerminalsFlashOn(true);
                 window.setTimeout(() => {
                   setTerminalsFlashOn(false);
-                  setTerminalsWaitlistOpen(true);
+                  if (onRequirePlus) onRequirePlus();
+                  else setTerminalsWaitlistOpen(true);
                 }, 280);
                 return;
               }

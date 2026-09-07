@@ -8,6 +8,7 @@ import { resolveAppOrigin } from "@/lib/app-url";
 import {
   dbErrorResponse,
   ensureSchema,
+  hasTokomPlus,
   insertSbpPayment,
   upsertUser,
 } from "@/lib/db";
@@ -48,6 +49,7 @@ export async function POST(request: Request) {
     const amountRub = payableAmountRub({
       serviceType: lead.serviceType,
       panelModules: lead.panelModules,
+      hasTokomPlus: await hasTokomPlus(user.telegramId),
     });
     if (!amountRub) {
       return Response.json(

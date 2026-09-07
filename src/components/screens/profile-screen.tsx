@@ -16,6 +16,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Portal } from "@/components/ui/portal";
 import { PushNotificationsCard } from "@/components/ui/push-notifications-card";
+import { TokomPlusProfileCard } from "@/components/screens/tokom-plus-sheet";
 import {
   clearLocalAppData,
   isTelegramMiniApp,
@@ -57,6 +58,9 @@ export function ProfileScreen({
   panelCount = 0,
   applianceCount = 0,
   onOpenInvites,
+  onOpenTokomPlus,
+  tokomPlusActive = false,
+  tokomPlusUntilLabel = null,
   isAdmin = false,
   onOpenAdmin,
 }: {
@@ -67,6 +71,9 @@ export function ProfileScreen({
   panelCount?: number;
   applianceCount?: number;
   onOpenInvites?: () => void;
+  onOpenTokomPlus?: () => void;
+  tokomPlusActive?: boolean;
+  tokomPlusUntilLabel?: string | null;
   isAdmin?: boolean;
   onOpenAdmin?: () => void;
 }) {
@@ -256,6 +263,14 @@ export function ProfileScreen({
             </p>
           ) : null}
         </div>
+
+        {onOpenTokomPlus ? (
+          <TokomPlusProfileCard
+            active={tokomPlusActive}
+            untilLabel={tokomPlusUntilLabel}
+            onOpen={onOpenTokomPlus}
+          />
+        ) : null}
 
         {panelsUnlimited ? (
           onOpenInvites ? (

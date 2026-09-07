@@ -1,8 +1,12 @@
-/** One panel is free; inviting at least one user removes the limit. */
-export const BASE_PANEL_LIMIT = 1;
+/** One panel tier without Plus / invite unlock: up to FREE_PANEL_LIMIT. */
+import {
+  FREE_PANEL_LIMIT,
+  PANEL_LIMIT_MESSAGE_FREE,
+} from "@/lib/tokom-plus";
 
-export const PANEL_LIMIT_MESSAGE =
-  "Можно добавить один щиток. Чтобы снимать лимит, пригласите хотя бы одного человека.";
+export const BASE_PANEL_LIMIT = FREE_PANEL_LIMIT;
+
+export const PANEL_LIMIT_MESSAGE = PANEL_LIMIT_MESSAGE_FREE;
 
 export const INVITE_TOKEN_RE = /^i[A-Za-z0-9]{8,16}$/;
 
@@ -27,6 +31,9 @@ export type PanelQuota = {
   creditedInvites: number;
   inviteUrl: string;
   events: InviteEvent[];
+  /** Active «Током Плюс» subscription. */
+  tokomPlus?: boolean;
+  tokomPlusUntil?: string | null;
 };
 
 export function hasUnlockedPanelLimit(creditedInvites: number): boolean {
@@ -50,7 +57,11 @@ export function isAtPanelLimit(
       typeof localPanelCount === "number" && localPanelCount >= BASE_PANEL_LIMIT
     );
   }
-  if (quota.unlimited || hasUnlockedPanelLimit(quota.creditedInvites)) {
+  if (
+    quota.unlimited ||
+    quota.tokomPlus ||
+    hasUnlockedPanelLimit(quota.creditedInvites)
+  ) {
     return false;
   }
   // The live client list is authoritative for this session: quota.panelCount
@@ -66,7 +77,7 @@ export function adjustPanelQuotaCount(
   delta: number,
 ): PanelQuota | null {
   if (!quota) return null;
-  if (quota.unlimited) return quota;
+  if (quota.unlimited || quota.tokomPlus) return quota;
   const panelCount = Math.max(0, quota.panelCount + delta);
   return {
     ...quota,

@@ -44,6 +44,13 @@ import { NoPanelDetailScreen } from "@/components/screens/no-panel-detail-screen
 import { NoPanelOptionsScreen } from "@/components/screens/no-panel-options-screen";
 import { ObjectsScreen } from "@/components/screens/objects-screen";
 import { PanelLimitSheet } from "@/components/screens/panel-limit-sheet";
+import {
+  TokomPlusSheet,
+  type TokomPlusUpsellReason,
+} from "@/components/screens/tokom-plus-sheet";
+import { formatPlusUntil } from "@/lib/tokom-plus";
+import { FREE_APPLIANCE_LIMIT_PER_PANEL } from "@/lib/tokom-plus";
+import { applyTokomPlusDiscount } from "@/lib/tokom-plus";
 import { PanelAdvantagesScreen } from "@/components/screens/panel-advantages-screen";
 import { PanelGameScreen } from "@/components/screens/panel-game-screen";
 import { PhotoScreen } from "@/components/screens/photo-screen";
@@ -103,7 +110,6 @@ import {
   masterVisitPriceRub,
   payableAmountRub,
   resolveRequestTypeCodeForService,
-  wiringCheckVisitPriceRub,
   type LeadServiceType,
 } from "@/lib/lead-services";
 import { findWiringCheckRequestForPanel } from "@/lib/wiring-check-request";
@@ -408,8 +414,11 @@ export function AppShell({
   const [initialFetchDone, setInitialFetchDone] = useState(false);
   const [itemsError, setItemsError] = useState<string | null>(null);
   const [quota, setQuota] = useState<PanelQuota | null>(null);
-  const [mainMenuOpen, setMainMenuOpen] = useState(false);
   const [limitOpen, setLimitOpen] = useState(false);
+  const [plusOpen, setPlusOpen] = useState(false);
+  const [plusReason, setPlusReason] =
+    useState<TokomPlusUpsellReason>("profile");
+  const [mainMenuOpen, setMainMenuOpen] = useState(false);
   const [waitlistKind, setWaitlistKind] = useState<WaitlistKind | null>(null);
   const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
   const [activePanelId, setActivePanelId] = useState<string | null>(null);
@@ -577,6 +586,30 @@ export function AppShell({
       }
     });
   }, [items, refreshQuota]);
+
+  const openTokomPlus = useCallback((reason: TokomPlusUpsellReason = "profile") => {
+    setPlusReason(reason);
+    setPlusOpen(true);
+  }, []);
+
+  const visitPriceWithPlus = useCallback(
+    (modules: number) =>
+      applyTokomPlusDiscount(
+        masterVisitPriceRub(modules),
+        Boolean(quota?.tokomPlus),
+      ),
+    [quota?.tokomPlus],
+  );
+
+  const assertCanAddAppliancesClient = useCallback(
+    (nextCount: number): boolean => {
+      if (quota?.tokomPlus) return true;
+      if (nextCount <= FREE_APPLIANCE_LIMIT_PER_PANEL) return true;
+      openTokomPlus("appliances");
+      return false;
+    },
+    [openTokomPlus, quota?.tokomPlus],
+  );
 
   useEffect(() => {
     const startParam = getTelegramStartParam();
@@ -894,6 +927,7 @@ export function AppShell({
         serviceType: selectedLeadService,
         panelModules: leadPanelModules,
         isFirstOrder: isFirstLeadOrder,
+        hasTokomPlus: Boolean(quota?.tokomPlus),
       });
       return buildLeadServiceSetupTitle({
         serviceType: selectedLeadService,
@@ -908,6 +942,7 @@ export function AppShell({
     selectedLeadService,
     leadPanelModules,
     isFirstLeadOrder,
+    quota?.tokomPlus,
     requestNeedId,
     noPanelSetupId,
   ]);
@@ -1863,6 +1898,12 @@ export function AppShell({
       ) {
         return;
       }
+      if (
+        nextAppliances.length > previousAppliances.length &&
+        !assertCanAddAppliancesClient(nextAppliances.length)
+      ) {
+        return;
+      }
 
       setItems((prev) =>
         prev.map((item) =>
@@ -1880,7 +1921,7 @@ export function AppShell({
         (error) => console.error(error),
       );
     },
-    [activePanelId, items],
+    [activePanelId, assertCanAddAppliancesClient, items],
   );
 
   const updateDeviceSticker = useCallback(
@@ -2444,7 +2485,7 @@ export function AppShell({
 
       const typeCode = resolveRequestTypeCodeForService("master_home_visit");
       const publicCode = await allocateRequestPublicCode(typeCode);
-      const estimatedPriceRub = masterVisitPriceRub(modules);
+      const estimatedPriceRub = visitPriceWithPlus(modules);
 
       await submitLead({
         contactMethod: "phone",
@@ -2505,7 +2546,7 @@ export function AppShell({
 
       const typeCode = resolveRequestTypeCodeForService("master_home_visit");
       const publicCode = await allocateRequestPublicCode(typeCode);
-      const estimatedPriceRub = masterVisitPriceRub(modules);
+      const estimatedPriceRub = visitPriceWithPlus(modules);
 
       await submitLead({
         contactMethod: "phone",
@@ -2539,7 +2580,7 @@ export function AppShell({
       const typeCode = resolveRequestTypeCodeForService("master_home_visit");
       const publicCode = await allocateRequestPublicCode(typeCode);
       const modules = leadPanelModules ?? 0;
-      const estimatedPriceRub = masterVisitPriceRub(modules);
+      const estimatedPriceRub = visitPriceWithPlus(modules);
       await submitLead({
         contactMethod: "phone",
         phone,
@@ -2569,6 +2610,7 @@ export function AppShell({
       selectedAddress,
       selectedCity,
       submitLead,
+      visitPriceWithPlus,
     ],
   );
 
@@ -2578,7 +2620,7 @@ export function AppShell({
       const typeCode = resolveRequestTypeCodeForService("master_wiring_check");
       const publicCode = await allocateRequestPublicCode(typeCode);
       const modules = leadPanelModules ?? 0;
-      const estimatedPriceRub = wiringCheckVisitPriceRub(modules);
+      const estimatedPriceRub = visitPriceWithPlus(modules);
       await submitLead({
         contactMethod: "phone",
         phone,
@@ -2603,6 +2645,7 @@ export function AppShell({
       selectedAddress,
       selectedCity,
       submitLead,
+      visitPriceWithPlus,
     ],
   );
 
@@ -2975,6 +3018,9 @@ export function AppShell({
                       );
                       const previousAppliances = panel?.appliances ?? [];
                       const nextAppliances = [...previousAppliances, appliance];
+                      if (!assertCanAddAppliancesClient(nextAppliances.length)) {
+                        return;
+                      }
                       setItems((prev) =>
                         prev.map((item) =>
                           item.kind === "panel" && item.id === panelId
@@ -3426,8 +3472,10 @@ export function AppShell({
                 canUseTerminals={
                   Boolean(masterViewRequest) ||
                   ((isMaster || isAdmin) && masterMode) ||
+                  Boolean(quota?.tokomPlus) ||
                   typeof activePanel?.professionalSafety === "number"
                 }
+                onRequirePlus={() => openTokomPlus("terminals")}
                 wiringLockedByMaster={
                   !masterViewRequest &&
                   !sharedPreview &&
@@ -3857,7 +3905,7 @@ export function AppShell({
                                   item.id === activeRequest.panelId,
                               )
                             : null;
-                          const visitAmount = masterVisitPriceRub(
+                          const visitAmount = visitPriceWithPlus(
                             countPanelModules(panel?.devices ?? []),
                           );
                           const paid = await confirmInstallRequestPayment(
@@ -3892,6 +3940,9 @@ export function AppShell({
               key="profile"
               panelsUnlimited={Boolean(quota?.unlimited)}
               inviteCount={quota?.events.length ?? 0}
+              tokomPlusActive={Boolean(quota?.tokomPlus)}
+              tokomPlusUntilLabel={formatPlusUntil(quota?.tokomPlusUntil)}
+              onOpenTokomPlus={() => openTokomPlus("profile")}
               panelCount={
                 items.filter((item) => item.kind === "panel").length
               }
@@ -3996,13 +4047,13 @@ export function AppShell({
               key={`success-${searchRequestId}`}
               requestId={searchRequestId}
               master={foundMaster}
-              amountRub={masterVisitPriceRub(leadPanelModules ?? 0)}
+              amountRub={visitPriceWithPlus(leadPanelModules ?? 0)}
               city={selectedCity ?? activeRequest?.city}
               address={selectedAddress ?? activeRequest?.exactAddress}
               lat={selectedCoords?.lat}
               lon={selectedCoords?.lon}
               onPaymentComplete={() => {
-                const paidAmountRub = masterVisitPriceRub(
+                const paidAmountRub = visitPriceWithPlus(
                   leadPanelModules ?? 0,
                 );
                 setItems((prev) =>
@@ -4132,9 +4183,18 @@ export function AppShell({
             <PanelLimitSheet
               quota={quota}
               onClose={() => setLimitOpen(false)}
+              onOpenPlus={() => openTokomPlus("panels")}
             />
           )}
         </AnimatePresence>
+        <TokomPlusSheet
+          open={plusOpen}
+          reason={plusReason}
+          onClose={() => setPlusOpen(false)}
+          onActivated={() => {
+            void refreshQuota();
+          }}
+        />
         <AnimatePresence>
           {panelHousePromptOpen && (
             <PanelHouseAddressSheet

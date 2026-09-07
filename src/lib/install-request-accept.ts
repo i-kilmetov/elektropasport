@@ -3,18 +3,20 @@ import { isPhoneAuthStorageId } from "@/lib/phone-auth";
 import { toTelegramChatId } from "@/lib/app-env";
 import { PRODUCTION_APP_URL, TEST_APP_URL } from "@/lib/app-url";
 import {
-  getInstallRequestById,
-  getPanelById,
-  getPendingSbpPaymentByRequestId,
-  insertSbpPayment,
-  updateSbpPayment,
-  type SbpPaymentRecord,
-} from "@/lib/db";
-import {
   countPanelModules,
   masterVisitPriceRub,
   parseModulesFromSetupTitle,
 } from "@/lib/lead-services";
+import { applyTokomPlusDiscount } from "@/lib/tokom-plus";
+import {
+  getInstallRequestById,
+  getPanelById,
+  getPendingSbpPaymentByRequestId,
+  hasTokomPlus,
+  insertSbpPayment,
+  updateSbpPayment,
+  type SbpPaymentRecord,
+} from "@/lib/db";
 import {
   buildRobokassaPaymentUrl,
   isRobokassaConfigured,
@@ -35,9 +37,9 @@ function appOriginForOwner(storageTelegramId: number): string {
   return storageTelegramId < 0 ? TEST_APP_URL : PRODUCTION_APP_URL;
 }
 
-/** Visit amount: 1000 ₽ × panel modules, minimum 5000 ₽. */
+/** Visit amount: 1000 ₽ × panel modules, minimum 5000 ₽ (+ Plus discount). */
 export async function resolveInstallRequestVisitAmountRub(
-  request: InstallRequest,
+  request: InstallRequest & { telegramUserId?: number },
 ): Promise<number> {
   let modules = 0;
   if (request.panelId) {
@@ -47,7 +49,11 @@ export async function resolveInstallRequestVisitAmountRub(
   if (modules <= 0) {
     modules = parseModulesFromSetupTitle(request.setupTitle);
   }
-  return masterVisitPriceRub(modules);
+  const base = masterVisitPriceRub(modules);
+  const ownerId = request.telegramUserId;
+  const plus =
+    typeof ownerId === "number" ? await hasTokomPlus(ownerId) : false;
+  return applyTokomPlusDiscount(base, plus);
 }
 
 /**

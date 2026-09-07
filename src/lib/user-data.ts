@@ -747,7 +747,9 @@ async function rejectUnlessOk(res: Response): Promise<Response> {
 
 function normalizeQuota(quota: PanelQuota): PanelQuota {
   const unlimited =
-    quota.unlimited || hasUnlockedPanelLimit(quota.creditedInvites);
+    quota.unlimited ||
+    quota.tokomPlus ||
+    hasUnlockedPanelLimit(quota.creditedInvites);
   return { ...quota, unlimited };
 }
 
@@ -761,6 +763,8 @@ export function localPanelQuota(items: HomeListItem[]): PanelQuota {
     creditedInvites: 0,
     inviteUrl: "",
     events: [],
+    tokomPlus: false,
+    tokomPlusUntil: null,
   };
 }
 

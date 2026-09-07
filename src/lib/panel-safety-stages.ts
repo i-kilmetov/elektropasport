@@ -341,7 +341,9 @@ export function buildPanelSafetyStages(input: {
       score: professionalDone ? professionalScore : null,
       hint: professionalDone
         ? "Заключение по расключению щитка и типу кабелей"
-        : meta.lockedHint,
+        : (input.panel.wires?.length ?? 0) > 0
+          ? "Своё расключение не даёт оценку — её считает только мастер Током"
+          : meta.lockedHint,
       analysis: professionalAnalysis
         ? {
             ...professionalAnalysis,

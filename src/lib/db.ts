@@ -50,13 +50,19 @@ import {
   type InviteOutcome,
   type PanelQuota,
 } from "@/lib/invites";
+import {
+  APPLIANCE_LIMIT_MESSAGE_FREE,
+  FREE_APPLIANCE_LIMIT_PER_PANEL,
+  isTokomPlusActive,
+  TOKOM_PLUS_PERIOD_DAYS,
+} from "@/lib/tokom-plus";
 import { buildInviteUrl } from "@/lib/panel-share";
 import { ensureConnectedMoscowMaster } from "@/lib/ensure-moscow-master";
 
 let schemaReady: Promise<void> | null = null;
 
 /** Bump when DDL below changes so cold starts re-run migrations once. */
-const SCHEMA_VERSION = "2026-09-05-oauth-pkce";
+const SCHEMA_VERSION = "2026-09-07-tokom-plus";
 /** One-shot data wipe flag — never re-run after it is written. */
 const FRESH_START_KEY = "fresh_start_2026_08_25_b";
 /** Bumped on each factory wipe so clients drop localStorage orphans. */
@@ -474,6 +480,10 @@ export async function ensureSchema(): Promise<void> {
       await sql`
         ALTER TABLE users
         ADD COLUMN IF NOT EXISTS panel_limit_unlocked BOOLEAN NOT NULL DEFAULT FALSE
+      `;
+      await sql`
+        ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS tokom_plus_until TIMESTAMPTZ
       `;
       // Only a credited invite (new registrant) unlocks the panel limit.
       await sql`
@@ -2280,11 +2290,60 @@ async function listInviteEvents(
   }));
 }
 
+export async function getTokomPlusUntil(
+  telegramUserId: number,
+): Promise<string | null> {
+  const sql = getSql();
+  await ensureSchema();
+  const [row] = (await sql`
+    SELECT tokom_plus_until
+    FROM users
+    WHERE telegram_id = ${telegramUserId}
+    LIMIT 1
+  `) as Array<{ tokom_plus_until: Date | string | null }>;
+  if (!row?.tokom_plus_until) return null;
+  const value =
+    row.tokom_plus_until instanceof Date
+      ? row.tokom_plus_until.toISOString()
+      : String(row.tokom_plus_until);
+  return value;
+}
+
+export async function hasTokomPlus(telegramUserId: number): Promise<boolean> {
+  const until = await getTokomPlusUntil(telegramUserId);
+  return isTokomPlusActive(until);
+}
+
+/** Extend or start Plus for TOKOM_PLUS_PERIOD_DAYS from max(now, current until). */
+export async function grantTokomPlus(
+  telegramUserId: number,
+  periodDays = TOKOM_PLUS_PERIOD_DAYS,
+): Promise<string> {
+  const sql = getSql();
+  await ensureSchema();
+  const [row] = (await sql`
+    UPDATE users
+    SET tokom_plus_until = GREATEST(
+      COALESCE(tokom_plus_until, NOW()),
+      NOW()
+    ) + (${periodDays}::int * INTERVAL '1 day'),
+        updated_at = NOW()
+    WHERE telegram_id = ${telegramUserId}
+    RETURNING tokom_plus_until
+  `) as Array<{ tokom_plus_until: Date | string }>;
+  if (!row?.tokom_plus_until) {
+    throw new DbError("Не удалось активировать Током Плюс", 500);
+  }
+  return row.tokom_plus_until instanceof Date
+    ? row.tokom_plus_until.toISOString()
+    : String(row.tokom_plus_until);
+}
+
 export async function getPanelQuota(
   telegramUserId: number,
 ): Promise<PanelQuota> {
   await ensureSchema();
-  const [panelCount, creditedInvites, inviteToken, events, unlockedRow] =
+  const [panelCount, creditedInvites, inviteToken, events, unlockedRow, plusUntil] =
     await Promise.all([
       countUserPanels(telegramUserId),
       countCreditedInvites(telegramUserId),
@@ -2300,11 +2359,13 @@ export async function getPanelQuota(
         `) as Array<{ panel_limit_unlocked: boolean | null }>;
         return Boolean(row?.panel_limit_unlocked);
       })(),
+      getTokomPlusUntil(telegramUserId),
     ]);
 
+  const tokomPlus = isTokomPlusActive(plusUntil);
   // Unlock only when at least one invitee was a brand-new registrant.
   const unlimited =
-    unlockedRow || hasUnlockedPanelLimit(creditedInvites);
+    unlockedRow || hasUnlockedPanelLimit(creditedInvites) || tokomPlus;
   if (hasUnlockedPanelLimit(creditedInvites) && !unlockedRow) {
     await markPanelLimitUnlocked(telegramUserId);
   }
@@ -2321,7 +2382,37 @@ export async function getPanelQuota(
     creditedInvites,
     inviteUrl: buildInviteUrl(inviteToken),
     events,
+    tokomPlus,
+    tokomPlusUntil: plusUntil,
   };
+}
+
+export async function assertCanAddAppliances(
+  telegramUserId: number,
+  applianceCount: number,
+): Promise<void> {
+  if (applianceCount <= FREE_APPLIANCE_LIMIT_PER_PANEL) return;
+  if (await hasTokomPlus(telegramUserId)) return;
+  throw new DbError(APPLIANCE_LIMIT_MESSAGE_FREE, 403, "APPLIANCE_LIMIT");
+}
+
+export async function assertCanEditPanelWires(
+  telegramUserId: number,
+  panel: PanelObject,
+): Promise<void> {
+  if (typeof panel.professionalSafety === "number") {
+    throw new DbError(
+      "Расключение выполнено мастером Током — изменить его нельзя",
+      403,
+      "WIRING_LOCKED",
+    );
+  }
+  if (await hasTokomPlus(telegramUserId)) return;
+  throw new DbError(
+    "Расключение проводами доступно с подпиской Током Плюс",
+    403,
+    "PLUS_REQUIRED",
+  );
 }
 
 async function assertCanAddPanel(telegramUserId: number): Promise<void> {

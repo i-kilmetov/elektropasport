@@ -4,6 +4,8 @@ import {
   requireTelegramUser,
 } from "@/lib/telegram-auth";
 import {
+  assertCanAddAppliances,
+  assertCanEditPanelWires,
   dbErrorResponse,
   deletePanel,
   ensureSchema,
@@ -71,12 +73,25 @@ export async function PATCH(request: Request, context: RouteContext) {
       return Response.json({ error: "Некорректный список техники" }, { status: 400 });
     }
 
+    const existing = await getPanelByOwner(user.telegramId, id);
+    if (!existing) {
+      return Response.json({ error: "Щиток не найден" }, { status: 404 });
+    }
+
     const appliances = Array.isArray(body.appliances)
       ? (body.appliances as HomeAppliance[]).map((item) => ({
           ...item,
           photoDataUrl: undefined,
         }))
       : undefined;
+
+    if (appliances) {
+      await assertCanAddAppliances(user.telegramId, appliances.length);
+    }
+
+    if (body.wires !== undefined) {
+      await assertCanEditPanelWires(user.telegramId, existing);
+    }
 
     const panel = await updatePanel(user.telegramId, id, {
       ...body,

@@ -71,9 +71,15 @@ function resolveEstimatedPriceRub(
   serviceType?: LeadServiceType,
   panelModules?: number,
   isFirstOrder?: boolean,
+  hasTokomPlus?: boolean,
 ): number | null | undefined {
   return (
-    payableAmountRub({ serviceType, panelModules, isFirstOrder }) ?? undefined
+    payableAmountRub({
+      serviceType,
+      panelModules,
+      isFirstOrder,
+      hasTokomPlus,
+    }) ?? undefined
   );
 }
 

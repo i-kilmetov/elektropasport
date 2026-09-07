@@ -1307,7 +1307,7 @@ export function ObjectsScreen({
     >
       <aside className="hidden w-72 shrink-0 flex-col border-r border-black/[0.06] bg-zinc-50/70 px-6 py-8 lg:flex">
         <div className="mb-8">
-          <BrandLogo className="h-8" />
+          <BrandLogo className="h-8" plus={Boolean(quota?.tokomPlus)} />
         </div>
         <nav className="flex flex-1 flex-col space-y-1.5">
           {MAIN_MENU_ITEMS.filter((item) => {

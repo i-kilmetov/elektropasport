@@ -22,15 +22,15 @@ function formatEventDate(value: string): string {
 const panelPoints = [
   {
     icon: Zap,
-    text: "Каждому пользователю доступно добавление одного щитка.",
+    text: "Без подписки можно добавить до 5 щитков и до 10 видов техники к каждому.",
   },
   {
     icon: Infinity,
-    text: "Чтобы снять ограничения и добавлять любое количество щитков, пригласите хотя бы одного человека.",
+    text: "Током Плюс — заряженная подписка: безлимит, клеммы и скидка 5% на вызов мастера.",
   },
   {
     icon: Heart,
-    text: "Этот сервис будет полезен каждому. Смело приглашайте своих родных и близких.",
+    text: "Можно также снять лимит щитков, пригласив нового пользователя по своей ссылке.",
   },
 ] as const;
 
@@ -70,10 +70,12 @@ export function PanelLimitSheet({
   quota,
   onClose,
   reason = "panels",
+  onOpenPlus,
 }: {
   quota: PanelQuota;
   onClose: () => void;
   reason?: PanelLimitReason;
+  onOpenPlus?: () => void;
 }) {
   const [shareOpen, setShareOpen] = useState(false);
   const canInvite = Boolean(quota.inviteUrl);
@@ -113,7 +115,7 @@ export function PanelLimitSheet({
                     ? "Ещё одна свободная ячейка"
                     : showUnlocked
                       ? "Лимит щитков снят"
-                      : "Пригласите человека"}
+                      : "Лимит щитков"}
               </h2>
               <p className="mt-1 ty-note">
                 {isLife
@@ -122,7 +124,7 @@ export function PanelLimitSheet({
                     ? "Пригласите человека в Током — и можно будет убрать ещё одну плитку"
                     : showUnlocked
                       ? "Можно добавлять любое количество щитков"
-                      : `${quota.panelCount} из ${BASE_PANEL_LIMIT} ${panelWord(BASE_PANEL_LIMIT)} без приглашения`}
+                      : `${quota.panelCount} из ${BASE_PANEL_LIMIT} ${panelWord(BASE_PANEL_LIMIT)} без Током Плюс`}
               </p>
             </div>
             <button
@@ -150,9 +152,30 @@ export function PanelLimitSheet({
             </ul>
           )}
 
+          {!showUnlocked && !isLife && !isPuzzleHole && onOpenPlus ? (
+            <Button
+              className="mt-5 w-full"
+              onClick={() => {
+                onClose();
+                onOpenPlus();
+              }}
+            >
+              Током Плюс — заряженная подписка
+            </Button>
+          ) : null}
+
           {canInvite && (
             <Button
-              className={showUnlocked ? "mt-1 w-full" : "mt-5 w-full"}
+              className={
+                showUnlocked || (!isLife && !isPuzzleHole && onOpenPlus)
+                  ? "mt-3 w-full"
+                  : "mt-5 w-full"
+              }
+              variant={
+                !showUnlocked && !isLife && !isPuzzleHole && onOpenPlus
+                  ? "secondary"
+                  : "default"
+              }
               onClick={() => setShareOpen(true)}
             >
               <UserPlus className="h-5 w-5" />
