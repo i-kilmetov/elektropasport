@@ -1,4 +1,4 @@
-import { PRODUCTION_WEBHOOK_ORIGIN } from "@/lib/app-url";
+import { PRODUCTION_APP_URL, TEST_APP_URL } from "@/lib/app-url";
 import {
   isRobokassaConfigured,
   isRobokassaTestMode,
@@ -13,10 +13,23 @@ function maskedMerchantLogin(): string | null {
 
 /** Public health check — no secrets, for post-deploy verification. */
 export async function GET() {
+  const hasTestPasswords = Boolean(
+    process.env.ROBOKASSA_TEST_PASSWORD1?.trim() &&
+      process.env.ROBOKASSA_TEST_PASSWORD2?.trim(),
+  );
   return Response.json({
     configured: isRobokassaConfigured(),
     testMode: isRobokassaTestMode(),
-    resultUrl: `${PRODUCTION_WEBHOOK_ORIGIN}/api/payments/robokassa-result`,
+    hasDedicatedTestPasswords: hasTestPasswords,
+    hashAlg: (process.env.ROBOKASSA_HASH_ALG ?? "md5").trim().toLowerCase(),
+    /** Set this as Result URL in the Robokassa shop (server callback). */
+    resultUrlProd: `${PRODUCTION_APP_URL}/api/payments/robokassa-result`,
+    resultUrlTest: `${TEST_APP_URL}/api/payments/robokassa-result`,
+    /** Optional SuccessURL fallback (browser returns here; app also syncs query). */
+    successApi: `${PRODUCTION_APP_URL}/api/payments/robokassa-success`,
     merchantLogin: maskedMerchantLogin(),
+    hint: isRobokassaTestMode()
+      ? "В тестовом режиме в ResultURL/SuccessURL нужны тестовые пароли #1/#2 из кабинета Robokassa (ROBOKASSA_TEST_PASSWORD1/2 или основные PASSWORD1/2)."
+      : "ResultURL должен быть доступен из интернета и отвечать OK{InvId}.",
   });
 }

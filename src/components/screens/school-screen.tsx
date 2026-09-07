@@ -48,6 +48,8 @@ import {
 } from "@/lib/school/access";
 import { canUseServerAuth } from "@/lib/client-auth";
 import { fetchSchoolPaidGrades } from "@/lib/user-data";
+import { syncRobokassaReturnIfPresent } from "@/lib/robokassa-return";
+import { hapticNotification } from "@/lib/haptics";
 import {
   CHOICE_SECONDS,
   daysHoursLeft,
@@ -98,9 +100,11 @@ export function SchoolScreen({ onBack }: { onBack: () => void }) {
       setPaid([]);
       return;
     }
+    let cancelled = false;
     const load = () => {
       void fetchSchoolPaidGrades()
         .then((grades) => {
+          if (cancelled) return;
           setPaid(grades);
           writePaidGrades(grades);
         })
@@ -108,9 +112,17 @@ export function SchoolScreen({ onBack }: { onBack: () => void }) {
           console.error(error);
         });
     };
-    load();
+    void (async () => {
+      const synced = await syncRobokassaReturnIfPresent();
+      if (cancelled) return;
+      if (synced?.ok) hapticNotification("success");
+      load();
+    })();
     window.addEventListener("focus", load);
-    return () => window.removeEventListener("focus", load);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("focus", load);
+    };
   }, []);
 
   const persist = (next: SchoolProgress) => {

@@ -2,6 +2,7 @@ import { randomBytes } from "crypto";
 import type { PendingInstallLead } from "@/lib/pending-lead";
 import {
   addSchoolPaidGrade,
+  getInstallRequestById,
   getSbpPaymentByTbankId,
   grantTokomPlus,
   hasSchoolPromoRedemption,
@@ -12,6 +13,7 @@ import {
   type SbpPaymentRecord,
 } from "@/lib/db";
 import { installRequestFromLead } from "@/lib/install-request";
+import { toTelegramChatId } from "@/lib/app-env";
 import {
   parseSchoolGradeId,
   SCHOOL_GRADE_PAYMENT_TITLE,
@@ -21,7 +23,13 @@ import {
   parseSchoolPaymentLeadPayload,
 } from "@/lib/school/promo";
 import { TOKOM_PLUS_SERVICE_TYPE } from "@/lib/tokom-plus";
-import { notifyAdminNewInstallRequest, notifyAdminSchoolPurchase } from "@/lib/telegram-notify";
+import {
+  notifyAdminNewInstallRequest,
+  notifyAdminSchoolPurchase,
+  notifyMasterCustomerPaid,
+} from "@/lib/telegram-notify";
+import { notifyUserWebPush } from "@/lib/web-push";
+import { isPhoneAuthStorageId } from "@/lib/phone-auth";
 
 function newRedemptionId(): string {
   return `redeem-${Date.now().toString(36)}${randomBytes(4).toString("hex")}`;
@@ -123,13 +131,42 @@ export async function fulfillConfirmedSbpPayment(
       payment.tbankPaymentId,
     );
     if (paid) {
-      return (
+      const next =
         (await updateSbpPayment(payment.id, {
           status: "confirmed",
           requestId: payment.requestId,
-        })) ?? { ...payment, status: "confirmed" as const }
-      );
+        })) ?? { ...payment, status: "confirmed" as const };
+
+      const full = await getInstallRequestById(payment.requestId);
+      const masterStorageId = full?.masterTelegramId;
+      if (
+        typeof masterStorageId === "number" &&
+        !isPhoneAuthStorageId(masterStorageId)
+      ) {
+        try {
+          await notifyMasterCustomerPaid(
+            toTelegramChatId(masterStorageId),
+            full ?? paid,
+          );
+        } catch (error) {
+          console.error("notifyMasterCustomerPaid", error);
+        }
+        try {
+          await notifyUserWebPush(masterStorageId, {
+            title: "Током",
+            body: "Клиент оплатил выезд — можно приступать",
+            url: "/",
+          });
+        } catch (error) {
+          console.error("notifyUserWebPush master paid", error);
+        }
+      }
+      return next;
     }
+    console.error("markInstallRequestPaid returned null", {
+      requestId: payment.requestId,
+      telegramUserId: payment.telegramUserId,
+    });
   }
 
   const lead = payment.leadPayload as PendingInstallLead | null;

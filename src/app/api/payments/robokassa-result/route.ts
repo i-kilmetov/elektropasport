@@ -3,12 +3,14 @@ import { fulfillSbpByTbankPaymentId } from "@/lib/sbp-fulfill";
 import {
   isRobokassaConfigured,
   parseRobokassaShp,
+  robokassaOutSumsMatch,
   robokassaResultOkResponse,
   verifyRobokassaResultSignature,
 } from "@/lib/robokassa";
 
 async function handleResult(params: URLSearchParams): Promise<Response> {
   if (!isRobokassaConfigured()) {
+    console.error("Robokassa result: not configured");
     return robokassaResultOkResponse(params.get("InvId") ?? "");
   }
 
@@ -17,6 +19,11 @@ async function handleResult(params: URLSearchParams): Promise<Response> {
   const signatureValue = params.get("SignatureValue")?.trim() ?? "";
 
   if (!outSum || !invId || !signatureValue) {
+    console.error("Robokassa result: missing fields", {
+      hasOutSum: Boolean(outSum),
+      hasInvId: Boolean(invId),
+      hasSig: Boolean(signatureValue),
+    });
     return new Response("bad request", { status: 400 });
   }
 
@@ -29,7 +36,11 @@ async function handleResult(params: URLSearchParams): Promise<Response> {
       shp,
     })
   ) {
-    console.error("Robokassa result signature mismatch", { invId });
+    console.error("Robokassa result signature mismatch", {
+      invId,
+      outSum,
+      shpKeys: shp ? Object.keys(shp) : [],
+    });
     return new Response("bad signature", { status: 403 });
   }
 
@@ -37,21 +48,26 @@ async function handleResult(params: URLSearchParams): Promise<Response> {
   const payment = await getSbpPaymentByTbankId(invId);
   if (!payment) {
     console.error("Robokassa result: payment not found", { invId });
+    // Still OK so Robokassa stops retrying unknown/stale invoices.
     return robokassaResultOkResponse(invId);
   }
 
-  const expectedOutSum = payment.amountRub.toFixed(2);
-  if (outSum !== expectedOutSum) {
+  if (!robokassaOutSumsMatch(outSum, payment.amountRub)) {
     console.error("Robokassa result: amount mismatch", {
       invId,
       outSum,
-      expectedOutSum,
+      expected: payment.amountRub,
     });
     return new Response("bad amount", { status: 400 });
   }
 
   if (payment.status === "pending") {
-    await fulfillSbpByTbankPaymentId(invId);
+    try {
+      await fulfillSbpByTbankPaymentId(invId);
+    } catch (error) {
+      console.error("Robokassa result fulfill failed", { invId, error });
+      return new Response("error", { status: 500 });
+    }
   }
 
   return robokassaResultOkResponse(invId);
@@ -69,9 +85,26 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const params = new URLSearchParams();
-    const form = await request.formData();
-    form.forEach((value, key) => {
-      params.set(key, String(value));
+    const contentType = request.headers.get("content-type") ?? "";
+    if (contentType.includes("application/json")) {
+      const body = (await request.json().catch(() => null)) as Record<
+        string,
+        unknown
+      > | null;
+      if (body) {
+        for (const [key, value] of Object.entries(body)) {
+          if (value != null) params.set(key, String(value));
+        }
+      }
+    } else {
+      const form = await request.formData();
+      form.forEach((value, key) => {
+        params.set(key, String(value));
+      });
+    }
+    // Some gateways also put fields on the query string.
+    new URL(request.url).searchParams.forEach((value, key) => {
+      if (!params.has(key)) params.set(key, value);
     });
     return await handleResult(params);
   } catch (error) {

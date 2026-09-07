@@ -22,6 +22,7 @@ const TEST_PUBLIC_PREFIXES = [
   "/test-login",
   "/api/test-access",
   "/api/payments/robokassa-result",
+  "/api/payments/robokassa-success",
   "/api/payments/robokassa-status",
   "/api/auth/telegram",
   "/api/auth/phone",

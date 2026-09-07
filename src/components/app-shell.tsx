@@ -48,9 +48,13 @@ import {
   TokomPlusSheet,
   type TokomPlusUpsellReason,
 } from "@/components/screens/tokom-plus-sheet";
-import { formatPlusUntil } from "@/lib/tokom-plus";
-import { FREE_APPLIANCE_LIMIT_PER_PANEL } from "@/lib/tokom-plus";
-import { applyTokomPlusDiscount } from "@/lib/tokom-plus";
+import { syncRobokassaReturnIfPresent } from "@/lib/robokassa-return";
+import {
+  applyTokomPlusDiscount,
+  formatPlusUntil,
+  FREE_APPLIANCE_LIMIT_PER_PANEL,
+  TOKOM_PLUS_SERVICE_TYPE,
+} from "@/lib/tokom-plus";
 import { PanelAdvantagesScreen } from "@/components/screens/panel-advantages-screen";
 import { PanelGameScreen } from "@/components/screens/panel-game-screen";
 import { PhotoScreen } from "@/components/screens/photo-screen";
@@ -610,6 +614,33 @@ export function AppShell({
     },
     [openTokomPlus, quota?.tokomPlus],
   );
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const result = await syncRobokassaReturnIfPresent();
+      if (cancelled || !result?.ok) return;
+      hapticNotification("success");
+      try {
+        const [loaded, nextQuota] = await Promise.all([
+          fetchHomeItems().catch(() => null),
+          fetchPanelQuota().catch(() => null),
+        ]);
+        if (cancelled) return;
+        if (loaded) setItems(loaded);
+        if (nextQuota) setQuota(nextQuota);
+        if (result.serviceType === TOKOM_PLUS_SERVICE_TYPE) {
+          setPlusOpen(true);
+          setPlusReason("profile");
+        }
+      } catch (error) {
+        console.error("post-robokassa refresh", error);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     const startParam = getTelegramStartParam();

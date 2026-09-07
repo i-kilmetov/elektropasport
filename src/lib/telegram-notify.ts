@@ -412,7 +412,40 @@ export async function dispatchRequestToMasters(
   return results;
 }
 
-/** Notify a master that they won the request — send full details. */
+/** Tell the master the customer paid — work can start. */
+export async function notifyMasterCustomerPaid(
+  masterChatId: number,
+  request: InstallRequest,
+): Promise<void> {
+  const amount =
+    typeof request.paidAmountRub === "number" && request.paidAmountRub > 0
+      ? `${request.paidAmountRub.toLocaleString("ru-RU")} ₽`
+      : null;
+  const text = [
+    "💳 Клиент оплатил выезд",
+    "",
+    request.publicCode ? `Заявка: ${request.publicCode}` : null,
+    request.setupTitle ? `Работа: ${request.setupTitle}` : null,
+    request.exactAddress ? `Адрес: ${request.exactAddress}` : null,
+    request.phone ? `Телефон: ${request.phone}` : null,
+    amount ? `Сумма: ${amount}` : null,
+    "",
+    "Можно выезжать к клиенту.",
+  ]
+    .filter((line): line is string => Boolean(line))
+    .join("\n");
+
+  const result = await telegramApi("sendMessage", {
+    chat_id: masterChatId,
+    text,
+    disable_web_page_preview: true,
+  });
+  if (!result.ok) {
+    throw new Error(result.error ?? "sendMessage failed");
+  }
+}
+
+/** Tell a master that they won the request — send full details. */
 export async function notifyMasterRequestAccepted(
   masterChatId: number,
   request: InstallRequest,

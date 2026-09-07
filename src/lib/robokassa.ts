@@ -4,8 +4,23 @@ const PAYMENT_URL = "https://auth.robokassa.ru/Merchant/Index.aspx";
 
 export type RobokassaShp = Record<string, string>;
 
-function md5(value: string): string {
-  return createHash("md5").update(value, "utf8").digest("hex");
+type HashAlg = "md5" | "sha256" | "sha512" | "sha1";
+
+function hashAlg(): HashAlg {
+  const raw = (process.env.ROBOKASSA_HASH_ALG ?? "md5").trim().toLowerCase();
+  if (
+    raw === "md5" ||
+    raw === "sha256" ||
+    raw === "sha512" ||
+    raw === "sha1"
+  ) {
+    return raw;
+  }
+  return "md5";
+}
+
+function digest(value: string): string {
+  return createHash(hashAlg()).update(value, "utf8").digest("hex");
 }
 
 function merchantLogin(): string {
@@ -14,13 +29,34 @@ function merchantLogin(): string {
   return login;
 }
 
+export function isRobokassaTestMode(): boolean {
+  const raw = process.env.ROBOKASSA_IS_TEST?.trim().toLowerCase();
+  return raw === "1" || raw === "true" || raw === "yes";
+}
+
+/** Password #1 — payment links + SuccessURL signatures. */
 function password1(): string {
+  if (isRobokassaTestMode()) {
+    const test =
+      process.env.ROBOKASSA_TEST_PASSWORD1?.trim() ||
+      process.env.ROBOKASSA_PASSWORD1?.trim() ||
+      "";
+    if (test) return test;
+  }
   const value = process.env.ROBOKASSA_PASSWORD1?.trim() ?? "";
   if (!value) throw new Error("Robokassa не настроена");
   return value;
 }
 
+/** Password #2 — ResultURL signatures. */
 function password2(): string {
+  if (isRobokassaTestMode()) {
+    const test =
+      process.env.ROBOKASSA_TEST_PASSWORD2?.trim() ||
+      process.env.ROBOKASSA_PASSWORD2?.trim() ||
+      "";
+    if (test) return test;
+  }
   const value = process.env.ROBOKASSA_PASSWORD2?.trim() ?? "";
   if (!value) throw new Error("Robokassa не настроена");
   return value;
@@ -34,13 +70,21 @@ export function isRobokassaConfigured(): boolean {
   );
 }
 
-export function isRobokassaTestMode(): boolean {
-  const raw = process.env.ROBOKASSA_IS_TEST?.trim().toLowerCase();
-  return raw === "1" || raw === "true" || raw === "yes";
-}
-
 export function formatRobokassaOutSum(amountRub: number): string {
   return amountRub.toFixed(2);
+}
+
+/** Compare OutSum from Robokassa (may be 220, 220.00, 220.000000). */
+export function robokassaOutSumsMatch(
+  received: string,
+  expectedRub: number,
+): boolean {
+  const normalize = (raw: string) =>
+    Number(String(raw).trim().replace(",", "."));
+  const a = normalize(received);
+  const b = Number(expectedRub);
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return false;
+  return Math.abs(a - b) < 0.005;
 }
 
 /** Unique positive invoice id for Robokassa (InvId). */
@@ -74,7 +118,7 @@ export function buildRobokassaPaymentSignature(input: {
     `${merchantLogin()}:${input.outSum}:${input.invId}:${password1()}`,
     input.shp,
   );
-  return md5(base);
+  return digest(base);
 }
 
 export function verifyRobokassaResultSignature(input: {
@@ -88,7 +132,22 @@ export function verifyRobokassaResultSignature(input: {
     `${input.outSum}:${input.invId}:${password2()}`,
     input.shp,
   );
-  return signaturesEqual(md5(base), input.signatureValue);
+  return signaturesEqual(digest(base), input.signatureValue);
+}
+
+/** SuccessURL uses Password #1 (same as payment link). */
+export function verifyRobokassaSuccessSignature(input: {
+  outSum: string;
+  invId: string;
+  signatureValue: string;
+  shp?: RobokassaShp;
+}): boolean {
+  if (!isRobokassaConfigured()) return false;
+  const base = appendShp(
+    `${input.outSum}:${input.invId}:${password1()}`,
+    input.shp,
+  );
+  return signaturesEqual(digest(base), input.signatureValue);
 }
 
 export function buildRobokassaPaymentUrl(input: {

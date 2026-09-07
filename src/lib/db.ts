@@ -2905,6 +2905,7 @@ export async function markInstallRequestPaid(
 ): Promise<InstallRequest | null> {
   const sql = getSql();
   await ensureSchema();
+  const absId = Math.abs(telegramUserId);
   const rows = (await sql`
     UPDATE install_requests
     SET
@@ -2915,7 +2916,7 @@ export async function markInstallRequestPaid(
       tbank_payment_id = COALESCE(${tbankPaymentId ?? null}, tbank_payment_id),
       paid_at = COALESCE(paid_at, NOW())
     WHERE id = ${requestId}
-      AND telegram_user_id = ${telegramUserId}
+      AND ABS(telegram_user_id) = ${absId}
       AND status IN ('payment', 'new', 'in_progress')
     RETURNING
       id, title, subtitle, status, status_label, created_at_label,
