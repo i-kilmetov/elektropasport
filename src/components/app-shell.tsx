@@ -3001,6 +3001,7 @@ export function AppShell({
               onPanelLimit={openPanelLimit}
               showMaintenance={showMaintenanceMenu}
               homeAppliancesMode={homeAppliancesEnabled}
+              onRequirePlusForAppliances={() => openTokomPlus("appliances")}
               onCallWiringCheckMaster={startWiringCheckMaster}
               onHowWeCalculateSafety={() => openSafetyMethodology("objects")}
               onOpenWiringRequest={(requestId) => {
@@ -3471,8 +3472,8 @@ export function AppShell({
                 railCount={railCount ?? undefined}
                 canUseTerminals={
                   Boolean(masterViewRequest) ||
-                  ((isMaster || isAdmin) && masterMode) ||
                   Boolean(quota?.tokomPlus) ||
+                  // After master wiring check: view terminals (edits locked separately).
                   typeof activePanel?.professionalSafety === "number"
                 }
                 onRequirePlus={() => openTokomPlus("terminals")}

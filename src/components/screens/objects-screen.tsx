@@ -38,6 +38,7 @@ import { BrandLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
 import { InfoDialog } from "@/components/ui/info-dialog";
+import { FREE_APPLIANCE_LIMIT_PER_PANEL } from "@/lib/tokom-plus";
 import { ItemActionsSheet } from "@/components/ui/item-actions-sheet";
 import { NameDialog } from "@/components/ui/name-dialog";
 import { PushEnableBanner } from "@/components/ui/push-enable-banner";
@@ -902,6 +903,7 @@ export function ObjectsScreen({
   showMaintenance = false,
   homeAppliancesMode = false,
   onAddAppliance,
+  onRequirePlusForAppliances,
   onOpenAppliance,
   onDeleteAppliance,
   onRestoreAppliance,
@@ -936,6 +938,7 @@ export function ObjectsScreen({
   showMaintenance?: boolean;
   homeAppliancesMode?: boolean;
   onAddAppliance?: (panelId: string, appliance: HomeAppliance) => void;
+  onRequirePlusForAppliances?: () => void;
   onOpenAppliance?: (panelId: string, applianceId: string) => void;
   onDeleteAppliance?: (panelId: string, applianceId: string) => void;
   onRestoreAppliance?: (
@@ -1266,6 +1269,14 @@ export function ObjectsScreen({
                   onOpenAppliance?.(obj.id, applianceId)
                 }
                 onAddAppliance={() => {
+                  const count = obj.appliances?.length ?? 0;
+                  if (
+                    !quota?.tokomPlus &&
+                    count >= FREE_APPLIANCE_LIMIT_PER_PANEL
+                  ) {
+                    onRequirePlusForAppliances?.();
+                    return;
+                  }
                   expandPanel(obj.id);
                   setAddAppliancePanelId(obj.id);
                   setAddApplianceOpen(true);
