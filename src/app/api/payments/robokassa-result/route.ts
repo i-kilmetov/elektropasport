@@ -2,11 +2,20 @@ import { ensureSchema, getSbpPaymentByTbankId } from "@/lib/db";
 import { fulfillSbpByTbankPaymentId } from "@/lib/sbp-fulfill";
 import {
   isRobokassaConfigured,
+  isRobokassaTestMode,
   parseRobokassaShp,
   robokassaOutSumsMatch,
   robokassaResultOkResponse,
   verifyRobokassaResultSignature,
 } from "@/lib/robokassa";
+
+function hasRobokassaCallbackParams(params: URLSearchParams): boolean {
+  return Boolean(
+    params.get("OutSum")?.trim() ||
+      params.get("InvId")?.trim() ||
+      params.get("SignatureValue")?.trim(),
+  );
+}
 
 async function handleResult(params: URLSearchParams): Promise<Response> {
   if (!isRobokassaConfigured()) {
@@ -73,9 +82,25 @@ async function handleResult(params: URLSearchParams): Promise<Response> {
   return robokassaResultOkResponse(invId);
 }
 
+/** Browser probe without Robokassa params — not an error. */
+function probeResponse(): Response {
+  return Response.json({
+    ok: true,
+    endpoint: "robokassa-result",
+    configured: isRobokassaConfigured(),
+    testMode: isRobokassaTestMode(),
+    message:
+      "Result URL жив. Открытие в браузере без параметров — не ошибка оплаты: Robokassa должна слать OutSum, InvId и SignatureValue. Настройки: /api/payments/robokassa-status",
+  });
+}
+
 export async function GET(request: Request) {
   try {
-    return await handleResult(new URL(request.url).searchParams);
+    const params = new URL(request.url).searchParams;
+    if (!hasRobokassaCallbackParams(params)) {
+      return probeResponse();
+    }
+    return await handleResult(params);
   } catch (error) {
     console.error("Robokassa result GET failed", error);
     return new Response("error", { status: 500 });
@@ -106,6 +131,9 @@ export async function POST(request: Request) {
     new URL(request.url).searchParams.forEach((value, key) => {
       if (!params.has(key)) params.set(key, value);
     });
+    if (!hasRobokassaCallbackParams(params)) {
+      return probeResponse();
+    }
     return await handleResult(params);
   } catch (error) {
     console.error("Robokassa result POST failed", error);
