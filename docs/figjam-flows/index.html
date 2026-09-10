@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Током — процессы сервиса (FigJam pack)</title>
+  <style>
+    :root {
+      --ink: #111113;
+      --muted: #71717a;
+      --bg: #fafafa;
+      --line: #e4e4e7;
+      --accent: #d3da00;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, -apple-system, sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+    }
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      background: #fff;
+      border-bottom: 1px solid var(--line);
+      padding: 1rem 1.25rem;
+    }
+    header h1 {
+      margin: 0 0 0.35rem;
+      font-size: 1.15rem;
+      letter-spacing: -0.02em;
+    }
+    header p { margin: 0; color: var(--muted); font-size: 0.9rem; line-height: 1.45; }
+    nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin-top: 0.85rem;
+    }
+    nav a {
+      text-decoration: none;
+      color: var(--ink);
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 999px;
+      padding: 0.35rem 0.7rem;
+      font-size: 0.78rem;
+      font-weight: 600;
+    }
+    nav a:hover { background: var(--accent); }
+    main { padding: 1rem 1.25rem 3rem; max-width: 1400px; margin: 0 auto; }
+    section {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 1rem;
+      margin-bottom: 1.25rem;
+    }
+    section h2 {
+      margin: 0 0 0.75rem;
+      font-size: 1rem;
+      display: flex;
+      align-items: baseline;
+      gap: 0.5rem;
+    }
+    section h2 span {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    section img {
+      width: 100%;
+      height: auto;
+      display: block;
+      border-radius: 8px;
+      background: #fff;
+    }
+    .hint {
+      margin-top: 0.75rem;
+      font-size: 0.82rem;
+      color: var(--muted);
+    }
+    code { font-size: 0.85em; background: #f4f4f5; padding: 0.1em 0.35em; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Током — карта пользовательских процессов</h1>
+    <p>
+      Для FigJam: перетащите файлы <code>*.svg</code> на доску или вставьте текст из <code>*.mmd</code>
+      через плагин Mermaid. Инструкция — в <code>README.md</code>.
+    </p>
+    <nav>
+      <a href="#d00">00 Обзор</a>
+      <a href="#d01">01 Доступ</a>
+      <a href="#d02">02 Вход</a>
+      <a href="#d03">03 Главная</a>
+      <a href="#d04">04 Схема</a>
+      <a href="#d05">05 Заявки</a>
+      <a href="#d06">06 Плюс</a>
+      <a href="#d07">07 Школа</a>
+      <a href="#d08">08 Мастер</a>
+      <a href="#d09">09 Профиль</a>
+    </nav>
+  </header>
+  <main>
+    <section id="d00"><h2>00 · Обзор <span>карта доменов</span></h2><img src="00-overview.svg" alt="Обзор" /><p class="hint">Точка входа по хосту → домены 02–09.</p></section>
+    <section id="d01"><h2>01 · Доступ <span>waitlist / test</span></h2><img src="01-launch-access.svg" alt="Доступ" /></section>
+    <section id="d02"><h2>02 · Вход <span>auth / ПД / инвайты</span></h2><img src="02-auth-session.svg" alt="Вход" /></section>
+    <section id="d03"><h2>03 · Главная <span>щитки / нет щитка</span></h2><img src="03-home-panels.svg" alt="Главная" /></section>
+    <section id="d04"><h2>04 · Схема <span>безопасность / клеммы</span></h2><img src="04-scheme-safety.svg" alt="Схема" /></section>
+    <section id="d05"><h2>05 · Заявки <span>мастер / оплата</span></h2><img src="05-leads-payment.svg" alt="Заявки" /></section>
+    <section id="d06"><h2>06 · Током Плюс</h2><img src="06-tokom-plus.svg" alt="Плюс" /></section>
+    <section id="d07"><h2>07 · Школа</h2><img src="07-school.svg" alt="Школа" /></section>
+    <section id="d08"><h2>08 · Мастер</h2><img src="08-master.svg" alt="Мастер" /></section>
+    <section id="d09"><h2>09 · Профиль и админ</h2><img src="09-profile-admin.svg" alt="Профиль" /></section>
+  </main>
+</body>
+</html>

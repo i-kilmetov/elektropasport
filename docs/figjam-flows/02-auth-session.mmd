@@ -1,0 +1,43 @@
+%%{init: {"theme":"base","themeVariables":{"fontFamily":"Inter, Helvetica, Arial, sans-serif","fontSize":"13px","primaryColor":"#D3DA00","primaryTextColor":"#111113","primaryBorderColor":"#111113","lineColor":"#52525b","secondaryColor":"#f4f4f5"}}}%%
+flowchart TB
+  TITLE([Домен 02 · Вход, согласие, приглашения])
+
+  TITLE --> NEED{Нужен вход?}
+  NEED -->|уже в сессии| PD
+  NEED -->|гость| INTRO[BrandAuthIntro / telegram-auth]
+
+  INTRO --> METHOD{Способ входа}
+  METHOD -->|Телефон| PH[PhoneLoginFlow<br/>+7 → код → verify]
+  METHOD -->|Telegram| TG[OAuth Telegram<br/>callback → session]
+
+  PH --> SESS[(Сессия пользователя)]
+  TG --> SESS
+
+  SESS --> INV{Есть invite token<br/>startapp?}
+  INV -->|да| CLAIM[claimInviteToken]
+  CLAIM --> INV_OK[(Инвайт зачтён · квота)]
+  INV -->|нет| PD
+  INV_OK --> PD
+
+  PD{Согласие ПД принято?}
+  PD -->|нет| GATE[PdConsentGate]
+  GATE --> ACCEPT[Чекбокс + accept]
+  ACCEPT --> PD_OK[(PD_CONSENT_VERSION записан)]
+  PD -->|да| PENDING
+  PD_OK --> PENDING
+
+  PENDING{Был pending action<br/>до входа?}
+  PENDING -->|add-panel| A1([→ photo])
+  PENDING -->|no-panel| A2([→ no-panel-options])
+  PENDING -->|call-master / help| A3([→ geo / HelpElectrical])
+  PENDING -->|wiring-check| A4([→ geo wiring])
+  PENDING -->|нет| HOME([→ objects · главная])
+
+  PUSH[Опционально: Web Push<br/>баннер на главной / профиль] -.-> HOME
+
+  classDef start fill:#111113,color:#fff
+  classDef decision fill:#fff,stroke:#111113,stroke-width:1.5px
+  classDef result fill:#e4e4e7,stroke:#71717a
+  class TITLE,A1,A2,A3,A4,HOME start
+  class NEED,METHOD,INV,PD,PENDING decision
+  class SESS,INV_OK,PD_OK result

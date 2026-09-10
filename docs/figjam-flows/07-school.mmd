@@ -1,0 +1,42 @@
+%%{init: {"theme":"base","themeVariables":{"fontFamily":"Inter, Helvetica, Arial, sans-serif","fontSize":"13px","primaryColor":"#D3DA00","primaryTextColor":"#111113","primaryBorderColor":"#111113","lineColor":"#52525b","secondaryColor":"#f4f4f5"}}}%%
+flowchart TB
+  TITLE([Домен 07 · Школа Током])
+
+  TITLE --> IN[Меню «Школа» / /school]
+  IN --> HOME[SchoolScreen · home]
+  HOME --> PROG[program · список классов]
+  PROG --> GRADE{Класс доступен?}
+
+  GRADE -->|не оплачен /<br/>не пройден предыдущий| LOCK[Замок на классе]
+  LOCK --> PAYUI[SchoolPayScreen / Sheet]
+  PAYUI --> PROMO{Промокод?}
+  PROMO -->|да| VAL[validate promo]
+  PROMO -->|нет| PRICE[Полная цена класса]
+  VAL --> PRICE
+  PRICE --> ROBO[Robokassa]
+  ROBO --> SYNC[/pay/return или school sync/]
+  SYNC --> PAID[(Класс в paid grades)]
+
+  GRADE -->|можно учиться| STUDY[grade → topic → lesson]
+  PAID --> STUDY
+
+  STUDY --> LESSON[LessonBlocks]
+  LESSON --> QUIZ[QuizFlow · тема]
+  QUIZ --> PASS{Тема сдана?}
+  PASS -->|нет| RETRY[Повтор]
+  RETRY --> QUIZ
+  PASS -->|да| NEXT{Все темы класса?}
+
+  NEXT -->|нет| STUDY
+  NEXT -->|да| EXAM[Экзамен класса]
+  EXAM --> EXOK{Сдал?}
+  EXOK -->|нет| LOCKOUT[Таймер блокировки]
+  LOCKOUT --> EXAM
+  EXOK -->|да| DONE[(Класс завершён)]
+
+  classDef start fill:#111113,color:#fff
+  classDef decision fill:#fff,stroke:#111113,stroke-width:1.5px
+  classDef result fill:#e4e4e7,stroke:#71717a
+  class TITLE start
+  class GRADE,PROMO,PASS,NEXT,EXOK decision
+  class PAID,DONE result

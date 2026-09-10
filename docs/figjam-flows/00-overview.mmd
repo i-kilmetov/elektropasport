@@ -1,0 +1,57 @@
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "fontFamily": "Inter, Helvetica, Arial, sans-serif",
+    "fontSize": "14px",
+    "primaryColor": "#D3DA00",
+    "primaryTextColor": "#111113",
+    "primaryBorderColor": "#111113",
+    "lineColor": "#52525b",
+    "secondaryColor": "#f4f4f5",
+    "tertiaryColor": "#ffffff",
+    "clusterBkg": "#fafafa",
+    "clusterBorder": "#d4d4d8"
+  }
+}}%%
+flowchart TB
+  subgraph LEGEND["Легенда"]
+    direction LR
+    L1([Старт / финиш])
+    L2[Шаг пользователя]
+    L3{Решение}
+    L4[(Результат в системе)]
+  end
+
+  START([Пользователь открывает Током]) --> HOST{Какой хост?}
+
+  HOST -->|tokom.ru / www| WAIT[Заглушка BrandLaunchWaitlist<br/>телефон + согласие ПД]
+  HOST -->|test.tokom.ru| TEST{Есть cookie<br/>тест-доступа?}
+  HOST -->|прямой вход<br/>с сессией| APP
+
+  WAIT --> WAIT_OK[(Телефон в waitlist)]
+  WAIT_OK --> END1([Ждёт открытия])
+
+  TEST -->|нет| LOGIN_TEST[/test-login пароль/]
+  LOGIN_TEST --> APP
+  TEST -->|да| APP
+
+  APP[Приложение AppShell] --> AUTH{Есть сессия?}
+  AUTH -->|нет| AUTH_FLOW[Домен 02 · Вход]
+  AUTH -->|да| PD{Согласие ПД?}
+  PD -->|нет| PD_GATE[PdConsentGate]
+  PD_GATE --> HOME
+  PD -->|да| HOME[Домен 03 · Главная objects]
+
+  HOME --> D4[04 · Щиток / схема]
+  HOME --> D5[05 · Заявки и оплата]
+  HOME --> D6[06 · Током Плюс]
+  HOME --> D7[07 · Школа]
+  HOME --> D8[08 · Мастер]
+  HOME --> D9[09 · Профиль / админ / прочее]
+
+  classDef start fill:#111113,color:#fff,stroke:#111113
+  classDef decision fill:#fff,stroke:#111113,stroke-width:1.5px
+  classDef result fill:#e4e4e7,stroke:#71717a
+  class START,END1 start
+  class HOST,TEST,AUTH,PD decision
+  class WAIT_OK result

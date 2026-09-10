@@ -1,0 +1,66 @@
+%%{init: {"theme":"base","themeVariables":{"fontFamily":"Inter, Helvetica, Arial, sans-serif","fontSize":"12px","primaryColor":"#D3DA00","primaryTextColor":"#111113","primaryBorderColor":"#111113","lineColor":"#52525b","secondaryColor":"#f4f4f5"}}}%%
+flowchart TB
+  TITLE([Домен 03 · Главная: щитки, «нет щитка», техника, шаринг])
+
+  TITLE --> HOME[objects · ObjectsScreen]
+  HOME --> TAB{Вкладка}
+  TAB -->|Щитки| PANELS
+  TAB -->|Заявки| REQ([→ request-details · Домен 05])
+
+  PANELS --> CTA{Действие}
+  CTA -->|Добавить щиток| ADD
+  CTA -->|У меня нет щитка| NOP
+  CTA -->|Открыть карточку| OPEN
+  CTA -->|Помочь с электрикой| HELP([→ Домен 05 · HelpElectrical])
+  CTA -->|Меню| MENU[Профиль / Школа / Мастер / …]
+
+  ADD --> AUTH1{Авторизован?}
+  AUTH1 -->|нет| LOGIN1([→ вход · pending add-panel])
+  AUTH1 -->|да| LIM{Лимит щитков?<br/>free ≤ 3}
+  LIM -->|да на лимите| LIMIT[PanelLimitSheet]
+  LIMIT --> PLUS1([→ Плюс / инвайт · Домен 06])
+  LIM -->|нет| PHOTO[photo → analysis]
+  PHOTO --> CREATE[(Панель создана)]
+  CREATE --> SCHEME([→ scheme · Домен 04])
+
+  NOP --> AUTH2{Авторизован?}
+  AUTH2 -->|нет| LOGIN2([→ вход · pending no-panel])
+  AUTH2 -->|да| OPT[no-panel-options · 4 карточки]
+
+  OPT --> KIND{Какой вариант?}
+  KIND -->|Пробки / Другое| DET[no-panel-detail]
+  DET --> DET_ACT{Исправить / Добавить}
+  DET_ACT -->|Добавить| SAVE1[(Карточка «нет щитка» на главной)]
+  DET_ACT -->|Исправить| ADV[panel-advantages → заявка]
+
+  KIND -->|Вводной кабель| PQ[inlet-project-question<br/>Есть проект?]
+  PQ -->|Нет| DES[electrical-design-landing<br/>+ калькулятор проекта]
+  PQ -->|Да| INST[electrical-install-landing<br/>+ калькулятор монтажа]
+  DES --> LEAD1([→ geo-address · Домен 05])
+  INST --> LEAD1
+
+  KIND -->|Этажный щит| FP[floor-protection-question<br/>Пробки или автомат?]
+  FP -->|Сохранить как есть| SAVE2[(Карточка на главной)]
+  FP -->|Выбор защиты| UP[floor-upgrade-options<br/>лестница от простого к полной замене]
+  UP --> LEAD2([→ geo-address · Домен 05])
+
+  OPEN --> OPENK{Тип карточки?}
+  OPENK -->|Реальный щиток| SCHEME
+  OPENK -->|Нет щитка stub| DET
+
+  subgraph APPL["Техника на щитке"]
+    AP1[Добавить технику] --> AP2{≤ 10 видов<br/>без Плюс?}
+    AP2 -->|да| AP3[(Техника сохранена)]
+    AP2 -->|нет| AP4([→ TokomPlusSheet appliances])
+  end
+
+  SCHEME -.-> APPL
+  SCHEME --> SHARE[ShareSheet · ссылка на щиток]
+  SHARE --> SHARE_OK[(Получатель открывает → вход → preview)]
+
+  classDef start fill:#111113,color:#fff
+  classDef decision fill:#fff,stroke:#111113,stroke-width:1.5px
+  classDef result fill:#e4e4e7,stroke:#71717a
+  class TITLE,LOGIN1,LOGIN2,SCHEME,HELP,PLUS1,LEAD1,LEAD2,REQ,AP4 start
+  class TAB,CTA,AUTH1,LIM,AUTH2,KIND,DET_ACT,PQ,FP,OPENK,AP2 decision
+  class CREATE,SAVE1,SAVE2,AP3,SHARE_OK result

@@ -1,0 +1,72 @@
+%%{init: {"theme":"base","themeVariables":{"fontFamily":"Inter, Helvetica, Arial, sans-serif","fontSize":"12px","primaryColor":"#D3DA00","primaryTextColor":"#111113","primaryBorderColor":"#111113","lineColor":"#52525b","secondaryColor":"#f4f4f5"}}}%%
+flowchart TB
+  TITLE([Домен 05 · Заявки, поиск мастера, Robokassa])
+
+  TITLE --> INTENT{Откуда заявка?}
+  INTENT -->|Помочь с электрикой| HELP
+  INTENT -->|Вызов с схемы| CALL
+  INTENT -->|Проверка расключения| WIRING
+  INTENT -->|Монтаж / проект<br/>нет щитка| INST
+  INTENT -->|Карточка заявки| TRACK
+
+  HELP --> H1{Есть щитки?}
+  H1 -->|да| WIZ[HelpElectricalWizardSheet<br/>место → категория → проблема]
+  H1 -->|нет| GEO0[Сначала адрес]
+  GEO0 --> WIZ
+  WIZ --> H2{AI-консультация<br/>и/или мастер?}
+  H2 -->|Консультация| CONS[(Заявка C-* / online)]
+  H2 -->|Мастер| GEO
+
+  CALL --> GEO
+  WIRING --> GEO
+  INST --> GEO
+
+  GEO[geo-address · адрес / ФИАС] --> CITY[city-select / address-select<br/>при необходимости]
+  CITY --> SVC{Тип услуги?}
+
+  SVC -->|wiring-check| QUOTE[wiring-check-quote<br/>цена от модулей]
+  SVC -->|визит / маркировка / прочее| LS[lead-service]
+  SVC -->|после преимуществ щитка| LS
+
+  QUOTE --> CONTACT
+  LS --> CONTACT
+
+  CONTACT[lead-contact · контакты] --> PAYNEED{Нужна оплата<br/>сразу?}
+  PAYNEED -->|да · LeadPaymentPanel| ROBOPAY[Robokassa · ссылка]
+  PAYNEED -->|нет · визит после поиска| SEARCH
+  PAYNEED -->|консультация без выезда| CREATED
+
+  ROBOPAY --> RETURN[/pay/return · sync подписи/]
+  RETURN --> PAID[(payment confirmed)]
+
+  SEARCH[master-search · поиск] --> FOUND{Мастер найден?}
+  FOUND -->|да| SUCC[master-success]
+  FOUND -->|нет / таймаут| NF[master-not-found]
+
+  SUCC --> PAY2{Статус payment?}
+  PAY2 -->|оплатить выезд| ROBOPAY
+  PAY2 -->|уже оплачено| PROG
+
+  CREATED[(install_request · new)] --> TRACK
+  PAID --> PROG
+  NF --> TRACK
+
+  TRACK[request-details] --> ST{Статус заявки}
+  ST -->|new| ST1[Ожидает обработки]
+  ST -->|payment| ST2[Ждёт оплаты клиента]
+  ST -->|in_progress| ST3[Мастер работает]
+  ST -->|done| ST4[Готово · отзыв]
+  ST -->|cancel / delete| ST5[Закрыта]
+
+  ST2 --> ROBOPAY
+  PROG[in_progress после оплаты] --> ST3
+
+  NOTE[Скидка Током Плюс 10%<br/>на выезд / маркировку / wiring] -.-> LS
+  NOTE -.-> QUOTE
+
+  classDef start fill:#111113,color:#fff
+  classDef decision fill:#fff,stroke:#111113,stroke-width:1.5px
+  classDef result fill:#e4e4e7,stroke:#71717a
+  class TITLE start
+  class INTENT,H1,H2,SVC,PAYNEED,FOUND,PAY2,ST decision
+  class CONS,PAID,CREATED,PROG result

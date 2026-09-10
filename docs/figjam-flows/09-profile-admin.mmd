@@ -1,0 +1,40 @@
+%%{init: {"theme":"base","themeVariables":{"fontFamily":"Inter, Helvetica, Arial, sans-serif","fontSize":"13px","primaryColor":"#D3DA00","primaryTextColor":"#111113","primaryBorderColor":"#111113","lineColor":"#52525b","secondaryColor":"#f4f4f5"}}}%%
+flowchart TB
+  TITLE([Домен 09 · Профиль, админ, опрос, ТО])
+
+  TITLE --> MENU[Главное меню]
+  MENU --> PROF[profile]
+  MENU --> ABOUT[about-service]
+  MENU --> FB[feedback]
+  MENU --> RULES[electrical-rules]
+  MENU --> GAME[panel-game]
+  MENU --> MAINT{ТО доступно?}
+  MENU --> SURVEY[/research опрос/]
+
+  PROF --> P1[Имя телефон email]
+  PROF --> P2[Током Плюс]
+  PROF --> P3[Инвайты]
+  PROF --> P4[Web Push]
+  PROF --> P5{Роль admin?}
+  P5 -->|да| ADM[admin dashboard]
+  P5 -->|нет| SAVED[(Профиль сохранён)]
+
+  ADM --> A1[Пользователи щитки заявки]
+  ADM --> A2[Waitlist согласия инвайты]
+  ADM --> A3[Мастера промокоды]
+  ADM --> A4[Push рассылки]
+
+  MAINT -->|да| M[maintenance напоминания]
+  MAINT -->|нет| HIDE[Пункт скрыт]
+
+  RULES --> DETAIL[electrical-rule-detail]
+  SURVEY --> Q[Шаги опроса]
+  Q --> THANKS[Спасибо]
+  THANKS --> WL([tokom.ru waitlist])
+
+  classDef start fill:#111113,color:#fff
+  classDef decision fill:#fff,stroke:#111113,stroke-width:1.5px
+  classDef result fill:#e4e4e7,stroke:#71717a
+  class TITLE,WL start
+  class P5,MAINT decision
+  class SAVED result

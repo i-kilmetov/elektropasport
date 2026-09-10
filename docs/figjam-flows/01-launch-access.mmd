@@ -1,0 +1,34 @@
+%%{init: {"theme":"base","themeVariables":{"fontFamily":"Inter, Helvetica, Arial, sans-serif","fontSize":"13px","primaryColor":"#D3DA00","primaryTextColor":"#111113","primaryBorderColor":"#111113","lineColor":"#52525b","secondaryColor":"#f4f4f5"}}}%%
+flowchart TB
+  TITLE([Домен 01 · Доступ к сервису])
+
+  TITLE --> OPEN[Открыть URL]
+  OPEN --> H{Хост?}
+
+  H -->|tokom.ru / www / vercel.app<br/>или ?waitlist=1| WL[BrandLaunchWaitlist]
+  H -->|test.tokom.ru| GATE{Cookie TEST_SITE?}
+  H -->|другое / сессия| BOOT[BrandSplash → AuthIntro / Home]
+
+  WL --> FLIP[Анимация логотипа]
+  FLIP --> CTA[Кнопка «Сообщить об открытии»]
+  CTA --> PHONE[Ввод телефона]
+  PHONE --> CONS{Галочка согласия ПД?}
+  CONS -->|нет| BLOCK[OK недоступен]
+  CONS -->|да| POST[POST /api/waitlist list=launch]
+  POST --> THANKS[(«Спасибо! Сообщим»)]
+  THANKS --> STOP1([Конец · доступ в продукт закрыт])
+
+  GATE -->|нет / истёк| TL[/test-login/]
+  TL --> PWD[Ввод TEST_SITE_PASSWORD]
+  PWD --> OK_C[(Cookie доступа)]
+  OK_C --> BOOT
+  GATE -->|да| BOOT
+
+  BOOT --> NEXT([→ Домен 02 · Вход и сессия])
+
+  classDef start fill:#111113,color:#fff
+  classDef decision fill:#fff,stroke:#111113,stroke-width:1.5px
+  classDef result fill:#e4e4e7,stroke:#71717a
+  class TITLE,STOP1,NEXT start
+  class H,GATE,CONS decision
+  class THANKS,OK_C result

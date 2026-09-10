@@ -1,0 +1,36 @@
+%%{init: {"theme":"base","themeVariables":{"fontFamily":"Inter, Helvetica, Arial, sans-serif","fontSize":"13px","primaryColor":"#D3DA00","primaryTextColor":"#111113","primaryBorderColor":"#111113","lineColor":"#52525b","secondaryColor":"#f4f4f5"}}}%%
+flowchart TB
+  TITLE([Домен 06 · Током Плюс])
+
+  TITLE --> ENTRY{Триггер апсейла}
+  ENTRY -->|Профиль| R1[reason: profile]
+  ENTRY -->|4-й щиток / лимит| R2[reason: panels]
+  ENTRY -->|11-й тип техники| R3[reason: appliances]
+  ENTRY -->|Клеммы без подписки| R4[reason: terminals]
+
+  R1 --> SHEET
+  R2 --> SHEET
+  R3 --> SHEET
+  R4 --> SHEET
+
+  SHEET[TokomPlusSheet<br/>сравнение Free vs Plus] --> ACTIVE{Уже активен?}
+  ACTIVE -->|да| SHOW[(До · until · статус)]
+  ACTIVE -->|нет| PAY[POST /api/payments/plus]
+  PAY --> ROBO[Robokassa · 220 ₽ / 30 дней]
+  ROBO --> RET[/pay/return sync/]
+  RET --> GRANT[(tokom_plus_until продлён)]
+
+  GRANT --> ENT[Что открывается]
+  ENT --> E1[Щитки без лимита]
+  ENT --> E2[Техника без лимита]
+  ENT --> E3[Расключение проводами]
+  ENT --> E4[−10% на выезд мастера]
+
+  FREE[Без Плюс:<br/>≤ 3 щитка · ≤ 10 видов техники · нет клемм] -.-> SHEET
+
+  classDef start fill:#111113,color:#fff
+  classDef decision fill:#fff,stroke:#111113,stroke-width:1.5px
+  classDef result fill:#e4e4e7,stroke:#71717a
+  class TITLE start
+  class ENTRY,ACTIVE decision
+  class SHOW,GRANT result

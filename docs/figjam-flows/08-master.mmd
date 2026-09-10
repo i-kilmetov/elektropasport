@@ -1,0 +1,39 @@
+%%{init: {"theme":"base","themeVariables":{"fontFamily":"Inter, Helvetica, Arial, sans-serif","fontSize":"13px","primaryColor":"#D3DA00","primaryTextColor":"#111113","primaryBorderColor":"#111113","lineColor":"#52525b","secondaryColor":"#f4f4f5"}}}%%
+flowchart TB
+  TITLE([Домен 08 · Стать мастером и кабинет мастера])
+
+  TITLE --> ENTRY{Вход в воронку}
+  ENTRY -->|/job лендинг| JOB[JobLandingPage]
+  ENTRY -->|Меню / реферал| BM
+  JOB --> BM[become-master]
+
+  BM --> CITY[city-select · город работы]
+  CITY --> DOCS[master-docs · фото документов]
+  DOCS --> EXAM[master-exam · экзамен<br/>контент школы]
+  EXAM --> ABOUT[master-about]
+  ABOUT --> CONTACT[lead-contact · leadFlow=master]
+  CONTACT --> APP[(Заявка мастера отправлена)]
+  APP --> REVIEW[Модерация / одобрение]
+  REVIEW --> ROLE[(Роль master)]
+
+  ROLE --> MODE{Режим UI}
+  MODE -->|masterMode| DASH[MasterDashboardScreen]
+  MODE -->|как пользователь| USER([→ objects])
+
+  DASH --> TABS{Вкладка}
+  TABS -->|Мои| MINE[Назначенные заявки]
+  TABS -->|Биржа| EX[Свободные заявки]
+  EX --> ACCEPT[Принять заказ]
+  ACCEPT --> MINE
+  MINE --> OPEN[Открыть request-details]
+  OPEN --> WORK[Схема щитка клиента,<br/>контакты, статус]
+  WORK --> DONE{Работа завершена?}
+  DONE -->|да| RATE[Диалог оценки / фидбек]
+  DONE -->|нет| WORK
+
+  classDef start fill:#111113,color:#fff
+  classDef decision fill:#fff,stroke:#111113,stroke-width:1.5px
+  classDef result fill:#e4e4e7,stroke:#71717a
+  class TITLE,USER start
+  class ENTRY,MODE,TABS,DONE decision
+  class APP,ROLE result

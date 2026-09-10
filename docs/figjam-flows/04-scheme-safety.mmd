@@ -1,0 +1,37 @@
+%%{init: {"theme":"base","themeVariables":{"fontFamily":"Inter, Helvetica, Arial, sans-serif","fontSize":"13px","primaryColor":"#D3DA00","primaryTextColor":"#111113","primaryBorderColor":"#111113","lineColor":"#52525b","secondaryColor":"#f4f4f5"}}}%%
+flowchart TB
+  TITLE([Домен 04 · Схема щитка, безопасность, клеммы])
+
+  TITLE --> SCH[scheme · SchemeScreen]
+  SCH --> ACT{Действие на схеме}
+
+  ACT -->|Смотреть / править приборы| DEV[Рейки, CatalogPicker,<br/>переименование, модули]
+  DEV --> SAVE_D[(Схема сохранена)]
+
+  ACT -->|Переснять фото| RETAKE[photo → analysis]
+  RETAKE --> UPD[(Панель обновлена)]
+  UPD --> SCH
+
+  ACT -->|Параметры сети / нагрузка| SAFE[Фазы, кВт, заземление,<br/>нагрузки → Safety stages]
+  SAFE --> SCORE[(Оценка безопасности)]
+  SCORE --> HOW[«Как считаем» → safety-methodology]
+  SCORE --> WIRE_HINT{Нужна проверка<br/>расключения?}
+  WIRE_HINT -->|да| WC([→ wiring-check · Домен 05])
+  WIRE_HINT -->|нет| SCH
+
+  ACT -->|Режим «Клеммы»| TERM{Можно править провода?}
+  TERM -->|Плюс / мастер / professionalSafety| WIRES[Рисование проводов<br/>между клеммами]
+  WIRES --> WIRES_OK[(Wires сохранены)]
+  TERM -->|нет| PLUS([→ TokomPlusSheet terminals · Домен 06])
+
+  ACT -->|Вызвать мастера| CM([→ call-master · Домен 05])
+  ACT -->|Поделиться| SH[ShareSheet]
+
+  ACT -->|Мастер-лок расключения| LOCK[(professionalSafety:<br/>пользователь не меняет провода)]
+
+  classDef start fill:#111113,color:#fff
+  classDef decision fill:#fff,stroke:#111113,stroke-width:1.5px
+  classDef result fill:#e4e4e7,stroke:#71717a
+  class TITLE,WC,PLUS,CM start
+  class ACT,WIRE_HINT,TERM decision
+  class SAVE_D,UPD,SCORE,WIRES_OK,LOCK result
