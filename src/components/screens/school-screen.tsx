@@ -116,6 +116,15 @@ export function SchoolScreen({ onBack }: { onBack: () => void }) {
       const synced = await syncRobokassaReturnIfPresent();
       if (cancelled) return;
       if (synced?.ok) hapticNotification("success");
+      // Cabinet SuccessURL may still land install/plus pays on /school.
+      if (
+        synced?.ok &&
+        synced.serviceType &&
+        !synced.serviceType.startsWith("school")
+      ) {
+        window.location.replace("/");
+        return;
+      }
       load();
     })();
     window.addEventListener("focus", load);

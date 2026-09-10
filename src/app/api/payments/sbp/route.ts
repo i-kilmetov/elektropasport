@@ -18,6 +18,7 @@ import {
   buildRobokassaPaymentUrl,
   isRobokassaConfigured,
   newRobokassaInvId,
+  robokassaBrowserReturnUrl,
 } from "@/lib/robokassa";
 
 function newOrderId(): string {
@@ -61,13 +62,13 @@ export async function POST(request: Request) {
     const orderId = newOrderId();
     const invId = newRobokassaInvId();
     const description = getLeadServiceLabel(lead.serviceType);
-    const origin = resolveAppOrigin(request);
+    const returnUrl = robokassaBrowserReturnUrl(resolveAppOrigin(request));
     const paymentUrl = buildRobokassaPaymentUrl({
       invId,
       amountRub,
       description,
-      successUrl: `${origin}/`,
-      failUrl: `${origin}/`,
+      successUrl2: returnUrl,
+      failUrl2: returnUrl,
       shp: {
         kind: "lead",
         order_id: orderId,

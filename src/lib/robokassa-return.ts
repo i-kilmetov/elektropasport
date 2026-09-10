@@ -1,9 +1,15 @@
 /**
- * After Robokassa SuccessURL redirect, the browser lands on /?OutSum=&InvId=&SignatureValue=
- * ResultURL may have failed; this syncs payment via Password#1 success signature.
+ * After Robokassa SuccessURL / SuccessUrl2 redirect, the browser lands with
+ * ?OutSum=&InvId=&SignatureValue=. ResultURL may have failed; this syncs via Password#1.
  */
 
-const ROBO_KEYS = ["OutSum", "InvId", "SignatureValue"] as const;
+const ROBO_KEYS = [
+  "OutSum",
+  "InvId",
+  "SignatureValue",
+  "IsTest",
+  "Culture",
+] as const;
 
 export function readRobokassaReturnParams(
   search = typeof window !== "undefined" ? window.location.search : "",

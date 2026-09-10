@@ -109,16 +109,32 @@ function signaturesEqual(expected: string, actual: string): boolean {
   return timingSafeEqual(left, right);
 }
 
+/**
+ * Payment SignatureValue.
+ * Modifiers (Receipt, StepByStep, ResultUrl2, SuccessUrl2, …) go between InvId
+ * and Password#1, only when present, in Robokassa’s fixed order.
+ * SuccessUrl2 / FailUrl2 values in the signature string must be URL-encoded.
+ */
 export function buildRobokassaPaymentSignature(input: {
   outSum: string;
   invId: number;
   shp?: RobokassaShp;
+  successUrl2?: string;
+  successUrl2Method?: "GET" | "POST";
+  failUrl2?: string;
+  failUrl2Method?: "GET" | "POST";
 }): string {
-  const base = appendShp(
-    `${merchantLogin()}:${input.outSum}:${input.invId}:${password1()}`,
-    input.shp,
-  );
-  return digest(base);
+  const parts = [merchantLogin(), input.outSum, String(input.invId)];
+  if (input.successUrl2?.trim()) {
+    parts.push(encodeURIComponent(input.successUrl2.trim()));
+    parts.push(input.successUrl2Method ?? "GET");
+  }
+  if (input.failUrl2?.trim()) {
+    parts.push(encodeURIComponent(input.failUrl2.trim()));
+    parts.push(input.failUrl2Method ?? "GET");
+  }
+  parts.push(password1());
+  return digest(appendShp(parts.join(":"), input.shp));
 }
 
 export function verifyRobokassaResultSignature(input: {
@@ -150,19 +166,64 @@ export function verifyRobokassaSuccessSignature(input: {
   return signaturesEqual(digest(base), input.signatureValue);
 }
 
+/** Force https on public return URLs (cabinet often has http://…). */
+export function robokassaHttpsUrl(url: string): string {
+  try {
+    const parsed = new URL(url.trim());
+    const host = parsed.hostname.toLowerCase();
+    if (
+      host !== "localhost" &&
+      host !== "127.0.0.1" &&
+      parsed.protocol === "http:"
+    ) {
+      parsed.protocol = "https:";
+    }
+    return parsed.toString().replace(/\/$/, "") === parsed.origin
+      ? parsed.origin
+      : parsed.toString().replace(/\/$/, "");
+  } catch {
+    return url.trim();
+  }
+}
+
+/**
+ * Browser return path after pay. Must be SuccessUrl2 (not SuccessURL):
+ * cabinet SuccessURL wins unless SuccessUrl2 is signed into the payment link.
+ */
+export function robokassaBrowserReturnUrl(origin: string): string {
+  const base = robokassaHttpsUrl(origin.replace(/\/$/, ""));
+  return `${base}/pay/return`;
+}
+
 export function buildRobokassaPaymentUrl(input: {
   invId: number;
   amountRub: number;
   description: string;
+  /** @deprecated Prefer successUrl2 — plain SuccessURL is ignored when cabinet has its own. */
   successUrl?: string;
+  /** @deprecated Prefer failUrl2 */
   failUrl?: string;
+  successUrl2?: string;
+  failUrl2?: string;
   shp?: RobokassaShp;
 }): string {
   const outSum = formatRobokassaOutSum(input.amountRub);
+  const successUrl2 = robokassaHttpsUrl(
+    (input.successUrl2 ?? input.successUrl ?? "").trim(),
+  );
+  const failUrl2 = robokassaHttpsUrl(
+    (input.failUrl2 ?? input.failUrl ?? successUrl2).trim(),
+  );
+  const successUrl2Method = "GET" as const;
+  const failUrl2Method = "GET" as const;
+
   const signature = buildRobokassaPaymentSignature({
     outSum,
     invId: input.invId,
     shp: input.shp,
+    ...(successUrl2
+      ? { successUrl2, successUrl2Method, failUrl2, failUrl2Method }
+      : {}),
   });
 
   const params = new URLSearchParams({
@@ -178,11 +239,12 @@ export function buildRobokassaPaymentUrl(input: {
   if (isRobokassaTestMode()) {
     params.set("IsTest", "1");
   }
-  if (input.successUrl?.trim()) {
-    params.set("SuccessURL", input.successUrl.trim());
-  }
-  if (input.failUrl?.trim()) {
-    params.set("FailURL", input.failUrl.trim());
+  // SuccessUrl2 overrides cabinet SuccessURL (must be in SignatureValue).
+  if (successUrl2) {
+    params.set("SuccessUrl2", successUrl2);
+    params.set("SuccessUrl2Method", successUrl2Method);
+    params.set("FailUrl2", failUrl2);
+    params.set("FailUrl2Method", failUrl2Method);
   }
 
   for (const [key, value] of Object.entries(input.shp ?? {})) {

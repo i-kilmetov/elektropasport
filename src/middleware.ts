@@ -20,6 +20,7 @@ import {
 
 const TEST_PUBLIC_PREFIXES = [
   "/test-login",
+  "/pay/return",
   "/api/test-access",
   "/api/payments/robokassa-result",
   "/api/payments/robokassa-success",
@@ -65,6 +66,32 @@ export async function middleware(request: NextRequest) {
     .split(":")[0]
     ?.toLowerCase();
   const pathname = request.nextUrl.pathname;
+  const forwardedProto = request.headers
+    .get("x-forwarded-proto")
+    ?.split(",")[0]
+    ?.trim()
+    .toLowerCase();
+
+  // Robokassa cabinet may still have http:// Success URL — upgrade to https.
+  const publicHost = (forwardedHost || host || "").toLowerCase();
+  if (
+    forwardedProto === "http" &&
+    (publicHost === "tokom.ru" ||
+      publicHost === "www.tokom.ru" ||
+      publicHost === "test.tokom.ru" ||
+      publicHost === "www.test.tokom.ru")
+  ) {
+    const httpsUrl = new URL(request.url);
+    httpsUrl.protocol = "https:";
+    httpsUrl.host =
+      publicHost === "www.test.tokom.ru"
+        ? TEST_APP_HOST
+        : publicHost === "www.tokom.ru"
+          ? "tokom.ru"
+          : publicHost;
+    httpsUrl.port = "";
+    return NextResponse.redirect(httpsUrl, 308);
+  }
 
   if (isTestAppWwwHost(host) || isTestAppWwwHost(forwardedHost)) {
     return NextResponse.redirect(
@@ -111,11 +138,11 @@ export async function middleware(request: NextRequest) {
     process.env.CANONICALIZE_VERCEL_APP_HOST?.trim().toLowerCase() === "true";
 
   // Behind a RU edge the Host is often *.vercel.app while users see tokom.ru.
-  const publicHost = forwardedHost || host;
+  const edgeHost = forwardedHost || host;
   if (
     canonicalize &&
     host === LEGACY_VERCEL_HOST &&
-    publicHost === LEGACY_VERCEL_HOST
+    edgeHost === LEGACY_VERCEL_HOST
   ) {
     const target = new URL(request.url);
     const canonical = new URL(PRODUCTION_APP_URL);

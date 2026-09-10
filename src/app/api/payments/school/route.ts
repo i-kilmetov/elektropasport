@@ -35,6 +35,7 @@ import {
   buildRobokassaPaymentUrl,
   isRobokassaConfigured,
   newRobokassaInvId,
+  robokassaBrowserReturnUrl,
 } from "@/lib/robokassa";
 
 function newOrderId(): string {
@@ -213,7 +214,7 @@ export async function POST(request: Request) {
     }
 
     const invId = newRobokassaInvId();
-    const origin = resolveAppOrigin(request);
+    const returnUrl = robokassaBrowserReturnUrl(resolveAppOrigin(request));
     const paymentUrl = buildRobokassaPaymentUrl({
       invId,
       amountRub: finalAmountRub,
@@ -221,8 +222,8 @@ export async function POST(request: Request) {
         promo && discountRub > 0
           ? `Школа Током — ${title} (промокод ${promo.code})`
           : `Школа Током — ${title}`,
-      successUrl: `${origin}/school`,
-      failUrl: `${origin}/school`,
+      successUrl2: returnUrl,
+      failUrl2: returnUrl,
       shp: {
         kind: "school",
         order_id: orderId,

@@ -21,6 +21,7 @@ import {
   buildRobokassaPaymentUrl,
   isRobokassaConfigured,
   newRobokassaInvId,
+  robokassaBrowserReturnUrl,
 } from "@/lib/robokassa";
 import { notifyCustomerMasterAccepted } from "@/lib/telegram-notify";
 import { notifyUserWebPush } from "@/lib/web-push";
@@ -78,12 +79,13 @@ export async function ensureInstallRequestPayment(
   const orderId = newOrderId();
   const invId = newRobokassaInvId();
   const origin = appOriginForOwner(request.telegramUserId);
+  const returnUrl = robokassaBrowserReturnUrl(origin);
   const paymentUrl = buildRobokassaPaymentUrl({
     invId,
     amountRub,
     description: `Выезд мастера · ${request.publicCode ?? request.id.slice(0, 8)}`,
-    successUrl: `${origin}/`,
-    failUrl: `${origin}/`,
+    successUrl2: returnUrl,
+    failUrl2: returnUrl,
     shp: {
       kind: "install",
       order_id: orderId,

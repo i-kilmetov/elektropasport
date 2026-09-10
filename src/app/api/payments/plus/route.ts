@@ -21,6 +21,7 @@ import {
   buildRobokassaPaymentUrl,
   isRobokassaConfigured,
   newRobokassaInvId,
+  robokassaBrowserReturnUrl,
 } from "@/lib/robokassa";
 import {
   formatPlusUntil,
@@ -116,13 +117,13 @@ export async function POST(request: Request) {
 
     const orderId = newOrderId();
     const invId = newRobokassaInvId();
-    const origin = resolveAppOrigin(request);
+    const returnUrl = robokassaBrowserReturnUrl(resolveAppOrigin(request));
     const paymentUrl = buildRobokassaPaymentUrl({
       invId,
       amountRub: TOKOM_PLUS_PRICE_RUB,
       description: "Током Плюс — заряженная подписка на 30 дней",
-      successUrl: `${origin}/`,
-      failUrl: `${origin}/`,
+      successUrl2: returnUrl,
+      failUrl2: returnUrl,
       shp: {
         kind: "plus",
         order_id: orderId,
