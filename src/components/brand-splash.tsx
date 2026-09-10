@@ -7,7 +7,6 @@ import {
   applyAppStatusBarTheme,
   applySplashStatusBarTheme,
 } from "@/lib/status-bar-theme";
-import { Button } from "@/components/ui/button";
 import { PhoneLoginFlow } from "@/components/phone-login-flow";
 import Link from "next/link";
 import {
