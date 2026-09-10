@@ -373,6 +373,60 @@ function DeviceFunction({
       <RcdDiffFace modules={modules} powered={powered} accent={accent} />
     );
   }
+  if (resolvedType === "pe_bus" || resolvedType === "n_bus") {
+    return (
+      <div
+        className="flex h-full w-full items-center justify-center rounded-[4px]"
+        style={{
+          background:
+            resolvedType === "pe_bus"
+              ? "linear-gradient(180deg,#eab308,#ca8a04)"
+              : "linear-gradient(180deg,#60a5fa,#2563eb)",
+        }}
+      >
+        <span className="text-[10px] font-bold tracking-wide text-white">
+          {resolvedType === "pe_bus" ? "PE" : "N"}
+        </span>
+      </div>
+    );
+  }
+  if (resolvedType === "socket") {
+    return (
+      <div className="flex h-full w-full flex-col items-center justify-center gap-1">
+        <div
+          className={cn(
+            "relative h-7 w-7 rounded-full border-2",
+            powered ? "border-zinc-700" : "border-zinc-400",
+          )}
+        >
+          <span className="absolute left-1 top-2 h-1.5 w-1.5 rounded-full bg-current" />
+          <span className="absolute right-1 top-2 h-1.5 w-1.5 rounded-full bg-current" />
+          <span className="absolute bottom-1 left-1/2 h-1.5 w-1.5 -translate-x-1/2 rounded-sm bg-current" />
+        </div>
+        <span className="text-[8px] font-semibold text-zinc-600">16A</span>
+      </div>
+    );
+  }
+  if (resolvedType === "contactor") {
+    return (
+      <div className="flex h-full w-full flex-col items-center justify-center gap-1">
+        <span
+          className={cn(
+            "rounded px-1.5 py-0.5 text-[9px] font-bold tracking-wide",
+            powered ? "bg-zinc-800 text-white" : "bg-zinc-300 text-zinc-600",
+          )}
+        >
+          KM
+        </span>
+        <BreakerLevers
+          count={showDetails ? Math.min(levers, modules) : 1}
+          modules={modules}
+          powered={powered}
+          accent={accent}
+        />
+      </div>
+    );
+  }
   return (
     <BreakerLevers
       count={showDetails ? levers : Math.min(1, modules)}

@@ -13,6 +13,8 @@ const DEVICE_TYPES: DeviceType[] = [
   "breaker",
   "spd",
   "afdd",
+  "contactor",
+  "socket",
   "pe_bus",
   "n_bus",
 ];

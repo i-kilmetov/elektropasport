@@ -23,7 +23,8 @@ import { cn } from "@/lib/utils";
 import type { DeviceType } from "@/types";
 
 function guideTitle(type: DeviceType): string {
-  if (type === "pe_bus" || type === "n_bus") return "Прибор";
+  if (type === "pe_bus") return "Шина PE";
+  if (type === "n_bus") return "Шина N";
   return (deviceTypeGuide[type] as DeviceGuideEntry).title;
 }
 

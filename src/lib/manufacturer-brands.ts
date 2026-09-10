@@ -305,4 +305,8 @@ export const DEVICE_TYPE_OPTIONS: Array<{
   { type: "voltage_relay", label: "Реле напряжения" },
   { type: "spd", label: "УЗИП" },
   { type: "afdd", label: "УЗДП" },
+  { type: "contactor", label: "Контактор" },
+  { type: "socket", label: "Розетка" },
+  { type: "pe_bus", label: "Шина PE" },
+  { type: "n_bus", label: "Шина N" },
 ];

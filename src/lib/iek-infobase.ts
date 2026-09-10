@@ -91,6 +91,8 @@ function inScope(fields: XmlFields): boolean {
 export function classifyIekDevice(haystack: string): CatalogCategory | null {
   const text = haystack.toLowerCase();
   if (SKIP_RE.test(text)) return null;
+  if (/контактор|\bкм\b|contactor/.test(text)) return "contactor";
+  if (/розетк|socket|schuko/.test(text)) return "socket";
   if (/афдд|уздп|дугов/.test(text)) return "afdd";
   if (/узип|опс1|ограничитель импульс|перенапряж/.test(text)) return "spd";
   if (/реле напряжения|реле контроля напряжения|\bрн-/.test(text)) {

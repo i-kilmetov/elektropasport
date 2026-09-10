@@ -9,7 +9,11 @@ export type CatalogCategory =
   | "diff_breaker"
   | "voltage_relay"
   | "spd"
-  | "afdd";
+  | "afdd"
+  | "contactor"
+  | "socket"
+  | "pe_bus"
+  | "n_bus";
 
 export interface CatalogProduct {
   id: string;
@@ -95,7 +99,16 @@ export function resolveDeviceSeriesLabel(
 }
 
 export function polesToModules(poles: string, category: CatalogCategory): number {
-  if (category === "voltage_relay") return 1;
+  if (category === "voltage_relay" || category === "socket") return 1;
+  if (category === "pe_bus" || category === "n_bus") {
+    const n = Number(poles.replace(/\D/g, ""));
+    return Number.isFinite(n) && n > 0 ? Math.min(18, n) : 8;
+  }
+  if (category === "contactor") {
+    if (poles.includes("3P") || poles === "4P" || poles === "3P+N") return 3;
+    if (poles === "2P" || poles === "1P+N") return 2;
+    return 1;
+  }
   if (category === "spd") {
     if (poles.includes("3+N") || poles === "4P") return 4;
     if (poles === "3P") return 3;
@@ -357,6 +370,120 @@ function buildCatalog(): CatalogProduct[] {
     }
   }
 
+  for (const b of BRANDS.slice(0, 6)) {
+    for (const poles of ["1P", "3P"] as const) {
+      for (const amp of [16, 25, 40] as const) {
+        const modules = polesToModules(poles, "contactor");
+        pushUnique(items, {
+          id: `${b.key}-km-${poles}-${amp}`.toLowerCase(),
+          brand: b.brand,
+          brandKey: b.key,
+          category: "contactor",
+          series: "КМ",
+          model: `КМ ${poles} ${amp}A`,
+          modules,
+          poles,
+          rating: `${amp}A`,
+          displayName: `Контактор ${poles} ${amp}A`,
+          characteristics: {
+            Тип: "Модульный контактор",
+            Полюса: poles,
+            "Номинальный ток": `${amp} A`,
+            "Катушка": "230 V AC",
+            Модули: String(modules),
+          },
+        });
+      }
+    }
+    pushUnique(items, {
+      id: `${b.key}-socket-din`.toLowerCase(),
+      brand: b.brand,
+      brandKey: b.key,
+      category: "socket",
+      series: "Розетка",
+      model: "DIN 230V",
+      modules: 1,
+      poles: "1P+N",
+      rating: "16A",
+      displayName: "Розетка на DIN 16A",
+      characteristics: {
+        Тип: "Модульная розетка щитовая",
+        Полюса: "1P+N",
+        "Номинальный ток": "16 A",
+        Модули: "1",
+      },
+    });
+  }
+
+  pushUnique(items, {
+    id: "bus-pe-8",
+    brand: "IEK",
+    brandKey: "iek",
+    category: "pe_bus",
+    series: "PE",
+    model: "Шина PE 8",
+    modules: 8,
+    poles: "8",
+    rating: "—",
+    displayName: "Шина PE · 8 клемм",
+    characteristics: {
+      Тип: "Заземляющая шина",
+      Клеммы: "8",
+      Модули: "8",
+    },
+  });
+  pushUnique(items, {
+    id: "bus-n-8",
+    brand: "IEK",
+    brandKey: "iek",
+    category: "n_bus",
+    series: "N",
+    model: "Шина N 8",
+    modules: 8,
+    poles: "8",
+    rating: "—",
+    displayName: "Шина N · 8 клемм",
+    characteristics: {
+      Тип: "Нулевая шина",
+      Клеммы: "8",
+      Модули: "8",
+    },
+  });
+  pushUnique(items, {
+    id: "bus-pe-12",
+    brand: "IEK",
+    brandKey: "iek",
+    category: "pe_bus",
+    series: "PE",
+    model: "Шина PE 12",
+    modules: 12,
+    poles: "12",
+    rating: "—",
+    displayName: "Шина PE · 12 клемм",
+    characteristics: {
+      Тип: "Заземляющая шина",
+      Клеммы: "12",
+      Модули: "12",
+    },
+  });
+  pushUnique(items, {
+    id: "bus-n-12",
+    brand: "IEK",
+    brandKey: "iek",
+    category: "n_bus",
+    series: "N",
+    model: "Шина N 12",
+    modules: 12,
+    poles: "12",
+    rating: "—",
+    displayName: "Шина N · 12 клемм",
+    characteristics: {
+      Тип: "Нулевая шина",
+      Клеммы: "12",
+      Модули: "12",
+    },
+  });
+
   return items;
 }
 
@@ -373,7 +500,6 @@ export function catalogCategoryToDeviceType(
 }
 
 export function deviceTypeToCategory(type: DeviceType): CatalogCategory | null {
-  if (type === "pe_bus" || type === "n_bus") return null;
   return type;
 }
 

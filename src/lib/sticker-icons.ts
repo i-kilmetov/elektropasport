@@ -261,6 +261,8 @@ const TYPE_DEFAULT: Record<DeviceType, StickerIconId> = {
   breaker: "breaker",
   spd: "spd",
   afdd: "afdd",
+  contactor: "breaker",
+  socket: "socket",
   pe_bus: "earth",
   n_bus: "cable",
 };
@@ -346,6 +348,14 @@ export function stickerCaption(
       return "УЗИП";
     case "afdd":
       return "УЗДП";
+    case "contactor":
+      return "Контактор";
+    case "socket":
+      return "Розетка";
+    case "pe_bus":
+      return "PE";
+    case "n_bus":
+      return "N";
     default:
       return device.rating || "Линия";
   }

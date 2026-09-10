@@ -113,15 +113,25 @@ import {
 import { CatalogPickerSheet } from "@/components/screens/catalog-picker-sheet";
 import { PanelDeviceGuideSection } from "@/components/screens/panel-device-guide-section";
 import { useRailEdit } from "@/components/scheme/use-rail-edit";
-import { productToDevice, type CatalogProduct } from "@/lib/device-catalog";
+import {
+  getSampleCatalogDevice,
+  productToDevice,
+  type CatalogProduct,
+} from "@/lib/device-catalog";
 import { StickerDesigner } from "@/components/screens/sticker-designer";
 import {
   deviceModules,
   deriveRailCount,
   groupDevicesByRail,
+  isRailDevice,
   railModuleTotal,
 } from "@/lib/panel-rails";
 import { appendDevice, nextDeviceId } from "@/lib/panel-edit";
+import {
+  analyzeLiveWiringFaults,
+  type WiringFault,
+} from "@/lib/wiring-live-faults";
+import { WiringFaultSheet } from "@/components/ui/wiring-fault-sheet";
 import {
   DEVICE_TYPE_OPTIONS,
   getManufacturerBrand,
@@ -183,6 +193,8 @@ const typeShort: Record<DeviceType, string> = {
   breaker: "Авт.",
   spd: "УЗИП",
   afdd: "УЗДП",
+  contactor: "КМ",
+  socket: "Роз.",
   pe_bus: "PE",
   n_bus: "N",
 };
@@ -1856,6 +1868,8 @@ export function SchemeScreen({
     existing?: PanelWire;
   } | null>(null);
   const [editingWire, setEditingWire] = useState<PanelWire | null>(null);
+  const [wiringFaults, setWiringFaults] = useState<WiringFault[]>([]);
+  const [faultWireId, setFaultWireId] = useState<string | null>(null);
   const pendingTouchesSupply = Boolean(
     pendingWire &&
       (isSupplyTerminal(pendingWire.from) || isSupplyTerminal(pendingWire.to)),
@@ -1958,6 +1972,16 @@ export function SchemeScreen({
     return null;
   }, [devices, identifyContext]);
 
+  const busDevices = useMemo(
+    () =>
+      devices
+        .filter((d) => d.type === "pe_bus" || d.type === "n_bus")
+        .sort((a, b) => {
+          if (a.type !== b.type) return a.type === "n_bus" ? -1 : 1;
+          return (a.position ?? 0) - (b.position ?? 0);
+        }),
+    [devices],
+  );
   const allRailDevices = useMemo(
     () =>
       devices.filter((d) => d.type !== "pe_bus" && d.type !== "n_bus"),
@@ -2133,12 +2157,50 @@ export function SchemeScreen({
   );
   const commitDevices = useCallback(
     (nextRail: Device[]) => {
-      const buses = devices.filter(
+      const railOnly = nextRail.filter(isRailDevice);
+      const busesFromDraft = nextRail.filter(
         (device) => device.type === "pe_bus" || device.type === "n_bus",
       );
-      onUpdateDevices?.([...nextRail, ...buses], deriveRailCount(nextRail));
+      const buses =
+        busesFromDraft.length > 0
+          ? busesFromDraft
+          : devices.filter(
+              (device) => device.type === "pe_bus" || device.type === "n_bus",
+            );
+      onUpdateDevices?.(
+        [...railOnly, ...buses],
+        deriveRailCount(railOnly),
+      );
     },
     [devices, onUpdateDevices],
+  );
+
+  const commitBusDevices = useCallback(
+    (nextBuses: Device[]) => {
+      onUpdateDevices?.(
+        [...allRailDevices, ...nextBuses],
+        deriveRailCount(allRailDevices),
+      );
+    },
+    [allRailDevices, onUpdateDevices],
+  );
+
+  const addBusBar = useCallback(
+    (type: "pe_bus" | "n_bus") => {
+      if (!onUpdateDevices) return;
+      const sample = getSampleCatalogDevice(type);
+      if (!sample) return;
+      const device: Device = {
+        ...sample,
+        id: nextDeviceId(devices),
+        position: busDevices.length,
+        status: "verified",
+        confidence: 100,
+      };
+      hapticNotification("success");
+      commitBusDevices([...busDevices, device]);
+    },
+    [busDevices, commitBusDevices, devices, onUpdateDevices],
   );
   const [editDraft, setEditDraft] = useState<Device[] | null>(null);
   const editBaselineRef = useRef<string | null>(null);
@@ -2383,6 +2445,29 @@ export function SchemeScreen({
     }
   };
 
+  const reportWiringFaults = useCallback(
+    (nextWires: PanelWire[], focusWireId?: string) => {
+      const faults = analyzeLiveWiringFaults({
+        devices,
+        wires: nextWires,
+        phases,
+        hasGround,
+      });
+      if (faults.length === 0) {
+        setWiringFaults([]);
+        setFaultWireId(null);
+        return;
+      }
+      const focused = focusWireId
+        ? faults.filter((fault) => fault.wireId === focusWireId)
+        : faults;
+      setWiringFaults(focused.length > 0 ? focused : faults.slice(0, 4));
+      setFaultWireId(focusWireId ?? faults[0]?.wireId ?? null);
+      hapticNotification("error");
+    },
+    [devices, hasGround, phases],
+  );
+
   const commitWire = (spec: {
     color: string;
     thicknessMm: number;
@@ -2406,20 +2491,20 @@ export function SchemeScreen({
         nextFrom = bound.from;
         nextTo = bound.to;
       }
-      applyWiresChange(
-        wires.map((wire) =>
-          wire.id === editingWire.id
-            ? {
-                ...wire,
-                from: nextFrom,
-                to: nextTo,
-                color: spec.color,
-                thicknessMm: spec.thicknessMm,
-                cableType: spec.cableType,
-              }
-            : wire,
-        ),
+      const nextWires = wires.map((wire) =>
+        wire.id === editingWire.id
+          ? {
+              ...wire,
+              from: nextFrom,
+              to: nextTo,
+              color: spec.color,
+              thicknessMm: spec.thicknessMm,
+              cableType: spec.cableType,
+            }
+          : wire,
       );
+      applyWiresChange(nextWires);
+      reportWiringFaults(nextWires, editingWire.id);
       setEditingWire(null);
       return;
     }
@@ -2451,7 +2536,9 @@ export function SchemeScreen({
     const without = wires.filter(
       (wire) => !wireConnectsSamePair(wire, pendingWire.from, pendingWire.to),
     );
-    applyWiresChange([...without, nextWire]);
+    const nextWires = [...without, nextWire];
+    applyWiresChange(nextWires);
+    reportWiringFaults(nextWires, nextWire.id);
     setPendingWire(null);
   };
 
@@ -3261,6 +3348,86 @@ export function SchemeScreen({
                   </div>
                 </div>
               )}
+              {showTerminals && canUseTerminals ? (
+                <div className="mt-5 rounded-[16px] border border-black/8 bg-zinc-50/80 px-3 py-3">
+                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <p className="ty-label text-zinc-800">Шины N и PE</p>
+                      <p className="ty-meta text-zinc-500">
+                        Нулевая и заземляющая — для расключения клемм
+                      </p>
+                    </div>
+                    {!sharedPreview && onUpdateDevices ? (
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            hapticImpact("light");
+                            addBusBar("n_bus");
+                          }}
+                          className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-[12px] font-semibold text-blue-800"
+                        >
+                          + Шина N
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            hapticImpact("light");
+                            addBusBar("pe_bus");
+                          }}
+                          className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-[12px] font-semibold text-amber-900"
+                        >
+                          + Шина PE
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                  {busDevices.length === 0 ? (
+                    <p className="ty-note text-zinc-500">
+                      Добавьте шины, чтобы тянуть N и PE с ввода и на линии.
+                    </p>
+                  ) : (
+                    <div
+                      className="flex flex-wrap items-start"
+                      style={{ gap: DEVICE_GAP_PX }}
+                    >
+                      {busDevices.map((device) => (
+                        <DeviceBlock
+                          key={device.id}
+                          device={device}
+                          selected={selectedId === device.id}
+                          showTerminals
+                          highlightTerminalKey={
+                            hoverTerminalKey ??
+                            (wireDraft ? terminalKey(wireDraft.from) : null)
+                          }
+                          editing={false}
+                          jiggling={false}
+                          onDelete={
+                            sharedPreview || !onUpdateDevices
+                              ? undefined
+                              : () => {
+                                  hapticImpact("light");
+                                  setDeleteTarget(device);
+                                }
+                          }
+                          onSelect={(clientY) => {
+                            if (railEdit.editing) return;
+                            setSelectedId(device.id);
+                            setSheetAnchorY(clientY);
+                          }}
+                          onTerminalPointerDown={
+                            !canEditWires || railEdit.editing
+                              ? undefined
+                              : handleTerminalPointerDown
+                          }
+                          caption={device.type === "pe_bus" ? "PE" : "N"}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : null}
             </div>
             </div>
           </GlassCard>
@@ -3390,9 +3557,20 @@ export function SchemeScreen({
             }),
             confidence: 100,
           };
+          setAddPickerOpen(false);
+          if (device.type === "pe_bus" || device.type === "n_bus") {
+            hapticNotification("success");
+            if (!showTerminals && canUseTerminals) {
+              setShowTerminals(true);
+            }
+            commitBusDevices([
+              ...busDevices,
+              { ...device, position: busDevices.length },
+            ]);
+            return;
+          }
           const base = editDraft ?? allRailDevices;
           const next = appendDevice(base, device);
-          setAddPickerOpen(false);
           if (!next) {
             hapticImpact("rigid");
             return;
@@ -3657,6 +3835,31 @@ export function SchemeScreen({
       </AnimatePresence>
 
       <AnimatePresence>
+        {wiringFaults.length > 0 && (
+          <WiringFaultSheet
+            faults={wiringFaults}
+            onDismiss={() => {
+              setWiringFaults([]);
+              setFaultWireId(null);
+            }}
+            onRemoveWire={
+              faultWireId && canEditWires
+                ? () => {
+                    const nextWires = wires.filter(
+                      (wire) => wire.id !== faultWireId,
+                    );
+                    applyWiresChange(nextWires);
+                    setWiringFaults([]);
+                    setFaultWireId(null);
+                    hapticImpact("medium");
+                  }
+                : undefined
+            }
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
         {deleteTarget && (
           <ConfirmDialog
             title="Удалить прибор?"
@@ -3666,8 +3869,15 @@ export function SchemeScreen({
             onCancel={() => setDeleteTarget(null)}
             onConfirm={() => {
               const id = deleteTarget.id;
+              const isBus =
+                deleteTarget.type === "pe_bus" ||
+                deleteTarget.type === "n_bus";
               setDeleteTarget(null);
               hapticDelete();
+              if (isBus) {
+                commitBusDevices(busDevices.filter((device) => device.id !== id));
+                return;
+              }
               railEdit.deleteDevice(id);
             }}
           />

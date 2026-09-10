@@ -50,6 +50,8 @@ export const DEVICE_SHORT: Record<DeviceType, string> = {
   breaker: "Авт",
   spd: "УЗИП",
   afdd: "ДПН",
+  contactor: "КМ",
+  socket: "Роз",
   pe_bus: "PE",
   n_bus: "N",
 };

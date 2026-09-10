@@ -13,6 +13,10 @@ const CATEGORIES: CatalogCategory[] = [
   "voltage_relay",
   "spd",
   "afdd",
+  "contactor",
+  "socket",
+  "pe_bus",
+  "n_bus",
 ];
 
 export async function GET(request: Request) {

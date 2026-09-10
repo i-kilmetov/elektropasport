@@ -21,6 +21,14 @@ function faceFill(type: DeviceType): string {
     case "rcd":
     case "diff_breaker":
       return "#d4d4d8";
+    case "pe_bus":
+      return "#ca8a04";
+    case "n_bus":
+      return "#2563eb";
+    case "socket":
+      return "#e4e4e7";
+    case "contactor":
+      return "#a1a1aa";
     default:
       return "#c4c4cc";
   }
@@ -32,6 +40,7 @@ function accentFill(type: DeviceType): string | null {
     case "breaker":
     case "afdd":
     case "diff_breaker":
+    case "contactor":
       return "#e11d48";
     case "rcd":
       return "#f59e0b";
@@ -39,6 +48,8 @@ function accentFill(type: DeviceType): string | null {
       return "#34d399";
     case "spd":
       return "#10b981";
+    case "socket":
+      return "#52525b";
     default:
       return null;
   }
