@@ -9,7 +9,7 @@ export function parseTelegramStartCommand(text?: string | null): string | null {
   return match?.[1]?.trim() || null;
 }
 
-export const RESEARCH_SURVEY_TOTAL_STEPS = 25;
+export const RESEARCH_SURVEY_TOTAL_STEPS = 26;
 
 export type SurveyQuestionKind = "single" | "multi" | "text";
 
@@ -46,6 +46,7 @@ export type SurveyQuestion = {
   options?: SurveyOption[];
   placeholder?: string;
   exclusiveOptionId?: string;
+  image?: "earth-symbol";
 };
 
 export type SurveyAnswers = Record<string, string | string[]>;
@@ -140,57 +141,61 @@ const questions: Record<string, SurveyQuestion> = {
       { id: "prefer_not", label: "Предпочитаю не указывать" },
     ],
   },
-  k1: {
-    id: "k1",
+  k_safety: {
+    id: "k_safety",
     kind: "single",
     required: true,
     topic: "knowledge",
-    title: "Насколько вы понимаете, как устроена электрика дома?",
+    title:
+      "Насколько вы уверены в безопасности электрики в своей квартире или доме?",
     options: [
-      { id: "explain", label: "Могу объяснить, как устроена схема" },
-      {
-        id: "general",
-        label: "В общих чертах: автомат, УЗО, заземление",
-      },
-      {
-        id: "where_panel",
-        label: "Знаю, где щиток, но не как это работает",
-      },
-      { id: "avoid", label: "Стараюсь в это не лезть" },
-      { id: "none", label: "Совсем не разбираюсь" },
+      { id: "not_sure", label: "Вообще не уверен" },
+      { id: "seems_ok", label: "Да, кажется, всё нормально" },
+      { id: "sure", label: "Уверен на 100%" },
     ],
   },
-  k2: {
-    id: "k2",
-    kind: "multi",
-    required: true,
-    topic: "knowledge",
-    title: "Что из этого можете объяснить своими словами?",
-    hint: "Можно несколько вариантов.",
-    exclusiveOptionId: "none",
-    options: [
-      { id: "breaker", label: "Зачем нужен автомат" },
-      { id: "rcd", label: "Чем УЗО отличается от автомата" },
-      { id: "earth", label: "Что такое заземление и зачем оно" },
-      {
-        id: "trip",
-        label: "Почему выбивает автомат: перегруз или короткое замыкание",
-      },
-      { id: "none", label: "Ничего из этого" },
-    ],
-  },
-  k3: {
-    id: "k3",
+  k_skill: {
+    id: "k_skill",
     kind: "single",
     required: true,
     topic: "knowledge",
-    title: "Если дома моргнул свет или выбило — вы скорее…",
+    title: "На каком бытовом уровне вы можете что-то сделать с электрикой?",
     options: [
-      { id: "check_panel", label: "Понимаю, что проверить в щитке" },
-      { id: "search", label: "Поищу в интернете, что это значит" },
-      { id: "ask", label: "Позову того, кто шарит" },
-      { id: "wait", label: "Подожду, само пройдёт" },
-      { id: "lost", label: "Не знаю, с чего начать" },
+      {
+        id: "plug_only",
+        label: "Умею только включать свет и вставлять вилку в розетку",
+      },
+      {
+        id: "swap_socket",
+        label: "Смогу заменить выключатель или розетку",
+      },
+      {
+        id: "hang_lamp",
+        label: "Смогу повесить люстру или подключить светильник",
+      },
+      {
+        id: "run_lines",
+        label: "Смогу проложить кабель и собрать простую схему по комнатам",
+      },
+      {
+        id: "full_install",
+        label: "Смогу сделать полный монтаж электрики и собрать щиток",
+      },
+    ],
+  },
+  k_earth: {
+    id: "k_earth",
+    kind: "single",
+    required: true,
+    topic: "knowledge",
+    title: "Что означает этот знак?",
+    image: "earth-symbol",
+    options: [
+      { id: "light", label: "Свет" },
+      { id: "earth", label: "Земля (заземление)" },
+      { id: "neutral", label: "Ноль" },
+      { id: "phase", label: "Фаза" },
+      { id: "wifi", label: "Wi‑Fi" },
     ],
   },
   q2: {
@@ -547,6 +552,20 @@ const questions: Record<string, SurveyQuestion> = {
     hint: "Можно пропустить.",
     placeholder: "Москва, Казань…",
   },
+  q_force: {
+    id: "q_force",
+    kind: "single",
+    required: true,
+    topic: "knowledge",
+    title: "И последний вопрос: в чём сила (тока)?",
+    options: [
+      { id: "ampere", label: "Ампер" },
+      { id: "volt", label: "Вольт" },
+      { id: "watt", label: "Ватт" },
+      { id: "ohm", label: "Ом" },
+      { id: "joule", label: "Джоуль" },
+    ],
+  },
 };
 
 export function getSurveyQuestion(
@@ -576,12 +595,12 @@ export function getSurveyQuestion(
 }
 
 const NEXT_STEP: Record<string, string | "done"> = {
-  q1: "q_sex",
+  q1: "k_safety",
+  k_safety: "k_skill",
+  k_skill: "k_earth",
+  k_earth: "q_sex",
   q_sex: "q_age",
-  q_age: "k1",
-  k1: "k2",
-  k2: "k3",
-  k3: "q2",
+  q_age: "q2",
   q2: "q3",
   q3: "q4",
   q4: "q5",
@@ -599,7 +618,8 @@ const NEXT_STEP: Record<string, string | "done"> = {
   h4: "p1",
   p2: "q16",
   q16: "q17",
-  q17: "done",
+  q17: "q_force",
+  q_force: "done",
 };
 
 export function nextSurveyStep(
@@ -674,16 +694,17 @@ export function validateSurveyAnswers(answers: unknown): SurveyValidation {
   if (asString(data.q1) !== "yes") {
     return { ok: false, error: "Не заполнен первый вопрос" };
   }
+  if (!hasOption("k_safety", data)) {
+    return { ok: false, error: "Укажите, насколько уверены в безопасности" };
+  }
+  if (!hasOption("k_skill", data)) {
+    return { ok: false, error: "Укажите, что можете сделать с электрикой" };
+  }
+  if (!hasOption("k_earth", data)) {
+    return { ok: false, error: "Ответьте, что означает знак" };
+  }
   if (!hasOption("q_sex", data)) return { ok: false, error: "Укажите пол" };
   if (!hasOption("q_age", data)) return { ok: false, error: "Укажите возраст" };
-  if (!hasOption("k1", data)) {
-    return { ok: false, error: "Ответьте, насколько понимаете электрику" };
-  }
-  const k2Error = hasMulti("k2", data, "Отметьте, что можете объяснить");
-  if (k2Error) return { ok: false, error: k2Error };
-  if (!hasOption("k3", data)) {
-    return { ok: false, error: "Ответьте, что сделаете, если выбьет" };
-  }
   if (asString(data.q2) !== "apartment" && asString(data.q2) !== "house") {
     return { ok: false, error: "Выберите тип жилья" };
   }
@@ -706,6 +727,7 @@ export function validateSurveyAnswers(answers: unknown): SurveyValidation {
     "h3",
     "h4",
     "q16",
+    "q_force",
   ]) {
     if (!hasOption(stepId, data)) {
       return { ok: false, error: "Ответьте на все обязательные вопросы" };
@@ -731,11 +753,11 @@ export function validateSurveyAnswers(answers: unknown): SurveyValidation {
 
 const LABEL_STEPS = [
   "q1",
+  "k_safety",
+  "k_skill",
+  "k_earth",
   "q_sex",
   "q_age",
-  "k1",
-  "k2",
-  "k3",
   "q2",
   "q3",
   "q4",
@@ -754,6 +776,7 @@ const LABEL_STEPS = [
   "p1",
   "p2",
   "q16",
+  "q_force",
 ] as const;
 
 export const SURVEY_SHEET_HEADERS = [

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, Check, LoaderCircle } from "lucide-react";
+import { ProtectiveEarthSymbol } from "@/components/icons/protective-earth-symbol";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Progress } from "@/components/ui/progress";
@@ -268,6 +269,15 @@ export function ResearchSurveyScreen() {
               {question.hint}
             </p>
           )}
+          {question.image === "earth-symbol" && (
+            <div
+              className="mt-5 flex justify-center"
+              role="img"
+              aria-label="Знак заземления"
+            >
+              <ProtectiveEarthSymbol className="h-28 w-28 text-zinc-900" />
+            </div>
+          )}
 
           <div className="mt-5 flex-1 space-y-2.5 overflow-y-auto pb-4">
             {question.kind !== "text" &&
@@ -357,8 +367,13 @@ export function ResearchSurveyScreen() {
                     <LoaderCircle className="h-5 w-5 animate-spin" />
                     Сохраняем…
                   </>
-                ) : (
+                ) : nextSurveyStep(stepId, {
+                    ...answers,
+                    [question.id]: textDraft.trim(),
+                  }) === "done" ? (
                   "Отправить"
+                ) : (
+                  "Далее"
                 )}
               </Button>
               <Button
@@ -367,7 +382,10 @@ export function ResearchSurveyScreen() {
                 disabled={submitting}
                 onClick={() => continueText(true)}
               >
-                Пропустить и отправить
+                {nextSurveyStep(stepId, { ...answers, [question.id]: "" }) ===
+                "done"
+                  ? "Пропустить и отправить"
+                  : "Пропустить"}
               </Button>
             </div>
           )}

@@ -97,7 +97,7 @@ export async function POST(request: Request) {
         customerTelegramId: user?.telegramId,
         branch: validated.branch,
         dwelling: formatAnswerLabel("q2", answers),
-        knowledge: formatAnswerLabel("k1", answers),
+        knowledge: formatAnswerLabel("k_skill", answers),
         priorities: formatAnswerLabel("p1", answers),
         topPriority: formatAnswerLabel("p2", answers),
         manuals: formatAnswerLabel("a3", answers),
