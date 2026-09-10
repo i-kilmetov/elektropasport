@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Progress } from "@/components/ui/progress";
 import { PRODUCTION_APP_URL } from "@/lib/app-url";
+import { BRAND_YELLOW } from "@/lib/brand-wordmark";
 import { hapticImpact, hapticNotification } from "@/lib/haptics";
 import {
   SURVEY_TOPIC_LABEL,
@@ -270,12 +271,15 @@ export function ResearchSurveyScreen() {
             </p>
           )}
           {question.image === "earth-symbol" && (
-            <div
-              className="mt-5 flex justify-center"
-              role="img"
-              aria-label="Знак заземления"
-            >
-              <ProtectiveEarthSymbol className="h-28 w-28 text-zinc-900" />
+            <div className="mt-5 flex justify-center">
+              <div
+                className="flex h-32 w-32 items-center justify-center rounded-[28px]"
+                style={{ backgroundColor: BRAND_YELLOW }}
+                role="img"
+                aria-label="Знак заземления"
+              >
+                <ProtectiveEarthSymbol className="h-20 w-20 text-[#111113]" />
+              </div>
             </div>
           )}
 

@@ -54,7 +54,7 @@ export type SurveyAnswers = Record<string, string | string[]>;
 export type InletBranch = "A" | "B" | "C";
 
 const Q3_APARTMENT_A = new Set(["own_panel"]);
-const Q3_APARTMENT_B = new Set(["floor_only", "fuses"]);
+const Q3_APARTMENT_B = new Set(["floor_only"]);
 const Q3_HOUSE_A = new Set(["street_and_house", "single_in_house"]);
 const Q3_HOUSE_B = new Set(["pole_only", "fuses_house"]);
 
@@ -69,14 +69,9 @@ const PRIORITY_OPTIONS: SurveyOption[] = [
     label: "Иметь возможность быстро вызвать помощь",
   },
   {
-    id: "manuals",
-    label: "Каталог своей техники: все бумажки в одном месте",
+    id: "safety_now",
+    label: "Понять, на сколько безопасно выполнена электрика в доме",
   },
-  {
-    id: "load",
-    label: "Понять, потянет ли сеть новую технику",
-  },
-  { id: "safety_now", label: "Понять, не опасно ли сейчас дома" },
 ];
 
 function asString(value: string | string[] | undefined): string {
@@ -149,9 +144,13 @@ const questions: Record<string, SurveyQuestion> = {
     title:
       "Насколько вы уверены в безопасности электрики в своей квартире или доме?",
     options: [
-      { id: "not_sure", label: "Вообще не уверен" },
-      { id: "seems_ok", label: "Да, кажется, всё нормально" },
-      { id: "sure", label: "Уверен на 100%" },
+      { id: "unsafe", label: "Уверен, что небезопасна" },
+      { id: "doubt", label: "Сомневаюсь, что всё хорошо" },
+      {
+        id: "fine",
+        label: "Всё устраивает, не вижу необходимости что-то менять",
+      },
+      { id: "sure", label: "Уверен на 100%, что всё отлично" },
     ],
   },
   k_skill: {
@@ -167,11 +166,7 @@ const questions: Record<string, SurveyQuestion> = {
       },
       {
         id: "swap_socket",
-        label: "Смогу заменить выключатель или розетку",
-      },
-      {
-        id: "hang_lamp",
-        label: "Смогу повесить люстру или подключить светильник",
+        label: "Смогу заменить розетку/выключатель, смогу повесить люстру",
       },
       {
         id: "run_lines",
@@ -191,11 +186,10 @@ const questions: Record<string, SurveyQuestion> = {
     title: "Что означает этот знак?",
     image: "earth-symbol",
     options: [
+      { id: "earth", label: "Земля" },
       { id: "light", label: "Свет" },
-      { id: "earth", label: "Земля (заземление)" },
       { id: "neutral", label: "Ноль" },
-      { id: "phase", label: "Фаза" },
-      { id: "wifi", label: "Wi‑Fi" },
+      { id: "five_g", label: "5G" },
     ],
   },
   q2: {
@@ -215,16 +209,13 @@ const questions: Record<string, SurveyQuestion> = {
     kind: "single",
     required: true,
     topic: "panel",
-    title: "Как у вас организован ввод электричества в квартиру?",
+    title: "Как у вас устроен ввод электричества в квартиру?",
     options: [
       { id: "own_panel", label: "В квартире есть свой щиток с автоматами" },
       {
         id: "floor_only",
-        label: "Автоматы только в этажном щите на площадке, в квартире щитка нет",
-      },
-      {
-        id: "fuses",
-        label: "Пробки (предохранители) — в квартире или на площадке",
+        label:
+          "Этажный электрический щит на площадке, в квартире нет щитка и автоматов",
       },
       {
         id: "no_panel",
@@ -299,7 +290,6 @@ const questions: Record<string, SurveyQuestion> = {
         label: "Иногда думаю, когда выбивает или пахнет гарью",
       },
       { id: "not_a_problem", label: "Не думал, что это проблема" },
-      { id: "good_enough", label: "Знаю, что так себе, но «и так сойдёт»" },
       { id: "planning", label: "Планирую переделать" },
     ],
   },
@@ -308,11 +298,11 @@ const questions: Record<string, SurveyQuestion> = {
     kind: "single",
     required: true,
     topic: "panel",
-    title: "Если ночью нужно быстро обесточить жильё — вы знаете, как это сделать?",
+    title: "Если вдруг нужно быстро обесточить жильё — вы знаете, как это сделать?",
     options: [
       { id: "know", label: "Да, знаю где и как" },
-      { id: "roughly", label: "Примерно, но лезть не хочется" },
-      { id: "no_access", label: "Нет / щит на площадке / не мой доступ" },
+      { id: "roughly", label: "Примерно представляю" },
+      { id: "no_access", label: "Нет" },
       { id: "never_thought", label: "Не думал об этом" },
     ],
   },
@@ -353,8 +343,10 @@ const questions: Record<string, SurveyQuestion> = {
     options: [
       { id: "clear", label: "Понятная штука, я в нём ориентируюсь" },
       { id: "closed_box", label: "Коробка, которую не открываю без нужды" },
-      { id: "masters_job", label: "Дело мастера, не моё" },
-      { id: "avoid", label: "Тема, о которой лучше не думать" },
+      {
+        id: "masters_job",
+        label: "Штука для электрика, я не разбираюсь в этом",
+      },
       { id: "unknown_where", label: "Не знаю, где он у меня" },
     ],
   },
@@ -385,7 +377,10 @@ const questions: Record<string, SurveyQuestion> = {
       { id: "burn", label: "Запах гари / греется щиток или розетка" },
       { id: "sparks", label: "Искры, оплавленная вилка" },
       { id: "shock", label: "Ударило током" },
-      { id: "emergency_call", label: "Вызывали электрика «на аварии»" },
+      {
+        id: "emergency_call",
+        label: "Вызывали электрика из-за аварии / отключения электричества",
+      },
       { id: "none", label: "Ничего из этого" },
     ],
   },
@@ -409,13 +404,22 @@ const questions: Record<string, SurveyQuestion> = {
     required: true,
     topic: "appliances",
     title:
-      "Когда покупаете крупную технику, думаете ли, потянет ли её проводка и автомат?",
-    hint: "Стиральная, духовка, кондиционер, бойлер, посудомойка.",
+      "При покупке крупной бытовой техники приходилось задумываться о мощности прибора и соответствии его вашей проводке / автомату?",
     options: [
-      { id: "check_pro", label: "Да, смотрю щиток или спрашиваю электрика" },
-      { id: "sticker", label: "Смотрю мощность на ценнике — и дальше наугад" },
-      { id: "plug_hope", label: "Включаю и смотрю, выбьет или нет" },
-      { id: "never", label: "Не думал, что это связано" },
+      {
+        id: "calc_load",
+        label:
+          "Да, считаю нагрузки, чтобы понять, не будет ли проблем при подключении",
+      },
+      {
+        id: "ask",
+        label: "Спрашиваю продавца или знакомых / электриков",
+      },
+      {
+        id: "plug_hope",
+        label: "Покупаю, включаю и смотрю на месте, выбьет или нет",
+      },
+      { id: "never", label: "Не задумывался(ась) об этом" },
     ],
   },
   a2: {
@@ -423,22 +427,24 @@ const questions: Record<string, SurveyQuestion> = {
     kind: "multi",
     required: true,
     topic: "appliances",
-    title: "Что из этого про вашу технику уже было?",
+    title: "Что из этого про вас и вашу электрику?",
     hint: "Можно несколько вариантов.",
     exclusiveOptionId: "none",
     options: [
       {
         id: "trips_with_load",
-        label: "Выбивает автомат, когда включается стиральная / духовка / чайник",
+        label:
+          "Иногда может выбить автомат, когда работает одновременно разная техника",
       },
-      { id: "tees", label: "На кухне живут удлинители и тройники" },
+      { id: "tees", label: "В квартире живут удлинители и тройники" },
       {
-        id: "unknown_load",
-        label: "Не уверен, потянет ли сеть ещё одну крупную вещь",
+        id: "flicker",
+        label: "Иногда мигает свет и/или отключают электричество",
       },
       {
         id: "wet_unsafe",
-        label: "Не уверен, безопасно ли подключены стиральная / посудомойка / бойлер",
+        label:
+          "Не уверен(а), безопасно ли подключены стиральная машина / посудомойка / бойлер",
       },
       { id: "none", label: "Ничего из этого" },
     ],
@@ -448,13 +454,34 @@ const questions: Record<string, SurveyQuestion> = {
     kind: "single",
     required: true,
     topic: "appliances",
-    title: "Где сейчас паспорта и инструкции к холодильнику, стиралке, духовке?",
+    title: "Как храните все паспорта и инструкции от купленной техники?",
     options: [
-      { id: "folder", label: "Папка или ящик — быстро найду" },
-      { id: "somewhere", label: "Где-то дома, искать придётся" },
-      { id: "phone", label: "Фото и PDF в телефоне, вперемешку" },
-      { id: "google", label: "Выкинул коробку, гуглю модель" },
-      { id: "gone", label: "Даже модель не вспомню" },
+      { id: "folder", label: "Все сложено в одном месте (папка/ящик)" },
+      { id: "somewhere", label: "Где-то дома, надо искать" },
+      { id: "not_kept", label: "Не храню эти бумажки" },
+    ],
+  },
+  a4: {
+    id: "a4",
+    kind: "single",
+    required: true,
+    topic: "appliances",
+    title:
+      "Если вдруг оказывается нужным паспорт / инструкция, как чаще всего поступаете?",
+    options: [
+      {
+        id: "paper",
+        label: "Нахожу паспорт / инструкцию в бумажном виде (они у меня дома)",
+      },
+      {
+        id: "google",
+        label:
+          "Гуглю модель техники в интернете и читаю там нужную информацию",
+      },
+      {
+        id: "never",
+        label: "Не приходилось открывать паспорт / инструкцию",
+      },
     ],
   },
   h1: {
@@ -464,11 +491,14 @@ const questions: Record<string, SurveyQuestion> = {
     topic: "help",
     title: "Если с электрикой что-то не так, что сделаете в первую очередь?",
     options: [
-      { id: "google", label: "Погуглю / спрошу в чате" },
-      { id: "friend", label: "Позову знакомого «кто шарит»" },
-      { id: "call_pro", label: "Вызову электрика и отдам ему всё" },
-      { id: "diy", label: "Полезю сам" },
-      { id: "endure", label: "Буду терпеть, пока совсем не сломается" },
+      { id: "google", label: "Погуглю / спрошу ИИ" },
+      { id: "friend", label: "Позову знакомого, кто разбирается" },
+      { id: "call_pro", label: "Вызову электрика" },
+      { id: "diy", label: "Полезу сразу исправлять проблему" },
+      {
+        id: "endure",
+        label: "Буду терпеть, может проблема решится сама собой",
+      },
     ],
   },
   h2: {
@@ -501,25 +531,12 @@ const questions: Record<string, SurveyQuestion> = {
       { id: "never_paid", label: "Пока не заказывал работы" },
     ],
   },
-  h4: {
-    id: "h4",
-    kind: "single",
-    required: true,
-    topic: "help",
-    title: "Если непонятно — выбивает, искра, новая техника — что удобнее?",
-    options: [
-      { id: "online", label: "Сначала короткий разбор онлайн, без визита" },
-      { id: "visit", label: "Чтобы сразу приехал мастер" },
-      { id: "instructions", label: "Разберусь сам по понятной инструкции" },
-      { id: "cheap", label: "Неважно как, лишь бы дешевле" },
-    ],
-  },
   p1: {
     id: "p1",
     kind: "multi",
     required: true,
     topic: "priorities",
-    title: "Что из этого для вас сейчас важнее?",
+    title: "Что из этого для вас важнее / интереснее?",
     hint: "Можно несколько вариантов.",
     options: PRIORITY_OPTIONS,
   },
@@ -598,9 +615,7 @@ const NEXT_STEP: Record<string, string | "done"> = {
   q1: "k_safety",
   k_safety: "k_skill",
   k_skill: "k_earth",
-  k_earth: "q_sex",
-  q_sex: "q_age",
-  q_age: "q2",
+  k_earth: "q2",
   q2: "q3",
   q3: "q4",
   q4: "q5",
@@ -611,14 +626,16 @@ const NEXT_STEP: Record<string, string | "done"> = {
   q10: "a1",
   a1: "a2",
   a2: "a3",
-  a3: "h1",
+  a3: "a4",
+  a4: "h1",
   h1: "h2",
   h2: "h3",
-  h3: "h4",
-  h4: "p1",
+  h3: "p1",
   p2: "q16",
   q16: "q17",
-  q17: "q_force",
+  q17: "q_sex",
+  q_sex: "q_age",
+  q_age: "q_force",
   q_force: "done",
 };
 
@@ -722,10 +739,10 @@ export function validateSurveyAnswers(answers: unknown): SurveyValidation {
     "q10",
     "a1",
     "a3",
+    "a4",
     "h1",
     "h2",
     "h3",
-    "h4",
     "q16",
     "q_force",
   ]) {
@@ -736,7 +753,7 @@ export function validateSurveyAnswers(answers: unknown): SurveyValidation {
 
   const q9Error = hasMulti("q9", data, "Отметьте, что из этого с вами было");
   if (q9Error) return { ok: false, error: q9Error };
-  const a2Error = hasMulti("a2", data, "Отметьте, что из этого было с техникой");
+  const a2Error = hasMulti("a2", data, "Отметьте, что из этого про вас");
   if (a2Error) return { ok: false, error: a2Error };
   const p1Error = hasMulti("p1", data, "Отметьте, что для вас важнее");
   if (p1Error) return { ok: false, error: p1Error };
@@ -756,8 +773,6 @@ const LABEL_STEPS = [
   "k_safety",
   "k_skill",
   "k_earth",
-  "q_sex",
-  "q_age",
   "q2",
   "q3",
   "q4",
@@ -769,13 +784,15 @@ const LABEL_STEPS = [
   "a1",
   "a2",
   "a3",
+  "a4",
   "h1",
   "h2",
   "h3",
-  "h4",
   "p1",
   "p2",
   "q16",
+  "q_sex",
+  "q_age",
   "q_force",
 ] as const;
 
