@@ -14,10 +14,41 @@
 
 ## Как устроено сейчас
 
-- DNS `tokom.ru` → Amvera.
+- DNS `tokom.ru` → Amvera (`A` на IP приложения).
+- NS у регистратора: `ns1.reg.ru` / `ns2.reg.ru` (зона правится в кабинете REG.RU).
 - В Code проекта `tokom-edge`: `Dockerfile` **клонирует** публичный GitHub `i-kilmetov/elektropasport` (`main`) и собирает Next.js.
 - Push в GitHub → Vercel обновляется сам; Amvera подтянет код на **Пересобрать** (или по вашему CI).
 - Переменные заданы в Amvera → Переменные (тип RUN; `NEXT_PUBLIC_*` ещё и BUILD).
+
+## Входящая почта (`support@tokom.ru` и др.)
+
+Amvera/Vercel **не принимают** почту. Нужны MX у REG.RU.
+
+После переноса NS с Vercel DNS на `ns1.reg.ru` зона часто остаётся без MX — письма на `@tokom.ru` никуда не идут. Проверка:
+
+```bash
+dig MX tokom.ru +short
+# пусто = входящая почта сломана
+```
+
+### Быстрый вариант: ImprovMX (переадресация на личную почту)
+
+1. Зарегистрировать домен на [improvmx.com](https://improvmx.com) → alias `support` (и/или catch-all `*`) → личный ящик.
+2. В REG.RU → Домены → `tokom.ru` → DNS / ресурсные записи добавить:
+
+| Тип | Имя | Приоритет | Значение |
+|-----|-----|-----------|----------|
+| MX | `@` | 10 | `mx1.improvmx.com.` |
+| MX | `@` | 20 | `mx2.improvmx.com.` |
+| TXT | `@` | — | `v=spf1 include:spf.improvmx.com ~all` |
+
+Не трогайте существующий `A` на Amvera и TXT `kilmetov-tokom-edge`. Если уже есть другой TXT SPF — объедините `include:` в одну запись.
+
+3. Подождать 5–60 мин, проверить `dig MX tokom.ru +short`, затем письмо на `support@tokom.ru`.
+
+### Вариант через почту REG.RU / Яндекс 360
+
+Если раньше переадресация была в REG.RU или Яндекс — включите услугу снова и пропишите **их** MX (не ImprovMX). Для REG.RU обычно `mx1.hosting.reg.ru` / `mx2.hosting.reg.ru`; для Яндекса — `mx.yandex.net`.
 
 ## Пересборка после правок кода
 
@@ -29,3 +60,4 @@ Amvera → `tokom-edge` → **Пересобрать проект**.
 1. DNS снова на Vercel.  
 2. Amvera → реплики 0 / заморозить.  
 3. Код на Vercel уже актуален с GitHub.
+4. **Не забудьте заново прописать MX** в зоне DNS Vercel — иначе снова пропадёт входящая почта.
