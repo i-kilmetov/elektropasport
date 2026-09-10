@@ -8,8 +8,8 @@ import {
   applySplashStatusBarTheme,
 } from "@/lib/status-bar-theme";
 import { Button } from "@/components/ui/button";
-import { PdConsentCheckbox } from "@/components/ui/pd-consent-checkbox";
 import { PhoneLoginFlow } from "@/components/phone-login-flow";
+import Link from "next/link";
 import {
   LOGO_FONT_WEIGHT,
   LOGO_INK,
@@ -557,11 +557,10 @@ export function BrandLaunchWaitlist({
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [viewportHeight, setViewportHeight] = useState<number | null>(null);
-  const [viewportOffsetTop, setViewportOffsetTop] = useState(0);
-  const [keyboardOpen, setKeyboardOpen] = useState(false);
+  const [keyboardInset, setKeyboardInset] = useState(0);
   const [phoneFocused, setPhoneFocused] = useState(startAtPhone);
   const rootRef = useRef<HTMLDivElement>(null);
+  const formRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const phoneReady = isCompleteRuPhone(phone);
@@ -601,50 +600,42 @@ export function BrandLaunchWaitlist({
     const prevBodyOverflow = body.style.overflow;
     const prevHtmlOverscroll = html.style.overscrollBehavior;
     const prevBodyOverscroll = body.style.overscrollBehavior;
-    const prevBodyPosition = body.style.position;
-    const prevBodyWidth = body.style.width;
-    const prevBodyTop = body.style.top;
     html.style.overflow = "hidden";
     body.style.overflow = "hidden";
-    body.style.position = "fixed";
-    body.style.width = "100%";
-    body.style.top = "0";
     html.style.overscrollBehavior = "none";
     body.style.overscrollBehavior = "none";
     return () => {
       html.style.overflow = prevHtmlOverflow;
       body.style.overflow = prevBodyOverflow;
-      body.style.position = prevBodyPosition;
-      body.style.width = prevBodyWidth;
-      body.style.top = prevBodyTop;
       html.style.overscrollBehavior = prevHtmlOverscroll;
       body.style.overscrollBehavior = prevBodyOverscroll;
     };
   }, []);
 
   useEffect(() => {
-    const syncViewport = () => {
+    // Only pad for the keyboard — do not move/resize the root with
+    // visualViewport.offsetTop (that fights Chrome Android scroll-into-view).
+    const syncKeyboardInset = () => {
       const vv = window.visualViewport;
-      const height = vv?.height ?? window.innerHeight;
-      const offsetTop = vv?.offsetTop ?? 0;
-      const keyboard =
-        window.innerHeight - height > 80 || offsetTop > 0;
-      setKeyboardOpen(keyboard);
-      setViewportHeight(keyboard ? height : null);
-      setViewportOffsetTop(keyboard ? offsetTop : 0);
-      window.scrollTo(0, 0);
-      document.documentElement.scrollTop = 0;
-      document.body.scrollTop = 0;
+      if (!vv) {
+        setKeyboardInset(0);
+        return;
+      }
+      const inset = Math.max(
+        0,
+        Math.round(window.innerHeight - vv.height - vv.offsetTop),
+      );
+      setKeyboardInset(inset > 60 ? inset : 0);
     };
 
-    syncViewport();
-    window.visualViewport?.addEventListener("resize", syncViewport);
-    window.visualViewport?.addEventListener("scroll", syncViewport);
-    window.addEventListener("resize", syncViewport);
+    syncKeyboardInset();
+    window.visualViewport?.addEventListener("resize", syncKeyboardInset);
+    window.visualViewport?.addEventListener("scroll", syncKeyboardInset);
+    window.addEventListener("resize", syncKeyboardInset);
     return () => {
-      window.visualViewport?.removeEventListener("resize", syncViewport);
-      window.visualViewport?.removeEventListener("scroll", syncViewport);
-      window.removeEventListener("resize", syncViewport);
+      window.visualViewport?.removeEventListener("resize", syncKeyboardInset);
+      window.visualViewport?.removeEventListener("scroll", syncKeyboardInset);
+      window.removeEventListener("resize", syncKeyboardInset);
     };
   }, []);
 
@@ -654,19 +645,13 @@ export function BrandLaunchWaitlist({
     if (!node) return;
     node.focus({ preventScroll: true });
     const caret = node.value.length;
-    node.setSelectionRange(caret, caret);
+    try {
+      node.setSelectionRange(caret, caret);
+    } catch {
+      // Some Android WebViews reject selection range on tel inputs.
+    }
     setPhoneFocused(true);
   }, [cta, done]);
-
-  const keepInPlace = () => {
-    window.scrollTo(0, 0);
-    document.documentElement.scrollTop = 0;
-    document.body.scrollTop = 0;
-    requestAnimationFrame(() => {
-      window.scrollTo(0, 0);
-      requestAnimationFrame(() => window.scrollTo(0, 0));
-    });
-  };
 
   const openPhone = () => {
     if (cta !== "notify") return;
@@ -678,7 +663,7 @@ export function BrandLaunchWaitlist({
   const submit = async () => {
     setError(null);
     if (!pdConsent) {
-      setError("Отметьте согласие на обработку персональных данных");
+      setError("Отметьте согласие на обработку номера телефона");
       return;
     }
     if (!isCompleteRuPhone(phone)) return;
@@ -711,24 +696,24 @@ export function BrandLaunchWaitlist({
   return (
     <div
       ref={rootRef}
-      className="fixed inset-0 z-[200] flex h-[100dvh] min-h-[100dvh] touch-none flex-col items-center overflow-hidden px-5"
+      className="fixed inset-0 z-[200] flex h-[100dvh] min-h-[100dvh] max-h-[100dvh] touch-none flex-col items-center overflow-hidden px-5"
       style={{
         backgroundColor: BRAND_YELLOW,
-        ...(keyboardOpen && viewportHeight
-          ? {
-              height: `${Math.round(viewportHeight)}px`,
-              minHeight: `${Math.round(viewportHeight)}px`,
-              top: `${Math.round(viewportOffsetTop)}px`,
-              bottom: "auto",
-            }
-          : {}),
-        paddingBottom: keyboardOpen
-          ? "0.75rem"
-          : "max(1.75rem, env(safe-area-inset-bottom))",
+        paddingBottom:
+          keyboardInset > 0
+            ? `${keyboardInset + 12}px`
+            : "max(1.75rem, env(safe-area-inset-bottom))",
       }}
       aria-label="Током — подписка на открытие"
     >
-      <div className="relative min-h-0 w-full flex-1">
+      <div
+        className="relative min-h-0 w-full flex-1 transition-[opacity,transform] duration-200"
+        style={
+          cta === "phone" && keyboardInset > 0
+            ? { opacity: 0.55, transform: "scale(0.86)", transformOrigin: "center center" }
+            : undefined
+        }
+      >
         <div
           className="absolute w-max"
           style={{
@@ -748,7 +733,10 @@ export function BrandLaunchWaitlist({
         </div>
       </div>
 
-      <div className="mx-auto w-full max-w-[min(100%,22rem)] shrink-0">
+      <div
+        ref={formRef}
+        className="mx-auto w-full max-w-[min(100%,22rem)] shrink-0"
+      >
         {done ? (
           <div className="mx-auto flex h-14 min-h-14 w-full items-center justify-center rounded-full bg-[#111113] px-6 text-[16px] text-white">
             Спасибо! Сообщим об открытии
@@ -756,15 +744,7 @@ export function BrandLaunchWaitlist({
         ) : cta === "flip" ? (
           <div className="h-14 min-h-14 w-full" aria-hidden />
         ) : cta === "phone" ? (
-          <div className="mx-auto flex w-full flex-col gap-3">
-            <PdConsentCheckbox
-              checked={pdConsent}
-              onChange={(next) => {
-                setPdConsent(next);
-                setError(null);
-              }}
-              className="flex cursor-pointer items-start gap-3 rounded-[18px] border border-black/15 bg-black/[0.06] p-3 text-left"
-            />
+          <div className="mx-auto flex w-full flex-col gap-2.5">
             <form
               className="launch-email-field flex h-14 min-h-14 w-full items-center gap-2 rounded-full bg-[#111113] px-2"
               onSubmit={(event) => {
@@ -792,13 +772,9 @@ export function BrandLaunchWaitlist({
                   setPhone(formatRuPhone(event.currentTarget.value));
                   setError(null);
                 }}
-                onFocus={() => {
-                  setPhoneFocused(true);
-                  keepInPlace();
-                }}
+                onFocus={() => setPhoneFocused(true)}
                 onBlur={(event) => {
                   setPhone(formatRuPhone(event.target.value));
-                  keepInPlace();
                 }}
                 className="launch-email-input h-full min-w-0 flex-1 rounded-full border-0 bg-transparent px-5 text-[16px] outline-none disabled:opacity-60"
                 aria-label="Телефон для новости об открытии"
@@ -824,6 +800,29 @@ export function BrandLaunchWaitlist({
                 ) : null}
               </AnimatePresence>
             </form>
+            <label className="flex cursor-pointer items-start gap-2.5 px-1 text-left">
+              <input
+                type="checkbox"
+                checked={pdConsent}
+                onChange={(e) => {
+                  setPdConsent(e.target.checked);
+                  setError(null);
+                }}
+                className="mt-0.5 h-4 w-4 shrink-0 rounded border-black/25 accent-[#111113]"
+              />
+              <span className="text-[12px] leading-snug text-[#111113]/80">
+                Согласен на{" "}
+                <Link
+                  href="/legal/consent"
+                  className="font-medium text-[#111113] underline underline-offset-2"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  обработку номера телефона
+                </Link>
+                , чтобы сообщить об открытии сервиса
+              </span>
+            </label>
           </div>
         ) : (
           <motion.button
