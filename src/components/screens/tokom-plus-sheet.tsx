@@ -28,7 +28,7 @@ export type TokomPlusUpsellReason =
 
 const REASON_INTRO: Record<TokomPlusUpsellReason, string> = {
   profile: "Заряженная подписка снимает лимиты и открывает расключение проводами.",
-  panels: "Лимит щитков без подписки — 5. Током Плюс снимает ограничение.",
+  panels: "Лимит щитков без подписки — 3. Током Плюс снимает ограничение.",
   appliances:
     "Без подписки к щитку можно добавить до 10 видов техники. Плюс снимает лимит.",
   terminals:
@@ -333,7 +333,7 @@ export function TokomPlusProfileCard({
               ? untilLabel
                 ? `Активна до ${untilLabel}`
                 : "Подписка активна"
-              : `Безлимит, клеммы и −5% на вызов мастера · ${formatRub(TOKOM_PLUS_PRICE_RUB)}/мес.`}
+              : `Безлимит, клеммы и −10% на вызов мастера · ${formatRub(TOKOM_PLUS_PRICE_RUB)}/мес.`}
           </p>
         </div>
       </div>

@@ -64,6 +64,7 @@ export async function POST(request: Request) {
       list?: unknown;
       email?: unknown;
       phone?: unknown;
+      pdConsent?: unknown;
     };
     const list =
       typeof body.list === "string" && WAITLIST_KINDS.has(body.list)
@@ -82,6 +83,12 @@ export async function POST(request: Request) {
       return Response.json({ error: "Неизвестный список" }, { status: 400 });
     }
     if (isLaunch) {
+      if (body.pdConsent !== true) {
+        return Response.json(
+          { error: "Нужно согласие на обработку персональных данных" },
+          { status: 400 },
+        );
+      }
       if (!isValidRuPhone(phoneRaw || emailRaw)) {
         return Response.json({ error: "Некорректный номер" }, { status: 400 });
       }

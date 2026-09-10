@@ -21,7 +21,7 @@ export const metadata: Metadata = {
   title: "Условия подписки Током Плюс",
 };
 
-const UPDATED = "7 сентября 2026 г.";
+const UPDATED = "10 сентября 2026 г.";
 const discountPct = Math.round(TOKOM_PLUS_MASTER_DISCOUNT * 100);
 
 export default function TokomPlusTermsPage() {

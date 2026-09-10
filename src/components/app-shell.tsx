@@ -42,6 +42,14 @@ import type { ParsedAiLead } from "@/lib/ai-lead-ready";
 import { LeadAddressScreen } from "@/components/screens/lead-address-screen";
 import { NoPanelDetailScreen } from "@/components/screens/no-panel-detail-screen";
 import { NoPanelOptionsScreen } from "@/components/screens/no-panel-options-screen";
+import { NoPanelBinaryQuestionScreen } from "@/components/screens/no-panel-binary-question-screen";
+import { ElectricalDesignLandingScreen } from "@/components/screens/electrical-design-landing-screen";
+import { ElectricalInstallLandingScreen } from "@/components/screens/electrical-install-landing-screen";
+import {
+  FloorProtectionQuestionScreen,
+  type FloorProtectionKind,
+} from "@/components/screens/floor-protection-question-screen";
+import { FloorUpgradeOptionsScreen } from "@/components/screens/floor-upgrade-options-screen";
 import { ObjectsScreen } from "@/components/screens/objects-screen";
 import { PanelLimitSheet } from "@/components/screens/panel-limit-sheet";
 import {
@@ -466,6 +474,8 @@ export function AppShell({
   const [noPanelSetupId, setNoPanelSetupId] = useState<NoPanelSetupId | null>(
     null,
   );
+  const [floorProtection, setFloorProtection] =
+    useState<FloorProtectionKind | null>(null);
   const [addingNoPanel, setAddingNoPanel] = useState(false);
   const [requestNeedId, setRequestNeedId] = useState<RequestNeedId | null>(
     null,
@@ -1553,8 +1563,36 @@ export function AppShell({
   );
 
   const startNoPanelFix = useCallback(() => {
+    if (noPanelSetupId === "inlet_cable") {
+      go("inlet-project-question");
+      return;
+    }
+    if (noPanelSetupId === "floor_panel_only") {
+      go("floor-protection-question");
+      return;
+    }
     go("panel-advantages");
-  }, [go]);
+  }, [go, noPanelSetupId]);
+
+  const startInstallLead = useCallback(
+    (backScreen: AppScreen) => {
+      setLeadFlow("install");
+      setElectricalDetails(null);
+      setSelectedCity(null);
+      setSelectedAddress(null);
+      setSelectedAddressFiasId(null);
+      setSelectedBuildingYear(null);
+      setSelectedStreet(null);
+      setSelectedHouse(null);
+      setSelectedBlock(null);
+      setHelpElectricalFlow(false);
+      setSelectedLeadService(null);
+      setLeadPanelModules(null);
+      setLeadBackScreen(backScreen);
+      go("geo-address");
+    },
+    [go],
+  );
 
   const addNoPanelAsHomeItem = useCallback(() => {
     if (!noPanelSetupId || noPanelSetupId === "inlet_cable") return;
@@ -2952,6 +2990,11 @@ export function AppShell({
     screen === "no-panel-options" ||
     screen === "no-panel-detail" ||
     screen === "panel-advantages" ||
+    screen === "inlet-project-question" ||
+    screen === "electrical-design-landing" ||
+    screen === "electrical-install-landing" ||
+    screen === "floor-protection-question" ||
+    screen === "floor-upgrade-options" ||
     screen === "school" ||
     masterApply;
   const wideLayout =
@@ -3541,8 +3584,79 @@ export function AppShell({
               onSelect={(id) => {
                 setNoPanelSetupId(id);
                 setActivePanelId(null);
+                setFloorProtection(null);
+                if (id === "inlet_cable") {
+                  go("inlet-project-question");
+                  return;
+                }
+                if (id === "floor_panel_only") {
+                  go("floor-protection-question");
+                  return;
+                }
                 go("no-panel-detail");
               }}
+            />
+          )}
+          {screen === "inlet-project-question" && (
+            <NoPanelBinaryQuestionScreen
+              key="inlet-project-question"
+              title="Вводной кабель"
+              question="Есть ли уже проект электрики?"
+              hint="Проект — схема линий, щитка и точек. Без него монтаж часто переделывают после черновых работ."
+              yesLabel="Проект уже есть"
+              noLabel="Проекта нет"
+              onBack={() =>
+                go(
+                  activePanel?.noPanelSetupId === "inlet_cable"
+                    ? "no-panel-detail"
+                    : "no-panel-options",
+                )
+              }
+              onYes={() => go("electrical-install-landing")}
+              onNo={() => go("electrical-design-landing")}
+            />
+          )}
+          {screen === "electrical-design-landing" && (
+            <ElectricalDesignLandingScreen
+              key="electrical-design-landing"
+              onBack={() => go("inlet-project-question")}
+              onOrder={() => startInstallLead("electrical-design-landing")}
+            />
+          )}
+          {screen === "electrical-install-landing" && (
+            <ElectricalInstallLandingScreen
+              key="electrical-install-landing"
+              onBack={() => go("inlet-project-question")}
+              onOrder={() => startInstallLead("electrical-install-landing")}
+            />
+          )}
+          {screen === "floor-protection-question" && (
+            <FloorProtectionQuestionScreen
+              key="floor-protection-question"
+              onBack={() =>
+                go(
+                  activePanel?.noPanelSetupId === "floor_panel_only"
+                    ? "no-panel-detail"
+                    : "no-panel-options",
+                )
+              }
+              onSelect={(kind) => {
+                setFloorProtection(kind);
+                go("floor-upgrade-options");
+              }}
+              onSaveAsIs={
+                activePanel?.noPanelSetupId === "floor_panel_only"
+                  ? undefined
+                  : addNoPanelAsHomeItem
+              }
+            />
+          )}
+          {screen === "floor-upgrade-options" && floorProtection && (
+            <FloorUpgradeOptionsScreen
+              key={`floor-upgrade-${floorProtection}`}
+              protection={floorProtection}
+              onBack={() => go("floor-protection-question")}
+              onOrder={() => startInstallLead("floor-upgrade-options")}
             />
           )}
           {screen === "no-panel-detail" && noPanelSetupId && (
@@ -3583,22 +3697,7 @@ export function AppShell({
               onBack={() =>
                 go(noPanelSetupId ? "no-panel-detail" : "objects")
               }
-              onInstall={() => {
-                setLeadFlow("install");
-                setElectricalDetails(null);
-                setSelectedCity(null);
-                setSelectedAddress(null);
-                setSelectedAddressFiasId(null);
-                setSelectedBuildingYear(null);
-                setSelectedStreet(null);
-                setSelectedHouse(null);
-                setSelectedBlock(null);
-                setHelpElectricalFlow(false);
-                setSelectedLeadService(null);
-                setLeadPanelModules(null);
-                setLeadBackScreen("panel-advantages");
-                go("geo-address");
-              }}
+              onInstall={() => startInstallLead("panel-advantages")}
             />
           )}
           {screen === "electrical-details" && (

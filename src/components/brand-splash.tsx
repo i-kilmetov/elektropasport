@@ -8,6 +8,7 @@ import {
   applySplashStatusBarTheme,
 } from "@/lib/status-bar-theme";
 import { Button } from "@/components/ui/button";
+import { PdConsentCheckbox } from "@/components/ui/pd-consent-checkbox";
 import { PhoneLoginFlow } from "@/components/phone-login-flow";
 import {
   LOGO_FONT_WEIGHT,
@@ -552,6 +553,7 @@ export function BrandLaunchWaitlist({
     startAtPhone ? "phone" : "flip",
   );
   const [phone, setPhone] = useState(`${PHONE_PREFIX} `);
+  const [pdConsent, setPdConsent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -675,6 +677,10 @@ export function BrandLaunchWaitlist({
 
   const submit = async () => {
     setError(null);
+    if (!pdConsent) {
+      setError("Отметьте согласие на обработку персональных данных");
+      return;
+    }
     if (!isCompleteRuPhone(phone)) return;
     const value = toRuPhoneE164(phone);
     setSubmitting(true);
@@ -682,7 +688,12 @@ export function BrandLaunchWaitlist({
       const res = await fetch("/api/waitlist", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ list: "launch", phone: value, email: value }),
+        body: JSON.stringify({
+          list: "launch",
+          phone: value,
+          email: value,
+          pdConsent: true,
+        }),
       });
       const data = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) {
@@ -745,65 +756,75 @@ export function BrandLaunchWaitlist({
         ) : cta === "flip" ? (
           <div className="h-14 min-h-14 w-full" aria-hidden />
         ) : cta === "phone" ? (
-          <form
-            className="launch-email-field mx-auto flex h-14 min-h-14 w-full items-center gap-2 rounded-full bg-[#111113] px-2"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void submit();
-            }}
-          >
-            <input
-              ref={inputRef}
-              type="tel"
-              name="phone"
-              autoComplete="tel"
-              autoCapitalize="none"
-              autoCorrect="off"
-              spellCheck={false}
-              inputMode="tel"
-              enterKeyHint={phoneReady ? "done" : "next"}
-              value={phone}
-              disabled={submitting}
-              onChange={(event) => {
-                setPhone(formatRuPhone(event.target.value));
+          <div className="mx-auto flex w-full flex-col gap-3">
+            <PdConsentCheckbox
+              checked={pdConsent}
+              onChange={(next) => {
+                setPdConsent(next);
                 setError(null);
               }}
-              onInput={(event) => {
-                setPhone(formatRuPhone(event.currentTarget.value));
-                setError(null);
-              }}
-              onFocus={() => {
-                setPhoneFocused(true);
-                keepInPlace();
-              }}
-              onBlur={(event) => {
-                setPhone(formatRuPhone(event.target.value));
-                keepInPlace();
-              }}
-              className="launch-email-input h-full min-w-0 flex-1 rounded-full border-0 bg-transparent px-5 text-[16px] outline-none disabled:opacity-60"
-              aria-label="Телефон для новости об открытии"
+              className="flex cursor-pointer items-start gap-3 rounded-[18px] border border-black/15 bg-black/[0.06] p-3 text-left"
             />
-            <AnimatePresence initial={false}>
-              {showOk ? (
-                <motion.button
-                  key="ok"
-                  type="submit"
-                  disabled={!phoneReady || submitting}
-                  initial={{ opacity: 0, scale: 0.85 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.85 }}
-                  transition={{ duration: 0.18, ease: "easeOut" }}
-                  className={
-                    phoneReady && !submitting
-                      ? "shrink-0 rounded-full bg-white px-4 py-2 text-[14px] font-semibold text-[#111113]"
-                      : "shrink-0 cursor-not-allowed rounded-full bg-zinc-500 px-4 py-2 text-[14px] font-semibold text-zinc-300"
-                  }
-                >
-                  {submitting ? "…" : "OK"}
-                </motion.button>
-              ) : null}
-            </AnimatePresence>
-          </form>
+            <form
+              className="launch-email-field flex h-14 min-h-14 w-full items-center gap-2 rounded-full bg-[#111113] px-2"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void submit();
+              }}
+            >
+              <input
+                ref={inputRef}
+                type="tel"
+                name="phone"
+                autoComplete="tel"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                inputMode="tel"
+                enterKeyHint={phoneReady && pdConsent ? "done" : "next"}
+                value={phone}
+                disabled={submitting}
+                onChange={(event) => {
+                  setPhone(formatRuPhone(event.target.value));
+                  setError(null);
+                }}
+                onInput={(event) => {
+                  setPhone(formatRuPhone(event.currentTarget.value));
+                  setError(null);
+                }}
+                onFocus={() => {
+                  setPhoneFocused(true);
+                  keepInPlace();
+                }}
+                onBlur={(event) => {
+                  setPhone(formatRuPhone(event.target.value));
+                  keepInPlace();
+                }}
+                className="launch-email-input h-full min-w-0 flex-1 rounded-full border-0 bg-transparent px-5 text-[16px] outline-none disabled:opacity-60"
+                aria-label="Телефон для новости об открытии"
+              />
+              <AnimatePresence initial={false}>
+                {showOk ? (
+                  <motion.button
+                    key="ok"
+                    type="submit"
+                    disabled={!phoneReady || !pdConsent || submitting}
+                    initial={{ opacity: 0, scale: 0.85 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.85 }}
+                    transition={{ duration: 0.18, ease: "easeOut" }}
+                    className={
+                      phoneReady && pdConsent && !submitting
+                        ? "shrink-0 rounded-full bg-white px-4 py-2 text-[14px] font-semibold text-[#111113]"
+                        : "shrink-0 cursor-not-allowed rounded-full bg-zinc-500 px-4 py-2 text-[14px] font-semibold text-zinc-300"
+                    }
+                  >
+                    {submitting ? "…" : "OK"}
+                  </motion.button>
+                ) : null}
+              </AnimatePresence>
+            </form>
+          </div>
         ) : (
           <motion.button
             type="button"
