@@ -16,6 +16,8 @@ License: Creative Commons BY 4.0
 This is the **passport** layer for Tokom (year / walls / UK).  
 Capital-repair of electrical networks still comes from **ФРТ / Reform GKH** indexes under `data/reform-gkh/`.
 
+Join key: DaData **`house_fias_id`** (house level, not flat) → GIS `address_id`.
+
 ## Build
 
 ```bash
@@ -23,8 +25,12 @@ python3 scripts/download-gis-gkh.py
 python3 scripts/build-gis-gkh-index.py
 ```
 
-Writes `data/gis-gkh/index/mkd.min.jsonl.gz` (~27 MB) — commit this file; keep raw/extracted gitignored.
+Writes:
+- `data/gis-gkh/index/mkd.min.sqlite` (~101 MB, gitignored)
+- `data/gis-gkh/index/mkd.min.sqlite.gz` (~37 MB, **commit this**)
+
+Runtime opens SQLite via `node:sqlite` (Amvera sets `NODE_OPTIONS=--experimental-sqlite`).
 
 ## Lookup
 
-Server: `lookupGisGkhHouse({ fiasId })` joins DaData `house_fias_id` → GIS `address_id`.
+Server: `lookupGisGkhHouse({ fiasId })` — O(1) by FIAS, no full-index load into RAM.

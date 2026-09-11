@@ -15,6 +15,7 @@ export async function POST(request: Request) {
       city?: string;
       address?: string;
       fiasId?: string;
+      houseFiasId?: string;
       street?: string;
       house?: string;
       block?: string;
@@ -24,6 +25,7 @@ export async function POST(request: Request) {
     const city = normalizeCityName(body.city ?? "");
     const address = body.address?.trim() ?? "";
     const fiasId = body.fiasId?.trim() || null;
+    const houseFiasId = body.houseFiasId?.trim() || null;
     const street = body.street?.trim() || null;
     const house = body.house?.trim() || null;
     const block = body.block?.trim() || null;
@@ -49,6 +51,7 @@ export async function POST(request: Request) {
       city,
       address,
       fiasId,
+      houseFiasId,
       street,
       house,
       block,

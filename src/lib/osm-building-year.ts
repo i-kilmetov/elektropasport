@@ -74,7 +74,7 @@ export async function lookupBuildingYearFromOsm(input: {
   const areaName = osmAreaName(input.city);
   const streetPattern = escapeOverpassRegex(key.street);
   const house = escapeOverpassRegex(key.house);
-  const query = `[out:json][timeout:20];
+  const query = `[out:json][timeout:3];
 area["name"="${escapeOverpassRegex(areaName)}"]["admin_level"="4"]->.a;
 (
   way["addr:street"~"${streetPattern}",i]["addr:housenumber"="${house}"]["building"](area.a);
@@ -82,7 +82,7 @@ area["name"="${escapeOverpassRegex(areaName)}"]["admin_level"="4"]->.a;
 );
 out tags 8;`;
 
-  for (const endpoint of OVERPASS_ENDPOINTS) {
+  for (const endpoint of OVERPASS_ENDPOINTS.slice(0, 1)) {
     try {
       const url = new URL(endpoint);
       url.searchParams.set("data", query);
@@ -90,7 +90,7 @@ out tags 8;`;
         method: "GET",
         headers: { Accept: "application/json" },
         cache: "no-store",
-        signal: AbortSignal.timeout(22_000),
+        signal: AbortSignal.timeout(4_000),
       });
       if (!res.ok) continue;
       const contentType = res.headers.get("content-type") ?? "";

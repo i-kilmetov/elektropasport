@@ -1839,6 +1839,7 @@ export async function lookupHouseInsight(input: {
   city: string;
   address: string;
   fiasId?: string | null;
+  houseFiasId?: string | null;
   street?: string | null;
   house?: string | null;
   block?: string | null;
@@ -1858,6 +1859,7 @@ export async function lookupHouseInsight(input: {
       city: input.city,
       address: input.address,
       fiasId: input.fiasId ?? undefined,
+      houseFiasId: input.houseFiasId ?? undefined,
       street: input.street ?? undefined,
       house: input.house ?? undefined,
       block: input.block ?? undefined,

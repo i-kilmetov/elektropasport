@@ -53,6 +53,7 @@ export function PanelHouseAddressSheet({
     city: string;
     address: string;
     fiasId?: string;
+    houseFiasId?: string;
     street?: string;
     house?: string;
     block?: string;
@@ -167,7 +168,8 @@ export function PanelHouseAddressSheet({
     onConfirm({
       city: geoCity,
       address: geoAddress.value,
-      fiasId: geoAddress.houseFiasId ?? geoAddress.fiasId,
+      fiasId: geoAddress.fiasId,
+      houseFiasId: geoAddress.houseFiasId ?? geoAddress.fiasId,
       street: geoAddress.street,
       house: geoAddress.house,
       block: geoAddress.block,
@@ -493,7 +495,8 @@ export function PanelHouseAddressSheet({
                       onConfirm({
                         city: cityLabel,
                         address: addressSelected?.value ?? addressTrimmed,
-                        fiasId:
+                        fiasId: addressSelected?.fiasId,
+                        houseFiasId:
                           addressSelected?.houseFiasId ?? addressSelected?.fiasId,
                         street: addressSelected?.street,
                         house: addressSelected?.house,

@@ -1,8 +1,7 @@
 import { gunzipSync } from "node:zlib";
-import { createReadStream, existsSync, readFileSync } from "node:fs";
-import { createInterface } from "node:readline";
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import path from "node:path";
-import { createGunzip } from "node:zlib";
+import { DatabaseSync } from "node:sqlite";
 
 export type GisGkhHouse = {
   fiasId: string;
@@ -12,128 +11,119 @@ export type GisGkhHouse = {
   sourceLabel: string;
 };
 
-type IndexEntry = {
-  y?: number;
-  w?: string;
-  u?: string;
+type HouseRow = {
+  year: number | null;
+  walls: string | null;
+  uk: string | null;
 };
 
-let cached: Map<string, IndexEntry> | null = null;
-let loading: Promise<Map<string, IndexEntry>> | null = null;
+let db: DatabaseSync | null = null;
+let prepareGet:
+  | ReturnType<DatabaseSync["prepare"]>
+  | null = null;
 
-function indexPath(): string {
-  return path.join(process.cwd(), "data", "gis-gkh", "index", "mkd.min.jsonl.gz");
+function indexDir(): string {
+  return path.join(process.cwd(), "data", "gis-gkh", "index");
 }
 
-async function loadIndexStreaming(): Promise<Map<string, IndexEntry>> {
-  const file = indexPath();
-  if (!existsSync(file)) {
-    console.error(`[gis-gkh] missing index ${file}`);
-    return new Map();
+function ensureSqliteFile(): string | null {
+  const dir = indexDir();
+  const sqlitePath = path.join(dir, "mkd.min.sqlite");
+  if (existsSync(sqlitePath)) return sqlitePath;
+
+  const gzPath = path.join(dir, "mkd.min.sqlite.gz");
+  if (!existsSync(gzPath)) {
+    console.error(`[gis-gkh] missing index ${sqlitePath} and ${gzPath}`);
+    return null;
   }
 
-  const map = new Map<string, IndexEntry>();
-  const stream = createReadStream(file).pipe(createGunzip());
-  const lines = createInterface({ input: stream, crlfDelay: Infinity });
-
-  for await (const line of lines) {
-    if (!line) continue;
-    try {
-      const row = JSON.parse(line) as { g?: string; y?: number; w?: string; u?: string };
-      if (!row.g) continue;
-      const entry: IndexEntry = {};
-      if (typeof row.y === "number") entry.y = row.y;
-      if (row.w) entry.w = row.w;
-      if (row.u) entry.u = row.u;
-      map.set(row.g.toLowerCase(), entry);
-    } catch {
-      // skip bad line
-    }
+  // Prefer writable cache outside the image layer when possible.
+  const cacheDir =
+    process.env.GIS_GKH_CACHE_DIR?.trim() ||
+    path.join(process.env.TMPDIR || "/tmp", "tokom-gis-gkh");
+  try {
+    mkdirSync(cacheDir, { recursive: true });
+  } catch {
+    // fall through to in-place extract if the image is writable
   }
-  return map;
+  const cached = path.join(cacheDir, "mkd.min.sqlite");
+  if (existsSync(cached)) return cached;
+
+  try {
+    writeFileSync(cached, gunzipSync(readFileSync(gzPath)));
+    return cached;
+  } catch (error) {
+    console.error("[gis-gkh] failed to extract sqlite.gz to cache", error);
+  }
+
+  try {
+    writeFileSync(sqlitePath, gunzipSync(readFileSync(gzPath)));
+    return sqlitePath;
+  } catch (error) {
+    console.error("[gis-gkh] failed to extract sqlite.gz in place", error);
+    return null;
+  }
 }
 
-function loadIndexSync(): Map<string, IndexEntry> {
-  const file = indexPath();
-  if (!existsSync(file)) {
-    console.error(`[gis-gkh] missing index ${file}`);
-    return new Map();
+function getDb(): DatabaseSync | null {
+  if (db) return db;
+  const file = ensureSqliteFile();
+  if (!file) return null;
+  try {
+    db = new DatabaseSync(file, { readOnly: true });
+    prepareGet = db.prepare(
+      "SELECT year, walls, uk FROM houses WHERE fias = ? LIMIT 1",
+    );
+    return db;
+  } catch (error) {
+    console.error("[gis-gkh] failed to open sqlite", error);
+    db = null;
+    prepareGet = null;
+    return null;
   }
-  const text = gunzipSync(readFileSync(file)).toString("utf8");
-  const map = new Map<string, IndexEntry>();
-  for (const line of text.split("\n")) {
-    if (!line) continue;
-    try {
-      const row = JSON.parse(line) as { g?: string; y?: number; w?: string; u?: string };
-      if (!row.g) continue;
-      const entry: IndexEntry = {};
-      if (typeof row.y === "number") entry.y = row.y;
-      if (row.w) entry.w = row.w;
-      if (row.u) entry.u = row.u;
-      map.set(row.g.toLowerCase(), entry);
-    } catch {
-      // skip
-    }
-  }
-  return map;
 }
 
-async function getIndex(): Promise<Map<string, IndexEntry>> {
-  if (cached) return cached;
-  if (!loading) {
-    loading = loadIndexStreaming()
-      .then((map) => {
-        cached = map;
-        loading = null;
-        return map;
-      })
-      .catch((error) => {
-        loading = null;
-        console.error("[gis-gkh] failed to load index", error);
-        cached = new Map();
-        return cached;
-      });
+/** Open the FIAS SQLite index (optional warm on boot). */
+export function warmGisGkhIndex(): number {
+  const opened = getDb();
+  if (!opened) return 0;
+  try {
+    const row = opened.prepare("SELECT COUNT(*) AS n FROM houses").get() as
+      | { n: number }
+      | undefined;
+    return typeof row?.n === "number" ? row.n : 0;
+  } catch {
+    return 0;
   }
-  return loading;
 }
 
-/** Warm the in-memory FIAS map (optional; first lookup also loads). */
-export async function warmGisGkhIndex(): Promise<number> {
-  const map = await getIndex();
-  return map.size;
-}
-
-export async function lookupGisGkhHouse(input: {
+export function lookupGisGkhHouse(input: {
   fiasId?: string | null;
-}): Promise<GisGkhHouse | null> {
+}): GisGkhHouse | null {
   const fias = input.fiasId?.trim().toLowerCase() || null;
   if (!fias || fias.startsWith("mos:")) return null;
 
-  const map = await getIndex();
-  const hit = map.get(fias);
-  if (!hit) return null;
+  if (!getDb() || !prepareGet) return null;
 
-  return {
-    fiasId: fias,
-    buildingYear: hit.y ?? null,
-    walls: hit.w ?? null,
-    managementName: hit.u ?? null,
-    sourceLabel: "ГИС ЖКХ",
-  };
+  try {
+    const hit = prepareGet.get(fias) as HouseRow | undefined;
+    if (!hit) return null;
+    return {
+      fiasId: fias,
+      buildingYear: hit.year ?? null,
+      walls: hit.walls ?? null,
+      managementName: hit.uk ?? null,
+      sourceLabel: "ГИС ЖКХ",
+    };
+  } catch (error) {
+    console.error("[gis-gkh] lookup failed", error);
+    return null;
+  }
 }
 
-/** Sync helper for tests / scripts after warm. */
-export function lookupGisGkhHouseSync(fiasId: string | null | undefined): GisGkhHouse | null {
-  const fias = fiasId?.trim().toLowerCase() || null;
-  if (!fias || fias.startsWith("mos:")) return null;
-  if (!cached) cached = loadIndexSync();
-  const hit = cached.get(fias);
-  if (!hit) return null;
-  return {
-    fiasId: fias,
-    buildingYear: hit.y ?? null,
-    walls: hit.w ?? null,
-    managementName: hit.u ?? null,
-    sourceLabel: "ГИС ЖКХ",
-  };
+/** @deprecated Prefer lookupGisGkhHouse — kept for call-site compatibility. */
+export async function lookupGisGkhHouseAsync(input: {
+  fiasId?: string | null;
+}): Promise<GisGkhHouse | null> {
+  return lookupGisGkhHouse(input);
 }

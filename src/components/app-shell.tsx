@@ -1332,6 +1332,7 @@ export function AppShell({
       city: string;
       address: string;
       fiasId?: string;
+      houseFiasId?: string;
       street?: string;
       house?: string;
       block?: string;

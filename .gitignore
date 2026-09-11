@@ -60,11 +60,11 @@ data/reform-gkh/_parse_*.py
 data/gis-gkh/raw/
 data/gis-gkh/extracted/
 data/gis-gkh/*.html
-data/gis-gkh/*.sqlite
 data/gis-gkh/index/*.sqlite
+data/gis-gkh/index/*.jsonl.gz
 !data/gis-gkh/README.md
 !data/gis-gkh/index/
-!data/gis-gkh/index/mkd.min.jsonl.gz
+!data/gis-gkh/index/mkd.min.sqlite.gz
 
 # typescript
 *.tsbuildinfo

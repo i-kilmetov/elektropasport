@@ -23,7 +23,15 @@ export { buildLocalHouseInsight, buildPanelHouseSnapshot };
 function realFiasId(value: string | null | undefined): string | null {
   const fias = value?.trim() || null;
   if (!fias || fias.startsWith("mos:")) return null;
-  return fias;
+  return fias.toLowerCase();
+}
+
+/** Prefer house-level FIAS (GIS/Reform are house passports, not flats). */
+function houseLevelFias(input: {
+  houseFiasId?: string | null;
+  fiasId?: string | null;
+}): string | null {
+  return realFiasId(input.houseFiasId) ?? realFiasId(input.fiasId);
 }
 
 function mergeOverhaul(
@@ -57,16 +65,16 @@ function appendSource(
   return `${current}; ${next}`;
 }
 
-async function finishInsight(base: {
+function finishInsight(base: {
   address: string;
   city: string | null;
   fiasId: string | null;
   buildingYear: number | null;
   operationYear: number | null;
   dataSource: string | null;
-}): Promise<HouseInsight> {
+}): HouseInsight {
   const fias = realFiasId(base.fiasId);
-  const gis = await lookupGisGkhHouse({ fiasId: fias });
+  const gis = lookupGisGkhHouse({ fiasId: fias });
   const reform = lookupReformGkhHouse({
     city: base.city || "",
     address: base.address,
@@ -83,11 +91,14 @@ async function finishInsight(base: {
     dataSource = appendSource(dataSource, gis.sourceLabel);
   }
 
-  // Reform is only for electrical overhaul; year is a last-resort fallback.
+  // Reform: electrical overhaul; year only as last-resort fallback.
   if (buildingYear == null && reform?.buildingYear != null) {
     buildingYear = reform.buildingYear;
     dataSource = appendSource(dataSource, reform.sourceLabel);
-  } else if (reform?.electricalLastYear != null || reform?.electricalNextYear != null) {
+  } else if (
+    reform?.electricalLastYear != null ||
+    reform?.electricalNextYear != null
+  ) {
     dataSource = appendSource(dataSource, reform.sourceLabel);
   }
 
@@ -121,17 +132,18 @@ async function finishInsight(base: {
   };
 }
 
-/** Fallback year sources when GIS ЖКХ has no year for the FIAS id. */
+/** Last-resort year when FIAS passport sources miss (keep short — no long OSM waits). */
 async function resolveBuildingYearFallback(input: {
   city: string;
   address: string;
   street?: string | null;
   house?: string | null;
   block?: string | null;
+  /** Skip network OSM when we already had a house FIAS (passport miss is final). */
+  skipOsm?: boolean;
 }): Promise<{
   address: string;
   buildingYear: number | null;
-  operationYear: number | null;
   sourceLabel: string | null;
 }> {
   if (isMoscow(input.city)) {
@@ -140,10 +152,13 @@ async function resolveBuildingYearFallback(input: {
       return {
         address: seed.address,
         buildingYear: seed.buildingYear,
-        operationYear: null,
         sourceLabel: "Справочник домов Москвы",
       };
     }
+  }
+
+  if (input.skipOsm) {
+    return { address: input.address, buildingYear: null, sourceLabel: null };
   }
 
   const osm = await lookupBuildingYearFromOsm({
@@ -157,23 +172,18 @@ async function resolveBuildingYearFallback(input: {
     return {
       address: osm.address || input.address,
       buildingYear: osm.buildingYear,
-      operationYear: null,
       sourceLabel: osm.sourceLabel,
     };
   }
 
-  return {
-    address: input.address,
-    buildingYear: null,
-    operationYear: null,
-    sourceLabel: null,
-  };
+  return { address: input.address, buildingYear: null, sourceLabel: null };
 }
 
 export async function lookupHouseInsight(input: {
   city: string;
   address: string;
   fiasId?: string | null;
+  houseFiasId?: string | null;
   street?: string | null;
   house?: string | null;
   block?: string | null;
@@ -182,15 +192,16 @@ export async function lookupHouseInsight(input: {
 }): Promise<HouseInsight> {
   const city = input.city.trim();
   const address = input.address.trim();
-  const rawFiasId = input.fiasId?.trim() || null;
   const knownYear =
     typeof input.buildingYear === "number" &&
     Number.isFinite(input.buildingYear)
       ? input.buildingYear
       : null;
 
-  // Prefer a real house FIAS (needed for GIS ЖКХ + Reform join).
-  let fiasId = realFiasId(rawFiasId);
+  let fiasId = houseLevelFias({
+    houseFiasId: input.houseFiasId,
+    fiasId: input.fiasId,
+  });
   let resolvedAddress = address;
   let resolvedCity: string | null = city || null;
   let buildingYear = knownYear;
@@ -202,7 +213,11 @@ export async function lookupHouseInsight(input: {
     address,
     fiasId,
   });
-  if (dadata.fiasId) fiasId = realFiasId(dadata.fiasId) ?? fiasId;
+  fiasId =
+    houseLevelFias({
+      houseFiasId: dadata.suggestion?.houseFiasId,
+      fiasId: dadata.fiasId,
+    }) ?? fiasId;
   if (dadata.address) resolvedAddress = dadata.address;
   if (dadata.city) resolvedCity = dadata.city;
   if (buildingYear == null && dadata.buildingYear != null) {
@@ -210,27 +225,37 @@ export async function lookupHouseInsight(input: {
     dataSource = "DaData";
   }
 
-  if (buildingYear == null) {
-    const fallback = await resolveBuildingYearFallback({
-      city: resolvedCity || city,
-      address: resolvedAddress,
-      street: input.street,
-      house: input.house,
-      block: input.block,
-    });
-    if (fallback.buildingYear != null) {
-      buildingYear = fallback.buildingYear;
-      dataSource = fallback.sourceLabel;
-      resolvedAddress = fallback.address || resolvedAddress;
-    }
-  }
-
-  return finishInsight({
+  // Passport sources first (sync, fast): GIS + Reform.
+  let insight = finishInsight({
     address: resolvedAddress,
     city: resolvedCity || city || null,
-    fiasId: fiasId ?? (isMoscow(city) ? `mos:${resolvedAddress}` : rawFiasId),
+    fiasId: fiasId ?? (isMoscow(city) ? `mos:${resolvedAddress}` : fiasId),
     buildingYear,
     operationYear: null,
     dataSource,
   });
+
+  if (insight.buildingYear == null) {
+    const fallback = await resolveBuildingYearFallback({
+      city: resolvedCity || city,
+      address: resolvedAddress,
+      street: input.street ?? dadata.suggestion?.street,
+      house: input.house ?? dadata.suggestion?.house,
+      block: input.block ?? dadata.suggestion?.block,
+      // With a real house FIAS, GIS/Reform miss means "unknown" — don't wait on OSM.
+      skipOsm: Boolean(fiasId),
+    });
+    if (fallback.buildingYear != null) {
+      insight = finishInsight({
+        address: fallback.address || resolvedAddress,
+        city: resolvedCity || city || null,
+        fiasId: fiasId ?? (isMoscow(city) ? `mos:${resolvedAddress}` : fiasId),
+        buildingYear: fallback.buildingYear,
+        operationYear: null,
+        dataSource: fallback.sourceLabel,
+      });
+    }
+  }
+
+  return insight;
 }
