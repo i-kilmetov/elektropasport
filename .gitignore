@@ -53,6 +53,8 @@ data/reform-gkh/cookies.txt
 data/reform-gkh/_parse_*.py
 !data/reform-gkh/README.md
 !data/reform-gkh/.gitkeep
+!data/reform-gkh/index/
+!data/reform-gkh/index/*.min.json.gz
 
 # typescript
 *.tsbuildinfo

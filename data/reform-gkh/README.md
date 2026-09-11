@@ -72,6 +72,16 @@ Moscow electricity works in this dump: ~31 6xx rows; mix of past years (2015�
 ## Next steps
 
 1. Keep zips locally (or CI cache); don’t commit unpacked CSV.
-2. Build a slim Postgres table: `houseguid → {region, address, year, floors, flats, last_electrical_overhaul_year, next_electrical_overhaul_year}`.
-3. Join in `/api/house-lookup` via DaData `house_fias_id`.
-4. If tests look good, run `python3 scripts/download-reform-gkh.py --list-regions` and extend `--regions`.
+2. Build slim indexes for the app:
+
+```bash
+python3 scripts/build-reform-gkh-index.py
+```
+
+Writes `data/reform-gkh/index/{moscow,bashkortostan}.min.json.gz` (committed).
+
+3. Server lookup: `lookupReformGkhHouse` in `/api/house-lookup` joins by
+   `houseguid` ↔ DaData `house_fias_id` (fallback: normalized address).
+4. Product rule: house before 1995 + electrical overhaul done ⇒ grounding likely present;
+   otherwise show planned year when available.
+5. If tests look good, run `python3 scripts/download-reform-gkh.py --list-regions` and extend `--regions`.

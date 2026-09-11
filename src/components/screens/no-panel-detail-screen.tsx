@@ -117,6 +117,11 @@ export function NoPanelDetailScreen({
                       {houseSnapshot.groundingTitle}.{" "}
                       {houseSnapshot.groundingSummary}
                     </p>
+                    {houseSnapshot.capitalRepairMessage ? (
+                      <p className="ty-note">
+                        {houseSnapshot.capitalRepairMessage}
+                      </p>
+                    ) : null}
                   </>
                 )}
                 {onEditAddress && (

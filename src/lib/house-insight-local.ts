@@ -6,7 +6,7 @@ import {
 } from "@/lib/house-insight";
 import { assessGroundingForYear } from "@/lib/grounding-assessment";
 
-/** Local fallback when DaData is unavailable. */
+/** Local fallback when server lookup is unavailable. */
 export function buildLocalHouseInsight(input: {
   city: string;
   address: string;
@@ -26,6 +26,7 @@ export function buildLocalHouseInsight(input: {
     operationYear: null,
     electrical: electricalGuessForYear(null),
     grounding,
+    electricalOverhaul: null,
     capitalRepair: null,
     management: null,
     managementType: null,

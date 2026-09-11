@@ -1220,7 +1220,10 @@ function pickHouseSnapshot(
     (snap.buildingYear ? 10 : 0) +
     (snap.operationYear ? 5 : 0) +
     (snap.dataSource ? 3 : 0) +
-    (snap.capitalRepairMessage ? 1 : 0);
+    (snap.capitalRepairMessage ? 2 : 0) +
+    (snap.electricalOverhaulLastYear || snap.electricalOverhaulNextYear
+      ? 2
+      : 0);
 
   const winner = richness(local) >= richness(remote) ? local : remote;
   const address = [winner.address, local.address, remote.address].find(

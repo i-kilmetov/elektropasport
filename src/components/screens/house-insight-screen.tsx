@@ -185,6 +185,20 @@ export function HouseInsightScreen({
               {insight.grounding.summary}
             </p>
           </GlassCard>
+
+          {insight.electricalOverhaul?.message ? (
+            <GlassCard className="p-5">
+              <div className="mb-2 flex items-center gap-2 text-zinc-500">
+                <Cable className="h-4 w-4" />
+                <span className="ty-label uppercase tracking-wide">
+                  Капремонт электроснабжения
+                </span>
+              </div>
+              <p className="ty-body text-zinc-800">
+                {insight.electricalOverhaul.message}
+              </p>
+            </GlassCard>
+          ) : null}
         </div>
       )}
 

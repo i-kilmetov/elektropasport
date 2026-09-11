@@ -1,5 +1,6 @@
 import {
   electricalGuessForYear,
+  type ElectricalOverhaulInsight,
   type HouseInsight,
 } from "@/lib/house-insight";
 import { assessGroundingForYear } from "@/lib/grounding-assessment";
@@ -8,11 +9,87 @@ import { isMoscow } from "@/lib/lead-services";
 import { lookupMoscowYearFromSeed } from "@/lib/moscow-year-seed";
 import { lookupBuildingYearFromOsm } from "@/lib/osm-building-year";
 import {
+  electricalOverhaulMessage,
+  lookupReformGkhHouse,
+} from "@/lib/reform-gkh-lookup";
+import {
   buildLocalHouseInsight,
   buildPanelHouseSnapshot,
 } from "@/lib/house-insight-local";
 
 export { buildLocalHouseInsight, buildPanelHouseSnapshot };
+
+function mergeOverhaul(
+  reform: ReturnType<typeof lookupReformGkhHouse>,
+): ElectricalOverhaulInsight | null {
+  if (!reform) return null;
+  const lastYear = reform.electricalLastYear;
+  const nextYear = reform.electricalNextYear;
+  if (lastYear == null && nextYear == null) {
+    return {
+      lastYear: null,
+      nextYear: null,
+      message:
+        "Дом есть в программе капремонта, но отдельный ремонт сетей электроснабжения в открытых данных не найден.",
+    };
+  }
+  return {
+    lastYear,
+    nextYear,
+    message: electricalOverhaulMessage({ lastYear, nextYear }),
+  };
+}
+
+function finishInsight(base: {
+  address: string;
+  city: string | null;
+  fiasId: string | null;
+  buildingYear: number | null;
+  operationYear: number | null;
+  dataSource: string | null;
+  reformFiasId?: string | null;
+}): HouseInsight {
+  const reform = lookupReformGkhHouse({
+    city: base.city || "",
+    address: base.address,
+    fiasId: base.reformFiasId ?? base.fiasId,
+  });
+
+  let buildingYear = base.buildingYear;
+  let dataSource = base.dataSource;
+  if (buildingYear == null && reform?.buildingYear != null) {
+    buildingYear = reform.buildingYear;
+    dataSource = reform.sourceLabel;
+  } else if (reform && dataSource && !dataSource.includes("ФРТ")) {
+    dataSource = `${dataSource}; ${reform.sourceLabel}`;
+  } else if (reform && !dataSource) {
+    dataSource = reform.sourceLabel;
+  }
+
+  const overhaul = mergeOverhaul(reform);
+  const grounding = assessGroundingForYear({
+    year: buildingYear ?? base.operationYear,
+    electricalLastYear: overhaul?.lastYear ?? null,
+    electricalNextYear: overhaul?.nextYear ?? null,
+  });
+
+  return {
+    address: base.address,
+    city: base.city,
+    fiasId: base.fiasId,
+    buildingYear,
+    operationYear: base.operationYear,
+    electrical: electricalGuessForYear(buildingYear, overhaul),
+    grounding,
+    electricalOverhaul: overhaul,
+    capitalRepair: null,
+    management: null,
+    managementType: null,
+    dataSource,
+    floors: reform?.floors ?? null,
+    flats: reform?.flats ?? null,
+  };
+}
 
 /** Year sources: tiny seed → OSM. Mos.ru open catalog has no reliable year dataset. */
 async function resolveBuildingYear(input: {
@@ -84,20 +161,15 @@ export async function lookupHouseInsight(input: {
 
   if (isMoscow(city)) {
     if (knownYear != null) {
-      const grounding = assessGroundingForYear(knownYear);
-      return {
+      return finishInsight({
         address,
         city: city || "Москва",
         fiasId: rawFiasId?.startsWith("mos:") ? rawFiasId : `mos:${address}`,
         buildingYear: knownYear,
         operationYear: null,
-        electrical: electricalGuessForYear(knownYear),
-        grounding,
-        capitalRepair: null,
-        management: null,
-        managementType: null,
         dataSource: "подсказка адреса",
-      };
+        reformFiasId: rawFiasId?.startsWith("mos:") ? null : rawFiasId,
+      });
     }
 
     const resolved = await resolveBuildingYear({
@@ -107,10 +179,8 @@ export async function lookupHouseInsight(input: {
       house: input.house,
       block: input.block,
     });
-    const year = resolved.buildingYear ?? resolved.operationYear;
-    const grounding = assessGroundingForYear(year);
 
-    return {
+    return finishInsight({
       address: resolved.address || address,
       city: city || "Москва",
       fiasId: rawFiasId?.startsWith("mos:")
@@ -120,13 +190,9 @@ export async function lookupHouseInsight(input: {
           : rawFiasId,
       buildingYear: resolved.buildingYear,
       operationYear: resolved.operationYear,
-      electrical: electricalGuessForYear(year),
-      grounding,
-      capitalRepair: null,
-      management: null,
-      managementType: null,
       dataSource: resolved.sourceLabel,
-    };
+      reformFiasId: rawFiasId?.startsWith("mos:") ? null : rawFiasId,
+    });
   }
 
   const fiasId = rawFiasId?.startsWith("mos:") ? null : rawFiasId;
@@ -160,19 +226,12 @@ export async function lookupHouseInsight(input: {
     }
   }
 
-  const grounding = assessGroundingForYear(buildingYear);
-
-  return {
+  return finishInsight({
     address: resolvedAddress,
     city: dadata.city || city || null,
     fiasId: dadata.fiasId,
     buildingYear,
     operationYear: null,
-    electrical: electricalGuessForYear(buildingYear),
-    grounding,
-    capitalRepair: null,
-    management: null,
-    managementType: null,
     dataSource,
-  };
+  });
 }

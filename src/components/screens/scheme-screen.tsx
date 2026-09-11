@@ -2806,19 +2806,22 @@ export function SchemeScreen({
           </div>
           {houseSnapshot ? (
             <div className="flex min-h-0 flex-1 flex-col">
-              <p className="line-clamp-4 ty-heading leading-snug text-zinc-900">
+              <p className="line-clamp-3 ty-heading leading-snug text-zinc-900">
                 {houseSnapshot.address}
               </p>
-              {houseSnapshot.buildingYear != null ? (
-                <p className="mt-auto pt-2 text-[13px] text-zinc-600">
-                  {formatBuildingYear(houseSnapshot.buildingYear)}
-                </p>
-              ) : null}
+              <p className="mt-auto pt-2 text-[13px] leading-snug text-zinc-600">
+                {houseSnapshot.buildingYear != null
+                  ? formatBuildingYear(houseSnapshot.buildingYear)
+                  : "Год не определили"}
+                {houseSnapshot.groundingTitle
+                  ? ` · ${houseSnapshot.groundingTitle}`
+                  : ""}
+              </p>
             </div>
           ) : (
             <div className="flex min-h-0 flex-1 flex-col justify-between">
               <p className="ty-note text-zinc-400">
-                Укажем адрес автоматически по геопозиции.
+                Укажите адрес — оценим сети электроснабжения и заземление.
               </p>
             </div>
           )}

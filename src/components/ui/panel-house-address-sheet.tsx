@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { Loader2, MapPin, Navigation, X } from "lucide-react";
+import { Loader2, MapPin, Navigation, X, Zap } from "lucide-react";
 import { AddressSuggestField } from "@/components/ui/address-suggest-field";
 import { Button } from "@/components/ui/button";
 import { Portal } from "@/components/ui/portal";
@@ -21,7 +21,13 @@ import {
 } from "@/lib/dadata";
 import { normalizeCityName } from "@/lib/lead-services";
 
-type Phase = "requesting" | "resolving" | "confirm" | "error" | "manual";
+type Phase =
+  | "intro"
+  | "requesting"
+  | "resolving"
+  | "confirm"
+  | "error"
+  | "manual";
 
 function localCityFallback(query: string): CitySuggestion[] {
   return filterCities(query, 8).map((name) => ({ name, label: name }));
@@ -32,6 +38,7 @@ export function PanelHouseAddressSheet({
   saving = false,
   saved = false,
   error = null,
+  startAtIntro = true,
   onClose,
   onConfirm,
 }: {
@@ -39,6 +46,8 @@ export function PanelHouseAddressSheet({
   saving?: boolean;
   saved?: boolean;
   error?: string | null;
+  /** After photo analysis: show recommendation first. When editing — skip to geo. */
+  startAtIntro?: boolean;
   onClose: () => void;
   onConfirm: (payload: {
     city: string;
@@ -50,7 +59,7 @@ export function PanelHouseAddressSheet({
     buildingYear?: number;
   }) => void | Promise<void>;
 }) {
-  const [phase, setPhase] = useState<Phase>("requesting");
+  const [phase, setPhase] = useState<Phase>(startAtIntro ? "intro" : "requesting");
   const [geoError, setGeoError] = useState<string | null>(null);
   const [geoAddress, setGeoAddress] = useState<GeolocatedAddress | null>(null);
   const [cityQuery, setCityQuery] = useState("");
@@ -141,11 +150,17 @@ export function PanelHouseAddressSheet({
     setCitySuggestions([]);
     setAddressQuery("");
     setAddressSelected(null);
+    setGeoAddress(null);
+    setGeoError(null);
+    if (startAtIntro) {
+      setPhase("intro");
+      return;
+    }
     void runLocate();
     return () => {
       locateAbortRef.current?.abort();
     };
-  }, [open, saved, runLocate]);
+  }, [open, saved, startAtIntro, runLocate]);
 
   const confirmGeo = () => {
     if (!geoAddress || saving) return;
@@ -195,11 +210,10 @@ export function PanelHouseAddressSheet({
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-700">
               <MapPin className="h-7 w-7" />
             </div>
-            <h3 className="ty-title">
-              Адрес сохранён
-            </h3>
+            <h3 className="ty-title">Адрес сохранён</h3>
             <p className="mt-2 ty-body">
-              Данные дома записаны. Можно продолжать работу со щитком.
+              Данные о доме и сетях электроснабжения записаны. Их можно снова
+              открыть на карточке адреса.
             </p>
           </motion.div>
         </motion.div>
@@ -227,14 +241,16 @@ export function PanelHouseAddressSheet({
           <div className="mb-4 flex items-start justify-between gap-3">
             <div>
               <h3 className="ty-title">
-                Адрес дома
+                {phase === "intro" ? "Сети электроснабжения" : "Адрес дома"}
               </h3>
               <p className="mt-1 ty-body">
-                {phase === "confirm"
-                  ? "Проверьте, верно ли определился дом по геопозиции."
-                  : phase === "manual"
-                    ? "Укажите город, улицу и дом."
-                    : "Сначала определим адрес автоматически — как при вызове помощи."}
+                {phase === "intro"
+                  ? "Рекомендуем указать адрес дома, чтобы понять, в каком состоянии сейчас сети электроснабжения и есть ли заземление."
+                  : phase === "confirm"
+                    ? "Проверьте, верно ли определился дом по геопозиции."
+                    : phase === "manual"
+                      ? "Укажите город, улицу и дом."
+                      : "Сначала определим адрес автоматически — как при вызове помощи."}
               </p>
             </div>
             <button
@@ -246,6 +262,19 @@ export function PanelHouseAddressSheet({
               <X className="h-5 w-5" />
             </button>
           </div>
+
+          {phase === "intro" && (
+            <div className="rounded-[20px] border border-black/8 bg-zinc-50 p-4">
+              <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-white text-zinc-800">
+                <Zap className="h-5 w-5" />
+              </div>
+              <p className="ty-body text-zinc-800">
+                По году постройки и капремонту сетей электроснабжения можно
+                оценить, появилось ли заземление — и когда ремонт уже сделали или
+                только запланировали.
+              </p>
+            </div>
+          )}
 
           {(phase === "requesting" || phase === "resolving") && (
             <div className="flex flex-col items-center gap-3 rounded-[20px] border border-black/8 bg-zinc-50 px-5 py-8 text-center">
@@ -261,9 +290,7 @@ export function PanelHouseAddressSheet({
                   ? "Запрашиваем геопозицию…"
                   : "Ищем адрес рядом с вами…"}
               </p>
-              <p className="ty-note">
-                Обычно это занимает несколько секунд.
-              </p>
+              <p className="ty-note">Обычно это занимает несколько секунд.</p>
             </div>
           )}
 
@@ -277,9 +304,7 @@ export function PanelHouseAddressSheet({
               <p className="mt-1 ty-heading leading-snug text-zinc-900">
                 {geoAddress.value}
               </p>
-              <p className="mt-2 ty-note">
-                Нажмите, чтобы исправить
-              </p>
+              <p className="mt-2 ty-note">Нажмите, чтобы исправить</p>
             </button>
           )}
 
@@ -371,6 +396,25 @@ export function PanelHouseAddressSheet({
           )}
 
           <div className="mt-6 flex flex-col gap-3">
+            {phase === "intro" && (
+              <>
+                <Button
+                  type="button"
+                  className="w-full"
+                  onClick={() => void runLocate()}
+                >
+                  Указать адрес
+                </Button>
+                <button
+                  type="button"
+                  onClick={handleClose}
+                  className="w-full py-1 text-center ty-body"
+                >
+                  Позже
+                </button>
+              </>
+            )}
+
             {phase === "confirm" && geoAddress && (
               <>
                 <Button
@@ -393,7 +437,9 @@ export function PanelHouseAddressSheet({
               </>
             )}
 
-            {(phase === "requesting" || phase === "resolving" || phase === "error") && (
+            {(phase === "requesting" ||
+              phase === "resolving" ||
+              phase === "error") && (
               <>
                 {phase === "error" && (
                   <Button
@@ -442,27 +488,27 @@ export function PanelHouseAddressSheet({
                     type="button"
                     className="flex-1"
                     disabled={!canSubmitManual}
-                  onClick={() => {
-                    if (!canSubmitManual || !city) return;
-                    onConfirm({
-                      city: cityLabel,
-                      address: addressSelected?.value ?? addressTrimmed,
-                      fiasId:
-                        addressSelected?.houseFiasId ?? addressSelected?.fiasId,
-                      street: addressSelected?.street,
-                      house: addressSelected?.house,
-                      block: addressSelected?.block,
-                      buildingYear: addressSelected?.buildingYear,
-                    });
-                  }}
-                >
-                  {saving ? "Сохраняем…" : "Сохранить"}
-                </Button>
-              </div>
+                    onClick={() => {
+                      if (!canSubmitManual || !city) return;
+                      onConfirm({
+                        city: cityLabel,
+                        address: addressSelected?.value ?? addressTrimmed,
+                        fiasId:
+                          addressSelected?.houseFiasId ?? addressSelected?.fiasId,
+                        street: addressSelected?.street,
+                        house: addressSelected?.house,
+                        block: addressSelected?.block,
+                        buildingYear: addressSelected?.buildingYear,
+                      });
+                    }}
+                  >
+                    {saving ? "Сохраняем…" : "Сохранить"}
+                  </Button>
+                </div>
               </>
             )}
 
-            {phase !== "manual" && (
+            {phase !== "manual" && phase !== "intro" && (
               <button
                 type="button"
                 onClick={handleClose}

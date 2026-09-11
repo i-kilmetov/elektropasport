@@ -154,6 +154,7 @@ import {
   fetchPanelById,
   fetchSharedPanel,
   formatErrorMessage,
+  lookupHouseInsight,
   mergeAppliancesUnion,
   recordInviteLinkOpen,
   sendMasterWiringToCustomer,
@@ -174,8 +175,10 @@ import {
 } from "@/lib/panel-photo-client";
 import {
   groundingToHasGround,
+  houseInsightToPanelSnapshot,
 } from "@/lib/house-insight";
 import { buildPanelHouseSnapshot } from "@/lib/house-insight-local";
+import { PanelHouseInsightSheet } from "@/components/ui/panel-house-insight-sheet";
 import { syncRatingFromCharacteristics } from "@/lib/device-spec-guide";
 import { deriveRailCount, isRailDevice } from "@/lib/panel-rails";
 import {
@@ -448,6 +451,8 @@ export function AppShell({
   const [objectsTab, setObjectsTab] = useState<0 | 1>(0);
   const [askNameOnBack, setAskNameOnBack] = useState(false);
   const [panelHousePromptOpen, setPanelHousePromptOpen] = useState(false);
+  const [panelHousePromptIntro, setPanelHousePromptIntro] = useState(true);
+  const [panelHouseInsightOpen, setPanelHouseInsightOpen] = useState(false);
   const [panelHouseSaving, setPanelHouseSaving] = useState(false);
   const [panelHouseSaved, setPanelHouseSaved] = useState(false);
   const [panelHouseSaveError, setPanelHouseSaveError] = useState<string | null>(
@@ -1243,6 +1248,7 @@ export function AppShell({
             item.kind === "panel" && item.id === panelId,
         );
         if (!retakenPanel?.houseSnapshot) {
+          setPanelHousePromptIntro(true);
           setPanelHousePromptOpen(true);
         }
         setScreen("scheme");
@@ -1305,12 +1311,21 @@ export function AppShell({
       setLinesCount(result.linesCount);
       setRailCount(result.railCount ?? deriveRailCount(result.devices));
       hapticNotification("success");
+      setPanelHousePromptIntro(true);
       setPanelHousePromptOpen(true);
       setScreen("scheme");
       void refreshQuota();
     },
     [items, localPanelCount, openPanelLimit, photoDataUrl, quota, refreshQuota, retakePanelId],
   );
+
+  const openPanelHouseAddress = useCallback((withIntro: boolean) => {
+    setPanelHouseInsightOpen(false);
+    setPanelHousePromptIntro(withIntro);
+    setPanelHouseSaved(false);
+    setPanelHouseSaveError(null);
+    setPanelHousePromptOpen(true);
+  }, []);
 
   const savePanelHouseInsight = useCallback(
     async (payload: {
@@ -1327,46 +1342,66 @@ export function AppShell({
       setPanelHouseSaveError(null);
       setPanelHouseSaved(false);
 
-      const snapshot = buildPanelHouseSnapshot(payload);
-      const groundPrefill = groundingToHasGround(snapshot.groundingExpectation);
-      const panel = items.find(
-        (item): item is PanelObject =>
-          item.kind === "panel" && item.id === activePanelId,
-      );
-      const patch: Partial<
-        Pick<PanelObject, "houseSnapshot" | "address" | "hasGround">
-      > = {
-        houseSnapshot: snapshot,
-        address: snapshot.address,
-      };
-      if (groundPrefill !== undefined && panel?.hasGround === undefined) {
-        patch.hasGround = groundPrefill;
-      }
+      try {
+        let snapshot = buildPanelHouseSnapshot(payload);
+        try {
+          const insight = await lookupHouseInsight(payload);
+          snapshot = houseInsightToPanelSnapshot(insight);
+        } catch (lookupError) {
+          console.error(lookupError);
+          // Keep local snapshot (address only) if enrichment fails.
+        }
 
-      setItems((prev) =>
-        prev.map((item) =>
-          item.kind === "panel" && item.id === activePanelId
-            ? { ...item, ...patch }
-            : item,
-        ),
-      );
+        const groundPrefill = groundingToHasGround(
+          snapshot.groundingExpectation,
+        );
+        const panel = items.find(
+          (item): item is PanelObject =>
+            item.kind === "panel" && item.id === activePanelId,
+        );
+        const patch: Partial<
+          Pick<PanelObject, "houseSnapshot" | "address" | "hasGround">
+        > = {
+          houseSnapshot: snapshot,
+          address: snapshot.address,
+        };
+        if (groundPrefill !== undefined && panel?.hasGround === undefined) {
+          patch.hasGround = groundPrefill;
+        }
 
-      setPanelHouseSaved(true);
-      setPanelHouseSaving(false);
-      window.setTimeout(() => {
-        setPanelHousePromptOpen(false);
-        setPanelHouseSaved(false);
-      }, 1600);
+        setItems((prev) =>
+          prev.map((item) =>
+            item.kind === "panel" && item.id === activePanelId
+              ? { ...item, ...patch }
+              : item,
+          ),
+        );
 
-      void persistPanelPatch(activePanelId, patch).catch((error) => {
-        console.error(error);
+        setPanelHouseSaved(true);
+        window.setTimeout(() => {
+          setPanelHousePromptOpen(false);
+          setPanelHouseSaved(false);
+          setPanelHouseInsightOpen(true);
+        }, 1200);
+
+        void persistPanelPatch(activePanelId, patch).catch((error) => {
+          console.error(error);
+          const message =
+            error instanceof Error
+              ? error.message
+              : "Не удалось сохранить адрес на сервере";
+          setPanelHouseSaveError(message);
+          setItemsError(message);
+        });
+      } catch (error) {
         const message =
           error instanceof Error
             ? error.message
-            : "Не удалось сохранить адрес на сервере";
+            : "Не удалось сохранить адрес";
         setPanelHouseSaveError(message);
-        setItemsError(message);
-      });
+      } finally {
+        setPanelHouseSaving(false);
+      }
     },
     [activePanelId, items],
   );
@@ -3541,7 +3576,13 @@ export function AppShell({
                 onEditHouse={
                   sharedPreview
                     ? undefined
-                    : () => setPanelHousePromptOpen(true)
+                    : () => {
+                        if (activePanel?.houseSnapshot) {
+                          setPanelHouseInsightOpen(true);
+                        } else {
+                          openPanelHouseAddress(true);
+                        }
+                      }
                 }
                 railCount={railCount ?? undefined}
                 canUseTerminals={
@@ -3685,7 +3726,13 @@ export function AppShell({
               }
               onEditAddress={
                 activePanelId && activePanel?.noPanelSetupId
-                  ? () => setPanelHousePromptOpen(true)
+                  ? () => {
+                      if (activePanel?.houseSnapshot) {
+                        setPanelHouseInsightOpen(true);
+                      } else {
+                        openPanelHouseAddress(true);
+                      }
+                    }
                   : undefined
               }
             />
@@ -4333,6 +4380,7 @@ export function AppShell({
               saving={panelHouseSaving}
               saved={panelHouseSaved}
               error={panelHouseSaveError}
+              startAtIntro={panelHousePromptIntro}
               onClose={() => {
                 if (panelHouseSaving) return;
                 setPanelHousePromptOpen(false);
@@ -4340,6 +4388,16 @@ export function AppShell({
                 setPanelHouseSaveError(null);
               }}
               onConfirm={(payload) => savePanelHouseInsight(payload)}
+            />
+          )}
+        </AnimatePresence>
+        <AnimatePresence>
+          {panelHouseInsightOpen && activePanel?.houseSnapshot && (
+            <PanelHouseInsightSheet
+              open={panelHouseInsightOpen}
+              snapshot={activePanel.houseSnapshot}
+              onClose={() => setPanelHouseInsightOpen(false)}
+              onChangeAddress={() => openPanelHouseAddress(false)}
             />
           )}
         </AnimatePresence>

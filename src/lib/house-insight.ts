@@ -1,4 +1,7 @@
-import type { GroundingAssessment, GroundingExpectation } from "@/lib/grounding-assessment";
+import type {
+  GroundingAssessment,
+  GroundingExpectation,
+} from "@/lib/grounding-assessment";
 
 export type ElectricalEra = "legacy" | "transitional" | "modern" | "unknown";
 
@@ -14,6 +17,12 @@ export type HouseManagementCompany = {
   ogrn: string | null;
 };
 
+export type ElectricalOverhaulInsight = {
+  lastYear: number | null;
+  nextYear: number | null;
+  message: string | null;
+};
+
 /** Persisted on panel after address lookup on scheme page. */
 export type PanelHouseSnapshot = {
   city: string;
@@ -26,6 +35,10 @@ export type PanelHouseSnapshot = {
   capitalRepairMessage?: string | null;
   capitalRepairStartYear?: number | null;
   capitalRepairEndYear?: number | null;
+  electricalOverhaulLastYear?: number | null;
+  electricalOverhaulNextYear?: number | null;
+  floors?: number | null;
+  flats?: number | null;
   dataSource?: string | null;
 };
 
@@ -37,16 +50,22 @@ export type HouseInsight = {
   operationYear: number | null;
   electrical: ElectricalGuess;
   grounding: GroundingAssessment;
+  electricalOverhaul: ElectricalOverhaulInsight | null;
   /** @deprecated Kept for payload compatibility; always null. */
   capitalRepair: null;
   /** @deprecated Kept for payload compatibility; always null. */
   management: HouseManagementCompany | null;
   managementType: string | null;
-  /** Source label when building year was resolved (e.g. DaData). */
+  /** Source label when building year / house data was resolved. */
   dataSource?: string | null;
+  floors?: number | null;
+  flats?: number | null;
 };
 
-export function electricalGuessForYear(year: number | null): ElectricalGuess {
+export function electricalGuessForYear(
+  year: number | null,
+  overhaul?: ElectricalOverhaulInsight | null,
+): ElectricalGuess {
   if (year == null || !Number.isFinite(year) || year < 1800 || year > 2100) {
     return {
       era: "unknown",
@@ -57,6 +76,20 @@ export function electricalGuessForYear(year: number | null): ElectricalGuess {
   }
 
   if (year < 1995) {
+    if (overhaul?.lastYear != null) {
+      return {
+        era: "legacy",
+        title: "Старый дом, сети обновляли",
+        description: `Дом до 1995 года, но внутридомовые сети электроснабжения ремонтировали в ${overhaul.lastYear} г. В квартире всё равно стоит проверить щиток и ввод.`,
+      };
+    }
+    if (overhaul?.nextYear != null) {
+      return {
+        era: "legacy",
+        title: "Старая электрика",
+        description: `До 1995 года часто алюминий и без PE. Капремонт сетей электроснабжения в программе на ${overhaul.nextYear} год.`,
+      };
+    }
     return {
       era: "legacy",
       title: "Старая электрика",
@@ -85,6 +118,7 @@ export function electricalGuessForYear(year: number | null): ElectricalGuess {
 export function houseInsightToPanelSnapshot(
   insight: HouseInsight,
 ): PanelHouseSnapshot {
+  const overhaul = insight.electricalOverhaul;
   return {
     city: insight.city ?? "Москва",
     address: insight.address,
@@ -93,9 +127,13 @@ export function houseInsightToPanelSnapshot(
     groundingExpectation: insight.grounding.expectation,
     groundingTitle: insight.grounding.title,
     groundingSummary: insight.grounding.summary,
-    capitalRepairMessage: null,
-    capitalRepairStartYear: null,
-    capitalRepairEndYear: null,
+    capitalRepairMessage: overhaul?.message ?? null,
+    capitalRepairStartYear: overhaul?.lastYear ?? null,
+    capitalRepairEndYear: overhaul?.nextYear ?? null,
+    electricalOverhaulLastYear: overhaul?.lastYear ?? null,
+    electricalOverhaulNextYear: overhaul?.nextYear ?? null,
+    floors: insight.floors ?? null,
+    flats: insight.flats ?? null,
     dataSource: insight.dataSource ?? null,
   };
 }
