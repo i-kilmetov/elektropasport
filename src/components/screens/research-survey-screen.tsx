@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, Check, LoaderCircle } from "lucide-react";
 import { ProtectiveEarthSymbol } from "@/components/icons/protective-earth-symbol";
+import { ThreeCoreCable } from "@/components/icons/three-core-cable";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Progress } from "@/components/ui/progress";
@@ -280,6 +281,15 @@ export function ResearchSurveyScreen() {
               >
                 <ProtectiveEarthSymbol className="h-20 w-20 text-[#111113]" />
               </div>
+            </div>
+          )}
+          {question.image === "three-core-cable" && (
+            <div
+              className="mt-5 flex justify-center rounded-[24px] border border-black/8 bg-zinc-50 px-4 py-5"
+              role="img"
+              aria-label="Трёхжильный кабель: коричневый, жёлто-зелёный, синий"
+            >
+              <ThreeCoreCable className="h-28 w-full max-w-sm" />
             </div>
           )}
 

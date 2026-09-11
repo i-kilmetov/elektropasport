@@ -9,7 +9,7 @@ export function parseTelegramStartCommand(text?: string | null): string | null {
   return match?.[1]?.trim() || null;
 }
 
-export const RESEARCH_SURVEY_TOTAL_STEPS = 26;
+export const RESEARCH_SURVEY_TOTAL_STEPS = 27;
 
 export type SurveyQuestionKind = "single" | "multi" | "text";
 
@@ -46,7 +46,7 @@ export type SurveyQuestion = {
   options?: SurveyOption[];
   placeholder?: string;
   exclusiveOptionId?: string;
-  image?: "earth-symbol";
+  image?: "earth-symbol" | "three-core-cable";
 };
 
 export type SurveyAnswers = Record<string, string | string[]>;
@@ -142,9 +142,9 @@ const questions: Record<string, SurveyQuestion> = {
     required: true,
     topic: "knowledge",
     title:
-      "Насколько вы уверены в безопасности электрики в своей квартире или доме?",
+      "А насколько вы уверены в безопасности электрики в своей квартире или доме?",
     options: [
-      { id: "unsafe", label: "Уверен, что небезопасна" },
+      { id: "unsafe", label: "Думаю, что небезопасна" },
       { id: "doubt", label: "Сомневаюсь, что всё хорошо" },
       {
         id: "fine",
@@ -178,6 +178,20 @@ const questions: Record<string, SurveyQuestion> = {
       },
     ],
   },
+  k_cable: {
+    id: "k_cable",
+    kind: "single",
+    required: true,
+    topic: "knowledge",
+    title: "Что означают цвета в таком кабеле (в порядке очередности)?",
+    image: "three-core-cable",
+    options: [
+      { id: "l_pe_n", label: "Фаза, земля, ноль" },
+      { id: "rgb", label: "RGB" },
+      { id: "air_earth_water", label: "Воздух, земля, вода" },
+      { id: "zero_plus_minus", label: "Ноль, плюс, минус" },
+    ],
+  },
   k_earth: {
     id: "k_earth",
     kind: "single",
@@ -198,7 +212,7 @@ const questions: Record<string, SurveyQuestion> = {
     required: true,
     topic: "panel",
     title: "Вы живёте в многоквартирном доме или в частном?",
-    hint: "Если и там, и там — пройдите этот опрос дважды: один раз про квартиру, второй раз про дом.",
+    hint: "Если и там, и там, пройдите этот опрос дважды: один раз про квартиру, второй раз про дом.",
     options: [
       { id: "apartment", label: "Многоквартирный дом" },
       { id: "house", label: "Частный дом / таунхаус" },
@@ -233,20 +247,21 @@ const questions: Record<string, SurveyQuestion> = {
     options: [
       {
         id: "street_and_house",
-        label: "Щит на улице или на фасаде, плюс щиток в доме",
+        label:
+          "Счётчик с автоматами на улице или на фасаде, плюс электрический щиток в доме",
       },
       {
         id: "single_in_house",
-        label: "Всё в одном щитке в доме (тамбур, гараж, котельная)",
+        label: "Всё в одном электрическом щитке в доме",
       },
       {
         id: "pole_only",
         label:
-          "Счётчик и автоматы на столбе / в щите на участке, в доме почти ничего нет",
+          "Счётчик и автоматы на столбе / в щите на участке, в доме ничего нет",
       },
       {
         id: "fuses_house",
-        label: "Старые пробки или рубильник, нормального щитка нет",
+        label: "Старые пробки или рубильник, нормального щитка в доме нет",
       },
       { id: "unknown", label: "Не разбирался / не уверен" },
     ],
@@ -269,7 +284,7 @@ const questions: Record<string, SurveyQuestion> = {
     kind: "single",
     required: true,
     topic: "panel",
-    title: "Если нужно обесточить только кухню или одну комнату — получится?",
+    title: "Если нужно обесточить только кухню или одну комнату, получится?",
     options: [
       { id: "yes", label: "Да, спокойно" },
       { id: "guess", label: "Придётся угадывать" },
@@ -282,7 +297,7 @@ const questions: Record<string, SurveyQuestion> = {
     kind: "single",
     required: true,
     topic: "panel",
-    title: "Вы об этом беспокоитесь — или так и живёте?",
+    title: "Вы об этом беспокоитесь или так и живёте?",
     options: [
       { id: "worry_idle", label: "Беспокоюсь, но ничего с этим не делаю" },
       {
@@ -298,7 +313,7 @@ const questions: Record<string, SurveyQuestion> = {
     kind: "single",
     required: true,
     topic: "panel",
-    title: "Если вдруг нужно быстро обесточить жильё — вы знаете, как это сделать?",
+    title: "Если вдруг нужно быстро обесточить жильё, вы знаете, как это сделать?",
     options: [
       { id: "know", label: "Да, знаю где и как" },
       { id: "roughly", label: "Примерно представляю" },
@@ -330,8 +345,7 @@ const questions: Record<string, SurveyQuestion> = {
     options: [
       { id: "looked_got_it", label: "Да, смотрел и примерно понял" },
       { id: "looked_lost", label: "Открывал, ничего не понял" },
-      { id: "never", label: "Нет, не лез" },
-      { id: "afraid", label: "Боюсь туда лезть" },
+      { id: "never", label: "Нет, не лез / Боюсь туда лезть" },
     ],
   },
   q7: {
@@ -339,7 +353,7 @@ const questions: Record<string, SurveyQuestion> = {
     kind: "single",
     required: true,
     topic: "panel",
-    title: "Электрощиток для вас — это скорее…",
+    title: "Электрощиток для вас это скорее…",
     options: [
       { id: "clear", label: "Понятная штука, я в нём ориентируюсь" },
       { id: "closed_box", label: "Коробка, которую не открываю без нужды" },
@@ -356,7 +370,7 @@ const questions: Record<string, SurveyQuestion> = {
     required: true,
     topic: "panel",
     title:
-      "Есть ли у вас УЗО или дифавтомат — защита, которая спасает человека, а не только проводку?",
+      "Есть ли у вас УЗО или дифавтомат (защита, которая спасает человека, а не только проводку)?",
     options: [
       { id: "yes", label: "Да, есть" },
       { id: "no", label: "Нет" },
@@ -377,6 +391,10 @@ const questions: Record<string, SurveyQuestion> = {
       { id: "burn", label: "Запах гари / греется щиток или розетка" },
       { id: "sparks", label: "Искры, оплавленная вилка" },
       { id: "shock", label: "Ударило током" },
+      {
+        id: "surge",
+        label: "Ломалась техника из-за скачка напряжения",
+      },
       {
         id: "emergency_call",
         label: "Вызывали электрика из-за аварии / отключения электричества",
@@ -545,7 +563,7 @@ const questions: Record<string, SurveyQuestion> = {
     kind: "single",
     required: true,
     topic: "priorities",
-    title: "А что одно — самое важное?",
+    title: "А что одно самое важное?",
     options: PRIORITY_OPTIONS,
   },
   q16: {
@@ -614,7 +632,8 @@ export function getSurveyQuestion(
 const NEXT_STEP: Record<string, string | "done"> = {
   q1: "k_safety",
   k_safety: "k_skill",
-  k_skill: "k_earth",
+  k_skill: "k_cable",
+  k_cable: "k_earth",
   k_earth: "q2",
   q2: "q3",
   q3: "q4",
@@ -717,6 +736,9 @@ export function validateSurveyAnswers(answers: unknown): SurveyValidation {
   if (!hasOption("k_skill", data)) {
     return { ok: false, error: "Укажите, что можете сделать с электрикой" };
   }
+  if (!hasOption("k_cable", data)) {
+    return { ok: false, error: "Ответьте, что означают цвета кабеля" };
+  }
   if (!hasOption("k_earth", data)) {
     return { ok: false, error: "Ответьте, что означает знак" };
   }
@@ -772,6 +794,7 @@ const LABEL_STEPS = [
   "q1",
   "k_safety",
   "k_skill",
+  "k_cable",
   "k_earth",
   "q2",
   "q3",
