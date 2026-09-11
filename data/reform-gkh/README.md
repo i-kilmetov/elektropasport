@@ -40,6 +40,12 @@ Presence in kr1_1 ⇒ almost certainly MKD. No row ⇒ not proof of private hous
 
 `kr1_1.houseguid` is filled for **100%** of Moscow and Bashkortostan rows in this dump → join to DaData `house_fias_id` / `fias_id` at house level. Prefer GUID over string address.
 
+## Role in Tokom
+
+**ФРТ indexes are only for electrical overhaul** (last / next year of in-building electrical network repair).
+
+Passport fields for any Russian MKD (year, walls, UK) come from the nationwide GIS ЖКХ index — see `data/gis-gkh/README.md`.
+
 ## Capital repair & electricity (answer for product)
 
 **Yes — electricity is explicit**, but as *common-property in-building networks*, not apartment panels.

@@ -154,6 +154,12 @@ export function HouseInsightScreen({
                 Источник: {insight.dataSource}
               </p>
             ) : null}
+            {insight.walls ? (
+              <p className="mt-2 ty-body text-zinc-800">{insight.walls}</p>
+            ) : null}
+            {insight.management?.name ? (
+              <p className="mt-1 ty-note">УК: {insight.management.name}</p>
+            ) : null}
           </GlassCard>
 
           <GlassCard className={cn("p-5", eraTone)}>

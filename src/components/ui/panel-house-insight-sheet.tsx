@@ -75,6 +75,12 @@ export function PanelHouseInsightSheet({
               <p className="ty-heading text-zinc-900">
                 {formatBuildingYear(snapshot.buildingYear)}
               </p>
+              {snapshot.walls ? (
+                <p className="mt-1 ty-note">{snapshot.walls}</p>
+              ) : null}
+              {snapshot.managementName ? (
+                <p className="mt-1 ty-note">УК: {snapshot.managementName}</p>
+              ) : null}
               {(snapshot.floors != null || snapshot.flats != null) && (
                 <p className="mt-1 ty-note">
                   {[

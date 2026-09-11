@@ -37,6 +37,8 @@ export type PanelHouseSnapshot = {
   capitalRepairEndYear?: number | null;
   electricalOverhaulLastYear?: number | null;
   electricalOverhaulNextYear?: number | null;
+  walls?: string | null;
+  managementName?: string | null;
   floors?: number | null;
   flats?: number | null;
   dataSource?: string | null;
@@ -53,9 +55,9 @@ export type HouseInsight = {
   electricalOverhaul: ElectricalOverhaulInsight | null;
   /** @deprecated Kept for payload compatibility; always null. */
   capitalRepair: null;
-  /** @deprecated Kept for payload compatibility; always null. */
   management: HouseManagementCompany | null;
   managementType: string | null;
+  walls: string | null;
   /** Source label when building year / house data was resolved. */
   dataSource?: string | null;
   floors?: number | null;
@@ -132,6 +134,8 @@ export function houseInsightToPanelSnapshot(
     capitalRepairEndYear: overhaul?.nextYear ?? null,
     electricalOverhaulLastYear: overhaul?.lastYear ?? null,
     electricalOverhaulNextYear: overhaul?.nextYear ?? null,
+    walls: insight.walls ?? null,
+    managementName: insight.management?.name ?? null,
     floors: insight.floors ?? null,
     flats: insight.flats ?? null,
     dataSource: insight.dataSource ?? null,

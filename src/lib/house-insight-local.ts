@@ -30,6 +30,7 @@ export function buildLocalHouseInsight(input: {
     capitalRepair: null,
     management: null,
     managementType: null,
+    walls: null,
     dataSource: null,
   };
 }

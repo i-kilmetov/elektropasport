@@ -56,6 +56,16 @@ data/reform-gkh/_parse_*.py
 !data/reform-gkh/index/
 !data/reform-gkh/index/*.min.json.gz
 
+# GIS ЖКХ nationwide MKD (raw ~450MB CSV; rebuild via scripts/build-gis-gkh-index.py)
+data/gis-gkh/raw/
+data/gis-gkh/extracted/
+data/gis-gkh/*.html
+data/gis-gkh/*.sqlite
+data/gis-gkh/index/*.sqlite
+!data/gis-gkh/README.md
+!data/gis-gkh/index/
+!data/gis-gkh/index/mkd.min.jsonl.gz
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

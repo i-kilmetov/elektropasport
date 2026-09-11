@@ -5,6 +5,7 @@ import {
 } from "@/lib/house-insight";
 import { assessGroundingForYear } from "@/lib/grounding-assessment";
 import { lookupHouseFromDaData } from "@/lib/dadata-house-lookup";
+import { lookupGisGkhHouse } from "@/lib/gis-gkh-lookup";
 import { isMoscow } from "@/lib/lead-services";
 import { lookupMoscowYearFromSeed } from "@/lib/moscow-year-seed";
 import { lookupBuildingYearFromOsm } from "@/lib/osm-building-year";
@@ -18,6 +19,12 @@ import {
 } from "@/lib/house-insight-local";
 
 export { buildLocalHouseInsight, buildPanelHouseSnapshot };
+
+function realFiasId(value: string | null | undefined): string | null {
+  const fias = value?.trim() || null;
+  if (!fias || fias.startsWith("mos:")) return null;
+  return fias;
+}
 
 function mergeOverhaul(
   reform: ReturnType<typeof lookupReformGkhHouse>,
@@ -40,30 +47,48 @@ function mergeOverhaul(
   };
 }
 
-function finishInsight(base: {
+function appendSource(
+  current: string | null,
+  next: string | null | undefined,
+): string | null {
+  if (!next) return current;
+  if (!current) return next;
+  if (current.includes(next)) return current;
+  return `${current}; ${next}`;
+}
+
+async function finishInsight(base: {
   address: string;
   city: string | null;
   fiasId: string | null;
   buildingYear: number | null;
   operationYear: number | null;
   dataSource: string | null;
-  reformFiasId?: string | null;
-}): HouseInsight {
+}): Promise<HouseInsight> {
+  const fias = realFiasId(base.fiasId);
+  const gis = await lookupGisGkhHouse({ fiasId: fias });
   const reform = lookupReformGkhHouse({
     city: base.city || "",
     address: base.address,
-    fiasId: base.reformFiasId ?? base.fiasId,
+    fiasId: fias,
   });
 
   let buildingYear = base.buildingYear;
   let dataSource = base.dataSource;
+
+  if (buildingYear == null && gis?.buildingYear != null) {
+    buildingYear = gis.buildingYear;
+    dataSource = appendSource(dataSource, gis.sourceLabel);
+  } else if (gis) {
+    dataSource = appendSource(dataSource, gis.sourceLabel);
+  }
+
+  // Reform is only for electrical overhaul; year is a last-resort fallback.
   if (buildingYear == null && reform?.buildingYear != null) {
     buildingYear = reform.buildingYear;
-    dataSource = reform.sourceLabel;
-  } else if (reform && dataSource && !dataSource.includes("ФРТ")) {
-    dataSource = `${dataSource}; ${reform.sourceLabel}`;
-  } else if (reform && !dataSource) {
-    dataSource = reform.sourceLabel;
+    dataSource = appendSource(dataSource, reform.sourceLabel);
+  } else if (reform?.electricalLastYear != null || reform?.electricalNextYear != null) {
+    dataSource = appendSource(dataSource, reform.sourceLabel);
   }
 
   const overhaul = mergeOverhaul(reform);
@@ -72,6 +97,8 @@ function finishInsight(base: {
     electricalLastYear: overhaul?.lastYear ?? null,
     electricalNextYear: overhaul?.nextYear ?? null,
   });
+
+  const managementName = gis?.managementName ?? null;
 
   return {
     address: base.address,
@@ -83,16 +110,19 @@ function finishInsight(base: {
     grounding,
     electricalOverhaul: overhaul,
     capitalRepair: null,
-    management: null,
+    management: managementName
+      ? { name: managementName, phone: null, ogrn: null }
+      : null,
     managementType: null,
+    walls: gis?.walls ?? null,
     dataSource,
     floors: reform?.floors ?? null,
     flats: reform?.flats ?? null,
   };
 }
 
-/** Year sources: tiny seed → OSM. Mos.ru open catalog has no reliable year dataset. */
-async function resolveBuildingYear(input: {
+/** Fallback year sources when GIS ЖКХ has no year for the FIAS id. */
+async function resolveBuildingYearFallback(input: {
   city: string;
   address: string;
   street?: string | null;
@@ -159,77 +189,46 @@ export async function lookupHouseInsight(input: {
       ? input.buildingYear
       : null;
 
-  if (isMoscow(city)) {
-    if (knownYear != null) {
-      return finishInsight({
-        address,
-        city: city || "Москва",
-        fiasId: rawFiasId?.startsWith("mos:") ? rawFiasId : `mos:${address}`,
-        buildingYear: knownYear,
-        operationYear: null,
-        dataSource: "подсказка адреса",
-        reformFiasId: rawFiasId?.startsWith("mos:") ? null : rawFiasId,
-      });
-    }
+  // Prefer a real house FIAS (needed for GIS ЖКХ + Reform join).
+  let fiasId = realFiasId(rawFiasId);
+  let resolvedAddress = address;
+  let resolvedCity: string | null = city || null;
+  let buildingYear = knownYear;
+  let dataSource: string | null =
+    knownYear != null ? "подсказка адреса" : null;
 
-    const resolved = await resolveBuildingYear({
-      city,
-      address,
-      street: input.street,
-      house: input.house,
-      block: input.block,
-    });
-
-    return finishInsight({
-      address: resolved.address || address,
-      city: city || "Москва",
-      fiasId: rawFiasId?.startsWith("mos:")
-        ? rawFiasId
-        : resolved.buildingYear != null
-          ? `mos:${resolved.address || address}`
-          : rawFiasId,
-      buildingYear: resolved.buildingYear,
-      operationYear: resolved.operationYear,
-      dataSource: resolved.sourceLabel,
-      reformFiasId: rawFiasId?.startsWith("mos:") ? null : rawFiasId,
-    });
-  }
-
-  const fiasId = rawFiasId?.startsWith("mos:") ? null : rawFiasId;
   const dadata = await lookupHouseFromDaData({
     city,
     address,
     fiasId,
   });
-
-  let buildingYear = knownYear ?? dadata.buildingYear;
-  let dataSource: string | null =
-    knownYear != null
-      ? "подсказка адреса"
-      : buildingYear != null
-        ? "DaData"
-        : null;
-  let resolvedAddress = dadata.address || address;
+  if (dadata.fiasId) fiasId = realFiasId(dadata.fiasId) ?? fiasId;
+  if (dadata.address) resolvedAddress = dadata.address;
+  if (dadata.city) resolvedCity = dadata.city;
+  if (buildingYear == null && dadata.buildingYear != null) {
+    buildingYear = dadata.buildingYear;
+    dataSource = "DaData";
+  }
 
   if (buildingYear == null) {
-    const osm = await resolveBuildingYear({
-      city: dadata.city || city,
+    const fallback = await resolveBuildingYearFallback({
+      city: resolvedCity || city,
       address: resolvedAddress,
       street: input.street,
       house: input.house,
       block: input.block,
     });
-    if (osm.buildingYear != null) {
-      buildingYear = osm.buildingYear;
-      dataSource = osm.sourceLabel;
-      resolvedAddress = osm.address || resolvedAddress;
+    if (fallback.buildingYear != null) {
+      buildingYear = fallback.buildingYear;
+      dataSource = fallback.sourceLabel;
+      resolvedAddress = fallback.address || resolvedAddress;
     }
   }
 
   return finishInsight({
     address: resolvedAddress,
-    city: dadata.city || city || null,
-    fiasId: dadata.fiasId,
+    city: resolvedCity || city || null,
+    fiasId: fiasId ?? (isMoscow(city) ? `mos:${resolvedAddress}` : rawFiasId),
     buildingYear,
     operationYear: null,
     dataSource,

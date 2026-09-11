@@ -4,9 +4,12 @@ import { formatAppVersion } from "./src/lib/app-version";
 const nextConfig: NextConfig = {
   // Required for Amvera (and any Docker) production image.
   output: "standalone",
-  // Keep Reform GKH indexes next to the standalone server (fs read at runtime).
+  // Keep house data indexes next to the standalone server (fs read at runtime).
   outputFileTracingIncludes: {
-    "/api/house-lookup": ["./data/reform-gkh/index/**/*"],
+    "/api/house-lookup": [
+      "./data/reform-gkh/index/**/*",
+      "./data/gis-gkh/index/**/*",
+    ],
   },
   env: {
     NEXT_PUBLIC_APP_VERSION: formatAppVersion(),
