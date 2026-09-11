@@ -45,6 +45,15 @@ data/moscow/*.checkpoint.json
 !data/moscow/*.min.json.gz
 !data/moscow/.gitkeep
 
+# Reform GKH / ФРТ dumps (large CSV; re-download via scripts/download-reform-gkh.py)
+data/reform-gkh/raw/
+data/reform-gkh/extracted/
+data/reform-gkh/*.html
+data/reform-gkh/cookies.txt
+data/reform-gkh/_parse_*.py
+!data/reform-gkh/README.md
+!data/reform-gkh/.gitkeep
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
