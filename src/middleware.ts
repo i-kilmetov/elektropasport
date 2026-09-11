@@ -58,6 +58,13 @@ function publicTestUrl(pathname: string, search = ""): URL {
  * vercel.app is the emergency entry while Vercel CDN IPs are filtered in RF).
  */
 export async function middleware(request: NextRequest) {
+  // No "use server" actions in this app. Short Next-Action values like "r2s"
+  // are scanner probes (react2shell); reject before Next.js logs
+  // "Server Reference ID did not match the expected format".
+  if (request.headers.has("next-action")) {
+    return new NextResponse(null, { status: 404 });
+  }
+
   const host = request.headers.get("host")?.split(":")[0]?.toLowerCase();
   const forwardedHost = request.headers
     .get("x-forwarded-host")
