@@ -10,6 +10,8 @@ import {
   getWaitlistSubscription,
   upsertUser,
 } from "@/lib/db";
+import { isGoogleSheetsConfigured, updateGoogleSheetSurveyPhone } from "@/lib/google-sheets";
+import { isSurveyResponseId } from "@/lib/research-survey";
 import { notifyAdminWaitlist } from "@/lib/telegram-notify";
 
 function isValidEmail(value: string): boolean {
@@ -65,6 +67,7 @@ export async function POST(request: Request) {
       email?: unknown;
       phone?: unknown;
       pdConsent?: unknown;
+      surveyResponseId?: unknown;
     };
     const list =
       typeof body.list === "string" && WAITLIST_KINDS.has(body.list)
@@ -140,6 +143,19 @@ export async function POST(request: Request) {
       });
     } catch (error) {
       console.error("notifyAdminWaitlist", error);
+    }
+
+    if (isLaunch && isSurveyResponseId(body.surveyResponseId)) {
+      if (isGoogleSheetsConfigured()) {
+        try {
+          await updateGoogleSheetSurveyPhone({
+            responseId: body.surveyResponseId,
+            phone: contact,
+          });
+        } catch (error) {
+          console.error("Waitlist survey phone update failed", error);
+        }
+      }
     }
 
     return Response.json({ ok: true });

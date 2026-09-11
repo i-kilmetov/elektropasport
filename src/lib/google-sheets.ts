@@ -125,6 +125,26 @@ export async function appendGoogleSheetRow(input: {
   throw new Error("Google Sheets не настроен");
 }
 
+export async function updateGoogleSheetSurveyPhone(input: {
+  responseId: string;
+  phone: string;
+}): Promise<void> {
+  const spreadsheetId = process.env.GOOGLE_SHEETS_ID?.trim();
+  const account = googleServiceAccount();
+  if (spreadsheetId && account) {
+    await updatePhoneViaServiceAccount(spreadsheetId, account, input);
+    return;
+  }
+
+  const webhook = googleSheetsWebhookUrl();
+  if (webhook) {
+    await updatePhoneViaWebhook(normalizeWebhookUrl(webhook), input);
+    return;
+  }
+
+  throw new Error("Google Sheets не настроен");
+}
+
 async function appendViaServiceAccount(
   spreadsheetId: string,
   account: { email: string; privateKey: string },
@@ -343,20 +363,36 @@ async function appendViaWebhook(
   url: string,
   input: { headers: string[]; values: string[] },
 ): Promise<void> {
+  await postWebhookAction(url, {
+    secret: googleSheetsWebhookSecret(),
+    action: "append",
+    headers: input.headers,
+    values: input.values,
+  });
+}
+
+async function updatePhoneViaWebhook(
+  url: string,
+  input: { responseId: string; phone: string },
+): Promise<void> {
+  await postWebhookAction(url, {
+    secret: googleSheetsWebhookSecret(),
+    action: "update_phone",
+    responseId: input.responseId,
+    phone: input.phone,
+  });
+}
+
+async function postWebhookAction(
+  url: string,
+  payload: Record<string, unknown>,
+): Promise<void> {
   const urlError = webhookUrlError(url);
   if (urlError) {
     throw new Error(urlError);
   }
 
-  const text = await postAppsScriptWebApp(
-    url,
-    JSON.stringify({
-      secret: googleSheetsWebhookSecret(),
-      headers: input.headers,
-      values: input.values,
-    }),
-  );
-
+  const text = await postAppsScriptWebApp(url, JSON.stringify(payload));
   const parsed = parseWebhookPayload(text);
 
   if (parsed?.ok === true) return;
@@ -376,6 +412,12 @@ async function appendViaWebhook(
       throw new Error(
         "Скрипт не привязан к таблице. Откройте Apps Script из самой Google Sheet или задайте SHEET_ID",
       );
+    }
+    if (
+      parsed.error === "not_found" ||
+      String(parsed.error).includes("not_found")
+    ) {
+      throw new Error("Google Sheets: анкета с таким id не найдена");
     }
     throw new Error(`Google Sheets webhook: ${parsed.error || "ошибка"}`);
   }
@@ -458,12 +500,11 @@ async function resolveSheetTitle(
   return title;
 }
 
-async function ensureHeaderRow(
+async function readSheetRows(
   spreadsheetId: string,
   range: string,
   token: string,
-  headers: string[],
-): Promise<void> {
+): Promise<string[][]> {
   const getUrl = new URL(
     `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}`,
   );
@@ -479,8 +520,15 @@ async function ensureHeaderRow(
   }
 
   const data = (await existing.json()) as { values?: string[][] };
-  if ((data.values?.length ?? 0) > 0) return;
+  return data.values ?? [];
+}
 
+async function writeSheetRow(
+  spreadsheetId: string,
+  range: string,
+  token: string,
+  values: string[],
+): Promise<void> {
   const updateUrl = new URL(
     `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}`,
   );
@@ -492,10 +540,88 @@ async function ensureHeaderRow(
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ values: [headers] }),
+    body: JSON.stringify({ values: [values] }),
   });
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`Google Sheets header failed: ${res.status} ${text}`);
+    throw new Error(`Google Sheets write failed: ${res.status} ${text}`);
   }
+}
+
+function mergeHeaderRow(existing: string[], headers: string[]): string[] {
+  const next = existing.map((cell) => String(cell ?? ""));
+  for (let i = 0; i < headers.length; i++) {
+    if (!next[i]) next[i] = headers[i];
+  }
+  return next;
+}
+
+function columnA1(index0: number): string {
+  let n = index0 + 1;
+  let label = "";
+  while (n > 0) {
+    const remainder = (n - 1) % 26;
+    label = String.fromCharCode(65 + remainder) + label;
+    n = Math.floor((n - 1) / 26);
+  }
+  return label;
+}
+
+async function ensureHeaderRow(
+  spreadsheetId: string,
+  range: string,
+  token: string,
+  headers: string[],
+): Promise<void> {
+  const rows = await readSheetRows(spreadsheetId, range, token);
+  const existing = rows[0] ?? [];
+  if (existing.length === 0) {
+    await writeSheetRow(spreadsheetId, range, token, headers);
+    return;
+  }
+
+  const merged = mergeHeaderRow(existing, headers);
+  if (merged.length === existing.length && merged.every((value, i) => value === existing[i])) {
+    return;
+  }
+  await writeSheetRow(spreadsheetId, range, token, merged);
+}
+
+async function updatePhoneViaServiceAccount(
+  spreadsheetId: string,
+  account: { email: string; privateKey: string },
+  input: { responseId: string; phone: string },
+): Promise<void> {
+  const token = await googleSheetsAccessToken(account.email, account.privateKey);
+  const sheetName = await resolveSheetTitle(spreadsheetId, token);
+  const range = `${sheetName}!A1`;
+  const rows = await readSheetRows(spreadsheetId, range, token);
+  const header = (rows[0] ?? []).map((cell) => String(cell ?? ""));
+
+  let idCol = header.indexOf("response_id");
+  let phoneCol = header.indexOf("phone");
+  let headerChanged = false;
+  if (idCol < 0) {
+    idCol = header.length;
+    header.push("response_id");
+    headerChanged = true;
+  }
+  if (phoneCol < 0) {
+    phoneCol = header.length;
+    header.push("phone");
+    headerChanged = true;
+  }
+  if (headerChanged) {
+    await writeSheetRow(spreadsheetId, range, token, header);
+  }
+
+  const rowIndex = rows.findIndex(
+    (row, index) => index > 0 && String(row[idCol] ?? "") === input.responseId,
+  );
+  if (rowIndex < 1) {
+    throw new Error("Google Sheets: анкета с таким id не найдена");
+  }
+
+  const cell = `${sheetName}!${columnA1(phoneCol)}${rowIndex + 1}`;
+  await writeSheetRow(spreadsheetId, cell, token, [input.phone]);
 }

@@ -8,6 +8,10 @@ import {
   applySplashStatusBarTheme,
 } from "@/lib/status-bar-theme";
 import { PhoneLoginFlow } from "@/components/phone-login-flow";
+import {
+  isSurveyResponseId,
+  readRememberedSurveyResponseId,
+} from "@/lib/research-survey";
 import Link from "next/link";
 import {
   LOGO_FONT_WEIGHT,
@@ -566,6 +570,10 @@ export function BrandLaunchWaitlist({
   const showOk = phoneFocused || ruNationalDigits(phone).length > 0;
 
   useEffect(() => {
+    readRememberedSurveyResponseId();
+  }, []);
+
+  useEffect(() => {
     if (startAtPhone) return;
     const pulse = window.setTimeout(() => {
       setTUpright(true);
@@ -669,6 +677,7 @@ export function BrandLaunchWaitlist({
     const value = toRuPhoneE164(phone);
     setSubmitting(true);
     try {
+      const surveyResponseId = readRememberedSurveyResponseId();
       const res = await fetch("/api/waitlist", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -677,6 +686,9 @@ export function BrandLaunchWaitlist({
           phone: value,
           email: value,
           pdConsent: true,
+          ...(isSurveyResponseId(surveyResponseId)
+            ? { surveyResponseId }
+            : {}),
         }),
       });
       const data = (await res.json().catch(() => ({}))) as { error?: string };

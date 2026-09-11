@@ -12,9 +12,11 @@ import { PRODUCTION_APP_URL } from "@/lib/app-url";
 import { BRAND_YELLOW } from "@/lib/brand-wordmark";
 import { hapticImpact, hapticNotification } from "@/lib/haptics";
 import {
+  SURVEY_RESPONSE_QUERY_PARAM,
   SURVEY_TOPIC_LABEL,
   getSurveyQuestion,
   nextSurveyStep,
+  rememberSurveyResponseId,
   surveyPathLength,
   type SurveyAnswers,
 } from "@/lib/research-survey";
@@ -22,7 +24,7 @@ import { persistResearchSurvey } from "@/lib/user-data";
 import { cn } from "@/lib/utils";
 
 const LAUNCH_REDIRECT_SECONDS = 10;
-const LAUNCH_REDIRECT_URL = `${PRODUCTION_APP_URL}/?waitlist=1`;
+const LAUNCH_REDIRECT_BASE = `${PRODUCTION_APP_URL}/?waitlist=1`;
 
 function asStringArray(value: string | string[] | undefined): string[] {
   return Array.isArray(value) ? value : [];
@@ -32,12 +34,16 @@ function asString(value: string | string[] | undefined): string {
   return typeof value === "string" ? value : "";
 }
 
-function goToTokomLaunch() {
-  window.location.assign(LAUNCH_REDIRECT_URL);
+function launchRedirectUrl(responseId?: string | null): string {
+  if (!responseId) return LAUNCH_REDIRECT_BASE;
+  const url = new URL(LAUNCH_REDIRECT_BASE);
+  url.searchParams.set(SURVEY_RESPONSE_QUERY_PARAM, responseId);
+  return url.toString();
 }
 
-function SurveyThanksRedirect() {
+function SurveyThanksRedirect({ responseId }: { responseId: string | null }) {
   const [secondsLeft, setSecondsLeft] = useState(LAUNCH_REDIRECT_SECONDS);
+  const dest = launchRedirectUrl(responseId);
 
   useEffect(() => {
     const started = Date.now();
@@ -45,7 +51,7 @@ function SurveyThanksRedirect() {
     const redirect = () => {
       if (redirected) return;
       redirected = true;
-      goToTokomLaunch();
+      window.location.assign(dest);
     };
     const tick = () => {
       const left = Math.max(
@@ -58,7 +64,7 @@ function SurveyThanksRedirect() {
     tick();
     const id = window.setInterval(tick, 250);
     return () => window.clearInterval(id);
-  }, []);
+  }, [dest]);
 
   const secondsLabel =
     secondsLeft === 1
@@ -85,7 +91,7 @@ function SurveyThanksRedirect() {
         <Button
           className="mt-8 w-full max-w-sm"
           size="lg"
-          onClick={goToTokomLaunch}
+          onClick={() => window.location.assign(dest)}
         >
           Перейти на tokom.ru
         </Button>
@@ -103,6 +109,7 @@ export function ResearchSurveyScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  const [responseId, setResponseId] = useState<string | null>(null);
 
   const question = useMemo(
     () => getSurveyQuestion(stepId, answers),
@@ -135,7 +142,11 @@ export function ResearchSurveyScreen() {
     setSubmitting(true);
     setError(null);
     try {
-      await persistResearchSurvey(finalAnswers);
+      const result = await persistResearchSurvey(finalAnswers);
+      if (result.responseId) {
+        rememberSurveyResponseId(result.responseId);
+        setResponseId(result.responseId);
+      }
       hapticNotification("success");
       setDone(true);
     } catch (err) {
@@ -213,7 +224,7 @@ export function ResearchSurveyScreen() {
   };
 
   if (done) {
-    return <SurveyThanksRedirect />;
+    return <SurveyThanksRedirect responseId={responseId} />;
   }
 
   return (

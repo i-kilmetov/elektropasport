@@ -828,7 +828,51 @@ export const SURVEY_SHEET_HEADERS = [
   ...LABEL_STEPS,
   "q17_city",
   ...LABEL_STEPS.map((step) => `${step}_id`),
+  "response_id",
+  "phone",
 ] as const;
+
+export const SURVEY_RESPONSE_QUERY_PARAM = "rid";
+export const SURVEY_RESPONSE_STORAGE_KEY = "tokom:research-survey-response-id";
+
+export function createSurveyResponseId(): string {
+  return crypto.randomUUID();
+}
+
+export function isSurveyResponseId(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      value,
+    )
+  );
+}
+
+export function rememberSurveyResponseId(id: string): void {
+  if (typeof window === "undefined" || !isSurveyResponseId(id)) return;
+  try {
+    window.localStorage.setItem(SURVEY_RESPONSE_STORAGE_KEY, id);
+  } catch {
+    // Private mode / storage blocked.
+  }
+}
+
+export function readRememberedSurveyResponseId(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const fromQuery = new URLSearchParams(window.location.search).get(
+      SURVEY_RESPONSE_QUERY_PARAM,
+    );
+    if (isSurveyResponseId(fromQuery)) {
+      rememberSurveyResponseId(fromQuery);
+      return fromQuery;
+    }
+    const stored = window.localStorage.getItem(SURVEY_RESPONSE_STORAGE_KEY);
+    return isSurveyResponseId(stored) ? stored : null;
+  } catch {
+    return null;
+  }
+}
 
 export function buildSurveySheetRow(input: {
   answers: SurveyAnswers;
@@ -837,6 +881,8 @@ export function buildSurveySheetRow(input: {
   username?: string | null;
   firstName?: string | null;
   timestamp?: Date;
+  responseId: string;
+  phone?: string | null;
 }): { headers: string[]; values: string[] } {
   const { answers, branch } = input;
   const ids = (key: string) => {
@@ -855,6 +901,8 @@ export function buildSurveySheetRow(input: {
       ...LABEL_STEPS.map((step) => formatAnswerLabel(step, answers)),
       asString(answers.q17).trim(),
       ...LABEL_STEPS.map((step) => ids(step)),
+      input.responseId,
+      input.phone?.trim() ?? "",
     ],
   };
 }

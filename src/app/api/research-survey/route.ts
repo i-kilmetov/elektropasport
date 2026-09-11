@@ -13,6 +13,7 @@ import {
 } from "@/lib/google-sheets";
 import {
   buildSurveySheetRow,
+  createSurveyResponseId,
   formatAnswerLabel,
   validateSurveyAnswers,
   type SurveyAnswers,
@@ -59,12 +60,14 @@ export async function POST(request: Request) {
       await upsertUser(user);
     }
 
+    const responseId = createSurveyResponseId();
     const row = buildSurveySheetRow({
       answers,
       branch: validated.branch,
       telegramId: user?.telegramId,
       username: user?.username,
       firstName: displayName(user),
+      responseId,
     });
 
     const stored: string[] = [];
@@ -108,7 +111,7 @@ export async function POST(request: Request) {
       console.error("Research survey telegram notify failed", error);
     }
 
-    return Response.json({ ok: true, stored }, { status: 201 });
+    return Response.json({ ok: true, stored, responseId }, { status: 201 });
   } catch (error) {
     return dbErrorResponse(error) ?? authErrorResponse(error);
   }

@@ -2655,7 +2655,7 @@ export async function persistFeedback(payload: {
 
 export async function persistResearchSurvey(
   answers: Record<string, string | string[]>,
-): Promise<void> {
+): Promise<{ responseId: string | null }> {
   const res = await fetch("/api/research-survey", {
     method: "POST",
     headers: {
@@ -2667,4 +2667,10 @@ export async function persistResearchSurvey(
   if (!res.ok) {
     throw new Error(await parseError(res));
   }
+  const data = (await res.json().catch(() => ({}))) as {
+    responseId?: unknown;
+  };
+  return {
+    responseId: typeof data.responseId === "string" ? data.responseId : null,
+  };
 }
