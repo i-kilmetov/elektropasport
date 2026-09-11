@@ -3120,6 +3120,22 @@ export function AppShell({
                 setActiveRequestId(requestId);
                 go("request-details");
               }}
+              onHouseSnapshotChange={(panelId, next) => {
+                setItems((prev) =>
+                  prev.map((item) =>
+                    item.kind === "panel" && item.id === panelId
+                      ? { ...item, houseSnapshot: next }
+                      : item,
+                  ),
+                );
+                void persistPanelPatch(panelId, {
+                  houseSnapshot: next,
+                }).catch((error) => console.error(error));
+              }}
+              onNeedHouseAddress={(panelId) => {
+                openPanel(panelId);
+                window.setTimeout(() => openPanelHouseAddress(true), 80);
+              }}
               onAddAppliance={
                 homeAppliancesEnabled
                   ? (panelId, appliance) => {

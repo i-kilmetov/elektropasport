@@ -43,12 +43,11 @@ import { ItemActionsSheet } from "@/components/ui/item-actions-sheet";
 import { NameDialog } from "@/components/ui/name-dialog";
 import { PushEnableBanner } from "@/components/ui/push-enable-banner";
 import { ApplianceBrandAvatar } from "@/components/ui/appliance-brand-avatar";
+import { AppliancePowerCostBadge } from "@/components/ui/appliance-power-cost-badge";
 import { UndoSnackbarHost } from "@/components/ui/undo-snackbar";
-import {
-  applianceDisplayKindLabel,
-  formatAppliancePower,
-} from "@/lib/home-appliances";
+import { applianceDisplayKindLabel } from "@/lib/home-appliances";
 import { applianceNeedsDetails } from "@/lib/appliance-line-sync";
+import type { PanelHouseSnapshot } from "@/lib/house-insight";
 import {
   areAllSafetyStagesDone,
   buildPanelSafetyStages,
@@ -254,12 +253,18 @@ function PanelCardStack({
 
 function ApplianceListRow({
   appliance,
+  houseSnapshot,
   onOpen,
   onContextMenu,
+  onHouseSnapshotChange,
+  onNeedAddress,
 }: {
   appliance: HomeAppliance;
+  houseSnapshot?: PanelHouseSnapshot | null;
   onOpen: () => void;
   onContextMenu: () => void;
+  onHouseSnapshotChange?: (next: PanelHouseSnapshot) => void;
+  onNeedAddress?: () => void;
 }) {
   const [isHolding, setIsHolding] = useState(false);
   const holdVisualTimerRef = useRef<number | null>(null);
@@ -338,9 +343,12 @@ function ApplianceListRow({
           <HelpCircle className="h-4 w-4" />
         </span>
       ) : (
-        <span className="shrink-0 ty-label tabular-nums text-zinc-700">
-          {formatAppliancePower(appliance.powerW)}
-        </span>
+        <AppliancePowerCostBadge
+          powerW={appliance.powerW}
+          snapshot={houseSnapshot}
+          onSnapshotChange={onHouseSnapshotChange}
+          onNeedAddress={onNeedAddress}
+        />
       )}
     </motion.button>
   );
@@ -561,6 +569,8 @@ function ExpandableHomeCard({
   linkedWiringRequest,
   onOpenWiringRequest,
   onHowWeCalculateSafety,
+  onHouseSnapshotChange,
+  onNeedHouseAddress,
 }: {
   panel: PanelObject;
   expanded: boolean;
@@ -574,6 +584,8 @@ function ExpandableHomeCard({
   linkedWiringRequest?: InstallRequest | null;
   onOpenWiringRequest?: (requestId: string) => void;
   onHowWeCalculateSafety?: () => void;
+  onHouseSnapshotChange?: (next: PanelHouseSnapshot) => void;
+  onNeedHouseAddress?: () => void;
 }) {
   const appliances = panel.appliances ?? [];
   const supportsAppliances = panelSupportsHomeAppliances(panel);
@@ -693,8 +705,11 @@ function ExpandableHomeCard({
                     <ApplianceListRow
                       key={appliance.id}
                       appliance={appliance}
+                      houseSnapshot={panel.houseSnapshot}
                       onOpen={() => onOpenAppliance(appliance.id)}
                       onContextMenu={() => onApplianceContextMenu(appliance)}
+                      onHouseSnapshotChange={onHouseSnapshotChange}
+                      onNeedAddress={onNeedHouseAddress}
                     />
                   ))}
 
@@ -910,6 +925,8 @@ export function ObjectsScreen({
   onCallWiringCheckMaster,
   onOpenWiringRequest,
   onHowWeCalculateSafety,
+  onHouseSnapshotChange,
+  onNeedHouseAddress,
   initialPage = 0,
   onPageChange,
 }: {
@@ -949,6 +966,11 @@ export function ObjectsScreen({
   onCallWiringCheckMaster?: (panelId: string) => void;
   onOpenWiringRequest?: (requestId: string) => void;
   onHowWeCalculateSafety?: () => void;
+  onHouseSnapshotChange?: (
+    panelId: string,
+    snapshot: PanelHouseSnapshot,
+  ) => void;
+  onNeedHouseAddress?: (panelId: string) => void;
   initialPage?: 0 | 1;
   onPageChange?: (page: 0 | 1) => void;
 }) {
@@ -1292,6 +1314,10 @@ export function ObjectsScreen({
                 )}
                 onOpenWiringRequest={onOpenWiringRequest}
                 onHowWeCalculateSafety={onHowWeCalculateSafety}
+                onHouseSnapshotChange={(next) =>
+                  onHouseSnapshotChange?.(obj.id, next)
+                }
+                onNeedHouseAddress={() => onNeedHouseAddress?.(obj.id)}
               />
             )}
           </div>
