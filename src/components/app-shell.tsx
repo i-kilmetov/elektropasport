@@ -4399,6 +4399,19 @@ export function AppShell({
               snapshot={activePanel.houseSnapshot}
               onClose={() => setPanelHouseInsightOpen(false)}
               onChangeAddress={() => openPanelHouseAddress(false)}
+              onSnapshotChange={(next) => {
+                if (!activePanelId) return;
+                setItems((prev) =>
+                  prev.map((item) =>
+                    item.kind === "panel" && item.id === activePanelId
+                      ? { ...item, houseSnapshot: next }
+                      : item,
+                  ),
+                );
+                void persistPanelPatch(activePanelId, {
+                  houseSnapshot: next,
+                }).catch((error) => console.error(error));
+              }}
             />
           )}
         </AnimatePresence>

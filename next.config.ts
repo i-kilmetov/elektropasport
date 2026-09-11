@@ -9,6 +9,7 @@ const nextConfig: NextConfig = {
     "/api/house-lookup": [
       "./data/reform-gkh/index/**/*",
       "./data/gis-gkh/index/**/*",
+      "./data/electricity-tariffs/index/**/*",
     ],
   },
   env: {

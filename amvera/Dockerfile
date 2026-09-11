@@ -26,13 +26,17 @@ RUN addgroup --system --gid 1001 nodejs \
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-# Reform GKH indexes + nationwide GIS ЖКХ passport index.
+# Reform GKH indexes + nationwide GIS ЖКХ passport index + electricity tariffs.
 COPY --from=builder --chown=nextjs:nodejs /app/data/reform-gkh/index ./data/reform-gkh/index
 COPY --from=builder --chown=nextjs:nodejs /app/data/gis-gkh/index ./data/gis-gkh/index
+COPY --from=builder --chown=nextjs:nodejs /app/data/electricity-tariffs/index ./data/electricity-tariffs/index
 # Prefer uncompressed SQLite at runtime (extract once in the image).
 USER root
 RUN if [ -f ./data/gis-gkh/index/mkd.min.sqlite.gz ] && [ ! -f ./data/gis-gkh/index/mkd.min.sqlite ]; then \
       gzip -dk ./data/gis-gkh/index/mkd.min.sqlite.gz; \
+    fi \
+ && if [ -f ./data/reform-gkh/index/electrical.min.sqlite.gz ] && [ ! -f ./data/reform-gkh/index/electrical.min.sqlite ]; then \
+      gzip -dk ./data/reform-gkh/index/electrical.min.sqlite.gz; \
     fi \
  && chown -R nextjs:nodejs ./data
 USER nextjs

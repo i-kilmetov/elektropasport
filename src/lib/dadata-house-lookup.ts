@@ -13,6 +13,7 @@ const DADATA_SUGGEST_URL =
 export type DaDataHouseLookup = {
   address: string;
   city: string | null;
+  region: string | null;
   fiasId: string | null;
   buildingYear: number | null;
   suggestion: AddressSuggestion | null;
@@ -156,6 +157,7 @@ export async function lookupHouseFromDaData(input: {
       suggestion?.city?.trim() ||
       city ||
       null,
+    region: suggestion?.region?.trim() || null,
     fiasId:
       suggestion?.houseFiasId ||
       suggestion?.fiasId ||

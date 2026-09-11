@@ -21,6 +21,7 @@ export function buildLocalHouseInsight(input: {
   return {
     address,
     city: city || null,
+    region: null,
     fiasId,
     buildingYear: null,
     operationYear: null,
@@ -32,6 +33,7 @@ export function buildLocalHouseInsight(input: {
     managementType: null,
     walls: null,
     dataSource: null,
+    electricityTariff: null,
   };
 }
 

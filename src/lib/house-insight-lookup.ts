@@ -5,6 +5,7 @@ import {
 } from "@/lib/house-insight";
 import { assessGroundingForYear } from "@/lib/grounding-assessment";
 import { lookupHouseFromDaData } from "@/lib/dadata-house-lookup";
+import { buildHouseTariffSnapshot } from "@/lib/electricity-tariffs";
 import { lookupGisGkhHouse } from "@/lib/gis-gkh-lookup";
 import { isMoscow } from "@/lib/lead-services";
 import { lookupMoscowYearFromSeed } from "@/lib/moscow-year-seed";
@@ -68,6 +69,7 @@ function appendSource(
 function finishInsight(base: {
   address: string;
   city: string | null;
+  region: string | null;
   fiasId: string | null;
   buildingYear: number | null;
   operationYear: number | null;
@@ -110,10 +112,15 @@ function finishInsight(base: {
   });
 
   const managementName = gis?.managementName ?? null;
+  const electricityTariff = buildHouseTariffSnapshot({
+    region: base.region,
+    city: base.city,
+  });
 
   return {
     address: base.address,
     city: base.city,
+    region: base.region,
     fiasId: base.fiasId,
     buildingYear,
     operationYear: base.operationYear,
@@ -129,6 +136,7 @@ function finishInsight(base: {
     dataSource,
     floors: reform?.floors ?? null,
     flats: reform?.flats ?? null,
+    electricityTariff,
   };
 }
 
@@ -204,6 +212,7 @@ export async function lookupHouseInsight(input: {
   });
   let resolvedAddress = address;
   let resolvedCity: string | null = city || null;
+  let resolvedRegion: string | null = null;
   let buildingYear = knownYear;
   let dataSource: string | null =
     knownYear != null ? "подсказка адреса" : null;
@@ -220,6 +229,7 @@ export async function lookupHouseInsight(input: {
     }) ?? fiasId;
   if (dadata.address) resolvedAddress = dadata.address;
   if (dadata.city) resolvedCity = dadata.city;
+  if (dadata.region) resolvedRegion = dadata.region;
   if (buildingYear == null && dadata.buildingYear != null) {
     buildingYear = dadata.buildingYear;
     dataSource = "DaData";
@@ -229,6 +239,7 @@ export async function lookupHouseInsight(input: {
   let insight = finishInsight({
     address: resolvedAddress,
     city: resolvedCity || city || null,
+    region: resolvedRegion,
     fiasId: fiasId ?? (isMoscow(city) ? `mos:${resolvedAddress}` : fiasId),
     buildingYear,
     operationYear: null,
@@ -249,6 +260,7 @@ export async function lookupHouseInsight(input: {
       insight = finishInsight({
         address: fallback.address || resolvedAddress,
         city: resolvedCity || city || null,
+        region: resolvedRegion,
         fiasId: fiasId ?? (isMoscow(city) ? `mos:${resolvedAddress}` : fiasId),
         buildingYear: fallback.buildingYear,
         operationYear: null,

@@ -15,6 +15,8 @@ export type AddressSuggestion = {
   block?: string;
   building?: string;
   city?: string;
+  /** Subject of RF from DaData (region_with_type), for tariff matching. */
+  region?: string;
   /** Present when suggestion came from Moscow open-data house registry. */
   buildingYear?: number;
 };
@@ -113,6 +115,10 @@ export function parseDaDataSuggestions(raw: unknown): AddressSuggestion[] {
       block: item.data?.block ?? undefined,
       building: item.data?.building ?? undefined,
       city,
+      region:
+        item.data?.region_with_type?.trim() ||
+        item.data?.region?.trim() ||
+        undefined,
     });
   }
   return parsed;

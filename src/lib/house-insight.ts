@@ -2,6 +2,7 @@ import type {
   GroundingAssessment,
   GroundingExpectation,
 } from "@/lib/grounding-assessment";
+import type { TariffMeterType } from "@/lib/electricity-tariffs-format";
 
 export type ElectricalEra = "legacy" | "transitional" | "modern" | "unknown";
 
@@ -23,10 +24,37 @@ export type ElectricalOverhaulInsight = {
   message: string | null;
 };
 
+export type HouseElectricityTariffRates = {
+  single: number | null;
+  dualDay: number | null;
+  dualNight: number | null;
+  triplePeak: number | null;
+  tripleMid: number | null;
+  tripleNight: number | null;
+};
+
+export type HouseElectricityTariffSnapshot = {
+  regionId: string;
+  regionLabel: string;
+  periodFrom: string;
+  periodTo: string;
+  periodLabel: string;
+  rangeCount: number;
+  rangeIndex: number;
+  sourceUrl: string;
+  sourceDoc: string | null;
+  /** Rates for city (gas / no electric stove). */
+  urban: HouseElectricityTariffRates;
+  /** Rates for homes with electric stove / electric heating. */
+  urbanElectricStove: HouseElectricityTariffRates;
+  rural: HouseElectricityTariffRates;
+};
+
 /** Persisted on panel after address lookup on scheme page. */
 export type PanelHouseSnapshot = {
   city: string;
   address: string;
+  region?: string | null;
   buildingYear: number | null;
   operationYear?: number | null;
   groundingExpectation: GroundingExpectation;
@@ -42,11 +70,24 @@ export type PanelHouseSnapshot = {
   floors?: number | null;
   flats?: number | null;
   dataSource?: string | null;
+  /** Whether MKD is treated as having electric stove (affects tariff group). */
+  electricStove?: boolean | null;
+  meterType?: TariffMeterType | null;
+  /** Manual rates when meterType === "custom", ₽/kWh. */
+  customRates?: {
+    single?: number | null;
+    day?: number | null;
+    night?: number | null;
+    peak?: number | null;
+    mid?: number | null;
+  } | null;
+  electricityTariff?: HouseElectricityTariffSnapshot | null;
 };
 
 export type HouseInsight = {
   address: string;
   city: string | null;
+  region: string | null;
   fiasId: string | null;
   buildingYear: number | null;
   operationYear: number | null;
@@ -62,6 +103,7 @@ export type HouseInsight = {
   dataSource?: string | null;
   floors?: number | null;
   flats?: number | null;
+  electricityTariff?: HouseElectricityTariffSnapshot | null;
 };
 
 export function electricalGuessForYear(
@@ -124,6 +166,7 @@ export function houseInsightToPanelSnapshot(
   return {
     city: insight.city ?? "Москва",
     address: insight.address,
+    region: insight.region ?? null,
     buildingYear: insight.buildingYear,
     operationYear: insight.operationYear,
     groundingExpectation: insight.grounding.expectation,
@@ -139,6 +182,10 @@ export function houseInsightToPanelSnapshot(
     floors: insight.floors ?? null,
     flats: insight.flats ?? null,
     dataSource: insight.dataSource ?? null,
+    electricStove: null,
+    meterType: null,
+    customRates: null,
+    electricityTariff: insight.electricityTariff ?? null,
   };
 }
 

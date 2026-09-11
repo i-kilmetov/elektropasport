@@ -66,6 +66,12 @@ data/gis-gkh/index/*.jsonl.gz
 !data/gis-gkh/index/
 !data/gis-gkh/index/mkd.min.sqlite.gz
 
+# Electricity tariffs (scraped regional rates; keep index, ignore raw HTML)
+data/electricity-tariffs/raw/
+!data/electricity-tariffs/README.md
+!data/electricity-tariffs/index/
+!data/electricity-tariffs/index/regions.min.json
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
