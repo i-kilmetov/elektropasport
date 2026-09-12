@@ -55,6 +55,8 @@ data/reform-gkh/_parse_*.py
 !data/reform-gkh/.gitkeep
 !data/reform-gkh/index/
 !data/reform-gkh/index/*.min.json.gz
+data/reform-gkh/index/*.sqlite
+!data/reform-gkh/index/electrical.min.sqlite.gz
 
 # GIS ЖКХ nationwide MKD (raw ~450MB CSV; rebuild via scripts/build-gis-gkh-index.py)
 data/gis-gkh/raw/
@@ -79,3 +81,5 @@ next-env.d.ts
 # local secrets dump — never commit
 ключи.xlsx
 *.xlsx
+data/reform-gkh/*.log
+data/reform-gkh/_download.log
