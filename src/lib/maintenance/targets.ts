@@ -41,6 +41,35 @@ export function hasRcdTestDevices(items: HomeListItem[]): boolean {
   );
 }
 
+export function hasServiceableAppliances(items: HomeListItem[]): boolean {
+  return panelsFromHomeItems(items).some((panel) =>
+    (panel.appliances ?? []).some((appliance) =>
+      isServiceableApplianceKind(appliance.kind),
+    ),
+  );
+}
+
+/** Any panel device or appliance that participates in maintenance checks. */
+export function hasMaintenanceCheckTargets(items: HomeListItem[]): boolean {
+  return hasRcdTestDevices(items) || hasServiceableAppliances(items);
+}
+
+export function hasRegionalElectricityTariff(items: HomeListItem[]): boolean {
+  return panelsFromHomeItems(items).some(
+    (panel) => Boolean(panel.houseSnapshot?.electricityTariff),
+  );
+}
+
+/**
+ * Expand «Личный кабинет» into Profile / Tariffs / Maintenance when the user
+ * has maintenance targets and/or a regional tariff from a panel address.
+ */
+export function shouldExpandPersonalCabinet(items: HomeListItem[]): boolean {
+  return (
+    hasMaintenanceCheckTargets(items) || hasRegionalElectricityTariff(items)
+  );
+}
+
 /** One target per panel that has any УЗО / дифавтомат. */
 export function collectRcdTestTargets(
   items: HomeListItem[],

@@ -29,7 +29,7 @@ import { RequestListAvatar } from "@/components/ui/request-list-avatar";
 import { AddApplianceSheet } from "@/components/screens/add-appliance-sheet";
 import {
   MainMenuSheet,
-  MAIN_MENU_ITEMS,
+  MainMenuNav,
   type MainMenuId,
 } from "@/components/screens/main-menu-sheet";
 import { HomeListSkeleton } from "@/components/ui/home-list-skeleton";
@@ -43,9 +43,8 @@ import { ItemActionsSheet } from "@/components/ui/item-actions-sheet";
 import { NameDialog } from "@/components/ui/name-dialog";
 import { PushEnableBanner } from "@/components/ui/push-enable-banner";
 import { ApplianceBrandAvatar } from "@/components/ui/appliance-brand-avatar";
-import { AppliancePowerCostBadge } from "@/components/ui/appliance-power-cost-badge";
 import { UndoSnackbarHost } from "@/components/ui/undo-snackbar";
-import { applianceDisplayKindLabel } from "@/lib/home-appliances";
+import { applianceDisplayKindLabel, formatAppliancePower } from "@/lib/home-appliances";
 import { applianceNeedsDetails } from "@/lib/appliance-line-sync";
 import type { PanelHouseSnapshot } from "@/lib/house-insight";
 import {
@@ -253,18 +252,12 @@ function PanelCardStack({
 
 function ApplianceListRow({
   appliance,
-  houseSnapshot,
   onOpen,
   onContextMenu,
-  onHouseSnapshotChange,
-  onNeedAddress,
 }: {
   appliance: HomeAppliance;
-  houseSnapshot?: PanelHouseSnapshot | null;
   onOpen: () => void;
   onContextMenu: () => void;
-  onHouseSnapshotChange?: (next: PanelHouseSnapshot) => void;
-  onNeedAddress?: () => void;
 }) {
   const [isHolding, setIsHolding] = useState(false);
   const holdVisualTimerRef = useRef<number | null>(null);
@@ -277,6 +270,7 @@ function ApplianceListRow({
   const needsDetails = applianceNeedsDetails(appliance);
   const brand = appliance.brand?.trim();
   const model = appliance.model?.trim();
+  const powerLabel = formatAppliancePower(appliance.powerW);
 
   const clearHoldVisual = () => {
     if (holdVisualTimerRef.current != null) {
@@ -343,12 +337,9 @@ function ApplianceListRow({
           <HelpCircle className="h-4 w-4" />
         </span>
       ) : (
-        <AppliancePowerCostBadge
-          powerW={appliance.powerW}
-          snapshot={houseSnapshot}
-          onSnapshotChange={onHouseSnapshotChange}
-          onNeedAddress={onNeedAddress}
-        />
+        <span className="shrink-0 ty-label tabular-nums text-zinc-700">
+          {powerLabel}
+        </span>
       )}
     </motion.button>
   );
@@ -569,8 +560,6 @@ function ExpandableHomeCard({
   linkedWiringRequest,
   onOpenWiringRequest,
   onHowWeCalculateSafety,
-  onHouseSnapshotChange,
-  onNeedHouseAddress,
 }: {
   panel: PanelObject;
   expanded: boolean;
@@ -584,8 +573,6 @@ function ExpandableHomeCard({
   linkedWiringRequest?: InstallRequest | null;
   onOpenWiringRequest?: (requestId: string) => void;
   onHowWeCalculateSafety?: () => void;
-  onHouseSnapshotChange?: (next: PanelHouseSnapshot) => void;
-  onNeedHouseAddress?: () => void;
 }) {
   const appliances = panel.appliances ?? [];
   const supportsAppliances = panelSupportsHomeAppliances(panel);
@@ -705,11 +692,8 @@ function ExpandableHomeCard({
                     <ApplianceListRow
                       key={appliance.id}
                       appliance={appliance}
-                      houseSnapshot={panel.houseSnapshot}
                       onOpen={() => onOpenAppliance(appliance.id)}
                       onContextMenu={() => onApplianceContextMenu(appliance)}
-                      onHouseSnapshotChange={onHouseSnapshotChange}
-                      onNeedAddress={onNeedHouseAddress}
                     />
                   ))}
 
@@ -916,6 +900,7 @@ export function ObjectsScreen({
   masterMode = false,
   onMasterModeChange,
   showMaintenance = false,
+  expandCabinet = false,
   homeAppliancesMode = false,
   onAddAppliance,
   onRequirePlusForAppliances,
@@ -953,6 +938,8 @@ export function ObjectsScreen({
   masterMode?: boolean;
   onMasterModeChange?: (next: boolean) => void;
   showMaintenance?: boolean;
+  /** Expand «Личный кабинет» into Profile / Tariffs / Maintenance. */
+  expandCabinet?: boolean;
   homeAppliancesMode?: boolean;
   onAddAppliance?: (panelId: string, appliance: HomeAppliance) => void;
   onRequirePlusForAppliances?: () => void;
@@ -1314,10 +1301,6 @@ export function ObjectsScreen({
                 )}
                 onOpenWiringRequest={onOpenWiringRequest}
                 onHowWeCalculateSafety={onHowWeCalculateSafety}
-                onHouseSnapshotChange={(next) =>
-                  onHouseSnapshotChange?.(obj.id, next)
-                }
-                onNeedHouseAddress={() => onNeedHouseAddress?.(obj.id)}
               />
             )}
           </div>
@@ -1346,31 +1329,15 @@ export function ObjectsScreen({
         <div className="mb-8">
           <BrandLogo className="h-8" plus={Boolean(quota?.tokomPlus)} />
         </div>
-        <nav className="flex flex-1 flex-col space-y-1.5">
-          {MAIN_MENU_ITEMS.filter((item) => {
-            if (item.id === "master" && isMaster) return false;
-            if (item.id === "maintenance" && !showMaintenance) return false;
-            return true;
-          }).map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => onMenuSelect(item.id)}
-              className="flex w-full items-center gap-3 rounded-[16px] px-3 py-2.5 text-left transition-colors hover:bg-white"
-            >
-              <span className="flex h-9 w-9 items-center justify-center rounded-[12px] bg-white text-zinc-600 shadow-sm">
-                <item.icon className="h-4 w-4" />
-              </span>
-              <span className="min-w-0">
-                <span className="block ty-heading">
-                  {item.title}
-                </span>
-                <span className="block ty-note">
-                  {item.description}
-                </span>
-              </span>
-            </button>
-          ))}
+        <nav className="flex flex-1 flex-col">
+          <MainMenuNav
+            onSelect={onMenuSelect}
+            isMaster={isMaster}
+            showMaintenance={showMaintenance}
+            expandCabinet={expandCabinet}
+            dense
+            className="flex-1"
+          />
           {(isMaster || isAdmin) && onMasterModeChange && (
             <button
               type="button"
@@ -1632,6 +1599,7 @@ export function ObjectsScreen({
             isMaster={isMaster}
             isAdmin={isAdmin}
             showMaintenance={showMaintenance}
+            expandCabinet={expandCabinet}
             onMasterModeChange={
               onMasterModeChange ??
               (onMasterMode

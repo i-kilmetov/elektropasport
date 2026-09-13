@@ -67,6 +67,7 @@ import { PanelAdvantagesScreen } from "@/components/screens/panel-advantages-scr
 import { PanelGameScreen } from "@/components/screens/panel-game-screen";
 import { PhotoScreen } from "@/components/screens/photo-screen";
 import { ProfileScreen } from "@/components/screens/profile-screen";
+import { TariffsConsumptionScreen } from "@/components/screens/tariffs-consumption-screen";
 import { RequestDetailsScreen } from "@/components/screens/request-details-screen";
 import {
   getRequestNeedTitle,
@@ -225,7 +226,10 @@ import { useTestSiteInactivityLogout } from "@/hooks/use-test-site-inactivity";
 import { applyAppStatusBarTheme } from "@/lib/status-bar-theme";
 import { useHomeAppliancesEnabled } from "@/hooks/use-home-appliances-enabled";
 import { isMaintenanceRemindersEnabled } from "@/lib/maintenance/feature";
-import { hasRcdTestDevices } from "@/lib/maintenance/targets";
+import {
+  hasMaintenanceCheckTargets,
+  shouldExpandPersonalCabinet,
+} from "@/lib/maintenance/targets";
 import { isLaunchWaitlistRuntime } from "@/lib/app-env";
 import { cn } from "@/lib/utils";
 
@@ -932,9 +936,16 @@ export function AppShell({
     [items],
   );
 
-  const showMaintenanceMenu = useMemo(
-    () => isMaintenanceRemindersEnabled() && hasRcdTestDevices(items),
+  const expandPersonalCabinet = useMemo(
+    () => shouldExpandPersonalCabinet(items),
     [items],
+  );
+
+  const showMaintenanceMenu = useMemo(
+    () =>
+      isMaintenanceRemindersEnabled() &&
+      (expandPersonalCabinet || hasMaintenanceCheckTargets(items)),
+    [items, expandPersonalCabinet],
   );
 
   const activePanel = useMemo(
@@ -3110,6 +3121,7 @@ export function AppShell({
               onBecomeMaster={() => go("become-master")}
               onPanelLimit={openPanelLimit}
               showMaintenance={showMaintenanceMenu}
+              expandCabinet={expandPersonalCabinet}
               homeAppliancesMode={homeAppliancesEnabled}
               onRequirePlusForAppliances={() => openTokomPlus("appliances")}
               onCallWiringCheckMaster={startWiringCheckMaster}
@@ -3322,6 +3334,7 @@ export function AppShell({
               onMenuSelect={(id) => {
                 setMainMenuOpen(false);
                 if (id === "profile") go("profile");
+                if (id === "tariffs") go("tariffs");
                 if (id === "maintenance") go("maintenance");
                 if (id === "game") go("panel-game");
                 if (id === "school") {
@@ -4153,6 +4166,35 @@ export function AppShell({
               onBack={() => go("objects")}
               onLoggedOut={() => {
                 window.location.assign("/");
+              }}
+            />
+          )}
+          {screen === "tariffs" && (
+            <TariffsConsumptionScreen
+              key="tariffs"
+              items={items}
+              onBack={() => go("objects")}
+              onHouseSnapshotChange={(panelId, next) => {
+                setItems((prev) =>
+                  prev.map((item) =>
+                    item.kind === "panel" && item.id === panelId
+                      ? { ...item, houseSnapshot: next }
+                      : item,
+                  ),
+                );
+                void persistPanelPatch(panelId, {
+                  houseSnapshot: next,
+                }).catch((error) => console.error(error));
+              }}
+              onOpenAppliance={(panelId, applianceId) => {
+                setActivePanelId(panelId);
+                setActiveApplianceId(applianceId);
+                go("appliance-detail");
+              }}
+              onNeedHouseAddress={(panelId) => {
+                setActivePanelId(panelId);
+                go("objects");
+                window.setTimeout(() => openPanelHouseAddress(true), 80);
               }}
             />
           )}

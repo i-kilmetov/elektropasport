@@ -316,6 +316,7 @@ export type AppScreen =
   | "school"
   | "panel-game"
   | "profile"
+  | "tariffs"
   | "electrical-rules"
   | "electrical-rule-detail"
   | "become-master"

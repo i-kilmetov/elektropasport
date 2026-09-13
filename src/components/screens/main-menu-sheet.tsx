@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ComponentType } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowRight,
+  ChevronDown,
   ClipboardCheck,
   Gamepad2,
   GraduationCap,
@@ -12,6 +13,7 @@ import {
   UserRound,
   Wrench,
   X,
+  Zap,
 } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import { AppleIcon, AndroidIcon } from "@/components/icons/platform-icons";
@@ -22,9 +24,11 @@ import {
 import { Portal } from "@/components/ui/portal";
 import { APP_VERSION } from "@/lib/app-version";
 import { shouldShowInstallAppPrompt } from "@/lib/web-push-client";
+import { cn } from "@/lib/utils";
 
 export type MainMenuId =
   | "profile"
+  | "tariffs"
   | "maintenance"
   | "game"
   | "school"
@@ -32,12 +36,37 @@ export type MainMenuId =
   | "feedback"
   | "master";
 
-const items: Array<{
+type MenuIcon = ComponentType<{ className?: string }>;
+
+type MenuItem = {
   id: MainMenuId;
   title: string;
   description: string;
-  icon: typeof Info;
-}> = [
+  icon: MenuIcon;
+};
+
+const CABINET_SUBITEMS: MenuItem[] = [
+  {
+    id: "profile",
+    title: "Профиль",
+    description: "Данные и контакты",
+    icon: UserRound,
+  },
+  {
+    id: "tariffs",
+    title: "Тарифы и потребление",
+    description: "Ставки региона и расход техники",
+    icon: Zap,
+  },
+  {
+    id: "maintenance",
+    title: "Техобслуживание",
+    description: "Тест УЗО и уход за техникой",
+    icon: ClipboardCheck,
+  },
+];
+
+const TOP_LEVEL_ITEMS: MenuItem[] = [
   {
     id: "profile",
     title: "Личный кабинет",
@@ -82,7 +111,174 @@ const items: Array<{
   },
 ];
 
-export const MAIN_MENU_ITEMS = items;
+export const MAIN_MENU_ITEMS = TOP_LEVEL_ITEMS;
+
+function MenuRow({
+  item,
+  onSelect,
+  dense = false,
+  nested = false,
+}: {
+  item: MenuItem;
+  onSelect: (id: MainMenuId) => void;
+  dense?: boolean;
+  nested?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(item.id)}
+      className={cn(
+        "flex w-full items-center gap-3 text-left transition-colors",
+        dense
+          ? "rounded-[16px] px-3 py-2.5 hover:bg-white"
+          : nested
+            ? "rounded-[16px] border border-black/6 bg-white px-3.5 py-3 hover:bg-zinc-50"
+            : "rounded-[20px] border border-black/8 bg-zinc-50 px-4 py-3.5 hover:bg-zinc-100",
+      )}
+    >
+      <span
+        className={cn(
+          "flex items-center justify-center text-zinc-600",
+          dense
+            ? "h-9 w-9 rounded-[12px] bg-white shadow-sm"
+            : "h-11 w-11 rounded-[16px] bg-zinc-100",
+          nested && !dense && "h-9 w-9 rounded-[12px] bg-zinc-100",
+        )}
+      >
+        <item.icon className={dense || nested ? "h-4 w-4" : "h-5 w-5"} />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block ty-heading">{item.title}</span>
+        <span className="mt-0.5 block ty-note">{item.description}</span>
+      </span>
+      {!dense ? <ArrowRight className="h-4 w-4 text-zinc-400" /> : null}
+    </button>
+  );
+}
+
+export function MainMenuNav({
+  onSelect,
+  isMaster = false,
+  showMaintenance = false,
+  expandCabinet = false,
+  dense = false,
+  className,
+}: {
+  onSelect: (id: MainMenuId) => void;
+  isMaster?: boolean;
+  showMaintenance?: boolean;
+  expandCabinet?: boolean;
+  dense?: boolean;
+  className?: string;
+}) {
+  const [cabinetOpen, setCabinetOpen] = useState(expandCabinet);
+
+  useEffect(() => {
+    if (expandCabinet) setCabinetOpen(true);
+  }, [expandCabinet]);
+
+  const restItems = TOP_LEVEL_ITEMS.filter((item) => {
+    if (item.id === "profile") return !expandCabinet;
+    if (item.id === "maintenance") {
+      if (expandCabinet) return false;
+      return showMaintenance;
+    }
+    if (item.id === "master" && isMaster) return false;
+    return true;
+  });
+
+  const cabinetSubs = CABINET_SUBITEMS.filter((item) => {
+    if (item.id === "maintenance") return showMaintenance;
+    return true;
+  });
+
+  return (
+    <nav className={cn("flex flex-col", dense ? "space-y-1.5" : "space-y-2", className)}>
+      {expandCabinet ? (
+        <div
+          className={cn(
+            dense
+              ? "rounded-[16px]"
+              : "overflow-hidden rounded-[20px] border border-black/8 bg-zinc-50",
+          )}
+        >
+          <button
+            type="button"
+            onClick={() => setCabinetOpen((v) => !v)}
+            className={cn(
+              "flex w-full items-center gap-3 text-left transition-colors",
+              dense
+                ? "rounded-[16px] px-3 py-2.5 hover:bg-white"
+                : "px-4 py-3.5 hover:bg-zinc-100/80",
+            )}
+            aria-expanded={cabinetOpen}
+          >
+            <span
+              className={cn(
+                "flex items-center justify-center text-zinc-600",
+                dense
+                  ? "h-9 w-9 rounded-[12px] bg-white shadow-sm"
+                  : "h-11 w-11 rounded-[16px] bg-zinc-100",
+              )}
+            >
+              <UserRound className={dense ? "h-4 w-4" : "h-5 w-5"} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block ty-heading">Личный кабинет</span>
+              <span className="mt-0.5 block ty-note">
+                Профиль, тарифы и обслуживание
+              </span>
+            </span>
+            <ChevronDown
+              className={cn(
+                "h-4 w-4 text-zinc-400 transition-transform",
+                cabinetOpen && "rotate-180",
+              )}
+            />
+          </button>
+          <AnimatePresence initial={false}>
+            {cabinetOpen ? (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="overflow-hidden"
+              >
+                <div
+                  className={cn(
+                    "flex flex-col",
+                    dense ? "space-y-1 pb-1 pl-3" : "space-y-1.5 px-2 pb-2",
+                  )}
+                >
+                  {cabinetSubs.map((item) => (
+                    <MenuRow
+                      key={item.id}
+                      item={item}
+                      onSelect={onSelect}
+                      dense={dense}
+                      nested={!dense}
+                    />
+                  ))}
+                </div>
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
+        </div>
+      ) : null}
+
+      {restItems.map((item) => (
+        <MenuRow
+          key={item.id}
+          item={item}
+          onSelect={onSelect}
+          dense={dense}
+        />
+      ))}
+    </nav>
+  );
+}
 
 export function MainMenuSheet({
   onClose,
@@ -90,14 +286,17 @@ export function MainMenuSheet({
   isMaster = false,
   isAdmin = false,
   showMaintenance = false,
+  expandCabinet = false,
   onMasterModeChange,
 }: {
   onClose: () => void;
   onSelect: (id: MainMenuId) => void;
   isMaster?: boolean;
   isAdmin?: boolean;
-  /** Isolated kill-switch + УЗО/диф gate — false hides the item. */
+  /** Isolated kill-switch + УЗО/диф (or serviceable appliances) gate. */
   showMaintenance?: boolean;
+  /** Expand ЛК into Profile / Tariffs / Maintenance. */
+  expandCabinet?: boolean;
   onMasterModeChange?: (next: boolean) => void;
 }) {
   const [showInstallApps, setShowInstallApps] = useState(false);
@@ -109,12 +308,6 @@ export function MainMenuSheet({
   useEffect(() => {
     setShowInstallApps(shouldShowInstallAppPrompt());
   }, []);
-
-  const visibleItems = items.filter((item) => {
-    if (item.id === "master" && isMaster) return false;
-    if (item.id === "maintenance" && !showMaintenance) return false;
-    return true;
-  });
 
   return (
     <Portal>
@@ -146,27 +339,12 @@ export function MainMenuSheet({
           </div>
 
           <div className="min-h-0 flex-1 space-y-2 overflow-y-auto">
-            {visibleItems.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => onSelect(item.id)}
-                className="flex w-full items-center gap-3 rounded-[20px] border border-black/8 bg-zinc-50 px-4 py-3.5 text-left transition-colors hover:bg-zinc-100"
-              >
-                <span className="flex h-11 w-11 items-center justify-center rounded-[16px] bg-zinc-100 text-zinc-600">
-                  <item.icon className="h-5 w-5" />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block ty-heading">
-                    {item.title}
-                  </span>
-                  <span className="mt-0.5 block ty-note">
-                    {item.description}
-                  </span>
-                </span>
-                <ArrowRight className="h-4 w-4 text-zinc-400" />
-              </button>
-            ))}
+            <MainMenuNav
+              onSelect={onSelect}
+              isMaster={isMaster}
+              showMaintenance={showMaintenance}
+              expandCabinet={expandCabinet}
+            />
 
             {canEnterMasterMode && (
               <button
