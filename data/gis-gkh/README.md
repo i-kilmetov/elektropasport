@@ -13,6 +13,15 @@ License: Creative Commons BY 4.0
 | Walls | `internal_walls_type` (e.g. «Стены кирпичные») | ~79% |
 | UK | `management_organization_name` | ~70% |
 
+UK **phone / email / INN / OGRN** come from a second index built from the GIS ЖКХ «Реестр поставщиков информации»:
+
+```bash
+python3 scripts/download-gis-gkh-providers.py
+python3 scripts/build-uk-contacts-index.py
+```
+
+Writes `data/gis-gkh/index/uk-contacts.min.sqlite.gz` (**commit this**).
+
 This is the **passport** layer for Tokom (year / walls / UK).  
 Capital-repair of electrical networks still comes from **ФРТ / Reform GKH** indexes under `data/reform-gkh/`.
 

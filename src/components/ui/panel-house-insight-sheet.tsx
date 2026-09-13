@@ -157,9 +157,6 @@ export function PanelHouseInsightSheet({
               {snapshot.walls ? (
                 <p className="mt-1 ty-note">{snapshot.walls}</p>
               ) : null}
-              {snapshot.managementName ? (
-                <p className="mt-1 ty-note">УК: {snapshot.managementName}</p>
-              ) : null}
               {(snapshot.floors != null || snapshot.flats != null) && (
                 <p className="mt-1 ty-note">
                   {[
@@ -174,6 +171,60 @@ export function PanelHouseInsightSheet({
                 <p className="mt-1 ty-meta">Источник: {snapshot.dataSource}</p>
               ) : null}
             </div>
+
+            {snapshot.managementName ? (
+              <div className="rounded-[20px] border border-black/8 bg-zinc-50 p-4">
+                <div className="mb-2 flex items-center gap-2 text-zinc-500">
+                  <Building2 className="h-4 w-4" />
+                  <span className="ty-label uppercase tracking-wide">УК</span>
+                </div>
+                <p className="ty-body font-medium text-zinc-900">
+                  {snapshot.managementName}
+                </p>
+                {(snapshot.managementInn || snapshot.managementOgrn) && (
+                  <p className="mt-2 ty-note text-zinc-700">
+                    {[
+                      snapshot.managementInn
+                        ? `ИНН ${snapshot.managementInn}`
+                        : null,
+                      snapshot.managementOgrn
+                        ? `ОГРН ${snapshot.managementOgrn}`
+                        : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
+                )}
+                {snapshot.managementPhone ? (
+                  <p className="mt-2">
+                    <a
+                      href={`tel:${snapshot.managementPhone.replace(/[^\d+]/g, "")}`}
+                      className="ty-body text-zinc-900 underline underline-offset-2"
+                    >
+                      {snapshot.managementPhone}
+                    </a>
+                  </p>
+                ) : null}
+                {snapshot.managementEmail ? (
+                  <p className="mt-1">
+                    <a
+                      href={`mailto:${snapshot.managementEmail}`}
+                      className="ty-note text-zinc-800 underline underline-offset-2 break-all"
+                    >
+                      {snapshot.managementEmail}
+                    </a>
+                  </p>
+                ) : null}
+                {!snapshot.managementPhone &&
+                !snapshot.managementEmail &&
+                !snapshot.managementInn &&
+                !snapshot.managementOgrn ? (
+                  <p className="mt-2 ty-note text-zinc-600">
+                    Контакты УК в открытых данных не найдены
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
 
             <div className={cn("rounded-[20px] p-4", groundingTone)}>
               <div className="mb-2 flex items-center gap-2 opacity-70">

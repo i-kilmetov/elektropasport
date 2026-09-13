@@ -14,6 +14,7 @@ import {
   electricalOverhaulMessage,
   lookupReformGkhHouse,
 } from "@/lib/reform-gkh-lookup";
+import { lookupUkContact } from "@/lib/uk-contacts-lookup";
 import {
   buildLocalHouseInsight,
   buildPanelHouseSnapshot,
@@ -112,6 +113,7 @@ function finishInsight(base: {
   });
 
   const managementName = gis?.managementName ?? null;
+  const ukContact = lookupUkContact(managementName);
   const electricityTariff = buildHouseTariffSnapshot({
     region: base.region,
     city: base.city,
@@ -129,9 +131,15 @@ function finishInsight(base: {
     electricalOverhaul: overhaul,
     capitalRepair: null,
     management: managementName
-      ? { name: managementName, phone: null, ogrn: null }
+      ? {
+          name: ukContact?.name || managementName,
+          phone: ukContact?.phone ?? null,
+          email: ukContact?.email ?? null,
+          inn: ukContact?.inn ?? null,
+          ogrn: ukContact?.ogrn ?? null,
+        }
       : null,
-    managementType: null,
+    managementType: ukContact?.func ?? null,
     walls: gis?.walls ?? null,
     dataSource,
     floors: reform?.floors ?? null,

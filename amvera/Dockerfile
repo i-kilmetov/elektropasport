@@ -35,6 +35,9 @@ USER root
 RUN if [ -f ./data/gis-gkh/index/mkd.min.sqlite.gz ] && [ ! -f ./data/gis-gkh/index/mkd.min.sqlite ]; then \
       gzip -dk ./data/gis-gkh/index/mkd.min.sqlite.gz; \
     fi \
+ && if [ -f ./data/gis-gkh/index/uk-contacts.min.sqlite.gz ] && [ ! -f ./data/gis-gkh/index/uk-contacts.min.sqlite ]; then \
+      gzip -dk ./data/gis-gkh/index/uk-contacts.min.sqlite.gz; \
+    fi \
  && if [ -f ./data/reform-gkh/index/electrical.min.sqlite.gz ] && [ ! -f ./data/reform-gkh/index/electrical.min.sqlite ]; then \
       gzip -dk ./data/reform-gkh/index/electrical.min.sqlite.gz; \
     fi \

@@ -15,6 +15,8 @@ export type ElectricalGuess = {
 export type HouseManagementCompany = {
   name: string;
   phone: string | null;
+  email: string | null;
+  inn: string | null;
   ogrn: string | null;
 };
 
@@ -67,6 +69,10 @@ export type PanelHouseSnapshot = {
   electricalOverhaulNextYear?: number | null;
   walls?: string | null;
   managementName?: string | null;
+  managementPhone?: string | null;
+  managementEmail?: string | null;
+  managementInn?: string | null;
+  managementOgrn?: string | null;
   floors?: number | null;
   flats?: number | null;
   dataSource?: string | null;
@@ -179,6 +185,10 @@ export function houseInsightToPanelSnapshot(
     electricalOverhaulNextYear: overhaul?.nextYear ?? null,
     walls: insight.walls ?? null,
     managementName: insight.management?.name ?? null,
+    managementPhone: insight.management?.phone ?? null,
+    managementEmail: insight.management?.email ?? null,
+    managementInn: insight.management?.inn ?? null,
+    managementOgrn: insight.management?.ogrn ?? null,
     floors: insight.floors ?? null,
     flats: insight.flats ?? null,
     dataSource: insight.dataSource ?? null,

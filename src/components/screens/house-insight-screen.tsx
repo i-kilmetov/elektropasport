@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, Building2, Cable, Shield } from "lucide-react";
+import { ArrowLeft, Building2, Cable, Shield, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
+import { formatRubPerKwh } from "@/lib/electricity-tariffs-format";
 import {
   formatBuildingYear,
   type HouseInsight,
@@ -157,10 +158,53 @@ export function HouseInsightScreen({
             {insight.walls ? (
               <p className="mt-2 ty-body text-zinc-800">{insight.walls}</p>
             ) : null}
-            {insight.management?.name ? (
-              <p className="mt-1 ty-note">УК: {insight.management.name}</p>
-            ) : null}
           </GlassCard>
+
+          {insight.management?.name ? (
+            <GlassCard className="p-5">
+              <div className="mb-2 flex items-center gap-2 text-zinc-500">
+                <Building2 className="h-4 w-4" />
+                <span className="ty-label uppercase tracking-wide">УК</span>
+              </div>
+              <p className="ty-body font-medium text-zinc-900">
+                {insight.management.name}
+              </p>
+              {(insight.management.inn || insight.management.ogrn) && (
+                <p className="mt-2 ty-note text-zinc-700">
+                  {[
+                    insight.management.inn
+                      ? `ИНН ${insight.management.inn}`
+                      : null,
+                    insight.management.ogrn
+                      ? `ОГРН ${insight.management.ogrn}`
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+              )}
+              {insight.management.phone ? (
+                <p className="mt-2">
+                  <a
+                    href={`tel:${insight.management.phone.replace(/[^\d+]/g, "")}`}
+                    className="ty-body text-zinc-900 underline underline-offset-2"
+                  >
+                    {insight.management.phone}
+                  </a>
+                </p>
+              ) : null}
+              {insight.management.email ? (
+                <p className="mt-1">
+                  <a
+                    href={`mailto:${insight.management.email}`}
+                    className="ty-note text-zinc-800 underline underline-offset-2 break-all"
+                  >
+                    {insight.management.email}
+                  </a>
+                </p>
+              ) : null}
+            </GlassCard>
+          ) : null}
 
           <GlassCard className={cn("p-5", eraTone)}>
             <div className="mb-2 flex items-center gap-2 opacity-70">
@@ -202,6 +246,43 @@ export function HouseInsightScreen({
               </div>
               <p className="ty-body text-zinc-800">
                 {insight.electricalOverhaul.message}
+              </p>
+            </GlassCard>
+          ) : null}
+
+          {insight.electricityTariff ? (
+            <GlassCard className="p-5">
+              <div className="mb-2 flex items-center gap-2 text-zinc-500">
+                <Zap className="h-4 w-4" />
+                <span className="ty-label uppercase tracking-wide">
+                  Тариф на электроэнергию
+                </span>
+              </div>
+              <p className="ty-body text-zinc-900">
+                {insight.electricityTariff.regionLabel}
+              </p>
+              <p className="mt-1 ty-note text-zinc-600">
+                Действует {insight.electricityTariff.periodLabel}
+              </p>
+              <div className="mt-3 space-y-1">
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="ty-note text-zinc-600">Одноставочный</span>
+                  <span className="ty-body font-medium tabular-nums">
+                    {formatRubPerKwh(insight.electricityTariff.urban.single)}
+                  </span>
+                </div>
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="ty-note text-zinc-600">День / ночь</span>
+                  <span className="ty-body font-medium tabular-nums">
+                    {formatRubPerKwh(insight.electricityTariff.urban.dualDay)}
+                    {" / "}
+                    {formatRubPerKwh(insight.electricityTariff.urban.dualNight)}
+                  </span>
+                </div>
+              </div>
+              <p className="mt-2 ty-meta text-zinc-500">
+                Город (газ / без электроплит). Подробнее — в карточке дома на
+                схеме.
               </p>
             </GlassCard>
           ) : null}

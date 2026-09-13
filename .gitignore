@@ -67,6 +67,7 @@ data/gis-gkh/index/*.jsonl.gz
 !data/gis-gkh/README.md
 !data/gis-gkh/index/
 !data/gis-gkh/index/mkd.min.sqlite.gz
+!data/gis-gkh/index/uk-contacts.min.sqlite.gz
 
 # Electricity tariffs (scraped regional rates; keep index, ignore raw HTML)
 data/electricity-tariffs/raw/
@@ -83,3 +84,4 @@ next-env.d.ts
 *.xlsx
 data/reform-gkh/*.log
 data/reform-gkh/_download.log
+data/gis-gkh/*.log
