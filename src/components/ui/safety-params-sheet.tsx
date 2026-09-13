@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Gauge, Zap } from "lucide-react";
+import { Gauge, Mail, Zap } from "lucide-react";
 import {
   GroundSymbol,
   SupplyCableIcon,
@@ -10,6 +10,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Portal } from "@/components/ui/portal";
 import { HintInfoButton } from "@/components/ui/spec-info-button";
+import {
+  UkPowerRequestSheet,
+  type UkPowerRequestContext,
+} from "@/components/ui/uk-power-request-sheet";
+import type { PanelHouseSnapshot } from "@/lib/house-insight";
 import { recommendCopperCrossSectionMm2 } from "@/lib/supply-cable-size";
 import { cn } from "@/lib/utils";
 
@@ -23,12 +28,16 @@ export function SafetyParamsSheet({
   initialPhases,
   initialPowerKw,
   initialHasGround,
+  houseSnapshot,
+  ukRequestContext,
   onCancel,
   onConfirm,
 }: {
   initialPhases?: "1" | "3";
   initialPowerKw?: string;
   initialHasGround?: boolean;
+  houseSnapshot?: PanelHouseSnapshot | null;
+  ukRequestContext?: UkPowerRequestContext | null;
   onCancel: () => void;
   onConfirm: (payload: {
     phases: "1" | "3";
@@ -46,6 +55,16 @@ export function SafetyParamsSheet({
   const [powerError, setPowerError] = useState<string | null>(null);
   const [groundHintOpen, setGroundHintOpen] = useState(false);
   const [phasesHintOpen, setPhasesHintOpen] = useState(false);
+  const [ukRequestOpen, setUkRequestOpen] = useState(false);
+
+  const hasUkEmail = Boolean(
+    (
+      ukRequestContext?.managementEmail || houseSnapshot?.managementEmail
+    )?.trim(),
+  );
+  const hasHouseAddress = Boolean(
+    (ukRequestContext?.address || houseSnapshot?.address)?.trim(),
+  );
 
   useEffect(() => {
     if (typeof initialHasGround === "boolean") {
@@ -212,9 +231,27 @@ export function SafetyParamsSheet({
               <p className="ty-meta text-rose-600">{powerError}</p>
             ) : (
               <p className="ty-meta text-zinc-500">
-                Эту информацию можно узнать в договоре с энергосбытом
+                Эту информацию можно узнать в договоре с энергосбытом / УК
               </p>
             )}
+            <button
+              type="button"
+              onClick={() => setUkRequestOpen(true)}
+              className="mt-2.5 flex w-full items-center justify-center gap-2 rounded-[16px] border border-black/10 bg-white px-3 py-2.5 text-left ty-note text-zinc-800 transition-colors hover:bg-zinc-50"
+            >
+              <Mail className="h-4 w-4 shrink-0 text-sky-700" />
+              <span>Запросить информацию у управляющей компании</span>
+            </button>
+            {!hasHouseAddress ? (
+              <p className="mt-1.5 ty-meta text-zinc-500">
+                Сначала укажите адрес дома — так подставим email УК.
+              </p>
+            ) : !hasUkEmail ? (
+              <p className="mt-1.5 ty-meta text-zinc-500">
+                У этой УК нет email в открытых данных — в форме можно ввести
+                адрес вручную.
+              </p>
+            ) : null}
             {cableAdvice && (
               <div className="mt-3 rounded-[16px] border border-emerald-500/20 bg-emerald-50 px-3.5 py-3">
                 <p className="ty-label text-emerald-950">
@@ -278,6 +315,13 @@ export function SafetyParamsSheet({
           </div>
         </motion.div>
       </motion.div>
+
+      <UkPowerRequestSheet
+        open={ukRequestOpen}
+        onClose={() => setUkRequestOpen(false)}
+        snapshot={houseSnapshot}
+        context={ukRequestContext}
+      />
     </Portal>
   );
 }

@@ -2,9 +2,14 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, Building2, Home, Info } from "lucide-react";
+import { ArrowLeft, Building2, Home, Info, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
+import {
+  UkPowerRequestSheet,
+  type UkPowerRequestContext,
+} from "@/components/ui/uk-power-request-sheet";
+import type { PanelHouseSnapshot } from "@/lib/house-insight";
 import { cn } from "@/lib/utils";
 
 export type DwellingType = "apartment" | "house";
@@ -26,20 +31,34 @@ const powerHints = [
 export function ElectricalDetailsScreen({
   onBack,
   onContinue,
+  houseSnapshot,
+  ukRequestContext,
 }: {
   onBack: () => void;
   onContinue: (details: ElectricalDetails) => void;
+  houseSnapshot?: PanelHouseSnapshot | null;
+  ukRequestContext?: UkPowerRequestContext | null;
 }) {
   const [dwelling, setDwelling] = useState<DwellingType | null>(null);
   const [phases, setPhases] = useState<PhaseCount | null>(null);
   const [powerKw, setPowerKw] = useState("");
   const [powerError, setPowerError] = useState<string | null>(null);
+  const [ukRequestOpen, setUkRequestOpen] = useState(false);
 
   const canContinue =
     dwelling !== null &&
     phases !== null &&
     powerKw.trim().length > 0 &&
     !powerError;
+
+  const hasUkEmail = Boolean(
+    (
+      ukRequestContext?.managementEmail || houseSnapshot?.managementEmail
+    )?.trim(),
+  );
+  const hasHouseAddress = Boolean(
+    (ukRequestContext?.address || houseSnapshot?.address)?.trim(),
+  );
 
   const onPowerChange = (raw: string) => {
     const cleaned = raw.replace(/[^\d.,]/g, "");
@@ -179,6 +198,24 @@ export function ElectricalDetailsScreen({
               <li>• в акте технологического присоединения</li>
               <li>• в личном кабинете энергокомпании</li>
             </ul>
+            <button
+              type="button"
+              onClick={() => setUkRequestOpen(true)}
+              className="mt-1 flex w-full items-center justify-center gap-2 rounded-[14px] border border-black/10 bg-white px-3 py-2.5 text-left ty-note text-zinc-800"
+            >
+              <Mail className="h-4 w-4 shrink-0 text-sky-700" />
+              <span>Запросить информацию у управляющей компании</span>
+            </button>
+            {!hasHouseAddress ? (
+              <p className="ty-meta text-zinc-500">
+                Адрес дома ещё не указан — email УК можно ввести в форме вручную.
+              </p>
+            ) : !hasUkEmail ? (
+              <p className="ty-meta text-zinc-500">
+                У этой УК нет email в открытых данных — в форме можно ввести
+                адрес вручную.
+              </p>
+            ) : null}
             <div className="border-t border-black/[0.06] pt-2 ty-meta">
               {powerHints.map((hint) => (
                 <div key={hint} className="py-0.5">
@@ -207,6 +244,13 @@ export function ElectricalDetailsScreen({
           Далее
         </Button>
       </div>
+
+      <UkPowerRequestSheet
+        open={ukRequestOpen}
+        onClose={() => setUkRequestOpen(false)}
+        snapshot={houseSnapshot}
+        context={ukRequestContext}
+      />
     </motion.section>
   );
 }

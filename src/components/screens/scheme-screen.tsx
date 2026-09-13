@@ -4071,6 +4071,17 @@ export function SchemeScreen({
             initialPhases={phases}
             initialPowerKw={powerKw}
             initialHasGround={hasGround}
+            houseSnapshot={houseSnapshot}
+            ukRequestContext={
+              houseSnapshot
+                ? {
+                    managementName: houseSnapshot.managementName,
+                    managementEmail: houseSnapshot.managementEmail,
+                    address: houseSnapshot.address,
+                    panelId: panelId ?? null,
+                  }
+                : null
+            }
             onCancel={() => setSafetyOpen(false)}
             onConfirm={({
               phases: nextPhases,
